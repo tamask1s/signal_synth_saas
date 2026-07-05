@@ -225,6 +225,24 @@ int main() {
             job_list.body.find(job_id) != std::string::npos,
         "job list should contain the queued job"
     );
+    const syn_sig_ra::RouteResponse paged_list = syn_sig_ra::route_request(
+        "GET",
+        "/syn_sig_ra/v1/jobs",
+        "/syn_sig_ra",
+        "Bearer job-owner-secret",
+        &store,
+        config.pack_root,
+        "",
+        "",
+        "",
+        "limit=1&offset=0"
+    );
+    require(
+        paged_list.status == 200 &&
+            paged_list.body.find("\"limit\":1") != std::string::npos &&
+            paged_list.body.find("\"offset\":0") != std::string::npos,
+        "job list should support bounded offset pagination"
+    );
 
     syn_sig_ra::ApiKeyIdentity other;
     other.api_key_id = "key_other";
@@ -249,6 +267,35 @@ int main() {
     require(
         isolated.status == 404,
         "another owner must not discover or read the job"
+    );
+
+    const syn_sig_ra::RouteResponse cancelled = syn_sig_ra::route_request(
+        "POST",
+        "/syn_sig_ra/v1/jobs/" + job_id + "/cancel",
+        "/syn_sig_ra",
+        "Bearer job-owner-secret",
+        &store,
+        config.pack_root
+    );
+    require(
+        cancelled.status == 200 &&
+            cancelled.body.find("\"status\":\"cancelled\"") !=
+                std::string::npos,
+        "queued jobs should cancel deterministically"
+    );
+    const syn_sig_ra::RouteResponse retried = syn_sig_ra::route_request(
+        "POST",
+        "/syn_sig_ra/v1/jobs/" + job_id + "/retry",
+        "/syn_sig_ra",
+        "Bearer job-owner-secret",
+        &store,
+        config.pack_root
+    );
+    require(
+        retried.status == 202 &&
+            retried.body.find("\"retry_of\":\"" + job_id + "\"") !=
+                std::string::npos,
+        "cancelled jobs should retry as a new queued job"
     );
 
     const syn_sig_ra::RouteResponse deleted = syn_sig_ra::route_request(

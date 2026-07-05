@@ -202,7 +202,9 @@ Initial response:
 }
 ```
 
-`GET /syn_sig_ra/v1/jobs` returns the authenticated user's most recent jobs:
+`GET /syn_sig_ra/v1/jobs?limit=25&offset=0` returns the authenticated
+organization's most recent jobs. `limit` is bounded to 1-100 and responses
+include `next_offset` when another page may exist:
 
 ```json
 {
@@ -215,6 +217,7 @@ Initial response:
     }
   ],
   "limit": 25,
+  "offset": 0,
   "count": 1
 }
 ```
@@ -225,9 +228,18 @@ through the API after deletion; the physical immutable files are left in local
 storage for a later retention/cleanup process. Running jobs currently return
 HTTP 409.
 
+`POST /syn_sig_ra/v1/jobs/{job_id}/cancel` cancels queued jobs. Running jobs
+return HTTP 409 because terminating the external generator process is not yet
+considered safe. `POST /syn_sig_ra/v1/jobs/{job_id}/retry` creates a new queued
+job from a failed or cancelled job, preserving the original record.
+
+The current pre-beta retention state is explicit: soft-deleted records and
+immutable files remain until the cleanup policy in task #18 is implemented.
+
 Implemented request policy:
 
 - `pack_id` is required and must name a catalog pack;
+- `project_id` is required and must name a project in the caller's organization;
 - `export_formats` is optional and accepts unique `wfdb`, `edf`, and `bdf`
   values;
 - `report_format` is optional and currently accepts only `html`;
@@ -249,6 +261,7 @@ queued
 running
 succeeded
 failed
+cancelled
 ```
 
 Succeeded jobs return package metadata, manifest URL, archive URL, package fingerprint, generator version, and scenario fingerprints where available.
@@ -449,7 +462,7 @@ For the next steps toward a real user-ready SaaS, see
 ## Metadata and API keys
 
 The module initializes a versioned SQLite database at
-`<SynSigRaDataRoot>/db.sqlite3`. Schema version 3 contains organizations,
+`<SynSigRaDataRoot>/db.sqlite3`. Schema version 4 contains organizations,
 memberships, projects, users, API-key hashes, jobs, packages, and audit
 events. API keys must be high-entropy secrets; only their lowercase SHA-256
 hashes are persisted. This pre-beta schema requires a clean database reset

@@ -38,7 +38,8 @@ RouteResponse route_request(
     const std::string& pack_root = "",
     const std::string& content_type = "",
     const std::string& request_body = "",
-    const std::string& data_root = ""
+    const std::string& data_root = "",
+    const std::string& query_string = ""
 );
 
 bool route_requires_authentication(

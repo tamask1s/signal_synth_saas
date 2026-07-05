@@ -171,7 +171,8 @@ std::string job_json(
 std::string job_list_json(
     const std::vector<syn_sig_ra::JobRecord>& jobs,
     const std::string& public_base_path,
-    int limit
+    int limit,
+    int offset
 ) {
     json_t* root = json_object();
     json_t* array = json_array();
@@ -191,9 +192,36 @@ std::string job_list_json(
         "count",
         json_integer(static_cast<json_int_t>(jobs.size()))
     );
+    json_object_set_new(root, "offset", json_integer(offset));
+    if (jobs.size() == static_cast<std::size_t>(limit)) {
+        json_object_set_new(root, "next_offset", json_integer(offset + limit));
+    }
     const std::string output = json_dump_line(root);
     json_decref(root);
     return output;
+}
+
+bool query_integer(
+    const std::string& query,
+    const std::string& name,
+    int default_value,
+    int& value
+) {
+    value = default_value;
+    if (query.empty()) return true;
+    const std::string needle = name + "=";
+    const std::string::size_type start = query.find(needle);
+    if (start == std::string::npos ||
+        (start != 0 && query[start - 1] != '&')) return true;
+    const std::string::size_type value_start = start + needle.size();
+    const std::string::size_type end = query.find('&', value_start);
+    const std::string encoded = query.substr(value_start, end - value_start);
+    if (encoded.empty()) return false;
+    char* parsed_end = nullptr;
+    const long parsed = std::strtol(encoded.c_str(), &parsed_end, 10);
+    if (*parsed_end != '\0' || parsed < 0 || parsed > 1000000) return false;
+    value = static_cast<int>(parsed);
+    return true;
 }
 
 json_t* project_json_object(const syn_sig_ra::ProjectRecord& project) {
@@ -701,6 +729,12 @@ const char kUiJs[] = R"JS((() => {
       const deleteAction = job.status === "running" ? "" : `
         <button class="danger" data-delete-job="${escapeHtml(job.job_id)}">Delete</button>
       `;
+      const cancelAction = job.status === "queued" ? `
+        <button class="secondary" data-job-action="cancel" data-job-id="${escapeHtml(job.job_id)}">Cancel</button>
+      ` : "";
+      const retryAction = ["failed", "cancelled"].includes(job.status) ? `
+        <button class="secondary" data-job-action="retry" data-job-id="${escapeHtml(job.job_id)}">Retry</button>
+      ` : "";
       const error = job.error ? `<p class="error">${escapeHtml(job.error.code)}: ${escapeHtml(job.error.message)}</p>` : "";
       return `
         <article class="job">
@@ -717,6 +751,8 @@ const char kUiJs[] = R"JS((() => {
           ${error}
           <div class="actions">
             ${artifactActions}
+            ${cancelAction}
+            ${retryAction}
             ${deleteAction}
           </div>
         </article>
@@ -734,6 +770,17 @@ const char kUiJs[] = R"JS((() => {
       state.jobsFingerprint = jobsFingerprint(state.jobs);
       state.jobsLoaded = true;
       renderJobs();
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  async function runJobAction(jobId, action) {
+    try {
+      await api(`/v1/jobs/${encodeURIComponent(jobId)}/${action}`, {
+        method: "POST"
+      });
+      await loadJobs({ force: true });
     } catch (error) {
       alert(error.message);
     }
@@ -797,6 +844,9 @@ const char kUiJs[] = R"JS((() => {
     if (!(target instanceof HTMLElement)) return;
     const deleteJobId = target.getAttribute("data-delete-job");
     if (deleteJobId) deleteJob(deleteJobId);
+    const jobAction = target.getAttribute("data-job-action");
+    const actionJobId = target.getAttribute("data-job-id");
+    if (jobAction && actionJobId) runJobAction(actionJobId, jobAction);
     const packageId = target.getAttribute("data-download");
     const file = target.getAttribute("data-file");
     if (packageId && file) downloadArtifact(packageId, file);
@@ -852,7 +902,8 @@ RouteResponse route_request(
     const std::string& pack_root,
     const std::string& content_type,
     const std::string& request_body,
-    const std::string& data_root
+    const std::string& data_root,
+    const std::string& query_string
 ) {
     if (!owns_uri(uri, public_base_path)) {
         RouteResponse response;
@@ -995,11 +1046,23 @@ RouteResponse route_request(
         }
         if (uri == jobs_path) {
             if (method == "GET") {
+                int limit = 25;
+                int offset = 0;
+                if (!query_integer(query_string, "limit", 25, limit) ||
+                    !query_integer(query_string, "offset", 0, offset) ||
+                    limit < 1 || limit > 100) {
+                    return json_response(
+                        400,
+                        "{\"error\":{\"code\":\"invalid_pagination\","
+                        "\"message\":\"limit must be 1-100 and offset non-negative.\"}}\n"
+                    );
+                }
                 std::vector<JobRecord> jobs;
                 std::string error;
                 if (!metadata_store->list_jobs(
                         authenticated_identity,
-                        25,
+                        limit,
+                        offset,
                         jobs,
                         error
                     )) {
@@ -1013,7 +1076,7 @@ RouteResponse route_request(
                 }
                 return json_response(
                     200,
-                    job_list_json(jobs, public_base_path, 25)
+                    job_list_json(jobs, public_base_path, limit, offset)
                 );
             }
             if (method != "POST") {
@@ -1133,13 +1196,79 @@ RouteResponse route_request(
             return json_response(202, body);
         }
 
-        const std::string job_id = uri.substr(jobs_path.size() + 1);
+        const std::string job_resource = uri.substr(jobs_path.size() + 1);
+        const std::string::size_type action_separator =
+            job_resource.find('/');
+        const std::string job_id = job_resource.substr(0, action_separator);
+        const std::string action = action_separator == std::string::npos
+            ? std::string()
+            : job_resource.substr(action_separator + 1);
         if (!is_valid_pack_id(job_id) ||
             job_id.compare(0, 4, "job_") != 0) {
             return json_response(
                 400,
                 "{\"error\":{\"code\":\"invalid_job_id\","
                 "\"message\":\"The job ID is invalid.\"}}\n"
+                );
+        }
+        if (!action.empty()) {
+            if (method != "POST" || (action != "cancel" && action != "retry")) {
+                return json_response(
+                    404,
+                    "{\"error\":{\"code\":\"route_not_found\","
+                    "\"message\":\"The requested job action does not exist.\"}}\n"
+                );
+            }
+            if (authenticated_identity.role == "viewer") {
+                return json_response(
+                    403,
+                    "{\"error\":{\"code\":\"forbidden\","
+                    "\"message\":\"Viewer role cannot modify jobs.\"}}\n"
+                );
+            }
+            std::string error;
+            std::string new_job_id;
+            const JobLifecycleStatus lifecycle = action == "cancel"
+                ? metadata_store->cancel_job(
+                    job_id, authenticated_identity, error)
+                : metadata_store->retry_job(
+                    job_id, authenticated_identity, new_job_id, error);
+            if (lifecycle == JobLifecycleStatus::not_found) {
+                return json_response(
+                    404,
+                    "{\"error\":{\"code\":\"job_not_found\","
+                    "\"message\":\"The requested job does not exist.\"}}\n"
+                );
+            }
+            if (lifecycle == JobLifecycleStatus::invalid_state) {
+                return json_response(
+                    409,
+                    std::string("{\"error\":{\"code\":\"job_") + action +
+                    "_invalid_state\",\"message\":\"The job cannot be " +
+                    action + "ed in its current state.\"}}\n"
+                );
+            }
+            if (lifecycle == JobLifecycleStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503,
+                    "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Job storage is unavailable.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            if (action == "retry") {
+                return json_response(
+                    202,
+                    std::string("{\"job_id\":\"") + new_job_id +
+                    "\",\"retry_of\":\"" + job_id +
+                    "\",\"status\":\"queued\"}\n"
+                );
+            }
+            return json_response(
+                200,
+                std::string("{\"job_id\":\"") + job_id +
+                "\",\"status\":\"cancelled\"}\n"
             );
         }
         if (method == "DELETE") {

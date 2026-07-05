@@ -189,7 +189,7 @@ int main() {
         "key creation, successful authentication, and revocation should be audited"
     );
     require(
-        scalar_int(verification_database, "PRAGMA user_version;") == 3,
+        scalar_int(verification_database, "PRAGMA user_version;") == 4,
         "schema version should be deterministic"
     );
     sqlite3_close(verification_database);

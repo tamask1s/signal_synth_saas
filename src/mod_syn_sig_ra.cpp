@@ -219,6 +219,8 @@ int syn_sig_ra_handler(request_rec* request) {
         request->method == nullptr ? std::string() : request->method;
     const std::string uri =
         request->uri == nullptr ? std::string() : request->uri;
+    const std::string query_string =
+        request->args == nullptr ? std::string() : request->args;
     const char* authorization_value = apr_table_get(
         request->headers_in,
         "Authorization"
@@ -282,7 +284,8 @@ int syn_sig_ra_handler(request_rec* request) {
         config->pack_root,
         content_type,
         request_body,
-        config->data_root
+        config->data_root,
+        query_string
     );
 
     if (response.disposition == syn_sig_ra::RouteDisposition::declined) {

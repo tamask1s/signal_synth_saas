@@ -9,7 +9,7 @@
 
 namespace {
 
-const int kSchemaVersion = 3;
+const int kSchemaVersion = 4;
 
 const char kSchemaSql[] = R"SQL(
 CREATE TABLE IF NOT EXISTS organizations (
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     project_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
     status TEXT NOT NULL
-        CHECK (status IN ('queued', 'running', 'succeeded', 'failed')),
+        CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'cancelled')),
     request_json TEXT NOT NULL,
     selected_pack_id TEXT,
     source_pack_path TEXT,
@@ -270,7 +270,7 @@ bool MetadataStore::initialize(std::string& error) {
     }
     bool succeeded = execute(kSchemaSql, error);
     if (succeeded) {
-        succeeded = execute("PRAGMA user_version = 3;", error);
+        succeeded = execute("PRAGMA user_version = 4;", error);
     }
     if (!succeeded || !execute("COMMIT;", error)) {
         std::string rollback_error;
@@ -725,12 +725,13 @@ RecordLookupStatus MetadataStore::find_job(
 bool MetadataStore::list_jobs(
     const ApiKeyIdentity& owner,
     int limit,
+    int offset,
     std::vector<JobRecord>& jobs,
     std::string& error
 ) {
     jobs.clear();
-    if (limit <= 0 || limit > 100) {
-        error = "job list limit must be between 1 and 100";
+    if (limit <= 0 || limit > 100 || offset < 0) {
+        error = "job list limit/offset is invalid";
         return false;
     }
     if (!initialize(error)) {
@@ -749,7 +750,7 @@ bool MetadataStore::list_jobs(
         "ON p.job_id = j.id AND p.deleted_at IS NULL "
         "WHERE j.organization_id = ?1 "
         "AND j.deleted_at IS NULL "
-        "ORDER BY j.created_at DESC, j.id DESC LIMIT ?2;";
+        "ORDER BY j.created_at DESC, j.id DESC LIMIT ?2 OFFSET ?3;";
     if (sqlite3_prepare_v2(
             database_,
             sql,
@@ -758,7 +759,8 @@ bool MetadataStore::list_jobs(
             nullptr
         ) != SQLITE_OK ||
         !bind_text(statement, 1, owner.organization_id) ||
-        sqlite3_bind_int(statement, 2, limit) != SQLITE_OK) {
+        sqlite3_bind_int(statement, 2, limit) != SQLITE_OK ||
+        sqlite3_bind_int(statement, 3, offset) != SQLITE_OK) {
         error = sqlite3_errmsg(database_);
         sqlite3_finalize(statement);
         return false;
@@ -797,6 +799,74 @@ bool MetadataStore::list_jobs(
         loaded.completed_at = column_text(statement, 19);
         jobs.push_back(loaded);
     }
+}
+
+JobLifecycleStatus MetadataStore::cancel_job(
+    const std::string& job_id,
+    const ApiKeyIdentity& owner,
+    std::string& error
+) {
+    if (!initialize(error)) {
+        return JobLifecycleStatus::storage_error;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE jobs SET status = 'cancelled', "
+        "completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
+        "WHERE id = ?1 AND organization_id = ?2 AND status = 'queued' "
+        "AND deleted_at IS NULL;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, job_id) ||
+        !bind_text(statement, 2, owner.organization_id) ||
+        sqlite3_step(statement) != SQLITE_DONE) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return JobLifecycleStatus::storage_error;
+    }
+    const bool changed = sqlite3_changes(database_) == 1;
+    sqlite3_finalize(statement);
+    if (changed) {
+        return JobLifecycleStatus::succeeded;
+    }
+    JobRecord existing;
+    const RecordLookupStatus lookup = find_job(job_id, owner, existing, error);
+    if (lookup == RecordLookupStatus::not_found) {
+        return JobLifecycleStatus::not_found;
+    }
+    return lookup == RecordLookupStatus::found
+        ? JobLifecycleStatus::invalid_state
+        : JobLifecycleStatus::storage_error;
+}
+
+JobLifecycleStatus MetadataStore::retry_job(
+    const std::string& job_id,
+    const ApiKeyIdentity& owner,
+    std::string& new_job_id,
+    std::string& error
+) {
+    JobRecord existing;
+    const RecordLookupStatus lookup = find_job(job_id, owner, existing, error);
+    if (lookup == RecordLookupStatus::not_found) {
+        return JobLifecycleStatus::not_found;
+    }
+    if (lookup != RecordLookupStatus::found) {
+        return JobLifecycleStatus::storage_error;
+    }
+    if (existing.status != "failed" && existing.status != "cancelled") {
+        return JobLifecycleStatus::invalid_state;
+    }
+    if (!create_job(
+            owner,
+            existing.project_id,
+            existing.request_json,
+            existing.selected_pack_id,
+            existing.source_pack_path,
+            existing.pack_fingerprint,
+            new_job_id,
+            error)) {
+        return JobLifecycleStatus::storage_error;
+    }
+    return JobLifecycleStatus::succeeded;
 }
 
 JobDeleteStatus MetadataStore::delete_job(

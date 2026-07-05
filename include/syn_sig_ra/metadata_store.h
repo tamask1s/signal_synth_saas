@@ -87,6 +87,13 @@ enum class JobDeleteStatus {
     storage_error
 };
 
+enum class JobLifecycleStatus {
+    succeeded,
+    not_found,
+    invalid_state,
+    storage_error
+};
+
 class MetadataStore {
 public:
     explicit MetadataStore(const std::string& database_path);
@@ -156,7 +163,21 @@ public:
     bool list_jobs(
         const ApiKeyIdentity& owner,
         int limit,
+        int offset,
         std::vector<JobRecord>& jobs,
+        std::string& error
+    );
+
+    JobLifecycleStatus cancel_job(
+        const std::string& job_id,
+        const ApiKeyIdentity& owner,
+        std::string& error
+    );
+
+    JobLifecycleStatus retry_job(
+        const std::string& job_id,
+        const ApiKeyIdentity& owner,
+        std::string& new_job_id,
         std::string& error
     );
 
