@@ -105,6 +105,24 @@ bool pack_id_less(
     return left.pack_id < right.pack_id;
 }
 
+std::string string_array_json(const std::vector<std::string>& values) {
+    std::string output("[");
+    for (std::size_t index = 0; index < values.size(); ++index) {
+        if (index != 0) {
+            output += ',';
+        }
+        output += escape_json(values[index]);
+    }
+    output += ']';
+    return output;
+}
+
+std::string size_to_string(std::size_t value) {
+    std::ostringstream output;
+    output << value;
+    return output.str();
+}
+
 }  // namespace
 
 namespace syn_sig_ra {
@@ -132,9 +150,25 @@ bool is_valid_pack_id(const std::string& pack_id) {
 }
 
 std::string pack_summary_json(const PackSummary& pack) {
+    std::string scenarios("[");
+    for (std::size_t index = 0; index < pack.scenarios.size(); ++index) {
+        if (index != 0) {
+            scenarios += ',';
+        }
+        scenarios += std::string("{\"scenario_id\":") +
+            escape_json(pack.scenarios[index].scenario_id) +
+            ",\"targets\":" +
+            string_array_json(pack.scenarios[index].targets) +
+            "}";
+    }
+    scenarios += ']';
     return std::string("{\"pack_id\":") + escape_json(pack.pack_id) +
            ",\"display_name\":" + escape_json(pack.display_name) +
+           ",\"version\":" + escape_json(pack.version) +
            ",\"description\":" + escape_json(pack.description) +
+           ",\"targets\":" + string_array_json(pack.targets) +
+           ",\"scenarios\":" + scenarios +
+           ",\"scenario_count\":" + size_to_string(pack.scenarios.size()) +
            ",\"pack_fingerprint\":" +
            escape_json(pack.pack_fingerprint) + "}";
 }
@@ -183,7 +217,19 @@ PackLookupStatus PackCatalog::load_file(
 
     pack.pack_id = manifest.pack_id;
     pack.display_name = manifest.name;
+    pack.version = manifest.version;
     pack.description = manifest.description;
+    pack.targets = manifest.targets;
+    pack.scenarios.clear();
+    for (std::vector<signal_synth::ecg_pack_scenario>::const_iterator it =
+             manifest.scenarios.begin();
+         it != manifest.scenarios.end();
+         ++it) {
+        PackScenarioSummary scenario;
+        scenario.scenario_id = it->id;
+        scenario.targets = it->targets;
+        pack.scenarios.push_back(scenario);
+    }
     pack.pack_fingerprint = result.pack_fingerprint;
     return PackLookupStatus::found;
 }

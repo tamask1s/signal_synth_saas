@@ -38,6 +38,14 @@ int main() {
         packs[0].pack_fingerprint.compare(0, 7, "sha256:") == 0,
         "catalog should expose the authoritative fingerprint"
     );
+    require(
+        packs[0].version == "1.0" && packs[0].scenarios.size() == 4,
+        "catalog should expose pack version and scenario count"
+    );
+    require(
+        packs[0].scenarios[0].scenario_id == "clean_70",
+        "catalog should expose scenario IDs without source paths"
+    );
 
     syn_sig_ra::PackSummary detail;
     require(
@@ -48,6 +56,11 @@ int main() {
     require(
         detail.description.find("R-peak detector") != std::string::npos,
         "pack detail should include its description"
+    );
+    require(
+        syn_sig_ra::pack_summary_json(detail).find("\"scenarios\"") !=
+            std::string::npos,
+        "pack JSON should include scenario summaries"
     );
 
     require(

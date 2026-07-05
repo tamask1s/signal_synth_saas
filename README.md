@@ -174,7 +174,8 @@ entries are regular `.json` files below `SynSigRaPackRoot`; symlinks, absolute
 paths, traversal sequences, unsafe IDs, malformed packs, and filename/pack-ID
 mismatches are rejected. Pack metadata and fingerprints are parsed by the
 authoritative pack implementation compiled directly from the sibling
-`../signal_synth` checkout.
+`../signal_synth` checkout. Responses include pack version, targets, scenario
+count, and scenario IDs/targets, but never expose internal scenario file paths.
 
 ### Create challenge job
 

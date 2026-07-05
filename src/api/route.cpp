@@ -545,7 +545,17 @@ const char kUiJs[] = R"JS((() => {
       $("packs").innerHTML = state.packs.map((pack) => `
         <article class="card">
           <h3>${escapeHtml(pack.display_name || pack.pack_id)}</h3>
+          <p class="muted">Version ${escapeHtml(pack.version || "")} · ${escapeHtml(pack.scenario_count || 0)} scenarios</p>
           <p class="muted">${escapeHtml(pack.description || "")}</p>
+          <p class="muted">Targets: ${escapeHtml((pack.targets || []).join(", ") || "n/a")}</p>
+          <details>
+            <summary>Scenarios</summary>
+            <ul>
+              ${(pack.scenarios || []).map((scenario) => `
+                <li>${escapeHtml(scenario.scenario_id)} <span class="muted">(${escapeHtml((scenario.targets || []).join(", "))})</span></li>
+              `).join("")}
+            </ul>
+          </details>
           <span class="fingerprint">${escapeHtml(pack.pack_fingerprint || "")}</span>
         </article>
       `).join("") || "<p class=\"muted\">No packs configured.</p>";

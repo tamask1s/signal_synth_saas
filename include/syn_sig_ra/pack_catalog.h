@@ -6,10 +6,18 @@
 
 namespace syn_sig_ra {
 
+struct PackScenarioSummary {
+    std::string scenario_id;
+    std::vector<std::string> targets;
+};
+
 struct PackSummary {
     std::string pack_id;
     std::string display_name;
+    std::string version;
     std::string description;
+    std::vector<std::string> targets;
+    std::vector<PackScenarioSummary> scenarios;
     std::string pack_fingerprint;
 };
 
