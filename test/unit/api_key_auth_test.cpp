@@ -113,6 +113,19 @@ int main() {
                 authenticated.identity.role == "owner",
             "authentication should return the tenant and role scope"
         );
+        for (int request = 0; request < 120; ++request) {
+            require(
+                store.record_api_key_use(authenticated.identity, error),
+                "request usage should be recorded"
+            );
+        }
+        syn_sig_ra::UsageSummary usage;
+        require(
+            store.check_request_quota(
+                authenticated.identity, usage, error
+            ) == syn_sig_ra::QuotaStatus::rate_limited,
+            "per-key request rate quota should reject abusive traffic"
+        );
 
         std::vector<syn_sig_ra::ApiKeyRecord> api_keys;
         require(
@@ -186,8 +199,16 @@ int main() {
         scalar_int(
             verification_database,
             "SELECT count(*) FROM audit_events;"
-        ) == 3,
-        "key creation, successful authentication, and revocation should be audited"
+        ) == 123,
+        "key lifecycle and request usage should be audited"
+    );
+    require(
+        scalar_int(
+            verification_database,
+            "SELECT count(*) FROM quota_decisions "
+            "WHERE decision = 'request_rate_limited';"
+        ) == 1,
+        "rate-limit decisions should be persisted"
     );
     require(
         scalar_int(verification_database, "PRAGMA user_version;") == 5,
