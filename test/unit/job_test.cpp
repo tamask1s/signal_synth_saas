@@ -132,6 +132,71 @@ int main() {
                 std::string::npos,
         "invalid scenario should be saved with actionable validation errors"
     );
+    const syn_sig_ra::RouteResponse custom_pack_created =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/custom-packs",
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root,
+            "application/json",
+            std::string("{\"name\":\"Custom clean pack\","
+                "\"description\":\"Unit test custom pack\","
+                "\"targets\":[\"r_peak\"],\"scenario_ids\":[\"") +
+                scenario_id + "\"]}",
+            config.data_root
+        );
+    require(
+        custom_pack_created.status == 201 &&
+            custom_pack_created.body.find("\"source\":\"custom\"") !=
+                std::string::npos &&
+            custom_pack_created.body.find("sha256:") != std::string::npos,
+        "valid owned drafts should compose an immutable custom pack: " +
+            custom_pack_created.body
+    );
+    const std::string pack_marker("\"pack_id\":\"");
+    const std::string::size_type pack_start =
+        custom_pack_created.body.find(pack_marker) + pack_marker.size();
+    const std::string custom_pack_id = custom_pack_created.body.substr(
+        pack_start,
+        custom_pack_created.body.find('"', pack_start) - pack_start
+    );
+    const syn_sig_ra::RouteResponse custom_job =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/jobs",
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root,
+            "application/json",
+            std::string("{\"project_id\":\"org_job_owner_default\","
+                "\"pack_id\":\"") + custom_pack_id + "\"}"
+        );
+    require(
+        custom_job.status == 202,
+        "custom pack should be accepted by normal job creation: " +
+            custom_job.body
+    );
+    const std::string job_marker("\"job_id\":\"");
+    const std::string::size_type custom_job_start =
+        custom_job.body.find(job_marker) + job_marker.size();
+    const std::string custom_job_id = custom_job.body.substr(
+        custom_job_start,
+        custom_job.body.find('"', custom_job_start) - custom_job_start
+    );
+    require(
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/jobs/" + custom_job_id + "/cancel",
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root
+        ).status == 200,
+        "custom pack test job should cancel cleanly"
+    );
     const syn_sig_ra::RouteResponse created = syn_sig_ra::route_request(
         "POST",
         "/syn_sig_ra/v1/jobs",
@@ -197,6 +262,17 @@ int main() {
         isolated_scenario.status == 404,
         "scenario drafts must be scoped to the owning user (" + scenario_id + "): " +
             isolated_scenario.body
+    );
+    require(
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/custom-packs/" + custom_pack_id,
+            "/syn_sig_ra",
+            "Bearer viewer-secret",
+            &store,
+            config.pack_root
+        ).status == 404,
+        "custom packs must be scoped to the owning user"
     );
     const syn_sig_ra::RouteResponse scenario_updated =
         syn_sig_ra::route_request(
@@ -511,6 +587,17 @@ int main() {
     require(
         scenario_hidden.status == 404,
         "deleted scenario draft should not remain readable"
+    );
+    require(
+        syn_sig_ra::route_request(
+            "DELETE",
+            "/syn_sig_ra/v1/custom-packs/" + custom_pack_id,
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root
+        ).status == 200,
+        "custom pack owner should remove it from the composer"
     );
 
     std::remove(path.str().c_str());

@@ -5,12 +5,18 @@
 #include "syn_sig_ra/job_request.h"
 #include "syn_sig_ra/metadata_store.h"
 #include "syn_sig_ra/pack_catalog.h"
+#include "syn_sig_ra/random_id.h"
+#include "ecg_pack.h"
 #include "synsigra_api.h"
 
 #include <jansson.h>
 
 #include <cctype>
+#include <cerrno>
 #include <cstdlib>
+#include <fstream>
+#include <set>
+#include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
 #include <string>
@@ -314,6 +320,48 @@ json_t* scenario_draft_json_object(
     return root;
 }
 
+json_t* custom_pack_json_object(const syn_sig_ra::CustomPackRecord& pack) {
+    json_t* root = json_object();
+    json_object_set_new(root, "pack_id", json_string(pack.pack_id.c_str()));
+    json_object_set_new(root, "display_name", json_string(pack.name.c_str()));
+    json_object_set_new(root, "version", json_string(pack.version.c_str()));
+    json_object_set_new(root, "description", json_string(pack.description.c_str()));
+    json_object_set_new(
+        root, "pack_fingerprint", json_string(pack.pack_fingerprint.c_str()));
+    json_object_set_new(root, "source", json_string("custom"));
+    json_error_t parse_error;
+    json_t* targets = json_loads(
+        pack.targets_json.c_str(), JSON_REJECT_DUPLICATES, &parse_error);
+    json_t* scenarios = json_loads(
+        pack.scenario_ids_json.c_str(), JSON_REJECT_DUPLICATES, &parse_error);
+    json_object_set_new(root, "targets", targets == nullptr ? json_array() : targets);
+    json_object_set_new(
+        root, "scenario_ids", scenarios == nullptr ? json_array() : scenarios);
+    json_object_set_new(root, "created_at", json_string(pack.created_at.c_str()));
+    return root;
+}
+
+bool ensure_directory(const std::string& path, std::string& error) {
+    if (mkdir(path.c_str(), 0750) == 0 || errno == EEXIST) return true;
+    error = "unable to create custom pack directory";
+    return false;
+}
+
+bool write_private_file(
+    const std::string& path,
+    const std::string& content,
+    std::string& error
+) {
+    std::ofstream output(path.c_str(), std::ios::binary | std::ios::trunc);
+    output.write(content.data(), static_cast<std::streamsize>(content.size()));
+    if (!output) {
+        error = "unable to write custom pack snapshot";
+        return false;
+    }
+    chmod(path.c_str(), 0440);
+    return true;
+}
+
 bool validate_scenario_document(
     json_t* scenario,
     std::string& status,
@@ -435,6 +483,22 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       </div>
       <pre id="scenario-output" class="output"></pre>
       <div id="scenarios" class="jobs"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-heading">
+        <h2>Custom pack composer</h2>
+        <button id="refresh-custom-packs" class="secondary">Refresh</button>
+      </div>
+      <label for="custom-pack-name">Pack name</label>
+      <input id="custom-pack-name" type="text" maxlength="100" placeholder="My validation pack">
+      <label for="custom-pack-description">Description</label>
+      <input id="custom-pack-description" type="text" placeholder="What this pack tests">
+      <label for="custom-pack-targets">Targets (comma-separated)</label>
+      <input id="custom-pack-targets" type="text" value="r_peak">
+      <div id="pack-scenario-options" class="cards"></div>
+      <button id="create-custom-pack" class="primary">Create immutable custom pack</button>
+      <pre id="custom-pack-output" class="output"></pre>
+      <div id="custom-packs" class="jobs"></div>
     </section>
   </main>
   <script src="/syn_sig_ra/ui/app.js"></script>
@@ -665,6 +729,7 @@ const char kUiJs[] = R"JS((() => {
     packs: [],
     projects: [],
     scenarios: [],
+    customPacks: [],
     selectedScenarioId: "",
     jobs: [],
     jobsFingerprint: "",
@@ -723,19 +788,29 @@ const char kUiJs[] = R"JS((() => {
     );
   }
 
+  function renderPackOptions() {
+    const select = $("pack-select");
+    const selected = select.value;
+    select.innerHTML = "";
+    [...state.packs, ...state.customPacks].forEach((pack) => {
+      const option = document.createElement("option");
+      option.value = pack.pack_id;
+      option.textContent = pack.source === "custom"
+        ? `${pack.display_name} (${pack.version}, custom)`
+        : `${pack.display_name || pack.pack_id} (${pack.version}, ${pack.release_status})`;
+      select.appendChild(option);
+    });
+    if ([...select.options].some((option) => option.value === selected)) {
+      select.value = selected;
+    }
+  }
+
   async function loadPacks() {
     $("packs").textContent = "Loading packs…";
     try {
       const body = await api("/v1/packs");
       state.packs = body.packs || [];
-      const select = $("pack-select");
-      select.innerHTML = "";
-      state.packs.forEach((pack) => {
-        const option = document.createElement("option");
-        option.value = pack.pack_id;
-        option.textContent = `${pack.display_name || pack.pack_id} (${pack.version}, ${pack.release_status})`;
-        select.appendChild(option);
-      });
+      renderPackOptions();
       $("packs").innerHTML = state.packs.map((pack) => `
         <article class="card">
           <h3>${escapeHtml(pack.display_name || pack.pack_id)}</h3>
@@ -809,12 +884,14 @@ const char kUiJs[] = R"JS((() => {
   async function loadScenarios() {
     if (!state.apiKey) {
       state.scenarios = [];
+      renderPackScenarioOptions();
       $("scenarios").innerHTML = "<p class=\"muted\">Paste an API key to list drafts.</p>";
       return;
     }
     try {
       const body = await api("/v1/scenarios");
       state.scenarios = body.scenarios || [];
+      renderPackScenarioOptions();
       $("scenarios").innerHTML = state.scenarios.map((draft) => `
         <article class="job">
           <div class="job-header">
@@ -831,6 +908,78 @@ const char kUiJs[] = R"JS((() => {
       `).join("") || "<p class=\"muted\">No scenario drafts yet.</p>";
     } catch (error) {
       $("scenarios").innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+    }
+  }
+
+  function renderPackScenarioOptions() {
+    const valid = state.scenarios.filter((draft) => draft.status === "valid");
+    $("pack-scenario-options").innerHTML = valid.map((draft) => `
+      <label class="card">
+        <input type="checkbox" data-pack-scenario="${escapeHtml(draft.scenario_id)}">
+        <strong>${escapeHtml(draft.name)}</strong>
+        <span class="fingerprint">${escapeHtml(draft.document_fingerprint || "")}</span>
+      </label>
+    `).join("") || "<p class=\"muted\">Create at least one valid scenario draft first.</p>";
+  }
+
+  async function loadCustomPacks() {
+    if (!state.apiKey) {
+      state.customPacks = [];
+      renderPackOptions();
+      $("custom-packs").innerHTML = "<p class=\"muted\">Paste an API key to list custom packs.</p>";
+      return;
+    }
+    try {
+      const body = await api("/v1/custom-packs");
+      state.customPacks = body.packs || [];
+      renderPackOptions();
+      $("custom-packs").innerHTML = state.customPacks.map((pack) => `
+        <article class="job">
+          <div class="job-header">
+            <div><h3>${escapeHtml(pack.display_name)}</h3><span class="fingerprint">${escapeHtml(pack.pack_id)}</span></div>
+            <span class="badge">custom ${escapeHtml(pack.version)}</span>
+          </div>
+          <p class="muted">${escapeHtml(pack.description)}</p>
+          <p class="muted">Targets: ${escapeHtml((pack.targets || []).join(", "))} · ${escapeHtml((pack.scenario_ids || []).length)} scenarios</p>
+          <span class="fingerprint">${escapeHtml(pack.pack_fingerprint)}</span>
+          <div class="actions"><button class="danger" data-delete-custom-pack="${escapeHtml(pack.pack_id)}">Delete</button></div>
+        </article>
+      `).join("") || "<p class=\"muted\">No custom packs yet.</p>";
+    } catch (error) {
+      $("custom-packs").innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+    }
+  }
+
+  async function createCustomPack() {
+    const scenarioIds = [...document.querySelectorAll("[data-pack-scenario]:checked")]
+      .map((input) => input.getAttribute("data-pack-scenario"));
+    const targets = $("custom-pack-targets").value.split(",")
+      .map((value) => value.trim()).filter(Boolean);
+    try {
+      const pack = await api("/v1/custom-packs", {
+        method: "POST",
+        json: {
+          name: $("custom-pack-name").value.trim(),
+          description: $("custom-pack-description").value.trim(),
+          targets,
+          scenario_ids: scenarioIds
+        }
+      });
+      $("custom-pack-output").textContent = `Created ${pack.pack_id}`;
+      await loadCustomPacks();
+      $("pack-select").value = pack.pack_id;
+    } catch (error) {
+      $("custom-pack-output").textContent = error.message;
+    }
+  }
+
+  async function deleteCustomPack(id) {
+    if (!confirm("Delete this custom pack from the composer? Existing jobs remain reproducible.")) return;
+    try {
+      await api(`/v1/custom-packs/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await loadCustomPacks();
+    } catch (error) {
+      alert(error.message);
     }
   }
 
@@ -876,6 +1025,7 @@ const char kUiJs[] = R"JS((() => {
       }
     }
     await loadScenarios();
+    await loadCustomPacks();
   }
 
   async function deleteScenario(id) {
@@ -1087,6 +1237,7 @@ const char kUiJs[] = R"JS((() => {
     await loadProjects();
     await loadUsage();
     await loadScenarios();
+    await loadCustomPacks();
     await loadJobs({ force: true });
   });
 
@@ -1105,6 +1256,14 @@ const char kUiJs[] = R"JS((() => {
   $("refresh-usage").addEventListener("click", loadUsage);
   $("new-scenario").addEventListener("click", newScenario);
   $("save-scenario").addEventListener("click", saveScenario);
+  $("create-custom-pack").addEventListener("click", createCustomPack);
+  $("refresh-custom-packs").addEventListener("click", loadCustomPacks);
+  $("custom-packs").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const packId = target.getAttribute("data-delete-custom-pack");
+    if (packId) deleteCustomPack(packId);
+  });
   $("scenarios").addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -1134,6 +1293,7 @@ const char kUiJs[] = R"JS((() => {
   loadProjects();
   loadUsage();
   loadScenarios();
+  loadCustomPacks();
   loadJobs({ force: true });
   setInterval(() => loadJobs({ silent: true }), 5000);
 })();
@@ -1171,7 +1331,8 @@ bool route_requires_authentication(
            path_at_or_below(uri, public_base_path + "/v1/projects") ||
            path_at_or_below(uri, public_base_path + "/v1/usage") ||
            path_at_or_below(uri, public_base_path + "/v1/metrics") ||
-           path_at_or_below(uri, public_base_path + "/v1/scenarios");
+           path_at_or_below(uri, public_base_path + "/v1/scenarios") ||
+           path_at_or_below(uri, public_base_path + "/v1/custom-packs");
 }
 
 RouteResponse route_request(
@@ -1306,6 +1467,290 @@ RouteResponse route_request(
             return response;
         }
         return json_response(200, usage_json(usage));
+    }
+
+    const std::string custom_packs_path =
+        public_base_path + "/v1/custom-packs";
+    if (path_at_or_below(uri, custom_packs_path)) {
+        const bool collection = uri == custom_packs_path;
+        if (collection && method == "GET") {
+            std::vector<CustomPackRecord> packs;
+            std::string error;
+            if (!metadata_store->list_custom_packs(
+                    authenticated_identity, packs, error)) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Custom pack storage is unavailable.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            json_t* root = json_object();
+            json_t* items = json_array();
+            for (std::vector<CustomPackRecord>::const_iterator it =
+                     packs.begin(); it != packs.end(); ++it) {
+                json_array_append_new(items, custom_pack_json_object(*it));
+            }
+            json_object_set_new(root, "packs", items);
+            const std::string body = json_dump_line(root);
+            json_decref(root);
+            return json_response(200, body);
+        }
+        if (!collection && method == "GET") {
+            const std::string pack_id =
+                uri.substr(custom_packs_path.size() + 1);
+            CustomPackRecord pack;
+            std::string error;
+            const RecordLookupStatus found = metadata_store->find_custom_pack(
+                pack_id, authenticated_identity, pack, error);
+            if (found == RecordLookupStatus::not_found) {
+                return json_response(
+                    404, "{\"error\":{\"code\":\"custom_pack_not_found\","
+                    "\"message\":\"The custom pack does not exist.\"}}\n");
+            }
+            if (found == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Custom pack storage is unavailable.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            json_t* value = custom_pack_json_object(pack);
+            const std::string body = json_dump_line(value);
+            json_decref(value);
+            return json_response(200, body);
+        }
+        if (!collection && method == "DELETE") {
+            if (authenticated_identity.role == "viewer") {
+                return json_response(
+                    403, "{\"error\":{\"code\":\"forbidden\","
+                    "\"message\":\"Viewer role cannot delete custom packs.\"}}\n");
+            }
+            const std::string pack_id =
+                uri.substr(custom_packs_path.size() + 1);
+            std::string error;
+            const RecordLookupStatus deleted = metadata_store->delete_custom_pack(
+                pack_id, authenticated_identity, error);
+            if (deleted == RecordLookupStatus::not_found) {
+                return json_response(
+                    404, "{\"error\":{\"code\":\"custom_pack_not_found\","
+                    "\"message\":\"The custom pack does not exist.\"}}\n");
+            }
+            if (deleted == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Custom pack storage is unavailable.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            return json_response(
+                200, std::string("{\"pack_id\":\"") + pack_id +
+                "\",\"status\":\"deleted\"}\n");
+        }
+        if (!collection || method != "POST") {
+            return json_response(
+                405, "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Custom pack route method is not allowed.\"}}\n");
+        }
+        if (authenticated_identity.role == "viewer") {
+            return json_response(
+                403, "{\"error\":{\"code\":\"forbidden\","
+                "\"message\":\"Viewer role cannot create custom packs.\"}}\n");
+        }
+        if (!is_json_content_type(content_type)) {
+            return json_response(
+                415, "{\"error\":{\"code\":\"unsupported_media_type\","
+                "\"message\":\"Content-Type must be application/json.\"}}\n");
+        }
+        json_error_t parse_error;
+        json_t* submitted = json_loadb(
+            request_body.data(), request_body.size(),
+            JSON_REJECT_DUPLICATES, &parse_error);
+        json_t* name = submitted == nullptr
+            ? nullptr : json_object_get(submitted, "name");
+        json_t* description = submitted == nullptr
+            ? nullptr : json_object_get(submitted, "description");
+        json_t* targets = submitted == nullptr
+            ? nullptr : json_object_get(submitted, "targets");
+        json_t* scenario_ids = submitted == nullptr
+            ? nullptr : json_object_get(submitted, "scenario_ids");
+        if (!json_is_object(submitted) || json_object_size(submitted) != 4 ||
+            !json_is_string(name) || !json_is_string(description) ||
+            !json_is_array(targets) || json_array_size(targets) == 0 ||
+            !json_is_array(scenario_ids) || json_array_size(scenario_ids) == 0 ||
+            std::string(json_string_value(name)).empty() ||
+            std::string(json_string_value(name)).size() > 100) {
+            if (submitted != nullptr) json_decref(submitted);
+            return json_response(
+                400, "{\"error\":{\"code\":\"invalid_custom_pack_request\","
+                "\"message\":\"name, description, targets, and scenario_ids are required.\"}}\n");
+        }
+        std::vector<std::string> target_values;
+        std::vector<ScenarioDraftRecord> drafts;
+        std::set<std::string> unique_values;
+        std::size_t index = 0;
+        json_t* item = nullptr;
+        bool request_valid = true;
+        json_array_foreach(targets, index, item) {
+            if (!json_is_string(item) ||
+                !unique_values.insert(json_string_value(item)).second) {
+                request_valid = false;
+                break;
+            }
+            target_values.push_back(json_string_value(item));
+        }
+        unique_values.clear();
+        std::string error;
+        json_array_foreach(scenario_ids, index, item) {
+            if (!json_is_string(item) ||
+                !unique_values.insert(json_string_value(item)).second) {
+                request_valid = false;
+                break;
+            }
+            ScenarioDraftRecord draft;
+            if (metadata_store->find_scenario_draft(
+                    json_string_value(item), authenticated_identity,
+                    draft, error) != RecordLookupStatus::found ||
+                draft.status != "valid") {
+                request_valid = false;
+                break;
+            }
+            drafts.push_back(draft);
+        }
+        if (!request_valid) {
+            json_decref(submitted);
+            return json_response(
+                400, "{\"error\":{\"code\":\"invalid_custom_pack_request\","
+                "\"message\":\"Targets must be unique and every scenario must be a valid owned draft.\"}}\n");
+        }
+        std::string pack_id;
+        if (!random_id("custom_pack_", pack_id, error)) {
+            json_decref(submitted);
+            RouteResponse response = json_response(
+                503, "{\"error\":{\"code\":\"id_unavailable\","
+                "\"message\":\"Custom pack ID could not be allocated.\"}}\n");
+            response.internal_error = error;
+            return response;
+        }
+        const std::string custom_root = data_root + "/custom_packs";
+        const std::string pack_directory = custom_root + "/" + pack_id;
+        const std::string scenario_directory = pack_directory + "/scenarios";
+        if (!ensure_directory(custom_root, error) ||
+            !ensure_directory(pack_directory, error) ||
+            !ensure_directory(scenario_directory, error)) {
+            json_decref(submitted);
+            RouteResponse response = json_response(
+                503, "{\"error\":{\"code\":\"artifact_storage_unavailable\","
+                "\"message\":\"Custom pack snapshot could not be created.\"}}\n");
+            response.internal_error = error;
+            return response;
+        }
+        json_t* pack_json = json_object();
+        json_object_set_new(pack_json, "schema_version", json_integer(1));
+        json_object_set_new(pack_json, "pack_id", json_string(pack_id.c_str()));
+        json_object_set_new(pack_json, "name", json_string(json_string_value(name)));
+        json_object_set_new(pack_json, "version", json_string("1.0"));
+        json_object_set_new(
+            pack_json, "description",
+            json_string(json_string_value(description)));
+        json_incref(targets);
+        json_object_set_new(pack_json, "targets", targets);
+        json_t* pack_scenarios = json_array();
+        std::set<std::string> manifest_ids;
+        for (std::vector<ScenarioDraftRecord>::const_iterator it = drafts.begin();
+             it != drafts.end(); ++it) {
+            json_error_t document_error;
+            json_t* document = json_loads(
+                it->document_json.c_str(), JSON_REJECT_DUPLICATES,
+                &document_error);
+            json_t* document_id = document == nullptr
+                ? nullptr : json_object_get(document, "scenario_id");
+            if (!json_is_string(document_id) ||
+                !manifest_ids.insert(json_string_value(document_id)).second) {
+                if (document != nullptr) json_decref(document);
+                json_decref(pack_json);
+                json_decref(submitted);
+                return json_response(
+                    400, "{\"error\":{\"code\":\"duplicate_scenario_id\","
+                    "\"message\":\"Selected drafts must have unique scenario IDs.\"}}\n");
+            }
+            const std::string filename = it->scenario_id + ".json";
+            if (!write_private_file(
+                    scenario_directory + "/" + filename,
+                    it->document_json, error)) {
+                json_decref(document);
+                json_decref(pack_json);
+                json_decref(submitted);
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"artifact_storage_unavailable\","
+                    "\"message\":\"Scenario snapshot could not be written.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            json_t* entry = json_object();
+            json_object_set_new(
+                entry, "id", json_string(json_string_value(document_id)));
+            json_object_set_new(
+                entry, "path",
+                json_string(("scenarios/" + filename).c_str()));
+            json_incref(targets);
+            json_object_set_new(entry, "targets", targets);
+            json_array_append_new(pack_scenarios, entry);
+            json_decref(document);
+        }
+        json_object_set_new(pack_json, "scenarios", pack_scenarios);
+        char* encoded = json_dumps(pack_json, JSON_COMPACT | JSON_SORT_KEYS);
+        json_decref(pack_json);
+        if (encoded == nullptr) {
+            json_decref(submitted);
+            return json_response(
+                500, "{\"error\":{\"code\":\"custom_pack_encoding_failed\","
+                "\"message\":\"Custom pack could not be encoded.\"}}\n");
+        }
+        const std::string pack_document(encoded);
+        free(encoded);
+        signal_synth::ecg_pack_manifest manifest;
+        signal_synth::ecg_pack_json_result validation;
+        if (!signal_synth::parse_ecg_pack_json(
+                pack_document, manifest, validation) ||
+            !write_private_file(
+                pack_directory + "/pack.json",
+                validation.canonical_json, error)) {
+            json_decref(submitted);
+            return json_response(
+                400, "{\"error\":{\"code\":\"custom_pack_invalid\","
+                "\"message\":\"Custom pack failed authoritative validation.\"}}\n");
+        }
+        chmod(scenario_directory.c_str(), 0550);
+        chmod(pack_directory.c_str(), 0550);
+        char* targets_text = json_dumps(targets, JSON_COMPACT | JSON_SORT_KEYS);
+        char* scenario_ids_text =
+            json_dumps(scenario_ids, JSON_COMPACT | JSON_SORT_KEYS);
+        CustomPackRecord input;
+        input.pack_id = pack_id;
+        input.name = json_string_value(name);
+        input.version = "1.0";
+        input.description = json_string_value(description);
+        input.targets_json = targets_text == nullptr ? "[]" : targets_text;
+        input.scenario_ids_json =
+            scenario_ids_text == nullptr ? "[]" : scenario_ids_text;
+        input.pack_fingerprint = validation.pack_fingerprint;
+        input.source_pack_path = pack_directory + "/pack.json";
+        free(targets_text);
+        free(scenario_ids_text);
+        json_decref(submitted);
+        CustomPackRecord created;
+        if (!metadata_store->create_custom_pack(
+                authenticated_identity, input, created, error)) {
+            RouteResponse response = json_response(
+                503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                "\"message\":\"Custom pack metadata could not be stored.\"}}\n");
+            response.internal_error = error;
+            return response;
+        }
+        json_t* value = custom_pack_json_object(created);
+        const std::string body = json_dump_line(value);
+        json_decref(value);
+        return json_response(201, body);
     }
 
     const std::string scenarios_path = public_base_path + "/v1/scenarios";
@@ -1706,14 +2151,38 @@ RouteResponse route_request(
                 pack,
                 error
             );
+            std::string source_pack_path;
+            std::string selected_pack_fingerprint;
             if (pack_status == PackLookupStatus::not_found) {
-                return json_response(
-                    404,
-                    "{\"error\":{\"code\":\"pack_not_found\","
-                    "\"message\":\"The requested pack does not exist.\"}}\n"
-                );
+                CustomPackRecord custom_pack;
+                const RecordLookupStatus custom_status =
+                    metadata_store->find_custom_pack(
+                        job_request.pack_id,
+                        authenticated_identity,
+                        custom_pack,
+                        error
+                    );
+                if (custom_status == RecordLookupStatus::not_found) {
+                    return json_response(
+                        404,
+                        "{\"error\":{\"code\":\"pack_not_found\","
+                        "\"message\":\"The requested pack does not exist.\"}}\n"
+                    );
+                }
+                if (custom_status == RecordLookupStatus::storage_error) {
+                    RouteResponse response = json_response(
+                        503,
+                        "{\"error\":{\"code\":\"metadata_unavailable\","
+                        "\"message\":\"Custom pack storage is unavailable.\"}}\n"
+                    );
+                    response.internal_error = error;
+                    return response;
+                }
+                source_pack_path = custom_pack.source_pack_path;
+                selected_pack_fingerprint = custom_pack.pack_fingerprint;
             }
-            if (pack_status != PackLookupStatus::found) {
+            if (pack_status != PackLookupStatus::found &&
+                pack_status != PackLookupStatus::not_found) {
                 RouteResponse response = json_response(
                     500,
                     "{\"error\":{\"code\":\"pack_catalog_invalid\","
@@ -1722,21 +2191,26 @@ RouteResponse route_request(
                 response.internal_error = error;
                 return response;
             }
-            bool generator_compatible = false;
-            for (std::vector<std::string>::const_iterator it =
-                     pack.compatible_generator_versions.begin();
-                 it != pack.compatible_generator_versions.end(); ++it) {
-                if (*it == "signal_synth-cli") {
-                    generator_compatible = true;
-                    break;
+            if (pack_status == PackLookupStatus::found) {
+                bool generator_compatible = false;
+                for (std::vector<std::string>::const_iterator it =
+                         pack.compatible_generator_versions.begin();
+                     it != pack.compatible_generator_versions.end(); ++it) {
+                    if (*it == "signal_synth-cli") {
+                        generator_compatible = true;
+                        break;
+                    }
                 }
-            }
-            if (!generator_compatible) {
-                return json_response(
-                    409,
-                    "{\"error\":{\"code\":\"pack_generator_incompatible\","
-                    "\"message\":\"The pack is not compatible with this generator.\"}}\n"
-                );
+                if (!generator_compatible) {
+                    return json_response(
+                        409,
+                        "{\"error\":{\"code\":\"pack_generator_incompatible\","
+                        "\"message\":\"The pack is not compatible with this generator.\"}}\n"
+                    );
+                }
+                source_pack_path =
+                    pack_root + "/" + job_request.pack_id + ".json";
+                selected_pack_fingerprint = pack.pack_fingerprint;
             }
             UsageSummary usage;
             const QuotaStatus job_quota = metadata_store->check_job_quota(
@@ -1768,8 +2242,8 @@ RouteResponse route_request(
                     job_request.project_id,
                     job_request.canonical_json,
                     job_request.pack_id,
-                    pack_root + "/" + job_request.pack_id + ".json",
-                    pack.pack_fingerprint,
+                    source_pack_path,
+                    selected_pack_fingerprint,
                     job_id,
                     error
                 )) {

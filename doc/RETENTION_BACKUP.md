@@ -33,7 +33,8 @@ scripts/backup_live.sh
 ```
 
 The script briefly stops the worker, creates an online SQLite backup, archives
-the immutable package tree, writes SHA-256 checksums, and restarts the worker.
+the immutable package and custom-pack snapshot trees, writes SHA-256 checksums,
+and restarts the worker.
 The default destination is `/var/backups/syn_sig_ra/<UTC timestamp>`.
 
 Backups contain API-key hashes and customer metadata. Keep them root-readable,

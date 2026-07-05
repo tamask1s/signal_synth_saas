@@ -491,6 +491,95 @@ if any(job.get("job_id") == sys.argv[2] for job in body.get("jobs", [])):
 PY
     fail "jobs list still contained the deleted job"
 
+python3 - "$SIGNAL_SYNTH_ROOT/examples/scenarios/ecg_clean.json" \
+    >"$WORK_ROOT/scenario-create-request.json" <<'PY'
+import json
+import sys
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    scenario = json.load(handle)
+json.dump({"name": "E2E clean draft", "scenario": scenario}, sys.stdout)
+PY
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -H "Content-Type: application/json" \
+    --data-binary "@$WORK_ROOT/scenario-create-request.json" \
+    -o "$WORK_ROOT/scenario-created.json" \
+    "$BASE_URL/v1/scenarios" ||
+    fail "scenario draft creation failed"
+SCENARIO_ID=$(python3 - "$WORK_ROOT/scenario-created.json" <<'PY'
+import json
+import sys
+print(json.load(open(sys.argv[1], encoding="utf-8"))["scenario_id"])
+PY
+)
+python3 - "$SCENARIO_ID" >"$WORK_ROOT/custom-pack-request.json" <<'PY'
+import json
+import sys
+json.dump({
+    "name": "E2E custom pack",
+    "description": "Custom pack integration smoke",
+    "targets": ["r_peak"],
+    "scenario_ids": [sys.argv[1]],
+}, sys.stdout)
+PY
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -H "Content-Type: application/json" \
+    --data-binary "@$WORK_ROOT/custom-pack-request.json" \
+    -o "$WORK_ROOT/custom-pack-created.json" \
+    "$BASE_URL/v1/custom-packs" ||
+    fail "custom pack creation failed"
+CUSTOM_PACK_ID=$(python3 - "$WORK_ROOT/custom-pack-created.json" <<'PY'
+import json
+import sys
+print(json.load(open(sys.argv[1], encoding="utf-8"))["pack_id"])
+PY
+)
+printf '{"project_id":"org_e2e_default","pack_id":"%s"}' "$CUSTOM_PACK_ID" \
+    >"$WORK_ROOT/custom-job-request.json"
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -H "Content-Type: application/json" \
+    --data-binary "@$WORK_ROOT/custom-job-request.json" \
+    -o "$WORK_ROOT/custom-job-created.json" \
+    "$BASE_URL/v1/jobs" ||
+    fail "custom pack job creation failed"
+CUSTOM_JOB_ID=$(python3 - "$WORK_ROOT/custom-job-created.json" <<'PY'
+import json
+import sys
+print(json.load(open(sys.argv[1], encoding="utf-8"))["job_id"])
+PY
+)
+"$WORKER_BIN" run-once "$DB_PATH" "$SIGNAL_SYNTH_CLI" "$PACK_ROOT" "$DATA_ROOT" \
+    >"$WORK_ROOT/custom-worker.stdout" \
+    2>"$WORK_ROOT/custom-worker.stderr" || {
+    dump_file "$WORK_ROOT/custom-worker.stdout" "custom worker stdout"
+    dump_file "$WORK_ROOT/custom-worker.stderr" "custom worker stderr"
+    curl -sS -H "Authorization: Bearer $API_KEY" \
+        "$BASE_URL/v1/jobs/$CUSTOM_JOB_ID" >&2 || true
+    fail "custom pack worker run failed"
+}
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -o "$WORK_ROOT/custom-job-status.json" \
+    "$BASE_URL/v1/jobs/$CUSTOM_JOB_ID" ||
+    fail "custom pack job status failed"
+CUSTOM_PACKAGE_ID=$(python3 - "$WORK_ROOT/custom-job-status.json" <<'PY'
+import json
+import sys
+body = json.load(open(sys.argv[1], encoding="utf-8"))
+if body.get("status") != "succeeded":
+    raise SystemExit("custom pack job did not succeed")
+print(body["package_id"])
+PY
+) || fail "custom pack job response was invalid"
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -o "$WORK_ROOT/custom-manifest.json" \
+    "$BASE_URL/v1/artifacts/$CUSTOM_PACKAGE_ID/manifest.json" ||
+    fail "custom pack manifest download failed"
+
 printf 'status=e2e-succeeded\n'
 printf 'job_id=%s\n' "$JOB_ID"
 printf 'package_id=%s\n' "$PACKAGE_ID"
+printf 'custom_package_id=%s\n' "$CUSTOM_PACKAGE_ID"

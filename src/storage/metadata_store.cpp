@@ -10,7 +10,7 @@
 
 namespace {
 
-const int kSchemaVersion = 6;
+const int kSchemaVersion = 7;
 const int kRequestLimitPerMinute = 120;
 const int kConcurrentJobLimit = 2;
 const int kMonthlyJobLimit = 100;
@@ -183,6 +183,27 @@ CREATE TABLE IF NOT EXISTS scenario_drafts (
 CREATE INDEX IF NOT EXISTS scenario_drafts_owner_updated_idx
     ON scenario_drafts (organization_id,user_id,updated_at);
 
+CREATE TABLE IF NOT EXISTS custom_packs (
+    id TEXT PRIMARY KEY,
+    organization_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    version TEXT NOT NULL,
+    description TEXT NOT NULL,
+    targets_json TEXT NOT NULL,
+    scenario_ids_json TEXT NOT NULL,
+    pack_fingerprint TEXT NOT NULL,
+    source_pack_path TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    ),
+    deleted_at TEXT,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS custom_packs_owner_created_idx
+    ON custom_packs (organization_id,user_id,created_at);
+
 CREATE INDEX IF NOT EXISTS jobs_owner_created_idx
     ON jobs (organization_id, project_id, created_at);
 CREATE INDEX IF NOT EXISTS packages_owner_created_idx
@@ -246,6 +267,22 @@ syn_sig_ra::ScenarioDraftRecord scenario_draft_columns(
     draft.created_at = column_text(statement, 8);
     draft.updated_at = column_text(statement, 9);
     return draft;
+}
+
+syn_sig_ra::CustomPackRecord custom_pack_columns(sqlite3_stmt* statement) {
+    syn_sig_ra::CustomPackRecord pack;
+    pack.pack_id = column_text(statement, 0);
+    pack.organization_id = column_text(statement, 1);
+    pack.user_id = column_text(statement, 2);
+    pack.name = column_text(statement, 3);
+    pack.version = column_text(statement, 4);
+    pack.description = column_text(statement, 5);
+    pack.targets_json = column_text(statement, 6);
+    pack.scenario_ids_json = column_text(statement, 7);
+    pack.pack_fingerprint = column_text(statement, 8);
+    pack.source_pack_path = column_text(statement, 9);
+    pack.created_at = column_text(statement, 10);
+    return pack;
 }
 
 }  // namespace
@@ -333,7 +370,7 @@ bool MetadataStore::initialize(std::string& error) {
     }
     bool succeeded = execute(kSchemaSql, error);
     if (succeeded) {
-        succeeded = execute("PRAGMA user_version = 6;", error);
+        succeeded = execute("PRAGMA user_version = 7;", error);
     }
     if (!succeeded || !execute("COMMIT;", error)) {
         std::string rollback_error;
@@ -1855,6 +1892,136 @@ RecordLookupStatus MetadataStore::delete_scenario_draft(
         "WHERE id=?1 AND organization_id=?2 AND user_id=?3;";
     if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
         !bind_text(statement, 1, scenario_id) ||
+        !bind_text(statement, 2, owner.organization_id) ||
+        !bind_text(statement, 3, owner.user_id) ||
+        sqlite3_step(statement) != SQLITE_DONE) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    const bool changed = sqlite3_changes(database_) == 1;
+    sqlite3_finalize(statement);
+    return changed ? RecordLookupStatus::found : RecordLookupStatus::not_found;
+}
+
+RecordLookupStatus MetadataStore::find_custom_pack(
+    const std::string& pack_id,
+    const ApiKeyIdentity& owner,
+    CustomPackRecord& pack,
+    std::string& error
+) {
+    if (!initialize(error)) return RecordLookupStatus::storage_error;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT id,organization_id,user_id,name,version,description,"
+        "targets_json,scenario_ids_json,pack_fingerprint,source_pack_path,"
+        "created_at FROM custom_packs WHERE id=?1 AND organization_id=?2 "
+        "AND user_id=?3 AND deleted_at IS NULL;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, pack_id) ||
+        !bind_text(statement, 2, owner.organization_id) ||
+        !bind_text(statement, 3, owner.user_id)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    const int result = sqlite3_step(statement);
+    if (result == SQLITE_DONE) {
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::not_found;
+    }
+    if (result != SQLITE_ROW) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    pack = custom_pack_columns(statement);
+    sqlite3_finalize(statement);
+    return RecordLookupStatus::found;
+}
+
+bool MetadataStore::create_custom_pack(
+    const ApiKeyIdentity& owner,
+    const CustomPackRecord& input,
+    CustomPackRecord& pack,
+    std::string& error
+) {
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO custom_packs "
+        "(id,organization_id,user_id,name,version,description,targets_json,"
+        "scenario_ids_json,pack_fingerprint,source_pack_path) "
+        "VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10);";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, input.pack_id) &&
+        bind_text(statement, 2, owner.organization_id) &&
+        bind_text(statement, 3, owner.user_id) &&
+        bind_text(statement, 4, input.name) &&
+        bind_text(statement, 5, input.version) &&
+        bind_text(statement, 6, input.description) &&
+        bind_text(statement, 7, input.targets_json) &&
+        bind_text(statement, 8, input.scenario_ids_json) &&
+        bind_text(statement, 9, input.pack_fingerprint) &&
+        bind_text(statement, 10, input.source_pack_path) &&
+        sqlite3_step(statement) == SQLITE_DONE;
+    if (!succeeded) error = sqlite3_errmsg(database_);
+    sqlite3_finalize(statement);
+    return succeeded &&
+        find_custom_pack(input.pack_id, owner, pack, error) ==
+            RecordLookupStatus::found;
+}
+
+bool MetadataStore::list_custom_packs(
+    const ApiKeyIdentity& owner,
+    std::vector<CustomPackRecord>& packs,
+    std::string& error
+) {
+    packs.clear();
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT id,organization_id,user_id,name,version,description,"
+        "targets_json,scenario_ids_json,pack_fingerprint,source_pack_path,"
+        "created_at FROM custom_packs WHERE organization_id=?1 AND user_id=?2 "
+        "AND deleted_at IS NULL ORDER BY created_at DESC,id DESC;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, owner.organization_id) ||
+        !bind_text(statement, 2, owner.user_id)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return false;
+    }
+    for (;;) {
+        const int result = sqlite3_step(statement);
+        if (result == SQLITE_DONE) {
+            sqlite3_finalize(statement);
+            return true;
+        }
+        if (result != SQLITE_ROW) {
+            error = sqlite3_errmsg(database_);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        packs.push_back(custom_pack_columns(statement));
+    }
+}
+
+RecordLookupStatus MetadataStore::delete_custom_pack(
+    const std::string& pack_id,
+    const ApiKeyIdentity& owner,
+    std::string& error
+) {
+    if (!initialize(error)) return RecordLookupStatus::storage_error;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE custom_packs SET deleted_at="
+        "strftime('%Y-%m-%dT%H:%M:%fZ','now') "
+        "WHERE id=?1 AND organization_id=?2 AND user_id=?3 "
+        "AND deleted_at IS NULL;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, pack_id) ||
         !bind_text(statement, 2, owner.organization_id) ||
         !bind_text(statement, 3, owner.user_id) ||
         sqlite3_step(statement) != SQLITE_DONE) {

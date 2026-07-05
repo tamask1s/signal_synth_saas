@@ -275,8 +275,16 @@ WorkerRunStatus run_worker_once(
         return WorkerRunStatus::worker_error;
     }
     job_id = job.job_id;
-    const std::string expected_pack =
+    const std::string built_in_pack =
         config.pack_root + "/" + job.selected_pack_id + ".json";
+    const std::string custom_pack =
+        config.data_root + "/custom_packs/" + job.selected_pack_id +
+        "/pack.json";
+    const bool pack_path_allowed =
+        job.source_pack_path == built_in_pack ||
+        (job.selected_pack_id.compare(0, 12, "custom_pack_") == 0 &&
+         job.source_pack_path == custom_pack);
+    const std::string expected_pack = job.source_pack_path;
     const std::string output_directory =
         config.data_root + "/work/" + job.job_id;
     std::string failure_code;
@@ -284,7 +292,7 @@ WorkerRunStatus run_worker_once(
 
     if (!regular_file(config.signal_synth_cli) ||
         !regular_file(expected_pack) ||
-        job.source_pack_path != expected_pack ||
+        !pack_path_allowed ||
         !directory_exists(config.data_root + "/work") ||
         directory_exists(output_directory) ||
         regular_file(output_directory)) {

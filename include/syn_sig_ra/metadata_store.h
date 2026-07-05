@@ -114,6 +114,20 @@ struct ScenarioDraftRecord {
     std::string updated_at;
 };
 
+struct CustomPackRecord {
+    std::string pack_id;
+    std::string organization_id;
+    std::string user_id;
+    std::string name;
+    std::string version;
+    std::string description;
+    std::string targets_json;
+    std::string scenario_ids_json;
+    std::string pack_fingerprint;
+    std::string source_pack_path;
+    std::string created_at;
+};
+
 enum class RecordLookupStatus {
     found,
     not_found,
@@ -363,6 +377,32 @@ public:
 
     RecordLookupStatus delete_scenario_draft(
         const std::string& scenario_id,
+        const ApiKeyIdentity& owner,
+        std::string& error
+    );
+
+    bool create_custom_pack(
+        const ApiKeyIdentity& owner,
+        const CustomPackRecord& input,
+        CustomPackRecord& pack,
+        std::string& error
+    );
+
+    bool list_custom_packs(
+        const ApiKeyIdentity& owner,
+        std::vector<CustomPackRecord>& packs,
+        std::string& error
+    );
+
+    RecordLookupStatus find_custom_pack(
+        const std::string& pack_id,
+        const ApiKeyIdentity& owner,
+        CustomPackRecord& pack,
+        std::string& error
+    );
+
+    RecordLookupStatus delete_custom_pack(
+        const std::string& pack_id,
         const ApiKeyIdentity& owner,
         std::string& error
     );

@@ -26,6 +26,8 @@ sudo find /opt/signal_synth_saas/packs -maxdepth 1 -type f \
   \( -name '*.json' -o -name '*.product' \) -delete
 sudo install -m 0644 "$repo_dir"/packs/*.json "$repo_dir"/packs/*.product \
   /opt/signal_synth_saas/packs/
+sudo install -d -o apache -g nogroup -m 0750 \
+  /var/lib/syn_sig_ra/custom_packs
 
 if [ "$reset_db" = 1 ]; then
   sudo cp /var/lib/syn_sig_ra/db.sqlite3 \
