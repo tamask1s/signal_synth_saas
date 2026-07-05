@@ -397,6 +397,9 @@ Use local storage first:
 The storage interface should be abstracted so local filesystem storage can later be replaced with object storage.
 See `var.example/README.md` for directory creation and permission guidance.
 
+For the current Apache 2.2 VPS deployment procedure, see
+[`doc/VPS_DEPLOYMENT.md`](doc/VPS_DEPLOYMENT.md).
+
 ## Metadata and API keys
 
 The module initializes a versioned SQLite database at
