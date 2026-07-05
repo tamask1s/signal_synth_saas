@@ -641,20 +641,31 @@ const char kUiJs[] = R"JS((() => {
       state.packs.forEach((pack) => {
         const option = document.createElement("option");
         option.value = pack.pack_id;
-        option.textContent = `${pack.display_name || pack.pack_id} (${pack.pack_id})`;
+        option.textContent = `${pack.display_name || pack.pack_id} (${pack.version}, ${pack.release_status})`;
         select.appendChild(option);
       });
       $("packs").innerHTML = state.packs.map((pack) => `
         <article class="card">
           <h3>${escapeHtml(pack.display_name || pack.pack_id)}</h3>
           <p class="muted">Version ${escapeHtml(pack.version || "")} · ${escapeHtml(pack.scenario_count || 0)} scenarios</p>
+          <p><span class="badge ${escapeHtml(pack.release_status || "")}">${escapeHtml(pack.release_status || "unknown")}</span></p>
           <p class="muted">${escapeHtml(pack.description || "")}</p>
           <p class="muted">Targets: ${escapeHtml((pack.targets || []).join(", ") || "n/a")}</p>
+          <p class="muted">Generator: ${escapeHtml(pack.generator_contract || "n/a")} · compatible: ${escapeHtml((pack.compatible_generator_versions || []).join(", "))}</p>
+          ${pack.deprecation_message ? `<p class="error">${escapeHtml(pack.deprecation_message)}</p>` : ""}
           <details>
             <summary>Scenarios</summary>
             <ul>
               ${(pack.scenarios || []).map((scenario) => `
                 <li>${escapeHtml(scenario.scenario_id)} <span class="muted">(${escapeHtml((scenario.targets || []).join(", "))})</span></li>
+              `).join("")}
+            </ul>
+          </details>
+          <details>
+            <summary>Changelog</summary>
+            <ul>
+              ${(pack.changelog || []).map((entry) => `
+                <li><strong>${escapeHtml(entry.version)}</strong> · ${escapeHtml(entry.date)} — ${escapeHtml(entry.summary)}</li>
               `).join("")}
             </ul>
           </details>
@@ -1347,6 +1358,22 @@ RouteResponse route_request(
                 );
                 response.internal_error = error;
                 return response;
+            }
+            bool generator_compatible = false;
+            for (std::vector<std::string>::const_iterator it =
+                     pack.compatible_generator_versions.begin();
+                 it != pack.compatible_generator_versions.end(); ++it) {
+                if (*it == "signal_synth-cli") {
+                    generator_compatible = true;
+                    break;
+                }
+            }
+            if (!generator_compatible) {
+                return json_response(
+                    409,
+                    "{\"error\":{\"code\":\"pack_generator_incompatible\","
+                    "\"message\":\"The pack is not compatible with this generator.\"}}\n"
+                );
             }
             UsageSummary usage;
             const QuotaStatus job_quota = metadata_store->check_job_quota(

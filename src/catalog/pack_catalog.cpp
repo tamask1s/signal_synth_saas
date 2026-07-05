@@ -2,6 +2,7 @@
 
 #include "ecg_pack.h"
 
+#include <jansson.h>
 #include <dirent.h>
 #include <sys/stat.h>
 
@@ -123,6 +124,110 @@ std::string size_to_string(std::size_t value) {
     return output.str();
 }
 
+bool is_semantic_version(const std::string& value) {
+    int dots = 0;
+    bool digit = false;
+    for (std::string::const_iterator it = value.begin(); it != value.end(); ++it) {
+        if (*it == '.') {
+            if (!digit || ++dots > 2) return false;
+            digit = false;
+        } else if (*it >= '0' && *it <= '9') {
+            digit = true;
+        } else {
+            return false;
+        }
+    }
+    return digit && (dots == 1 || dots == 2);
+}
+
+bool load_product_metadata(
+    const std::string& path,
+    syn_sig_ra::PackSummary& pack,
+    std::string& error
+) {
+    std::string content;
+    if (!read_file(path, content, error)) return false;
+    json_error_t parse_error;
+    json_t* root = json_loadb(
+        content.data(), content.size(), JSON_REJECT_DUPLICATES, &parse_error
+    );
+    if (!json_is_object(root)) {
+        if (root != nullptr) json_decref(root);
+        error = "pack product metadata must be a JSON object";
+        return false;
+    }
+    json_t* schema = json_object_get(root, "schema_version");
+    json_t* pack_id = json_object_get(root, "pack_id");
+    json_t* version = json_object_get(root, "version");
+    json_t* status = json_object_get(root, "release_status");
+    json_t* released = json_object_get(root, "released_at");
+    json_t* expected = json_object_get(root, "expected_pack_fingerprint");
+    json_t* contract = json_object_get(root, "generator_contract");
+    json_t* compatible = json_object_get(root, "compatible_generator_versions");
+    json_t* deprecation = json_object_get(root, "deprecation_message");
+    json_t* changelog = json_object_get(root, "changelog");
+    const bool scalar_valid =
+        json_is_integer(schema) && json_integer_value(schema) == 1 &&
+        json_is_string(pack_id) && json_is_string(version) &&
+        json_is_string(status) && json_is_string(released) &&
+        json_is_string(expected) && json_is_string(contract) &&
+        json_is_array(compatible) && json_array_size(compatible) > 0 &&
+        json_is_string(deprecation) && json_is_array(changelog) &&
+        json_array_size(changelog) > 0;
+    if (!scalar_valid ||
+        pack.pack_id != json_string_value(pack_id) ||
+        pack.version != json_string_value(version) ||
+        !is_semantic_version(pack.version) ||
+        pack.pack_fingerprint != json_string_value(expected) ||
+        (std::string(json_string_value(status)) != "stable" &&
+         std::string(json_string_value(status)) != "deprecated")) {
+        json_decref(root);
+        error = "pack product metadata does not match the validated release";
+        return false;
+    }
+    pack.release_status = json_string_value(status);
+    pack.released_at = json_string_value(released);
+    pack.generator_contract = json_string_value(contract);
+    pack.deprecation_message = json_string_value(deprecation);
+    pack.compatible_generator_versions.clear();
+    std::size_t index = 0;
+    json_t* item = nullptr;
+    json_array_foreach(compatible, index, item) {
+        if (!json_is_string(item)) {
+            json_decref(root);
+            error = "compatible generator versions must be strings";
+            return false;
+        }
+        pack.compatible_generator_versions.push_back(json_string_value(item));
+    }
+    pack.changelog.clear();
+    json_array_foreach(changelog, index, item) {
+        json_t* item_version = json_object_get(item, "version");
+        json_t* item_date = json_object_get(item, "date");
+        json_t* item_summary = json_object_get(item, "summary");
+        if (!json_is_object(item) || !json_is_string(item_version) ||
+            !json_is_string(item_date) || !json_is_string(item_summary) ||
+            !is_semantic_version(json_string_value(item_version))) {
+            json_decref(root);
+            error = "pack changelog entries are invalid";
+            return false;
+        }
+        syn_sig_ra::PackChangelogEntry entry;
+        entry.version = json_string_value(item_version);
+        entry.date = json_string_value(item_date);
+        entry.summary = json_string_value(item_summary);
+        pack.changelog.push_back(entry);
+    }
+    if (pack.release_status == "deprecated" &&
+        pack.deprecation_message.empty()) {
+        json_decref(root);
+        error = "deprecated packs require a deprecation message";
+        return false;
+    }
+    json_decref(root);
+    return true;
+}
+
 }  // namespace
 
 namespace syn_sig_ra {
@@ -162,6 +267,15 @@ std::string pack_summary_json(const PackSummary& pack) {
             "}";
     }
     scenarios += ']';
+    std::string changelog("[");
+    for (std::size_t index = 0; index < pack.changelog.size(); ++index) {
+        if (index != 0) changelog += ',';
+        changelog += std::string("{\"version\":") +
+            escape_json(pack.changelog[index].version) +
+            ",\"date\":" + escape_json(pack.changelog[index].date) +
+            ",\"summary\":" + escape_json(pack.changelog[index].summary) + "}";
+    }
+    changelog += ']';
     return std::string("{\"pack_id\":") + escape_json(pack.pack_id) +
            ",\"display_name\":" + escape_json(pack.display_name) +
            ",\"version\":" + escape_json(pack.version) +
@@ -169,6 +283,14 @@ std::string pack_summary_json(const PackSummary& pack) {
            ",\"targets\":" + string_array_json(pack.targets) +
            ",\"scenarios\":" + scenarios +
            ",\"scenario_count\":" + size_to_string(pack.scenarios.size()) +
+           ",\"release_status\":" + escape_json(pack.release_status) +
+           ",\"released_at\":" + escape_json(pack.released_at) +
+           ",\"generator_contract\":" + escape_json(pack.generator_contract) +
+           ",\"compatible_generator_versions\":" +
+           string_array_json(pack.compatible_generator_versions) +
+           ",\"deprecation_message\":" +
+           escape_json(pack.deprecation_message) +
+           ",\"changelog\":" + changelog +
            ",\"pack_fingerprint\":" +
            escape_json(pack.pack_fingerprint) + "}";
 }
@@ -231,6 +353,10 @@ PackLookupStatus PackCatalog::load_file(
         pack.scenarios.push_back(scenario);
     }
     pack.pack_fingerprint = result.pack_fingerprint;
+    if (!load_product_metadata(
+            pack_root_ + "/" + expected_pack_id + ".product", pack, error)) {
+        return PackLookupStatus::catalog_error;
+    }
     return PackLookupStatus::found;
 }
 

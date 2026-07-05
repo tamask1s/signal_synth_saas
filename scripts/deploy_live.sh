@@ -19,6 +19,9 @@ sudo install -m 0755 "$build_dir/syn_sig_ra_admin" \
   /usr/local/bin/syn_sig_ra_admin
 sudo install -m 0755 "$build_dir/syn_sig_ra_worker" \
   /usr/local/bin/syn_sig_ra_worker
+sudo install -d -m 0755 /opt/signal_synth_saas/packs
+sudo install -m 0644 "$repo_dir"/packs/*.json "$repo_dir"/packs/*.product \
+  /opt/signal_synth_saas/packs/
 
 if [ "$reset_db" = 1 ]; then
   sudo cp /var/lib/syn_sig_ra/db.sqlite3 \

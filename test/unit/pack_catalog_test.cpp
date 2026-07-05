@@ -46,6 +46,14 @@ int main() {
         packs[0].scenarios[0].scenario_id == "clean_70",
         "catalog should expose scenario IDs without source paths"
     );
+    require(
+        packs[0].release_status == "stable" &&
+            packs[0].generator_contract ==
+                "signal-synth-cli/pack-challenge-v1" &&
+            packs[0].compatible_generator_versions.size() == 1 &&
+            packs[0].changelog.size() == 1,
+        "catalog should expose validated release and compatibility metadata"
+    );
 
     syn_sig_ra::PackSummary detail;
     require(
@@ -59,8 +67,10 @@ int main() {
     );
     require(
         syn_sig_ra::pack_summary_json(detail).find("\"scenarios\"") !=
-            std::string::npos,
-        "pack JSON should include scenario summaries"
+            std::string::npos &&
+            syn_sig_ra::pack_summary_json(detail).find("\"changelog\"") !=
+                std::string::npos,
+        "pack JSON should include scenario and release summaries"
     );
 
     require(
@@ -79,7 +89,10 @@ int main() {
         "unknown safe IDs should be reported as missing"
     );
     require(
-        syn_sig_ra::pack_summary_json(detail).find('/') == std::string::npos,
+        syn_sig_ra::pack_summary_json(detail).find("../") ==
+            std::string::npos &&
+            syn_sig_ra::pack_summary_json(detail).find("/signal_synth/") ==
+                std::string::npos,
         "catalog JSON must not expose source paths"
     );
     return EXIT_SUCCESS;

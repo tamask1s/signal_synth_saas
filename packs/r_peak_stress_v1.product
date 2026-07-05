@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "pack_id": "r_peak_stress_v1",
+  "version": "1.0",
+  "release_status": "stable",
+  "released_at": "2026-07-05",
+  "expected_pack_fingerprint": "sha256:9c3c5c485b84cf85e28bf5f94ce978a5f3f81268a9a36c1bd09397f19eb9178e",
+  "generator_contract": "signal-synth-cli/pack-challenge-v1",
+  "compatible_generator_versions": [
+    "signal_synth-cli"
+  ],
+  "deprecation_message": "",
+  "changelog": [
+    {
+      "version": "1.0",
+      "date": "2026-07-05",
+      "summary": "Initial curated private-beta release with clean, rate-stress, and baseline/powerline scenarios."
+    }
+  ]
+}

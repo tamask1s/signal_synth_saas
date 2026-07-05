@@ -476,6 +476,9 @@ commands, see [`doc/OPERATIONS.md`](doc/OPERATIONS.md).
 For immutable artifact retention, backups, and restore drills, see
 [`doc/RETENTION_BACKUP.md`](doc/RETENTION_BACKUP.md).
 
+For built-in pack semantic versions, compatibility, changelog, and
+deprecation rules, see [`doc/PACK_CATALOG.md`](doc/PACK_CATALOG.md).
+
 ## Metadata and API keys
 
 The module initializes a versioned SQLite database at
