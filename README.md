@@ -145,7 +145,22 @@ All endpoints are rooted under `/syn_sig_ra`.
 GET /syn_sig_ra/healthz
 ```
 
-Returns service status and build metadata.
+Returns HTTP 200 with service status and build metadata:
+
+```json
+{
+  "service": "signal_synth_saas",
+  "status": "ok",
+  "build": {
+    "version": "0.1.0",
+    "git_commit": "<build-commit>"
+  }
+}
+```
+
+Other methods on this route return HTTP 405. Unknown paths below
+`/syn_sig_ra` return HTTP 404, while paths outside that prefix are declined so
+another Apache handler can process them.
 
 ### Pack catalog
 
@@ -210,6 +225,10 @@ Artifacts are immutable and scoped to the authenticated organization/user.
 
 ## Local development
 
+The Apache module build requires CMake, a C++11 compiler, Apache development
+headers, APR development headers, and `apxs`. On Debian/Ubuntu these are
+provided by packages such as `cmake`, `g++`, `apache2-dev`, and `libapr1-dev`.
+
 Expected sibling checkout:
 
 ```sh
@@ -224,15 +243,25 @@ Build the generator CLI:
 ```sh
 cmake -S ../signal_synth -B ../signal_synth/build -DSIGNAL_SYNTH_BUILD_TESTS=ON -DSIGNAL_SYNTH_BUILD_CLI=ON
 cmake --build ../signal_synth/build
-ctest --test-dir ../signal_synth/build --output-on-failure
+cd ../signal_synth/build
+ctest --output-on-failure
+cd ../../signal_synth_saas
 ```
 
-Build the Apache module:
+Build and test the Apache module:
 
 ```sh
-cmake -S . -B build -DSIGNAL_SYNTH_ROOT=../signal_synth
+cmake -S . -B build -DSIGNAL_SYNTH_ROOT=../signal_synth -DBUILD_TESTING=ON
 cmake --build build
+cd build
+ctest --output-on-failure
+cd ..
 ```
+
+The build produces `build/mod_syn_sig_ra.so`. The test suite verifies the
+health routing contract, prefix ownership, and exported Apache module
+registration symbol. A full load/configuration smoke test additionally
+requires an installed Apache runtime.
 
 Install locally during development:
 
@@ -246,19 +275,15 @@ sudo systemctl reload apache2
 Example Apache configuration:
 
 ```apache
-LoadModule syn_sig_ra_module modules/mod_syn_sig_ra.so
+LoadModule syn_sig_ra_module /usr/lib/apache2/modules/mod_syn_sig_ra.so
 
 <Location "/syn_sig_ra">
     SetHandler syn_sig_ra
 </Location>
-
-SynSigRaDataRoot /var/lib/syn_sig_ra
-SynSigRaSignalSynthCli /opt/signal_synth/build/signal-synth
-SynSigRaPackRoot /opt/signal_synth_saas/packs
-SynSigRaPublicBasePath /syn_sig_ra
 ```
 
-Directive names are provisional until implemented.
+The data, CLI, pack-root, and public-base-path directives belong to Task 3 and
+are not accepted by the module yet.
 
 ## Storage model for v1
 

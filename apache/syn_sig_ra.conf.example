@@ -1,0 +1,8 @@
+# Replace this path with the installed module location.
+LoadModule syn_sig_ra_module /usr/lib/apache2/modules/mod_syn_sig_ra.so
+
+# The module owns only /syn_sig_ra and descendants. This Location block
+# prevents the core file handler from attempting to resolve those URLs.
+<Location "/syn_sig_ra">
+    SetHandler syn_sig_ra
+</Location>
