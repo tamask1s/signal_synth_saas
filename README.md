@@ -226,8 +226,9 @@ Artifacts are immutable and scoped to the authenticated organization/user.
 ## Local development
 
 The Apache module build requires CMake, a C++11 compiler, Apache development
-headers, APR development headers, and `apxs`. On Debian/Ubuntu these are
-provided by packages such as `cmake`, `g++`, `apache2-dev`, and `libapr1-dev`.
+headers, APR development headers, SQLite, OpenSSL, and `apxs`. On Debian/Ubuntu
+these are provided by packages such as `cmake`, `g++`, `apache2-dev`,
+`libapr1-dev`, `libsqlite3-dev`, and `libssl-dev`.
 
 Expected sibling checkout:
 
@@ -315,6 +316,36 @@ Use local storage first:
 
 The storage interface should be abstracted so local filesystem storage can later be replaced with object storage.
 See `var.example/README.md` for directory creation and permission guidance.
+
+## Metadata and API keys
+
+The module initializes a versioned SQLite database at
+`<SynSigRaDataRoot>/db.sqlite3`. Schema version 1 contains organizations,
+users, API-key hashes, jobs, packages, and audit events. API keys must be
+high-entropy secrets; only their lowercase SHA-256 hashes are persisted.
+
+Initialize a development database:
+
+```sh
+build/syn_sig_ra_admin init-db build/var/db.sqlite3
+```
+
+Create a development API key without placing the plaintext secret in command
+arguments:
+
+```sh
+read -r -s API_KEY
+printf '%s\n' "$API_KEY" |
+  build/syn_sig_ra_admin create-api-key \
+    build/var/db.sqlite3 org_dev user_dev key_dev "local development"
+unset API_KEY
+```
+
+`/syn_sig_ra/healthz` remains public. Routes at or below
+`/syn_sig_ra/v1/jobs` and `/syn_sig_ra/v1/artifacts` require
+`Authorization: Bearer <api-key>`. Missing, malformed, inactive, or unknown
+keys return the same HTTP 401 response. Metadata failures return a safe HTTP
+503 response while their details are written only to the Apache error log.
 
 ## Security requirements
 

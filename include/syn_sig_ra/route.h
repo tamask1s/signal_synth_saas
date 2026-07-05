@@ -5,6 +5,8 @@
 
 namespace syn_sig_ra {
 
+class MetadataStore;
+
 enum class RouteDisposition {
     declined,
     handled
@@ -15,11 +17,24 @@ struct RouteResponse {
     int status;
     std::string content_type;
     std::string body;
+    std::string www_authenticate;
 };
 
 RouteResponse route_request(const std::string& method, const std::string& uri);
 RouteResponse route_request(
     const std::string& method,
+    const std::string& uri,
+    const std::string& public_base_path
+);
+RouteResponse route_request(
+    const std::string& method,
+    const std::string& uri,
+    const std::string& public_base_path,
+    const std::string& authorization_header,
+    MetadataStore* metadata_store
+);
+
+bool route_requires_authentication(
     const std::string& uri,
     const std::string& public_base_path
 );

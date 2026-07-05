@@ -1,10 +1,12 @@
 #include "syn_sig_ra/route.h"
+#include "syn_sig_ra/metadata_store.h"
 #include "syn_sig_ra/runtime_config.h"
 
 extern "C" {
 #include <apr_strings.h>
 #include <httpd.h>
 #include <http_config.h>
+#include <http_log.h>
 #include <http_protocol.h>
 }
 
@@ -13,6 +15,10 @@ extern "C" {
 extern "C" {
 extern module AP_MODULE_DECLARE_DATA syn_sig_ra_module;
 }
+
+#ifdef APLOG_USE_MODULE
+APLOG_USE_MODULE(syn_sig_ra);
+#endif
 
 namespace {
 
@@ -140,6 +146,11 @@ const char* set_public_base_path(
     return nullptr;
 }
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 const command_rec syn_sig_ra_directives[] = {
     AP_INIT_TAKE1(
         "SynSigRaDataRoot",
@@ -169,14 +180,25 @@ const command_rec syn_sig_ra_directives[] = {
         RSRC_CONF,
         "Public URL base path at or below /syn_sig_ra"
     ),
-    {nullptr}
+    {nullptr, nullptr, nullptr, 0, RAW_ARGS, nullptr}
 };
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 int syn_sig_ra_handler(request_rec* request) {
     const std::string method =
         request->method == nullptr ? std::string() : request->method;
     const std::string uri =
         request->uri == nullptr ? std::string() : request->uri;
+    const char* authorization_value = apr_table_get(
+        request->headers_in,
+        "Authorization"
+    );
+    const std::string authorization = authorization_value == nullptr
+        ? std::string()
+        : authorization_value;
     const ApacheServerConfig* config =
         static_cast<const ApacheServerConfig*>(
             ap_get_module_config(
@@ -184,10 +206,34 @@ int syn_sig_ra_handler(request_rec* request) {
                 &syn_sig_ra_module
             )
         );
+    syn_sig_ra::MetadataStore metadata_store(
+        std::string(config->data_root) + "/db.sqlite3"
+    );
+    syn_sig_ra::MetadataStore* metadata_store_pointer = nullptr;
+    if (syn_sig_ra::route_requires_authentication(
+            uri,
+            config->public_base_path
+        )) {
+        std::string storage_error;
+        if (metadata_store.initialize(storage_error)) {
+            metadata_store_pointer = &metadata_store;
+        } else {
+            ap_log_rerror(
+                APLOG_MARK,
+                APLOG_ERR,
+                0,
+                request,
+                "syn_sig_ra metadata initialization failed: %s",
+                storage_error.c_str()
+            );
+        }
+    }
     const syn_sig_ra::RouteResponse response = syn_sig_ra::route_request(
         method,
         uri,
-        config->public_base_path
+        config->public_base_path,
+        authorization,
+        metadata_store_pointer
     );
 
     if (response.disposition == syn_sig_ra::RouteDisposition::declined) {
@@ -199,6 +245,13 @@ int syn_sig_ra_handler(request_rec* request) {
         request,
         apr_pstrdup(request->pool, response.content_type.c_str())
     );
+    if (!response.www_authenticate.empty()) {
+        apr_table_set(
+            request->headers_out,
+            "WWW-Authenticate",
+            response.www_authenticate.c_str()
+        );
+    }
     ap_rwrite(
         response.body.data(),
         static_cast<int>(response.body.size()),
@@ -227,7 +280,10 @@ module AP_MODULE_DECLARE_DATA syn_sig_ra_module = {
     create_server_config,
     merge_server_config,
     syn_sig_ra_directives,
-    syn_sig_ra_register_hooks
+    syn_sig_ra_register_hooks,
+#ifdef AP_MODULE_FLAG_NONE
+    AP_MODULE_FLAG_NONE
+#endif
 };
 
 }

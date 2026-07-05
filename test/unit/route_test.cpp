@@ -1,5 +1,11 @@
 #include "syn_sig_ra/route.h"
 
+#include "syn_sig_ra/metadata_store.h"
+#include "syn_sig_ra/sha256.h"
+
+#include <unistd.h>
+
+#include <cstdio>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -88,6 +94,66 @@ int main() {
         old_base.disposition == syn_sig_ra::RouteDisposition::declined,
         "a configured child base should not claim its former health route"
     );
+
+    const syn_sig_ra::RouteResponse missing_storage =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/jobs/job_test",
+            "/syn_sig_ra",
+            "",
+            nullptr
+        );
+    require(
+        missing_storage.status == 503,
+        "protected routes should fail safely when metadata is unavailable"
+    );
+
+    const std::string database_path =
+        "/tmp/syn_sig_ra_route_auth_" + std::to_string(getpid()) + ".sqlite3";
+    std::remove(database_path.c_str());
+    syn_sig_ra::MetadataStore store(database_path);
+    std::string key_hash;
+    std::string error;
+    require(
+        syn_sig_ra::sha256_hex("route-test-key", key_hash, error),
+        "route test key hashing should succeed"
+    );
+    syn_sig_ra::ApiKeyIdentity identity;
+    identity.api_key_id = "route_key";
+    identity.organization_id = "route_org";
+    identity.user_id = "route_user";
+    require(
+        store.create_api_key(identity, key_hash, "route test", error),
+        "route test API key creation should succeed: " + error
+    );
+
+    const syn_sig_ra::RouteResponse unauthorized =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/jobs/job_test",
+            "/syn_sig_ra",
+            "",
+            &store
+        );
+    require(unauthorized.status == 401, "missing API key should return 401");
+    require(
+        !unauthorized.www_authenticate.empty(),
+        "HTTP 401 should include a Bearer challenge"
+    );
+
+    const syn_sig_ra::RouteResponse authorized =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/jobs/job_test",
+            "/syn_sig_ra",
+            "Bearer route-test-key",
+            &store
+        );
+    require(
+        authorized.status == 404,
+        "authenticated requests should pass auth and reach routing"
+    );
+    std::remove(database_path.c_str());
 
     return EXIT_SUCCESS;
 }

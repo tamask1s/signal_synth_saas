@@ -13,6 +13,9 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+find_package(OpenSSL REQUIRED)
+find_package(SQLite3 REQUIRED)
+
 set(
     SIGNAL_SYNTH_ROOT
     "${CMAKE_CURRENT_SOURCE_DIR}/../signal_synth"
@@ -72,7 +75,10 @@ configure_file(
 )
 
 add_library(syn_sig_ra_core STATIC
+    src/auth/api_key_auth.cpp
+    src/auth/sha256.cpp
     src/config/runtime_config.cpp
+    src/storage/metadata_store.cpp
     src/api/route.cpp
 )
 set_target_properties(syn_sig_ra_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -81,6 +87,16 @@ target_include_directories(syn_sig_ra_core
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
         "${CMAKE_CURRENT_BINARY_DIR}/generated"
 )
+target_link_libraries(syn_sig_ra_core
+    PUBLIC
+        OpenSSL::Crypto
+        SQLite::SQLite3
+)
+
+add_executable(syn_sig_ra_admin
+    src/admin/main.cpp
+)
+target_link_libraries(syn_sig_ra_admin PRIVATE syn_sig_ra_core)
 
 find_program(APXS_EXECUTABLE NAMES apxs apxs2 REQUIRED)
 execute_process(
@@ -134,6 +150,10 @@ install(
     TARGETS mod_syn_sig_ra
     LIBRARY DESTINATION lib/apache2/modules
 )
+install(
+    TARGETS syn_sig_ra_admin
+    RUNTIME DESTINATION bin
+)
 
 if(BUILD_TESTING)
     add_executable(syn_sig_ra_route_test
@@ -146,8 +166,14 @@ if(BUILD_TESTING)
     )
     target_link_libraries(syn_sig_ra_config_test PRIVATE syn_sig_ra_core)
 
+    add_executable(syn_sig_ra_auth_test
+        test/unit/api_key_auth_test.cpp
+    )
+    target_link_libraries(syn_sig_ra_auth_test PRIVATE syn_sig_ra_core)
+
     add_test(NAME route_unit COMMAND syn_sig_ra_route_test)
     add_test(NAME runtime_config_unit COMMAND syn_sig_ra_config_test)
+    add_test(NAME api_key_auth_unit COMMAND syn_sig_ra_auth_test)
 
     find_program(NM_EXECUTABLE NAMES nm llvm-nm)
     if(NM_EXECUTABLE)
