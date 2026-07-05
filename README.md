@@ -169,7 +169,12 @@ GET /syn_sig_ra/v1/packs
 GET /syn_sig_ra/v1/packs/{pack_id}
 ```
 
-Returns available built-in challenge packs.
+Returns available built-in challenge packs without authentication. Catalog
+entries are regular `.json` files below `SynSigRaPackRoot`; symlinks, absolute
+paths, traversal sequences, unsafe IDs, malformed packs, and filename/pack-ID
+mismatches are rejected. Pack metadata and fingerprints are parsed by the
+authoritative pack implementation compiled directly from the sibling
+`../signal_synth` checkout.
 
 ### Create challenge job
 

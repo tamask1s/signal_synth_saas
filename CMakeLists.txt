@@ -25,10 +25,9 @@ set(
 
 if(NOT EXISTS "${SIGNAL_SYNTH_ROOT}/CMakeLists.txt")
     message(
-        WARNING
+        FATAL_ERROR
         "signal_synth was not found at ${SIGNAL_SYNTH_ROOT}. "
-        "The Apache health module can still be built, but later worker tasks "
-        "require the sibling checkout."
+        "This project requires the sibling checkout and does not vendor it."
     )
 endif()
 
@@ -75,8 +74,10 @@ configure_file(
 )
 
 add_library(syn_sig_ra_core STATIC
+    "${SIGNAL_SYNTH_ROOT}/src/ecg_pack.cpp"
     src/auth/api_key_auth.cpp
     src/auth/sha256.cpp
+    src/catalog/pack_catalog.cpp
     src/config/runtime_config.cpp
     src/storage/metadata_store.cpp
     src/api/route.cpp
@@ -86,6 +87,8 @@ target_include_directories(syn_sig_ra_core
     PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
         "${CMAKE_CURRENT_BINARY_DIR}/generated"
+    PRIVATE
+        "${SIGNAL_SYNTH_ROOT}/src"
 )
 target_link_libraries(syn_sig_ra_core
     PUBLIC
@@ -171,9 +174,15 @@ if(BUILD_TESTING)
     )
     target_link_libraries(syn_sig_ra_auth_test PRIVATE syn_sig_ra_core)
 
+    add_executable(syn_sig_ra_pack_catalog_test
+        test/unit/pack_catalog_test.cpp
+    )
+    target_link_libraries(syn_sig_ra_pack_catalog_test PRIVATE syn_sig_ra_core)
+
     add_test(NAME route_unit COMMAND syn_sig_ra_route_test)
     add_test(NAME runtime_config_unit COMMAND syn_sig_ra_config_test)
     add_test(NAME api_key_auth_unit COMMAND syn_sig_ra_auth_test)
+    add_test(NAME pack_catalog_unit COMMAND syn_sig_ra_pack_catalog_test)
 
     find_program(NM_EXECUTABLE NAMES nm llvm-nm)
     if(NM_EXECUTABLE)

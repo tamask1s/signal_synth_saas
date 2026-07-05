@@ -1,6 +1,7 @@
 #include "syn_sig_ra/route.h"
 
 #include "syn_sig_ra/metadata_store.h"
+#include "syn_sig_ra/runtime_config.h"
 #include "syn_sig_ra/sha256.h"
 
 #include <unistd.h>
@@ -154,6 +155,52 @@ int main() {
         "authenticated requests should pass auth and reach routing"
     );
     std::remove(database_path.c_str());
+
+    const syn_sig_ra::RuntimeConfig runtime_config =
+        syn_sig_ra::default_runtime_config();
+    const syn_sig_ra::RouteResponse pack_list =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/packs",
+            "/syn_sig_ra",
+            "",
+            nullptr,
+            runtime_config.pack_root
+        );
+    require(pack_list.status == 200, "pack list route should return HTTP 200");
+    require(
+        pack_list.body.find("\"pack_id\":\"r_peak_stress_v1\"") !=
+            std::string::npos,
+        "pack list route should return the built-in example pack"
+    );
+
+    const syn_sig_ra::RouteResponse pack_detail =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/packs/r_peak_stress_v1",
+            "/syn_sig_ra",
+            "",
+            nullptr,
+            runtime_config.pack_root
+        );
+    require(
+        pack_detail.status == 200,
+        "known pack detail route should return HTTP 200"
+    );
+
+    const syn_sig_ra::RouteResponse traversal =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/packs/../secret",
+            "/syn_sig_ra",
+            "",
+            nullptr,
+            runtime_config.pack_root
+        );
+    require(
+        traversal.status == 400,
+        "pack traversal attempts should return HTTP 400"
+    );
 
     return EXIT_SUCCESS;
 }

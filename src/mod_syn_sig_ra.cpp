@@ -233,13 +233,24 @@ int syn_sig_ra_handler(request_rec* request) {
         uri,
         config->public_base_path,
         authorization,
-        metadata_store_pointer
+        metadata_store_pointer,
+        config->pack_root
     );
 
     if (response.disposition == syn_sig_ra::RouteDisposition::declined) {
         return DECLINED;
     }
 
+    if (!response.internal_error.empty()) {
+        ap_log_rerror(
+            APLOG_MARK,
+            APLOG_ERR,
+            0,
+            request,
+            "syn_sig_ra request failed internally: %s",
+            response.internal_error.c_str()
+        );
+    }
     request->status = response.status;
     ap_set_content_type(
         request,

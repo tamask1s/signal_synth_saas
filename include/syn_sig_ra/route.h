@@ -18,6 +18,7 @@ struct RouteResponse {
     std::string content_type;
     std::string body;
     std::string www_authenticate;
+    std::string internal_error;
 };
 
 RouteResponse route_request(const std::string& method, const std::string& uri);
@@ -31,7 +32,8 @@ RouteResponse route_request(
     const std::string& uri,
     const std::string& public_base_path,
     const std::string& authorization_header,
-    MetadataStore* metadata_store
+    MetadataStore* metadata_store,
+    const std::string& pack_root = ""
 );
 
 bool route_requires_authentication(
