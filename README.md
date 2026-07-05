@@ -248,6 +248,8 @@ The worker atomically claims the oldest queued job, invokes
 validates every required machine-output field, records a SHA-256 generator
 build identity, and transitions the job to `succeeded` or `failed`. Stable CLI
 error codes are persisted; raw stderr is not returned through the API.
+For a long-running deployment, use the same arguments with `run-loop`; it
+polls for jobs and handles `SIGTERM`/`SIGINT` for service shutdown.
 
 ### Download artifacts
 

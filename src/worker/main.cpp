@@ -1,28 +1,32 @@
 #include "syn_sig_ra/worker.h"
 
+#include <signal.h>
+#include <unistd.h>
+
 #include <cstdlib>
 #include <iostream>
 #include <string>
 
-int main(int argc, char** argv) {
-    if (argc != 6 || std::string(argv[1]) != "run-once") {
-        std::cerr
-            << "usage: " << argv[0]
-            << " run-once <database> <signal-synth-cli>"
-            << " <pack-root> <data-root>\n";
-        return EXIT_FAILURE;
-    }
-    syn_sig_ra::WorkerConfig config;
-    config.database_path = argv[2];
-    config.signal_synth_cli = argv[3];
-    config.pack_root = argv[4];
-    config.data_root = argv[5];
+namespace {
+
+volatile sig_atomic_t running = 1;
+
+void stop_worker(int) {
+    running = 0;
+}
+
+int run_once(
+    const syn_sig_ra::WorkerConfig& config,
+    bool report_no_job
+) {
     std::string job_id;
     std::string error;
     const syn_sig_ra::WorkerRunStatus status =
         syn_sig_ra::run_worker_once(config, job_id, error);
     if (status == syn_sig_ra::WorkerRunStatus::no_job) {
-        std::cout << "status=no-job\n";
+        if (report_no_job) {
+            std::cout << "status=no-job\n";
+        }
         return EXIT_SUCCESS;
     }
     if (status == syn_sig_ra::WorkerRunStatus::succeeded) {
@@ -35,4 +39,37 @@ int main(int argc, char** argv) {
     }
     std::cerr << "error=worker-failed message=" << error << '\n';
     return EXIT_FAILURE;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    const std::string mode = argc > 1 ? argv[1] : "";
+    if (argc != 6 || (mode != "run-once" && mode != "run-loop")) {
+        std::cerr
+            << "usage: " << argv[0]
+            << " <run-once|run-loop> <database> <signal-synth-cli>"
+            << " <pack-root> <data-root>\n";
+        return EXIT_FAILURE;
+    }
+    syn_sig_ra::WorkerConfig config;
+    config.database_path = argv[2];
+    config.signal_synth_cli = argv[3];
+    config.pack_root = argv[4];
+    config.data_root = argv[5];
+    if (mode == "run-once") {
+        return run_once(config, true);
+    }
+    signal(SIGTERM, stop_worker);
+    signal(SIGINT, stop_worker);
+    while (running) {
+        const int result = run_once(config, false);
+        if (result == EXIT_FAILURE) {
+            return result;
+        }
+        if (running) {
+            sleep(result == EXIT_SUCCESS ? 2 : 1);
+        }
+    }
+    return EXIT_SUCCESS;
 }
