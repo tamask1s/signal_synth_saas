@@ -5,6 +5,7 @@
 #include "syn_sig_ra/job_request.h"
 #include "syn_sig_ra/metadata_store.h"
 #include "syn_sig_ra/pack_catalog.h"
+#include "synsigra_api.h"
 
 #include <jansson.h>
 
@@ -283,6 +284,70 @@ std::string usage_json(const syn_sig_ra::UsageSummary& usage) {
     return output;
 }
 
+json_t* scenario_draft_json_object(
+    const syn_sig_ra::ScenarioDraftRecord& draft
+) {
+    json_t* root = json_object();
+    json_object_set_new(root, "scenario_id", json_string(draft.scenario_id.c_str()));
+    json_object_set_new(root, "name", json_string(draft.name.c_str()));
+    json_object_set_new(root, "status", json_string(draft.status.c_str()));
+    json_object_set_new(
+        root, "document_fingerprint",
+        draft.document_fingerprint.empty()
+            ? json_null()
+            : json_string(draft.document_fingerprint.c_str())
+    );
+    json_error_t parse_error;
+    json_t* document = json_loads(
+        draft.document_json.c_str(), JSON_REJECT_DUPLICATES, &parse_error
+    );
+    json_t* validation_errors = json_loads(
+        draft.validation_errors_json.c_str(), JSON_REJECT_DUPLICATES, &parse_error
+    );
+    json_object_set_new(root, "scenario", document == nullptr ? json_null() : document);
+    json_object_set_new(
+        root, "validation_errors",
+        validation_errors == nullptr ? json_array() : validation_errors
+    );
+    json_object_set_new(root, "created_at", json_string(draft.created_at.c_str()));
+    json_object_set_new(root, "updated_at", json_string(draft.updated_at.c_str()));
+    return root;
+}
+
+bool validate_scenario_document(
+    json_t* scenario,
+    std::string& status,
+    std::string& canonical_json,
+    std::string& fingerprint,
+    std::string& errors_json
+) {
+    char* submitted = json_dumps(scenario, JSON_COMPACT | JSON_SORT_KEYS);
+    if (submitted == nullptr) return false;
+    const std::string submitted_json(submitted);
+    free(submitted);
+    signal_synth::synsigra_validation_result result;
+    const bool valid =
+        signal_synth::synsigra_validate_scenario_json(submitted_json, result);
+    status = valid ? "valid" : "invalid";
+    canonical_json = valid ? result.canonical_scenario_json : submitted_json;
+    fingerprint = valid ? result.identity.document_fingerprint : "";
+    json_t* errors = json_array();
+    for (std::vector<signal_synth::synsigra_message>::const_iterator it =
+             result.messages.begin(); it != result.messages.end(); ++it) {
+        json_t* item = json_object();
+        json_object_set_new(item, "code", json_string(it->code.c_str()));
+        json_object_set_new(item, "path", json_string(it->path.c_str()));
+        json_object_set_new(item, "message", json_string(it->message.c_str()));
+        json_array_append_new(errors, item);
+    }
+    errors_json = json_dump_line(errors);
+    if (!errors_json.empty() && errors_json[errors_json.size() - 1] == '\n') {
+        errors_json.erase(errors_json.size() - 1);
+    }
+    json_decref(errors);
+    return valid;
+}
+
 const char kUiHtml[] = R"HTML(<!doctype html>
 <html lang="en">
 <head>
@@ -355,6 +420,21 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         <button id="refresh-usage" class="secondary">Refresh</button>
       </div>
       <div id="usage" class="muted">Paste an API key to inspect usage.</div>
+    </section>
+    <section class="panel">
+      <div class="panel-heading">
+        <h2>Scenario drafts</h2>
+        <button id="new-scenario" class="secondary">New draft</button>
+      </div>
+      <label for="scenario-name">Name</label>
+      <input id="scenario-name" type="text" maxlength="100" placeholder="Scenario name">
+      <label for="scenario-json">Scenario JSON</label>
+      <textarea id="scenario-json" rows="16" spellcheck="false">{}</textarea>
+      <div class="actions">
+        <button id="save-scenario" class="primary">Validate and save</button>
+      </div>
+      <pre id="scenario-output" class="output"></pre>
+      <div id="scenarios" class="jobs"></div>
     </section>
   </main>
   <script src="/syn_sig_ra/ui/app.js"></script>
@@ -471,6 +551,14 @@ input, select {
   min-width: 0;
   width: 100%;
 }
+textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: 13px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+  resize: vertical;
+}
 
 button {
   cursor: pointer;
@@ -576,6 +664,8 @@ const char kUiJs[] = R"JS((() => {
     apiKey: sessionStorage.getItem("syn_sig_ra_api_key") || "",
     packs: [],
     projects: [],
+    scenarios: [],
+    selectedScenarioId: "",
     jobs: [],
     jobsFingerprint: "",
     jobsLoaded: false,
@@ -608,7 +698,9 @@ const char kUiJs[] = R"JS((() => {
     try { body = text ? JSON.parse(text) : null; } catch (_) {}
     if (!response.ok) {
       const message = body && body.error ? `${body.error.code}: ${body.error.message}` : text || response.statusText;
-      throw new Error(message);
+      const error = new Error(message);
+      error.body = body;
+      throw error;
     }
     return body;
   }
@@ -711,6 +803,89 @@ const char kUiJs[] = R"JS((() => {
       `;
     } catch (error) {
       $("usage").textContent = error.message;
+    }
+  }
+
+  async function loadScenarios() {
+    if (!state.apiKey) {
+      state.scenarios = [];
+      $("scenarios").innerHTML = "<p class=\"muted\">Paste an API key to list drafts.</p>";
+      return;
+    }
+    try {
+      const body = await api("/v1/scenarios");
+      state.scenarios = body.scenarios || [];
+      $("scenarios").innerHTML = state.scenarios.map((draft) => `
+        <article class="job">
+          <div class="job-header">
+            <div><h3>${escapeHtml(draft.name)}</h3><span class="fingerprint">${escapeHtml(draft.scenario_id)}</span></div>
+            <span class="badge ${escapeHtml(draft.status)}">${escapeHtml(draft.status)}</span>
+          </div>
+          <p class="muted">${escapeHtml(draft.document_fingerprint || "No fingerprint until valid")}</p>
+          ${(draft.validation_errors || []).map((item) => `<p class="error">${escapeHtml(item.code)} ${escapeHtml(item.path)}: ${escapeHtml(item.message)}</p>`).join("")}
+          <div class="actions">
+            <button class="secondary" data-edit-scenario="${escapeHtml(draft.scenario_id)}">Edit</button>
+            <button class="danger" data-delete-scenario="${escapeHtml(draft.scenario_id)}">Delete</button>
+          </div>
+        </article>
+      `).join("") || "<p class=\"muted\">No scenario drafts yet.</p>";
+    } catch (error) {
+      $("scenarios").innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+    }
+  }
+
+  function newScenario() {
+    state.selectedScenarioId = "";
+    $("scenario-name").value = "";
+    $("scenario-json").value = "{}";
+    $("scenario-output").textContent = "";
+  }
+
+  function editScenario(id) {
+    const draft = state.scenarios.find((item) => item.scenario_id === id);
+    if (!draft) return;
+    state.selectedScenarioId = id;
+    $("scenario-name").value = draft.name;
+    $("scenario-json").value = JSON.stringify(draft.scenario, null, 2);
+    $("scenario-output").textContent = draft.status;
+  }
+
+  async function saveScenario() {
+    let scenario;
+    try {
+      scenario = JSON.parse($("scenario-json").value);
+    } catch (error) {
+      $("scenario-output").textContent = `Invalid JSON: ${error.message}`;
+      return;
+    }
+    const name = $("scenario-name").value.trim();
+    const path = state.selectedScenarioId
+      ? `/v1/scenarios/${encodeURIComponent(state.selectedScenarioId)}`
+      : "/v1/scenarios";
+    try {
+      const saved = await api(path, {
+        method: state.selectedScenarioId ? "PUT" : "POST",
+        json: { name, scenario }
+      });
+      state.selectedScenarioId = saved.scenario_id;
+      $("scenario-output").textContent = `Saved: ${saved.status}`;
+    } catch (error) {
+      $("scenario-output").textContent = error.message;
+      if (error.body && error.body.draft) {
+        state.selectedScenarioId = error.body.draft.scenario_id;
+      }
+    }
+    await loadScenarios();
+  }
+
+  async function deleteScenario(id) {
+    if (!confirm("Delete this scenario draft?")) return;
+    try {
+      await api(`/v1/scenarios/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (state.selectedScenarioId === id) newScenario();
+      await loadScenarios();
+    } catch (error) {
+      alert(error.message);
     }
   }
 
@@ -911,6 +1086,7 @@ const char kUiJs[] = R"JS((() => {
     renderKeyState();
     await loadProjects();
     await loadUsage();
+    await loadScenarios();
     await loadJobs({ force: true });
   });
 
@@ -920,12 +1096,23 @@ const char kUiJs[] = R"JS((() => {
     renderKeyState();
     await loadProjects();
     await loadUsage();
+    await loadScenarios();
     await loadJobs({ force: true });
   });
 
   $("refresh-packs").addEventListener("click", loadPacks);
   $("refresh-jobs").addEventListener("click", () => loadJobs({ force: true }));
   $("refresh-usage").addEventListener("click", loadUsage);
+  $("new-scenario").addEventListener("click", newScenario);
+  $("save-scenario").addEventListener("click", saveScenario);
+  $("scenarios").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const editId = target.getAttribute("data-edit-scenario");
+    const deleteId = target.getAttribute("data-delete-scenario");
+    if (editId) editScenario(editId);
+    if (deleteId) deleteScenario(deleteId);
+  });
   $("create-job").addEventListener("click", createJob);
   $("create-project").addEventListener("click", createProject);
   $("jobs").addEventListener("click", (event) => {
@@ -946,6 +1133,7 @@ const char kUiJs[] = R"JS((() => {
   loadPacks();
   loadProjects();
   loadUsage();
+  loadScenarios();
   loadJobs({ force: true });
   setInterval(() => loadJobs({ silent: true }), 5000);
 })();
@@ -982,7 +1170,8 @@ bool route_requires_authentication(
            path_at_or_below(uri, public_base_path + "/v1/artifacts") ||
            path_at_or_below(uri, public_base_path + "/v1/projects") ||
            path_at_or_below(uri, public_base_path + "/v1/usage") ||
-           path_at_or_below(uri, public_base_path + "/v1/metrics");
+           path_at_or_below(uri, public_base_path + "/v1/metrics") ||
+           path_at_or_below(uri, public_base_path + "/v1/scenarios");
 }
 
 RouteResponse route_request(
@@ -1117,6 +1306,180 @@ RouteResponse route_request(
             return response;
         }
         return json_response(200, usage_json(usage));
+    }
+
+    const std::string scenarios_path = public_base_path + "/v1/scenarios";
+    if (path_at_or_below(uri, scenarios_path)) {
+        const bool collection = uri == scenarios_path;
+        if (collection && method == "GET") {
+            std::vector<ScenarioDraftRecord> drafts;
+            std::string error;
+            if (!metadata_store->list_scenario_drafts(
+                    authenticated_identity, drafts, error)) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Scenario storage is unavailable.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            json_t* root = json_object();
+            json_t* items = json_array();
+            for (std::vector<ScenarioDraftRecord>::const_iterator it =
+                     drafts.begin(); it != drafts.end(); ++it) {
+                json_array_append_new(items, scenario_draft_json_object(*it));
+            }
+            json_object_set_new(root, "scenarios", items);
+            const std::string body = json_dump_line(root);
+            json_decref(root);
+            return json_response(200, body);
+        }
+        if (!collection && method == "GET") {
+            const std::string scenario_id =
+                uri.substr(scenarios_path.size() + 1);
+            if (!is_valid_pack_id(scenario_id) ||
+                scenario_id.compare(0, 9, "scenario_") != 0) {
+                return json_response(
+                    400, "{\"error\":{\"code\":\"invalid_scenario_id\","
+                    "\"message\":\"The scenario ID is invalid.\"}}\n");
+            }
+            ScenarioDraftRecord draft;
+            std::string error;
+            const RecordLookupStatus found =
+                metadata_store->find_scenario_draft(
+                    scenario_id, authenticated_identity, draft, error);
+            if (found == RecordLookupStatus::not_found) {
+                return json_response(
+                    404, "{\"error\":{\"code\":\"scenario_not_found\","
+                    "\"message\":\"The scenario draft does not exist.\"}}\n");
+            }
+            if (found == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Scenario storage is unavailable.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            json_t* value = scenario_draft_json_object(draft);
+            const std::string body = json_dump_line(value);
+            json_decref(value);
+            return json_response(200, body);
+        }
+        if (!collection && method == "DELETE") {
+            if (authenticated_identity.role == "viewer") {
+                return json_response(
+                    403, "{\"error\":{\"code\":\"forbidden\","
+                    "\"message\":\"Viewer role cannot delete scenarios.\"}}\n");
+            }
+            const std::string scenario_id =
+                uri.substr(scenarios_path.size() + 1);
+            std::string error;
+            const RecordLookupStatus deleted =
+                metadata_store->delete_scenario_draft(
+                    scenario_id, authenticated_identity, error);
+            if (deleted == RecordLookupStatus::not_found) {
+                return json_response(
+                    404, "{\"error\":{\"code\":\"scenario_not_found\","
+                    "\"message\":\"The scenario draft does not exist.\"}}\n");
+            }
+            if (deleted == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Scenario storage is unavailable.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            return json_response(
+                200, std::string("{\"scenario_id\":\"") + scenario_id +
+                "\",\"status\":\"deleted\"}\n");
+        }
+        const bool create = collection && method == "POST";
+        const bool update = !collection && method == "PUT";
+        if (!create && !update) {
+            return json_response(
+                405, "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Scenario route method is not allowed.\"}}\n");
+        }
+        if (authenticated_identity.role == "viewer") {
+            return json_response(
+                403, "{\"error\":{\"code\":\"forbidden\","
+                "\"message\":\"Viewer role cannot edit scenarios.\"}}\n");
+        }
+        if (!is_json_content_type(content_type)) {
+            return json_response(
+                415, "{\"error\":{\"code\":\"unsupported_media_type\","
+                "\"message\":\"Content-Type must be application/json.\"}}\n");
+        }
+        json_error_t parse_error;
+        json_t* submitted = json_loadb(
+            request_body.data(), request_body.size(),
+            JSON_REJECT_DUPLICATES, &parse_error);
+        json_t* name = submitted == nullptr
+            ? nullptr : json_object_get(submitted, "name");
+        json_t* scenario = submitted == nullptr
+            ? nullptr : json_object_get(submitted, "scenario");
+        if (!json_is_object(submitted) || json_object_size(submitted) != 2 ||
+            !json_is_string(name) || !json_is_object(scenario) ||
+            std::string(json_string_value(name)).empty() ||
+            std::string(json_string_value(name)).size() > 100) {
+            if (submitted != nullptr) json_decref(submitted);
+            return json_response(
+                400, "{\"error\":{\"code\":\"invalid_scenario_request\","
+                "\"message\":\"name and scenario object are required.\"}}\n");
+        }
+        std::string status;
+        std::string canonical_json;
+        std::string fingerprint;
+        std::string errors_json;
+        validate_scenario_document(
+            scenario, status, canonical_json, fingerprint, errors_json);
+        const std::string draft_name = json_string_value(name);
+        json_decref(submitted);
+        ScenarioDraftRecord draft;
+        std::string error;
+        bool stored = false;
+        RecordLookupStatus updated = RecordLookupStatus::storage_error;
+        if (create) {
+            stored = metadata_store->create_scenario_draft(
+                authenticated_identity, draft_name, status, canonical_json,
+                fingerprint, errors_json, draft, error);
+        } else {
+            const std::string scenario_id =
+                uri.substr(scenarios_path.size() + 1);
+            updated = metadata_store->update_scenario_draft(
+                scenario_id, authenticated_identity, draft_name, status,
+                canonical_json, fingerprint, errors_json, draft, error);
+            stored = updated == RecordLookupStatus::found;
+            if (updated == RecordLookupStatus::not_found) {
+                return json_response(
+                    404, "{\"error\":{\"code\":\"scenario_not_found\","
+                    "\"message\":\"The scenario draft does not exist.\"}}\n");
+            }
+        }
+        if (!stored) {
+            RouteResponse response = json_response(
+                503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                "\"message\":\"Scenario storage is unavailable.\"}}\n");
+            response.internal_error = error;
+            return response;
+        }
+        json_t* response_root = scenario_draft_json_object(draft);
+        if (status == "invalid") {
+            json_t* wrapper = json_object();
+            json_t* error_value = json_object();
+            json_object_set_new(
+                error_value, "code", json_string("scenario_invalid"));
+            json_object_set_new(
+                error_value, "message",
+                json_string("The draft was saved but scenario validation failed."));
+            json_object_set_new(wrapper, "error", error_value);
+            json_object_set_new(wrapper, "draft", response_root);
+            const std::string body = json_dump_line(wrapper);
+            json_decref(wrapper);
+            return json_response(422, body);
+        }
+        const std::string body = json_dump_line(response_root);
+        json_decref(response_root);
+        return json_response(create ? 201 : 200, body);
     }
 
     const std::string metrics_path = public_base_path + "/v1/metrics";

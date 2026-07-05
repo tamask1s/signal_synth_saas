@@ -101,6 +101,19 @@ struct RetentionCandidate {
     bool already_hidden;
 };
 
+struct ScenarioDraftRecord {
+    std::string scenario_id;
+    std::string organization_id;
+    std::string user_id;
+    std::string name;
+    std::string status;
+    std::string document_json;
+    std::string document_fingerprint;
+    std::string validation_errors_json;
+    std::string created_at;
+    std::string updated_at;
+};
+
 enum class RecordLookupStatus {
     found,
     not_found,
@@ -309,6 +322,48 @@ public:
 
     bool backup_database(
         const std::string& destination_path,
+        std::string& error
+    );
+
+    bool create_scenario_draft(
+        const ApiKeyIdentity& owner,
+        const std::string& name,
+        const std::string& status,
+        const std::string& document_json,
+        const std::string& document_fingerprint,
+        const std::string& validation_errors_json,
+        ScenarioDraftRecord& draft,
+        std::string& error
+    );
+
+    bool list_scenario_drafts(
+        const ApiKeyIdentity& owner,
+        std::vector<ScenarioDraftRecord>& drafts,
+        std::string& error
+    );
+
+    RecordLookupStatus find_scenario_draft(
+        const std::string& scenario_id,
+        const ApiKeyIdentity& owner,
+        ScenarioDraftRecord& draft,
+        std::string& error
+    );
+
+    RecordLookupStatus update_scenario_draft(
+        const std::string& scenario_id,
+        const ApiKeyIdentity& owner,
+        const std::string& name,
+        const std::string& status,
+        const std::string& document_json,
+        const std::string& document_fingerprint,
+        const std::string& validation_errors_json,
+        ScenarioDraftRecord& draft,
+        std::string& error
+    );
+
+    RecordLookupStatus delete_scenario_draft(
+        const std::string& scenario_id,
+        const ApiKeyIdentity& owner,
         std::string& error
     );
 

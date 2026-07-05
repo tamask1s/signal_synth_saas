@@ -10,7 +10,7 @@
 
 namespace {
 
-const int kSchemaVersion = 5;
+const int kSchemaVersion = 6;
 const int kRequestLimitPerMinute = 120;
 const int kConcurrentJobLimit = 2;
 const int kMonthlyJobLimit = 100;
@@ -162,6 +162,27 @@ CREATE TABLE IF NOT EXISTS worker_heartbeat (
     last_seen_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS scenario_drafts (
+    id TEXT PRIMARY KEY,
+    organization_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('valid','invalid')),
+    document_json TEXT NOT NULL,
+    document_fingerprint TEXT,
+    validation_errors_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT (
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    ),
+    updated_at TEXT NOT NULL DEFAULT (
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    ),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS scenario_drafts_owner_updated_idx
+    ON scenario_drafts (organization_id,user_id,updated_at);
+
 CREATE INDEX IF NOT EXISTS jobs_owner_created_idx
     ON jobs (organization_id, project_id, created_at);
 CREATE INDEX IF NOT EXISTS packages_owner_created_idx
@@ -208,6 +229,23 @@ std::string column_text(sqlite3_stmt* statement, int index) {
     return value == nullptr
         ? std::string()
         : std::string(reinterpret_cast<const char*>(value));
+}
+
+syn_sig_ra::ScenarioDraftRecord scenario_draft_columns(
+    sqlite3_stmt* statement
+) {
+    syn_sig_ra::ScenarioDraftRecord draft;
+    draft.scenario_id = column_text(statement, 0);
+    draft.organization_id = column_text(statement, 1);
+    draft.user_id = column_text(statement, 2);
+    draft.name = column_text(statement, 3);
+    draft.status = column_text(statement, 4);
+    draft.document_json = column_text(statement, 5);
+    draft.document_fingerprint = column_text(statement, 6);
+    draft.validation_errors_json = column_text(statement, 7);
+    draft.created_at = column_text(statement, 8);
+    draft.updated_at = column_text(statement, 9);
+    return draft;
 }
 
 }  // namespace
@@ -295,7 +333,7 @@ bool MetadataStore::initialize(std::string& error) {
     }
     bool succeeded = execute(kSchemaSql, error);
     if (succeeded) {
-        succeeded = execute("PRAGMA user_version = 5;", error);
+        succeeded = execute("PRAGMA user_version = 6;", error);
     }
     if (!succeeded || !execute("COMMIT;", error)) {
         std::string rollback_error;
@@ -1654,6 +1692,179 @@ bool MetadataStore::backup_database(
     if (!succeeded) error = sqlite3_errmsg(destination);
     sqlite3_close(destination);
     return succeeded;
+}
+
+RecordLookupStatus MetadataStore::find_scenario_draft(
+    const std::string& scenario_id,
+    const ApiKeyIdentity& owner,
+    ScenarioDraftRecord& draft,
+    std::string& error
+) {
+    if (!initialize(error)) return RecordLookupStatus::storage_error;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT id,organization_id,user_id,name,status,document_json,"
+        "COALESCE(document_fingerprint,''),validation_errors_json,"
+        "created_at,updated_at FROM scenario_drafts "
+        "WHERE id=?1 AND organization_id=?2 AND user_id=?3;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, scenario_id) ||
+        !bind_text(statement, 2, owner.organization_id) ||
+        !bind_text(statement, 3, owner.user_id)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    const int result = sqlite3_step(statement);
+    if (result == SQLITE_DONE) {
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::not_found;
+    }
+    if (result != SQLITE_ROW) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    draft = scenario_draft_columns(statement);
+    sqlite3_finalize(statement);
+    return RecordLookupStatus::found;
+}
+
+bool MetadataStore::create_scenario_draft(
+    const ApiKeyIdentity& owner,
+    const std::string& name,
+    const std::string& status,
+    const std::string& document_json,
+    const std::string& document_fingerprint,
+    const std::string& validation_errors_json,
+    ScenarioDraftRecord& draft,
+    std::string& error
+) {
+    std::string scenario_id;
+    if (!initialize(error) || !random_id("scenario_", scenario_id, error)) {
+        return false;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO scenario_drafts "
+        "(id,organization_id,user_id,name,status,document_json,"
+        "document_fingerprint,validation_errors_json) "
+        "VALUES (?1,?2,?3,?4,?5,?6,NULLIF(?7,''),?8);";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, scenario_id) &&
+        bind_text(statement, 2, owner.organization_id) &&
+        bind_text(statement, 3, owner.user_id) &&
+        bind_text(statement, 4, name) &&
+        bind_text(statement, 5, status) &&
+        bind_text(statement, 6, document_json) &&
+        bind_text(statement, 7, document_fingerprint) &&
+        bind_text(statement, 8, validation_errors_json) &&
+        sqlite3_step(statement) == SQLITE_DONE;
+    if (!succeeded) error = sqlite3_errmsg(database_);
+    sqlite3_finalize(statement);
+    return succeeded &&
+        find_scenario_draft(scenario_id, owner, draft, error) ==
+            RecordLookupStatus::found;
+}
+
+bool MetadataStore::list_scenario_drafts(
+    const ApiKeyIdentity& owner,
+    std::vector<ScenarioDraftRecord>& drafts,
+    std::string& error
+) {
+    drafts.clear();
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT id,organization_id,user_id,name,status,document_json,"
+        "COALESCE(document_fingerprint,''),validation_errors_json,"
+        "created_at,updated_at FROM scenario_drafts "
+        "WHERE organization_id=?1 AND user_id=?2 "
+        "ORDER BY updated_at DESC,id DESC;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, owner.organization_id) ||
+        !bind_text(statement, 2, owner.user_id)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return false;
+    }
+    for (;;) {
+        const int result = sqlite3_step(statement);
+        if (result == SQLITE_DONE) {
+            sqlite3_finalize(statement);
+            return true;
+        }
+        if (result != SQLITE_ROW) {
+            error = sqlite3_errmsg(database_);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        drafts.push_back(scenario_draft_columns(statement));
+    }
+}
+
+RecordLookupStatus MetadataStore::update_scenario_draft(
+    const std::string& scenario_id,
+    const ApiKeyIdentity& owner,
+    const std::string& name,
+    const std::string& status,
+    const std::string& document_json,
+    const std::string& document_fingerprint,
+    const std::string& validation_errors_json,
+    ScenarioDraftRecord& draft,
+    std::string& error
+) {
+    if (!initialize(error)) return RecordLookupStatus::storage_error;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE scenario_drafts SET name=?4,status=?5,document_json=?6,"
+        "document_fingerprint=NULLIF(?7,''),validation_errors_json=?8,"
+        "updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') "
+        "WHERE id=?1 AND organization_id=?2 AND user_id=?3;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, scenario_id) ||
+        !bind_text(statement, 2, owner.organization_id) ||
+        !bind_text(statement, 3, owner.user_id) ||
+        !bind_text(statement, 4, name) ||
+        !bind_text(statement, 5, status) ||
+        !bind_text(statement, 6, document_json) ||
+        !bind_text(statement, 7, document_fingerprint) ||
+        !bind_text(statement, 8, validation_errors_json) ||
+        sqlite3_step(statement) != SQLITE_DONE) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    const bool changed = sqlite3_changes(database_) == 1;
+    sqlite3_finalize(statement);
+    return changed
+        ? find_scenario_draft(scenario_id, owner, draft, error)
+        : RecordLookupStatus::not_found;
+}
+
+RecordLookupStatus MetadataStore::delete_scenario_draft(
+    const std::string& scenario_id,
+    const ApiKeyIdentity& owner,
+    std::string& error
+) {
+    if (!initialize(error)) return RecordLookupStatus::storage_error;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "DELETE FROM scenario_drafts "
+        "WHERE id=?1 AND organization_id=?2 AND user_id=?3;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, scenario_id) ||
+        !bind_text(statement, 2, owner.organization_id) ||
+        !bind_text(statement, 3, owner.user_id) ||
+        sqlite3_step(statement) != SQLITE_DONE) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    const bool changed = sqlite3_changes(database_) == 1;
+    sqlite3_finalize(statement);
+    return changed ? RecordLookupStatus::found : RecordLookupStatus::not_found;
 }
 
 }  // namespace syn_sig_ra

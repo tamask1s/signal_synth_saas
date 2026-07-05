@@ -86,8 +86,17 @@ configure_file(
     @ONLY
 )
 
+set(SIGNAL_SYNTH_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(SIGNAL_SYNTH_BUILD_CLI OFF CACHE BOOL "" FORCE)
+set(SIGNAL_SYNTH_INSTALL OFF CACHE BOOL "" FORCE)
+add_subdirectory(
+    "${SIGNAL_SYNTH_ROOT}"
+    "${CMAKE_CURRENT_BINARY_DIR}/signal_synth_dependency"
+    EXCLUDE_FROM_ALL
+)
+set_target_properties(signal_synth PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 add_library(syn_sig_ra_core STATIC
-    "${SIGNAL_SYNTH_ROOT}/src/ecg_pack.cpp"
     src/artifact/artifact_store.cpp
     src/auth/api_key_auth.cpp
     src/auth/sha256.cpp
@@ -112,6 +121,7 @@ target_link_libraries(syn_sig_ra_core
         OpenSSL::Crypto
         SQLite::SQLite3
         Jansson::Jansson
+        signal_synth::signal_synth
 )
 
 add_executable(syn_sig_ra_admin

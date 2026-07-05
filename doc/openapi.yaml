@@ -161,3 +161,47 @@ paths:
       responses:
         '200': {description: Operational counters and worker heartbeat}
         '403': {description: Role forbidden}
+  /v1/scenarios:
+    get:
+      summary: List caller-owned scenario drafts
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {description: Scenario draft list}
+    post:
+      summary: Validate and create an editable scenario draft
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, scenario]
+              properties:
+                name: {type: string, maxLength: 100}
+                scenario: {type: object}
+              additionalProperties: false
+      responses:
+        '201': {description: Valid draft saved with fingerprint}
+        '422': {description: Invalid draft saved with actionable validation errors}
+  /v1/scenarios/{scenario_id}:
+    parameters:
+      - {in: path, name: scenario_id, required: true, schema: {type: string}}
+    get:
+      summary: Read caller-owned scenario draft
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {description: Scenario draft}
+        '404': {description: Missing or owned by another user}
+    put:
+      summary: Replace and revalidate scenario draft
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {description: Valid draft updated}
+        '422': {description: Invalid draft updated with validation errors}
+    delete:
+      summary: Delete scenario draft
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {description: Draft deleted}
+        '404': {description: Missing or owned by another user}

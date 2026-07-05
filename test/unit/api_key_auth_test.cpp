@@ -188,8 +188,8 @@ int main() {
             "SELECT count(*) FROM sqlite_master WHERE type = 'table' "
             "AND name IN ('organizations', 'users', 'organization_memberships', "
             "'projects', 'api_keys', 'jobs', 'packages', 'audit_events', "
-            "'quota_decisions', 'worker_heartbeat');"
-        ) == 10,
+            "'quota_decisions', 'worker_heartbeat', 'scenario_drafts');"
+        ) == 11,
         "all metadata tables should exist"
     );
     require(
@@ -217,7 +217,7 @@ int main() {
         "rate-limit decisions should be persisted"
     );
     require(
-        scalar_int(verification_database, "PRAGMA user_version;") == 5,
+        scalar_int(verification_database, "PRAGMA user_version;") == 6,
         "schema version should be deterministic"
     );
     sqlite3_close(verification_database);

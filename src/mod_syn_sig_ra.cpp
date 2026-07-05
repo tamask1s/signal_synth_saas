@@ -25,7 +25,8 @@ namespace {
 
 bool read_request_body(request_rec* request, std::string& body) {
     if (request->method == nullptr ||
-        std::string(request->method) != "POST") {
+        (std::string(request->method) != "POST" &&
+         std::string(request->method) != "PUT")) {
         return true;
     }
     if (ap_setup_client_block(request, REQUEST_CHUNKED_ERROR) != OK) {

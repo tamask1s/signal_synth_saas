@@ -483,10 +483,13 @@ For the customer onboarding flow, curl examples, stable error codes, and the
 OpenAPI reference, see [`doc/API_GUIDE.md`](doc/API_GUIDE.md) and
 [`doc/openapi.yaml`](doc/openapi.yaml).
 
+For user-owned editable scenario validation and CRUD, see
+[`doc/SCENARIO_DRAFTS.md`](doc/SCENARIO_DRAFTS.md).
+
 ## Metadata and API keys
 
 The module initializes a versioned SQLite database at
-`<SynSigRaDataRoot>/db.sqlite3`. Schema version 5 contains organizations,
+`<SynSigRaDataRoot>/db.sqlite3`. Schema version 6 contains organizations,
 memberships, projects, users, API-key hashes, jobs, packages, and audit
 events. API keys must be high-entropy secrets; only their lowercase SHA-256
 hashes are persisted. This pre-beta schema requires a clean database reset

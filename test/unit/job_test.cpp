@@ -8,6 +8,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -19,6 +20,13 @@ void require(bool condition, const std::string& message) {
         std::cerr << "FAIL: " << message << '\n';
         std::exit(EXIT_FAILURE);
     }
+}
+
+std::string read_file(const std::string& path) {
+    std::ifstream input(path.c_str(), std::ios::binary);
+    std::ostringstream content;
+    content << input.rdbuf();
+    return content.str();
 }
 
 }  // namespace
@@ -75,6 +83,55 @@ int main() {
 
     const syn_sig_ra::RuntimeConfig config =
         syn_sig_ra::default_runtime_config();
+    const std::string scenario_json = read_file(
+        config.pack_root +
+        "/../../signal_synth/examples/scenarios/ecg_clean.json"
+    );
+    require(!scenario_json.empty(), "scenario fixture should be readable");
+    const syn_sig_ra::RouteResponse scenario_created =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/scenarios",
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root,
+            "application/json",
+            std::string("{\"name\":\"Clean draft\",\"scenario\":") +
+                scenario_json + "}"
+        );
+    require(
+        scenario_created.status == 201 &&
+            scenario_created.body.find("\"status\":\"valid\"") !=
+                std::string::npos &&
+            scenario_created.body.find("sha256:") != std::string::npos,
+        "valid scenario draft should be stored with a fingerprint"
+    );
+    const std::string scenario_marker("\"scenario_id\":\"");
+    const std::string::size_type scenario_start =
+        scenario_created.body.rfind(scenario_marker) + scenario_marker.size();
+    const std::string scenario_id = scenario_created.body.substr(
+        scenario_start,
+        scenario_created.body.find('"', scenario_start) - scenario_start
+    );
+    const syn_sig_ra::RouteResponse invalid_scenario =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/scenarios",
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root,
+            "application/json",
+            "{\"name\":\"Incomplete\",\"scenario\":{}}"
+        );
+    require(
+        invalid_scenario.status == 422 &&
+            invalid_scenario.body.find("scenario_invalid") != std::string::npos &&
+            invalid_scenario.body.find("\"validation_errors\":[{") !=
+                std::string::npos,
+        "invalid scenario should be saved with actionable validation errors"
+    );
     const syn_sig_ra::RouteResponse created = syn_sig_ra::route_request(
         "POST",
         "/syn_sig_ra/v1/jobs",
@@ -126,6 +183,51 @@ int main() {
         syn_sig_ra::sha256_hex("viewer-secret", key_hash, error) &&
             store.create_api_key(viewer, key_hash, "job viewer", error),
         "viewer key should be created: " + error
+    );
+    const syn_sig_ra::RouteResponse isolated_scenario =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/scenarios/" + scenario_id,
+            "/syn_sig_ra",
+            "Bearer viewer-secret",
+            &store,
+            config.pack_root
+        );
+    require(
+        isolated_scenario.status == 404,
+        "scenario drafts must be scoped to the owning user (" + scenario_id + "): " +
+            isolated_scenario.body
+    );
+    const syn_sig_ra::RouteResponse scenario_updated =
+        syn_sig_ra::route_request(
+            "PUT",
+            "/syn_sig_ra/v1/scenarios/" + scenario_id,
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root,
+            "application/json",
+            std::string("{\"name\":\"Updated clean\",\"scenario\":") +
+                scenario_json + "}"
+        );
+    require(
+        scenario_updated.status == 200 &&
+            scenario_updated.body.find("Updated clean") != std::string::npos,
+        "scenario owner should update and revalidate a draft"
+    );
+    const syn_sig_ra::RouteResponse scenario_list =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/scenarios",
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root
+        );
+    require(
+        scenario_list.status == 200 &&
+            scenario_list.body.find(scenario_id) != std::string::npos,
+        "scenario owner should list drafts"
     );
     const syn_sig_ra::RouteResponse viewer_read = syn_sig_ra::route_request(
         "GET",
@@ -383,6 +485,32 @@ int main() {
         list_after_delete.status == 200 &&
             list_after_delete.body.find(job_id) == std::string::npos,
         "deleted jobs should not appear in the job list"
+    );
+    const syn_sig_ra::RouteResponse scenario_deleted =
+        syn_sig_ra::route_request(
+            "DELETE",
+            "/syn_sig_ra/v1/scenarios/" + scenario_id,
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root
+        );
+    require(
+        scenario_deleted.status == 200,
+        "scenario owner should delete a draft"
+    );
+    const syn_sig_ra::RouteResponse scenario_hidden =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/scenarios/" + scenario_id,
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root
+        );
+    require(
+        scenario_hidden.status == 404,
+        "deleted scenario draft should not remain readable"
     );
 
     std::remove(path.str().c_str());
