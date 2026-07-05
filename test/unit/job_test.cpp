@@ -28,7 +28,8 @@ int main() {
     std::string error;
     require(
         syn_sig_ra::parse_job_request(
-            "{\"pack_id\":\"r_peak_stress_v1\","
+            "{\"project_id\":\"org_job_owner_default\","
+            "\"pack_id\":\"r_peak_stress_v1\","
             "\"export_formats\":[\"wfdb\",\"edf\"],"
             "\"report_format\":\"html\"}",
             parsed,
@@ -82,7 +83,8 @@ int main() {
         &store,
         config.pack_root,
         "application/json; charset=utf-8",
-        "{\"pack_id\":\"r_peak_stress_v1\"}"
+        "{\"project_id\":\"org_job_owner_default\","
+        "\"pack_id\":\"r_peak_stress_v1\"}"
     );
     require(created.status == 202, "job creation should return HTTP 202");
     const std::string marker("\"job_id\":\"");
@@ -113,6 +115,100 @@ int main() {
     require(
         status.body.find("\"status\":\"queued\"") != std::string::npos,
         "new job should have queued status"
+    );
+
+    syn_sig_ra::ApiKeyIdentity viewer;
+    viewer.api_key_id = "key_job_viewer";
+    viewer.organization_id = owner.organization_id;
+    viewer.user_id = "user_job_viewer";
+    viewer.role = "viewer";
+    require(
+        syn_sig_ra::sha256_hex("viewer-secret", key_hash, error) &&
+            store.create_api_key(viewer, key_hash, "job viewer", error),
+        "viewer key should be created: " + error
+    );
+    const syn_sig_ra::RouteResponse viewer_read = syn_sig_ra::route_request(
+        "GET",
+        "/syn_sig_ra/v1/jobs/" + job_id,
+        "/syn_sig_ra",
+        "Bearer viewer-secret",
+        &store,
+        config.pack_root
+    );
+    require(
+        viewer_read.status == 200,
+        "a viewer in the organization should read project jobs"
+    );
+    const syn_sig_ra::RouteResponse viewer_create = syn_sig_ra::route_request(
+        "POST",
+        "/syn_sig_ra/v1/jobs",
+        "/syn_sig_ra",
+        "Bearer viewer-secret",
+        &store,
+        config.pack_root,
+        "application/json",
+        "{\"project_id\":\"org_job_owner_default\","
+        "\"pack_id\":\"r_peak_stress_v1\"}"
+    );
+    require(
+        viewer_create.status == 403,
+        "viewer role must not create jobs"
+    );
+    const syn_sig_ra::RouteResponse viewer_delete = syn_sig_ra::route_request(
+        "DELETE",
+        "/syn_sig_ra/v1/jobs/" + job_id,
+        "/syn_sig_ra",
+        "Bearer viewer-secret",
+        &store,
+        config.pack_root
+    );
+    require(
+        viewer_delete.status == 403,
+        "viewer role must not delete jobs"
+    );
+
+    const syn_sig_ra::RouteResponse projects = syn_sig_ra::route_request(
+        "GET",
+        "/syn_sig_ra/v1/projects",
+        "/syn_sig_ra",
+        "Bearer job-owner-secret",
+        &store,
+        config.pack_root
+    );
+    require(
+        projects.status == 200 &&
+            projects.body.find("org_job_owner_default") != std::string::npos,
+        "organization members should list their projects"
+    );
+    const syn_sig_ra::RouteResponse project_created =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/projects",
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root,
+            "application/json",
+            "{\"display_name\":\"Validation\"}"
+        );
+    require(
+        project_created.status == 201,
+        "owner role should create projects"
+    );
+    const syn_sig_ra::RouteResponse viewer_project_create =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/projects",
+            "/syn_sig_ra",
+            "Bearer viewer-secret",
+            &store,
+            config.pack_root,
+            "application/json",
+            "{\"display_name\":\"Forbidden\"}"
+        );
+    require(
+        viewer_project_create.status == 403,
+        "viewer role must not create projects"
     );
 
     const syn_sig_ra::RouteResponse job_list = syn_sig_ra::route_request(

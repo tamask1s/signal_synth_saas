@@ -449,11 +449,15 @@ For the next steps toward a real user-ready SaaS, see
 ## Metadata and API keys
 
 The module initializes a versioned SQLite database at
-`<SynSigRaDataRoot>/db.sqlite3`. Schema version 2 contains organizations,
-users, API-key hashes, jobs, packages, and audit events. API keys must be
-high-entropy secrets; only their lowercase SHA-256 hashes are persisted.
-Version 2 adds soft-delete timestamps for jobs and packages and migrates
-version 1 databases automatically on startup.
+`<SynSigRaDataRoot>/db.sqlite3`. Schema version 3 contains organizations,
+memberships, projects, users, API-key hashes, jobs, packages, and audit
+events. API keys must be high-entropy secrets; only their lowercase SHA-256
+hashes are persisted. This pre-beta schema requires a clean database reset
+when its version changes.
+
+API keys resolve to an organization membership with an `owner`, `admin`,
+`developer`, or `viewer` role. Jobs and packages are project-scoped. See
+[`doc/TENANCY.md`](doc/TENANCY.md) for the authorization matrix.
 
 Initialize a development database:
 
@@ -468,7 +472,7 @@ arguments:
 read -r -s API_KEY
 printf '%s\n' "$API_KEY" |
   build/syn_sig_ra_admin create-api-key \
-    build/var/db.sqlite3 org_dev user_dev key_dev "local development"
+    build/var/db.sqlite3 org_dev user_dev key_dev "local development" owner
 unset API_KEY
 ```
 
@@ -486,7 +490,8 @@ build/syn_sig_ra_admin revoke-api-key build/var/db.sqlite3 key_dev
 ```
 
 `/syn_sig_ra/healthz` remains public. Routes at or below
-`/syn_sig_ra/v1/jobs` and `/syn_sig_ra/v1/artifacts` require
+`/syn_sig_ra/v1/projects`, `/syn_sig_ra/v1/jobs`, and
+`/syn_sig_ra/v1/artifacts` require
 `Authorization: Bearer <api-key>`. Missing, malformed, inactive, or unknown
 keys return the same HTTP 401 response. Metadata failures return a safe HTTP
 503 response while their details are written only to the Apache error log.

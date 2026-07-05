@@ -74,6 +74,7 @@ json_t* job_json_object(
 ) {
     json_t* root = json_object();
     json_object_set_new(root, "job_id", json_string(job.job_id.c_str()));
+    json_object_set_new(root, "project_id", json_string(job.project_id.c_str()));
     json_object_set_new(root, "status", json_string(job.status.c_str()));
     json_object_set_new(
         root,
@@ -195,6 +196,20 @@ std::string job_list_json(
     return output;
 }
 
+json_t* project_json_object(const syn_sig_ra::ProjectRecord& project) {
+    json_t* root = json_object();
+    json_object_set_new(
+        root, "project_id", json_string(project.project_id.c_str())
+    );
+    json_object_set_new(
+        root, "display_name", json_string(project.display_name.c_str())
+    );
+    json_object_set_new(
+        root, "created_at", json_string(project.created_at.c_str())
+    );
+    return root;
+}
+
 const char kUiHtml[] = R"HTML(<!doctype html>
 <html lang="en">
 <head>
@@ -240,6 +255,12 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <div class="panel">
         <div class="panel-heading">
           <h2>Create job</h2>
+        </div>
+        <label for="project-select">Project</label>
+        <select id="project-select"></select>
+        <div class="row">
+          <input id="project-name" type="text" maxlength="100" placeholder="New project name">
+          <button id="create-project" class="secondary">Create project</button>
         </div>
         <label for="pack-select">Pack</label>
         <select id="pack-select"></select>
@@ -474,6 +495,7 @@ const char kUiJs[] = R"JS((() => {
   const state = {
     apiKey: sessionStorage.getItem("syn_sig_ra_api_key") || "",
     packs: [],
+    projects: [],
     jobs: [],
     jobsFingerprint: "",
     jobsLoaded: false,
@@ -564,16 +586,53 @@ const char kUiJs[] = R"JS((() => {
     }
   }
 
+  async function loadProjects() {
+    const select = $("project-select");
+    select.innerHTML = "";
+    if (!state.apiKey) return;
+    try {
+      const body = await api("/v1/projects");
+      state.projects = body.projects || [];
+      $("create-project").disabled = !["owner", "admin"].includes(body.role);
+      state.projects.forEach((project) => {
+        const option = document.createElement("option");
+        option.value = project.project_id;
+        option.textContent = project.display_name;
+        select.appendChild(option);
+      });
+    } catch (error) {
+      $("create-output").textContent = error.message;
+    }
+  }
+
+  async function createProject() {
+    const displayName = $("project-name").value.trim();
+    if (!displayName) return;
+    $("create-project").disabled = true;
+    try {
+      const created = await api("/v1/projects", {
+        method: "POST",
+        json: { display_name: displayName }
+      });
+      $("project-name").value = "";
+      await loadProjects();
+      $("project-select").value = created.project_id;
+    } catch (error) {
+      $("create-output").textContent = error.message;
+    }
+  }
+
   async function createJob() {
     if (!state.apiKey) {
       $("create-output").textContent = "Paste an API key first.";
       return;
     }
     const packId = $("pack-select").value;
+    const projectId = $("project-select").value;
     $("create-job").disabled = true;
     $("create-output").textContent = "Creating job…";
     try {
-      const body = await api("/v1/jobs", { method: "POST", json: { pack_id: packId } });
+      const body = await api("/v1/jobs", { method: "POST", json: { project_id: projectId, pack_id: packId } });
       $("create-output").textContent = JSON.stringify(body, null, 2);
       await loadJobs({ force: true });
     } catch (error) {
@@ -586,6 +645,7 @@ const char kUiJs[] = R"JS((() => {
   function jobsFingerprint(jobs) {
     return JSON.stringify(jobs.map((job) => ({
       job_id: job.job_id,
+      project_id: job.project_id,
       status: job.status,
       package_id: job.package_id || "",
       package_fingerprint: job.package_fingerprint || "",
@@ -716,6 +776,7 @@ const char kUiJs[] = R"JS((() => {
     if (state.apiKey) sessionStorage.setItem("syn_sig_ra_api_key", state.apiKey);
     else sessionStorage.removeItem("syn_sig_ra_api_key");
     renderKeyState();
+    await loadProjects();
     await loadJobs({ force: true });
   });
 
@@ -723,12 +784,14 @@ const char kUiJs[] = R"JS((() => {
     state.apiKey = "";
     sessionStorage.removeItem("syn_sig_ra_api_key");
     renderKeyState();
+    await loadProjects();
     await loadJobs({ force: true });
   });
 
   $("refresh-packs").addEventListener("click", loadPacks);
   $("refresh-jobs").addEventListener("click", () => loadJobs({ force: true }));
   $("create-job").addEventListener("click", createJob);
+  $("create-project").addEventListener("click", createProject);
   $("jobs").addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -742,6 +805,7 @@ const char kUiJs[] = R"JS((() => {
   renderKeyState();
   checkHealth();
   loadPacks();
+  loadProjects();
   loadJobs({ force: true });
   setInterval(() => loadJobs({ silent: true }), 5000);
 })();
@@ -775,7 +839,8 @@ bool route_requires_authentication(
     const std::string& public_base_path
 ) {
     return path_at_or_below(uri, public_base_path + "/v1/jobs") ||
-           path_at_or_below(uri, public_base_path + "/v1/artifacts");
+           path_at_or_below(uri, public_base_path + "/v1/artifacts") ||
+           path_at_or_below(uri, public_base_path + "/v1/projects");
 }
 
 RouteResponse route_request(
@@ -832,6 +897,93 @@ RouteResponse route_request(
         authenticated = true;
     }
 
+    const std::string projects_path = public_base_path + "/v1/projects";
+    if (uri == projects_path) {
+        if (method == "GET") {
+            std::vector<ProjectRecord> projects;
+            std::string error;
+            if (!metadata_store->list_projects(
+                    authenticated_identity, projects, error)) {
+                RouteResponse response = json_response(
+                    503,
+                    "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Project storage is unavailable.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            json_t* root = json_object();
+            json_t* array = json_array();
+            for (std::vector<ProjectRecord>::const_iterator it = projects.begin();
+                 it != projects.end(); ++it) {
+                json_array_append_new(array, project_json_object(*it));
+            }
+            json_object_set_new(root, "projects", array);
+            json_object_set_new(
+                root, "role", json_string(authenticated_identity.role.c_str())
+            );
+            const std::string body = json_dump_line(root);
+            json_decref(root);
+            return json_response(200, body);
+        }
+        if (method != "POST") {
+            return json_response(
+                405,
+                "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Projects only accept GET or POST.\"}}\n"
+            );
+        }
+        if (authenticated_identity.role != "owner" &&
+            authenticated_identity.role != "admin") {
+            return json_response(
+                403,
+                "{\"error\":{\"code\":\"forbidden\","
+                "\"message\":\"Owner or admin role is required.\"}}\n"
+            );
+        }
+        if (!is_json_content_type(content_type)) {
+            return json_response(
+                415,
+                "{\"error\":{\"code\":\"unsupported_media_type\","
+                "\"message\":\"Content-Type must be application/json.\"}}\n"
+            );
+        }
+        json_error_t parse_error;
+        json_t* root = json_loadb(
+            request_body.data(), request_body.size(),
+            JSON_REJECT_DUPLICATES, &parse_error
+        );
+        json_t* name = root == nullptr ? nullptr :
+            json_object_get(root, "display_name");
+        if (!json_is_object(root) || json_object_size(root) != 1 ||
+            !json_is_string(name)) {
+            if (root != nullptr) json_decref(root);
+            return json_response(
+                400,
+                "{\"error\":{\"code\":\"invalid_project_request\","
+                "\"message\":\"display_name is required.\"}}\n"
+            );
+        }
+        const std::string display_name = json_string_value(name);
+        json_decref(root);
+        ProjectRecord project;
+        std::string error;
+        if (!metadata_store->create_project(
+                authenticated_identity, display_name, project, error)) {
+            RouteResponse response = json_response(
+                400,
+                "{\"error\":{\"code\":\"invalid_project_request\","
+                "\"message\":\"Project could not be created.\"}}\n"
+            );
+            response.internal_error = error;
+            return response;
+        }
+        json_t* created = project_json_object(project);
+        const std::string body = json_dump_line(created);
+        json_decref(created);
+        return json_response(201, body);
+    }
+
     const std::string jobs_path = public_base_path + "/v1/jobs";
     if (path_at_or_below(uri, jobs_path)) {
         if (!authenticated || metadata_store == nullptr) {
@@ -871,6 +1023,13 @@ RouteResponse route_request(
                     "\"message\":\"Job collection only accepts GET or POST.\"}}\n"
                 );
             }
+            if (authenticated_identity.role == "viewer") {
+                return json_response(
+                    403,
+                    "{\"error\":{\"code\":\"forbidden\","
+                    "\"message\":\"Viewer role cannot create jobs.\"}}\n"
+                );
+            }
             if (!is_json_content_type(content_type)) {
                 return json_response(
                     415,
@@ -895,6 +1054,30 @@ RouteResponse route_request(
                     std::string("{\"error\":{\"code\":\"") + code +
                     "\",\"message\":\"The job request is invalid.\"}}\n"
                 );
+            }
+            ProjectRecord selected_project;
+            const RecordLookupStatus project_status =
+                metadata_store->find_project(
+                    job_request.project_id,
+                    authenticated_identity,
+                    selected_project,
+                    error
+                );
+            if (project_status == RecordLookupStatus::not_found) {
+                return json_response(
+                    404,
+                    "{\"error\":{\"code\":\"project_not_found\","
+                    "\"message\":\"The requested project does not exist.\"}}\n"
+                );
+            }
+            if (project_status == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503,
+                    "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Project storage is unavailable.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
             }
             const PackCatalog catalog(pack_root);
             PackSummary pack;
@@ -922,6 +1105,7 @@ RouteResponse route_request(
             std::string job_id;
             if (!metadata_store->create_job(
                     authenticated_identity,
+                    job_request.project_id,
                     job_request.canonical_json,
                     job_request.pack_id,
                     pack_root + "/" + job_request.pack_id + ".json",
@@ -959,6 +1143,13 @@ RouteResponse route_request(
             );
         }
         if (method == "DELETE") {
+            if (authenticated_identity.role == "viewer") {
+                return json_response(
+                    403,
+                    "{\"error\":{\"code\":\"forbidden\","
+                    "\"message\":\"Viewer role cannot delete jobs.\"}}\n"
+                );
+            }
             std::string error;
             const JobDeleteStatus delete_status = metadata_store->delete_job(
                 job_id,

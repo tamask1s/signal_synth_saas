@@ -290,7 +290,7 @@ CREATE_HTTP=$(
         -w '%{http_code}' \
         -H "Authorization: Bearer $API_KEY" \
         -H "Content-Type: application/json" \
-        -d '{"pack_id":"r_peak_stress_v1"}' \
+        -d '{"project_id":"org_e2e_default","pack_id":"r_peak_stress_v1"}' \
         "$BASE_URL/v1/jobs"
 )
 if [ "$CREATE_HTTP" != "202" ]; then

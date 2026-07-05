@@ -12,11 +12,20 @@ struct ApiKeyIdentity {
     std::string api_key_id;
     std::string organization_id;
     std::string user_id;
+    std::string role;
+};
+
+struct ProjectRecord {
+    std::string project_id;
+    std::string organization_id;
+    std::string display_name;
+    std::string created_at;
 };
 
 struct JobRecord {
     std::string job_id;
     std::string organization_id;
+    std::string project_id;
     std::string user_id;
     std::string status;
     std::string request_json;
@@ -41,6 +50,7 @@ struct PackageRecord {
     std::string package_id;
     std::string job_id;
     std::string organization_id;
+    std::string project_id;
     std::string user_id;
     std::string package_fingerprint;
     std::string manifest_hash;
@@ -51,6 +61,7 @@ struct ApiKeyRecord {
     std::string api_key_id;
     std::string organization_id;
     std::string user_id;
+    std::string role;
     std::string label;
     bool active;
     std::string created_at;
@@ -104,8 +115,29 @@ public:
         std::string& error
     );
 
+    bool list_projects(
+        const ApiKeyIdentity& identity,
+        std::vector<ProjectRecord>& projects,
+        std::string& error
+    );
+
+    bool create_project(
+        const ApiKeyIdentity& identity,
+        const std::string& display_name,
+        ProjectRecord& project,
+        std::string& error
+    );
+
+    RecordLookupStatus find_project(
+        const std::string& project_id,
+        const ApiKeyIdentity& identity,
+        ProjectRecord& project,
+        std::string& error
+    );
+
     bool create_job(
         const ApiKeyIdentity& owner,
+        const std::string& project_id,
         const std::string& request_json,
         const std::string& pack_id,
         const std::string& source_pack_path,

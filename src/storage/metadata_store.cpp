@@ -9,7 +9,7 @@
 
 namespace {
 
-const int kSchemaVersion = 2;
+const int kSchemaVersion = 3;
 
 const char kSchemaSql[] = R"SQL(
 CREATE TABLE IF NOT EXISTS organizations (
@@ -22,11 +22,32 @@ CREATE TABLE IF NOT EXISTS organizations (
 
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    )
+);
+
+CREATE TABLE IF NOT EXISTS organization_memberships (
+    organization_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'developer', 'viewer')),
+    created_at TEXT NOT NULL DEFAULT (
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    ),
+    PRIMARY KEY (organization_id, user_id),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
     organization_id TEXT NOT NULL,
     display_name TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (
         strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     ),
+    UNIQUE (organization_id, display_name),
     FOREIGN KEY (organization_id) REFERENCES organizations(id)
 );
 
@@ -50,6 +71,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
 CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
     organization_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
     status TEXT NOT NULL
         CHECK (status IN ('queued', 'running', 'succeeded', 'failed')),
@@ -72,6 +94,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     completed_at TEXT,
     deleted_at TEXT,
     FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (project_id) REFERENCES projects(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
@@ -79,6 +102,7 @@ CREATE TABLE IF NOT EXISTS packages (
     id TEXT PRIMARY KEY,
     job_id TEXT NOT NULL UNIQUE,
     organization_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
     pack_fingerprint TEXT,
     package_fingerprint TEXT NOT NULL,
@@ -92,6 +116,7 @@ CREATE TABLE IF NOT EXISTS packages (
     deleted_at TEXT,
     FOREIGN KEY (job_id) REFERENCES jobs(id),
     FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (project_id) REFERENCES projects(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
@@ -113,17 +138,17 @@ CREATE TABLE IF NOT EXISTS audit_events (
 );
 
 CREATE INDEX IF NOT EXISTS jobs_owner_created_idx
-    ON jobs (organization_id, user_id, created_at);
+    ON jobs (organization_id, project_id, created_at);
 CREATE INDEX IF NOT EXISTS packages_owner_created_idx
-    ON packages (organization_id, user_id, created_at);
+    ON packages (organization_id, project_id, created_at);
 CREATE INDEX IF NOT EXISTS audit_owner_created_idx
     ON audit_events (organization_id, user_id, created_at);
 )SQL";
 
-const char kMigration1To2Sql[] = R"SQL(
-ALTER TABLE jobs ADD COLUMN deleted_at TEXT;
-ALTER TABLE packages ADD COLUMN deleted_at TEXT;
-)SQL";
+bool is_role(const std::string& role) {
+    return role == "owner" || role == "admin" ||
+           role == "developer" || role == "viewer";
+}
 
 bool is_sha256_hex(const std::string& value) {
     if (value.size() != 64) {
@@ -235,8 +260,8 @@ bool MetadataStore::initialize(std::string& error) {
         : -1;
     sqlite3_finalize(version_statement);
 
-    if (schema_version < 0 || schema_version > kSchemaVersion) {
-        error = "unsupported SQLite metadata schema version";
+    if (schema_version != 0 && schema_version != kSchemaVersion) {
+        error = "SQLite metadata schema is obsolete; reset the pre-beta database";
         return false;
     }
 
@@ -244,11 +269,8 @@ bool MetadataStore::initialize(std::string& error) {
         return false;
     }
     bool succeeded = execute(kSchemaSql, error);
-    if (succeeded && schema_version == 1) {
-        succeeded = execute(kMigration1To2Sql, error);
-    }
     if (succeeded) {
-        succeeded = execute("PRAGMA user_version = 2;", error);
+        succeeded = execute("PRAGMA user_version = 3;", error);
     }
     if (!succeeded || !execute("COMMIT;", error)) {
         std::string rollback_error;
@@ -265,9 +287,11 @@ bool MetadataStore::create_api_key(
     const std::string& label,
     std::string& error
 ) {
+    const std::string role = identity.role.empty() ? "owner" : identity.role;
     if (identity.api_key_id.empty() ||
         identity.organization_id.empty() ||
         identity.user_id.empty() ||
+        !is_role(role) ||
         label.empty() ||
         !is_sha256_hex(key_hash)) {
         error = "API key identity, label, or SHA-256 hash is invalid";
@@ -281,14 +305,18 @@ bool MetadataStore::create_api_key(
         "INSERT OR IGNORE INTO organizations "
         "(id, display_name) VALUES (?1, ?1);",
         "INSERT OR IGNORE INTO users "
-        "(id, organization_id, display_name) VALUES (?1, ?2, ?1);",
+        "(id, display_name) VALUES (?1, ?1);",
+        "INSERT OR REPLACE INTO organization_memberships "
+        "(organization_id, user_id, role) VALUES (?1, ?2, ?3);",
+        "INSERT OR IGNORE INTO projects "
+        "(id, organization_id, display_name) VALUES (?1 || '_default', ?1, 'Default');",
         "INSERT INTO api_keys "
         "(id, organization_id, user_id, key_hash, label) "
         "VALUES (?1, ?2, ?3, ?4, ?5);"
     };
 
     bool succeeded = true;
-    for (int index = 0; index < 3 && succeeded; ++index) {
+    for (int index = 0; index < 5 && succeeded; ++index) {
         sqlite3_stmt* statement = nullptr;
         succeeded = sqlite3_prepare_v2(
             database_,
@@ -304,9 +332,14 @@ bool MetadataStore::create_api_key(
                 identity.organization_id
             );
         } else if (succeeded && index == 1) {
+            succeeded = bind_text(statement, 1, identity.user_id);
+        } else if (succeeded && index == 2) {
             succeeded =
-                bind_text(statement, 1, identity.user_id) &&
-                bind_text(statement, 2, identity.organization_id);
+                bind_text(statement, 1, identity.organization_id) &&
+                bind_text(statement, 2, identity.user_id) &&
+                bind_text(statement, 3, role);
+        } else if (succeeded && index == 3) {
+            succeeded = bind_text(statement, 1, identity.organization_id);
         } else if (succeeded) {
             succeeded =
                 bind_text(statement, 1, identity.api_key_id) &&
@@ -369,8 +402,10 @@ ApiKeyLookupStatus MetadataStore::find_active_api_key(
 
     sqlite3_stmt* statement = nullptr;
     const char* sql =
-        "SELECT id, organization_id, user_id "
-        "FROM api_keys WHERE key_hash = ?1 AND active = 1;";
+        "SELECT k.id, k.organization_id, k.user_id, m.role "
+        "FROM api_keys k JOIN organization_memberships m "
+        "ON m.organization_id = k.organization_id AND m.user_id = k.user_id "
+        "WHERE k.key_hash = ?1 AND k.active = 1;";
     if (sqlite3_prepare_v2(
             database_,
             sql,
@@ -403,6 +438,9 @@ ApiKeyLookupStatus MetadataStore::find_active_api_key(
     );
     identity.user_id = reinterpret_cast<const char*>(
         sqlite3_column_text(statement, 2)
+    );
+    identity.role = reinterpret_cast<const char*>(
+        sqlite3_column_text(statement, 3)
     );
     sqlite3_finalize(statement);
     return ApiKeyLookupStatus::found;
@@ -462,8 +500,122 @@ bool MetadataStore::record_api_key_use(
     return true;
 }
 
+bool MetadataStore::list_projects(
+    const ApiKeyIdentity& identity,
+    std::vector<ProjectRecord>& projects,
+    std::string& error
+) {
+    projects.clear();
+    if (!initialize(error)) {
+        return false;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT id, organization_id, display_name, created_at "
+        "FROM projects WHERE organization_id = ?1 ORDER BY display_name, id;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, identity.organization_id)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return false;
+    }
+    for (;;) {
+        const int result = sqlite3_step(statement);
+        if (result == SQLITE_DONE) {
+            sqlite3_finalize(statement);
+            return true;
+        }
+        if (result != SQLITE_ROW) {
+            error = sqlite3_errmsg(database_);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        ProjectRecord project;
+        project.project_id = column_text(statement, 0);
+        project.organization_id = column_text(statement, 1);
+        project.display_name = column_text(statement, 2);
+        project.created_at = column_text(statement, 3);
+        projects.push_back(project);
+    }
+}
+
+RecordLookupStatus MetadataStore::find_project(
+    const std::string& project_id,
+    const ApiKeyIdentity& identity,
+    ProjectRecord& project,
+    std::string& error
+) {
+    if (!initialize(error)) {
+        return RecordLookupStatus::storage_error;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT id, organization_id, display_name, created_at "
+        "FROM projects WHERE id = ?1 AND organization_id = ?2;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, project_id) ||
+        !bind_text(statement, 2, identity.organization_id)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    const int result = sqlite3_step(statement);
+    if (result == SQLITE_DONE) {
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::not_found;
+    }
+    if (result != SQLITE_ROW) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    project.project_id = column_text(statement, 0);
+    project.organization_id = column_text(statement, 1);
+    project.display_name = column_text(statement, 2);
+    project.created_at = column_text(statement, 3);
+    sqlite3_finalize(statement);
+    return RecordLookupStatus::found;
+}
+
+bool MetadataStore::create_project(
+    const ApiKeyIdentity& identity,
+    const std::string& display_name,
+    ProjectRecord& project,
+    std::string& error
+) {
+    if ((identity.role != "owner" && identity.role != "admin") ||
+        display_name.empty() || display_name.size() > 100) {
+        error = "owner/admin role and a 1-100 character display name are required";
+        return false;
+    }
+    std::string project_id;
+    if (!initialize(error) || !random_id("project_", project_id, error)) {
+        return false;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO projects (id, organization_id, display_name) "
+        "VALUES (?1, ?2, ?3);";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, project_id) &&
+        bind_text(statement, 2, identity.organization_id) &&
+        bind_text(statement, 3, display_name) &&
+        sqlite3_step(statement) == SQLITE_DONE;
+    if (!succeeded) {
+        error = sqlite3_errmsg(database_);
+    }
+    sqlite3_finalize(statement);
+    if (!succeeded) {
+        return false;
+    }
+    return find_project(project_id, identity, project, error) ==
+        RecordLookupStatus::found;
+}
+
 bool MetadataStore::create_job(
     const ApiKeyIdentity& owner,
+    const std::string& project_id,
     const std::string& request_json,
     const std::string& pack_id,
     const std::string& source_pack_path,
@@ -477,19 +629,20 @@ bool MetadataStore::create_job(
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "INSERT INTO jobs "
-        "(id, organization_id, user_id, status, request_json, "
+        "(id, organization_id, project_id, user_id, status, request_json, "
         "selected_pack_id, source_pack_path, pack_fingerprint) "
-        "VALUES (?1, ?2, ?3, 'queued', ?4, ?5, ?6, ?7);";
+        "VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?7, ?8);";
     const bool succeeded =
         sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) ==
             SQLITE_OK &&
         bind_text(statement, 1, job_id) &&
         bind_text(statement, 2, owner.organization_id) &&
-        bind_text(statement, 3, owner.user_id) &&
-        bind_text(statement, 4, request_json) &&
-        bind_text(statement, 5, pack_id) &&
-        bind_text(statement, 6, source_pack_path) &&
-        bind_text(statement, 7, pack_fingerprint) &&
+        bind_text(statement, 3, project_id) &&
+        bind_text(statement, 4, owner.user_id) &&
+        bind_text(statement, 5, request_json) &&
+        bind_text(statement, 6, pack_id) &&
+        bind_text(statement, 7, source_pack_path) &&
+        bind_text(statement, 8, pack_fingerprint) &&
         sqlite3_step(statement) == SQLITE_DONE;
     if (!succeeded) {
         error = sqlite3_errmsg(database_);
@@ -509,7 +662,7 @@ RecordLookupStatus MetadataStore::find_job(
     }
     sqlite3_stmt* statement = nullptr;
     const char* sql =
-        "SELECT j.id, j.organization_id, j.user_id, j.status, "
+        "SELECT j.id, j.organization_id, j.project_id, j.user_id, j.status, "
         "j.request_json, j.selected_pack_id, j.source_pack_path, "
         "j.pack_fingerprint, COALESCE(p.id, ''), "
         "j.package_fingerprint, j.generator_version, "
@@ -518,7 +671,7 @@ RecordLookupStatus MetadataStore::find_job(
         "j.created_at, j.started_at, j.completed_at "
         "FROM jobs j LEFT JOIN packages p "
         "ON p.job_id = j.id AND p.deleted_at IS NULL "
-        "WHERE j.id = ?1 AND j.organization_id = ?2 AND j.user_id = ?3 "
+        "WHERE j.id = ?1 AND j.organization_id = ?2 "
         "AND j.deleted_at IS NULL;";
     if (sqlite3_prepare_v2(
             database_,
@@ -528,8 +681,7 @@ RecordLookupStatus MetadataStore::find_job(
             nullptr
         ) != SQLITE_OK ||
         !bind_text(statement, 1, job_id) ||
-        !bind_text(statement, 2, owner.organization_id) ||
-        !bind_text(statement, 3, owner.user_id)) {
+        !bind_text(statement, 2, owner.organization_id)) {
         error = sqlite3_errmsg(database_);
         sqlite3_finalize(statement);
         return RecordLookupStatus::storage_error;
@@ -547,23 +699,24 @@ RecordLookupStatus MetadataStore::find_job(
     JobRecord loaded;
     loaded.job_id = column_text(statement, 0);
     loaded.organization_id = column_text(statement, 1);
-    loaded.user_id = column_text(statement, 2);
-    loaded.status = column_text(statement, 3);
-    loaded.request_json = column_text(statement, 4);
-    loaded.selected_pack_id = column_text(statement, 5);
-    loaded.source_pack_path = column_text(statement, 6);
-    loaded.pack_fingerprint = column_text(statement, 7);
-    loaded.package_id = column_text(statement, 8);
-    loaded.package_fingerprint = column_text(statement, 9);
-    loaded.generator_version = column_text(statement, 10);
-    loaded.generator_build_identity = column_text(statement, 11);
-    loaded.manifest_hash = column_text(statement, 12);
-    loaded.artifact_storage_key = column_text(statement, 13);
-    loaded.error_code = column_text(statement, 14);
-    loaded.error_message = column_text(statement, 15);
-    loaded.created_at = column_text(statement, 16);
-    loaded.started_at = column_text(statement, 17);
-    loaded.completed_at = column_text(statement, 18);
+    loaded.project_id = column_text(statement, 2);
+    loaded.user_id = column_text(statement, 3);
+    loaded.status = column_text(statement, 4);
+    loaded.request_json = column_text(statement, 5);
+    loaded.selected_pack_id = column_text(statement, 6);
+    loaded.source_pack_path = column_text(statement, 7);
+    loaded.pack_fingerprint = column_text(statement, 8);
+    loaded.package_id = column_text(statement, 9);
+    loaded.package_fingerprint = column_text(statement, 10);
+    loaded.generator_version = column_text(statement, 11);
+    loaded.generator_build_identity = column_text(statement, 12);
+    loaded.manifest_hash = column_text(statement, 13);
+    loaded.artifact_storage_key = column_text(statement, 14);
+    loaded.error_code = column_text(statement, 15);
+    loaded.error_message = column_text(statement, 16);
+    loaded.created_at = column_text(statement, 17);
+    loaded.started_at = column_text(statement, 18);
+    loaded.completed_at = column_text(statement, 19);
     sqlite3_finalize(statement);
     job = loaded;
     return RecordLookupStatus::found;
@@ -585,7 +738,7 @@ bool MetadataStore::list_jobs(
     }
     sqlite3_stmt* statement = nullptr;
     const char* sql =
-        "SELECT j.id, j.organization_id, j.user_id, j.status, "
+        "SELECT j.id, j.organization_id, j.project_id, j.user_id, j.status, "
         "j.request_json, j.selected_pack_id, j.source_pack_path, "
         "j.pack_fingerprint, COALESCE(p.id, ''), "
         "j.package_fingerprint, j.generator_version, "
@@ -594,9 +747,9 @@ bool MetadataStore::list_jobs(
         "j.created_at, j.started_at, j.completed_at "
         "FROM jobs j LEFT JOIN packages p "
         "ON p.job_id = j.id AND p.deleted_at IS NULL "
-        "WHERE j.organization_id = ?1 AND j.user_id = ?2 "
+        "WHERE j.organization_id = ?1 "
         "AND j.deleted_at IS NULL "
-        "ORDER BY j.created_at DESC, j.id DESC LIMIT ?3;";
+        "ORDER BY j.created_at DESC, j.id DESC LIMIT ?2;";
     if (sqlite3_prepare_v2(
             database_,
             sql,
@@ -605,8 +758,7 @@ bool MetadataStore::list_jobs(
             nullptr
         ) != SQLITE_OK ||
         !bind_text(statement, 1, owner.organization_id) ||
-        !bind_text(statement, 2, owner.user_id) ||
-        sqlite3_bind_int(statement, 3, limit) != SQLITE_OK) {
+        sqlite3_bind_int(statement, 2, limit) != SQLITE_OK) {
         error = sqlite3_errmsg(database_);
         sqlite3_finalize(statement);
         return false;
@@ -625,23 +777,24 @@ bool MetadataStore::list_jobs(
         JobRecord loaded;
         loaded.job_id = column_text(statement, 0);
         loaded.organization_id = column_text(statement, 1);
-        loaded.user_id = column_text(statement, 2);
-        loaded.status = column_text(statement, 3);
-        loaded.request_json = column_text(statement, 4);
-        loaded.selected_pack_id = column_text(statement, 5);
-        loaded.source_pack_path = column_text(statement, 6);
-        loaded.pack_fingerprint = column_text(statement, 7);
-        loaded.package_id = column_text(statement, 8);
-        loaded.package_fingerprint = column_text(statement, 9);
-        loaded.generator_version = column_text(statement, 10);
-        loaded.generator_build_identity = column_text(statement, 11);
-        loaded.manifest_hash = column_text(statement, 12);
-        loaded.artifact_storage_key = column_text(statement, 13);
-        loaded.error_code = column_text(statement, 14);
-        loaded.error_message = column_text(statement, 15);
-        loaded.created_at = column_text(statement, 16);
-        loaded.started_at = column_text(statement, 17);
-        loaded.completed_at = column_text(statement, 18);
+        loaded.project_id = column_text(statement, 2);
+        loaded.user_id = column_text(statement, 3);
+        loaded.status = column_text(statement, 4);
+        loaded.request_json = column_text(statement, 5);
+        loaded.selected_pack_id = column_text(statement, 6);
+        loaded.source_pack_path = column_text(statement, 7);
+        loaded.pack_fingerprint = column_text(statement, 8);
+        loaded.package_id = column_text(statement, 9);
+        loaded.package_fingerprint = column_text(statement, 10);
+        loaded.generator_version = column_text(statement, 11);
+        loaded.generator_build_identity = column_text(statement, 12);
+        loaded.manifest_hash = column_text(statement, 13);
+        loaded.artifact_storage_key = column_text(statement, 14);
+        loaded.error_code = column_text(statement, 15);
+        loaded.error_message = column_text(statement, 16);
+        loaded.created_at = column_text(statement, 17);
+        loaded.started_at = column_text(statement, 18);
+        loaded.completed_at = column_text(statement, 19);
         jobs.push_back(loaded);
     }
 }
@@ -662,7 +815,7 @@ JobDeleteStatus MetadataStore::delete_job(
     sqlite3_stmt* select = nullptr;
     const char* select_sql =
         "SELECT status FROM jobs WHERE id = ?1 AND organization_id = ?2 "
-        "AND user_id = ?3 AND deleted_at IS NULL;";
+        "AND deleted_at IS NULL;";
     if (sqlite3_prepare_v2(
             database_,
             select_sql,
@@ -671,8 +824,7 @@ JobDeleteStatus MetadataStore::delete_job(
             nullptr
         ) != SQLITE_OK ||
         !bind_text(select, 1, job_id) ||
-        !bind_text(select, 2, owner.organization_id) ||
-        !bind_text(select, 3, owner.user_id)) {
+        !bind_text(select, 2, owner.organization_id)) {
         error = sqlite3_errmsg(database_);
         sqlite3_finalize(select);
         std::string ignored;
@@ -705,7 +857,7 @@ JobDeleteStatus MetadataStore::delete_job(
     const char* update_job_sql =
         "UPDATE jobs SET deleted_at = "
         "strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
-        "WHERE id = ?1 AND organization_id = ?2 AND user_id = ?3 "
+        "WHERE id = ?1 AND organization_id = ?2 "
         "AND deleted_at IS NULL AND status != 'running';";
     bool succeeded =
         sqlite3_prepare_v2(
@@ -717,7 +869,6 @@ JobDeleteStatus MetadataStore::delete_job(
         ) == SQLITE_OK &&
         bind_text(update_job, 1, job_id) &&
         bind_text(update_job, 2, owner.organization_id) &&
-        bind_text(update_job, 3, owner.user_id) &&
         sqlite3_step(update_job) == SQLITE_DONE &&
         sqlite3_changes(database_) == 1;
     sqlite3_finalize(update_job);
@@ -726,7 +877,7 @@ JobDeleteStatus MetadataStore::delete_job(
     const char* update_package_sql =
         "UPDATE packages SET deleted_at = "
         "strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
-        "WHERE job_id = ?1 AND organization_id = ?2 AND user_id = ?3 "
+        "WHERE job_id = ?1 AND organization_id = ?2 "
         "AND deleted_at IS NULL;";
     succeeded = succeeded &&
         sqlite3_prepare_v2(
@@ -738,7 +889,6 @@ JobDeleteStatus MetadataStore::delete_job(
         ) == SQLITE_OK &&
         bind_text(update_package, 1, job_id) &&
         bind_text(update_package, 2, owner.organization_id) &&
-        bind_text(update_package, 3, owner.user_id) &&
         sqlite3_step(update_package) == SQLITE_DONE;
     sqlite3_finalize(update_package);
 
@@ -783,7 +933,7 @@ RecordLookupStatus MetadataStore::claim_next_job(
     }
     sqlite3_stmt* select = nullptr;
     const char* select_sql =
-        "SELECT id, organization_id, user_id, request_json, "
+        "SELECT id, organization_id, project_id, user_id, request_json, "
         "selected_pack_id, source_pack_path, pack_fingerprint, created_at "
         "FROM jobs WHERE status = 'queued' AND deleted_at IS NULL "
         "ORDER BY created_at, id LIMIT 1;";
@@ -816,12 +966,13 @@ RecordLookupStatus MetadataStore::claim_next_job(
     JobRecord claimed;
     claimed.job_id = column_text(select, 0);
     claimed.organization_id = column_text(select, 1);
-    claimed.user_id = column_text(select, 2);
-    claimed.request_json = column_text(select, 3);
-    claimed.selected_pack_id = column_text(select, 4);
-    claimed.source_pack_path = column_text(select, 5);
-    claimed.pack_fingerprint = column_text(select, 6);
-    claimed.created_at = column_text(select, 7);
+    claimed.project_id = column_text(select, 2);
+    claimed.user_id = column_text(select, 3);
+    claimed.request_json = column_text(select, 4);
+    claimed.selected_pack_id = column_text(select, 5);
+    claimed.source_pack_path = column_text(select, 6);
+    claimed.pack_fingerprint = column_text(select, 7);
+    claimed.created_at = column_text(select, 8);
     sqlite3_finalize(select);
 
     sqlite3_stmt* update = nullptr;
@@ -903,10 +1054,10 @@ bool MetadataStore::complete_job_with_package(
     sqlite3_stmt* package_statement = nullptr;
     const char* package_sql =
         "INSERT INTO packages "
-        "(id, job_id, organization_id, user_id, pack_fingerprint, "
+        "(id, job_id, organization_id, project_id, user_id, pack_fingerprint, "
         "package_fingerprint, generator_version, "
         "generator_build_identity, manifest_hash, artifact_storage_key) "
-        "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10);";
+        "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11);";
     bool succeeded =
         sqlite3_prepare_v2(
             database_,
@@ -918,13 +1069,14 @@ bool MetadataStore::complete_job_with_package(
         bind_text(package_statement, 1, package_id) &&
         bind_text(package_statement, 2, job.job_id) &&
         bind_text(package_statement, 3, job.organization_id) &&
-        bind_text(package_statement, 4, job.user_id) &&
-        bind_text(package_statement, 5, job.pack_fingerprint) &&
-        bind_text(package_statement, 6, package_fingerprint) &&
-        bind_text(package_statement, 7, generator_version) &&
-        bind_text(package_statement, 8, generator_build_identity) &&
-        bind_text(package_statement, 9, manifest_hash) &&
-        bind_text(package_statement, 10, artifact_storage_key) &&
+        bind_text(package_statement, 4, job.project_id) &&
+        bind_text(package_statement, 5, job.user_id) &&
+        bind_text(package_statement, 6, job.pack_fingerprint) &&
+        bind_text(package_statement, 7, package_fingerprint) &&
+        bind_text(package_statement, 8, generator_version) &&
+        bind_text(package_statement, 9, generator_build_identity) &&
+        bind_text(package_statement, 10, manifest_hash) &&
+        bind_text(package_statement, 11, artifact_storage_key) &&
         sqlite3_step(package_statement) == SQLITE_DONE;
     sqlite3_finalize(package_statement);
 
@@ -1007,11 +1159,11 @@ RecordLookupStatus MetadataStore::find_package(
     }
     sqlite3_stmt* statement = nullptr;
     const char* sql =
-        "SELECT p.id, p.job_id, p.organization_id, p.user_id, "
+        "SELECT p.id, p.job_id, p.organization_id, p.project_id, p.user_id, "
         "p.package_fingerprint, p.manifest_hash, p.artifact_storage_key "
         "FROM packages p JOIN jobs j ON j.id = p.job_id "
         "WHERE p.id = ?1 AND p.organization_id = ?2 "
-        "AND p.user_id = ?3 AND p.deleted_at IS NULL "
+        "AND p.deleted_at IS NULL "
         "AND j.deleted_at IS NULL;";
     if (sqlite3_prepare_v2(
             database_,
@@ -1021,8 +1173,7 @@ RecordLookupStatus MetadataStore::find_package(
             nullptr
         ) != SQLITE_OK ||
         !bind_text(statement, 1, package_id) ||
-        !bind_text(statement, 2, owner.organization_id) ||
-        !bind_text(statement, 3, owner.user_id)) {
+        !bind_text(statement, 2, owner.organization_id)) {
         error = sqlite3_errmsg(database_);
         sqlite3_finalize(statement);
         return RecordLookupStatus::storage_error;
@@ -1041,10 +1192,11 @@ RecordLookupStatus MetadataStore::find_package(
     loaded.package_id = column_text(statement, 0);
     loaded.job_id = column_text(statement, 1);
     loaded.organization_id = column_text(statement, 2);
-    loaded.user_id = column_text(statement, 3);
-    loaded.package_fingerprint = column_text(statement, 4);
-    loaded.manifest_hash = column_text(statement, 5);
-    loaded.artifact_storage_key = column_text(statement, 6);
+    loaded.project_id = column_text(statement, 3);
+    loaded.user_id = column_text(statement, 4);
+    loaded.package_fingerprint = column_text(statement, 5);
+    loaded.manifest_hash = column_text(statement, 6);
+    loaded.artifact_storage_key = column_text(statement, 7);
     sqlite3_finalize(statement);
     package = loaded;
     return RecordLookupStatus::found;
@@ -1061,14 +1213,17 @@ bool MetadataStore::list_api_keys(
     }
     sqlite3_stmt* statement = nullptr;
     const char* all_sql =
-        "SELECT id, organization_id, user_id, label, active, "
-        "created_at, COALESCE(last_used_at, '') "
-        "FROM api_keys ORDER BY organization_id, user_id, created_at;";
+        "SELECT k.id, k.organization_id, k.user_id, m.role, k.label, k.active, "
+        "k.created_at, COALESCE(k.last_used_at, '') "
+        "FROM api_keys k JOIN organization_memberships m "
+        "ON m.organization_id = k.organization_id AND m.user_id = k.user_id "
+        "ORDER BY k.organization_id, k.user_id, k.created_at;";
     const char* org_sql =
-        "SELECT id, organization_id, user_id, label, active, "
-        "created_at, COALESCE(last_used_at, '') "
-        "FROM api_keys WHERE organization_id = ?1 "
-        "ORDER BY user_id, created_at;";
+        "SELECT k.id, k.organization_id, k.user_id, m.role, k.label, k.active, "
+        "k.created_at, COALESCE(k.last_used_at, '') "
+        "FROM api_keys k JOIN organization_memberships m "
+        "ON m.organization_id = k.organization_id AND m.user_id = k.user_id "
+        "WHERE k.organization_id = ?1 ORDER BY k.user_id, k.created_at;";
     const char* sql = organization_id.empty() ? all_sql : org_sql;
     if (sqlite3_prepare_v2(
             database_,
@@ -1098,10 +1253,11 @@ bool MetadataStore::list_api_keys(
         loaded.api_key_id = column_text(statement, 0);
         loaded.organization_id = column_text(statement, 1);
         loaded.user_id = column_text(statement, 2);
-        loaded.label = column_text(statement, 3);
-        loaded.active = sqlite3_column_int(statement, 4) == 1;
-        loaded.created_at = column_text(statement, 5);
-        loaded.last_used_at = column_text(statement, 6);
+        loaded.role = column_text(statement, 3);
+        loaded.label = column_text(statement, 4);
+        loaded.active = sqlite3_column_int(statement, 5) == 1;
+        loaded.created_at = column_text(statement, 6);
+        loaded.last_used_at = column_text(statement, 7);
         api_keys.push_back(loaded);
     }
 }

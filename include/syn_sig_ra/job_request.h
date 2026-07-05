@@ -7,6 +7,7 @@
 namespace syn_sig_ra {
 
 struct JobRequest {
+    std::string project_id;
     std::string pack_id;
     std::vector<std::string> export_formats;
     std::string report_format;

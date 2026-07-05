@@ -45,6 +45,7 @@ JobRequestStatus parse_job_request(
     }
 
     const std::set<std::string> allowed_fields = {
+        "project_id",
         "pack_id",
         "export_formats",
         "report_format"
@@ -59,6 +60,13 @@ JobRequestStatus parse_job_request(
         }
     }
 
+    json_t* project_id = json_object_get(root, "project_id");
+    if (!json_is_string(project_id) ||
+        !is_valid_pack_id(json_string_value(project_id))) {
+        json_decref(root);
+        error = "project_id must be a safe project identifier";
+        return JobRequestStatus::invalid_value;
+    }
     json_t* pack_id = json_object_get(root, "pack_id");
     if (!json_is_string(pack_id) ||
         !is_valid_pack_id(json_string_value(pack_id))) {
@@ -68,6 +76,7 @@ JobRequestStatus parse_job_request(
     }
 
     JobRequest parsed;
+    parsed.project_id = json_string_value(project_id);
     parsed.pack_id = json_string_value(pack_id);
     json_t* formats = json_object_get(root, "export_formats");
     if (formats != nullptr) {

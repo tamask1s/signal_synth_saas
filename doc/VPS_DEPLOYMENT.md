@@ -355,9 +355,10 @@ sudo stat -c '%U:%G %a %n' \
   /var/lib/syn_sig_ra/packages
 ```
 
-The module automatically migrates the SQLite metadata database to the current
-schema version during initialization. Back up `/var/lib/syn_sig_ra/db.sqlite3`
-before deploying schema-changing module builds.
+The pre-beta module deliberately does not migrate obsolete schema versions.
+Before a schema-changing deployment, stop the worker, back up and remove
+`/var/lib/syn_sig_ra/db.sqlite3`, initialize a fresh database, and provision a
+new API key. This keeps schema development clean while there are no users.
 
 ## Rollback
 

@@ -114,6 +114,7 @@ int main() {
     require(
         store.create_job(
             owner,
+            owner.organization_id + "_default",
             "{\"pack_id\":\"test_pack\"}",
             "test_pack",
             pack_path,
@@ -202,6 +203,7 @@ int main() {
     require(
         store.create_job(
             owner,
+            owner.organization_id + "_default",
             "{\"pack_id\":\"test_pack\"}",
             "test_pack",
             pack_path,
