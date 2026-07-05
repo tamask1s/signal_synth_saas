@@ -415,6 +415,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <div class="status-card">
         <div class="label">Service</div>
         <div id="health-status" class="status">checking…</div>
+        <div id="readiness-status" class="muted">checking components…</div>
       </div>
     </section>
 
@@ -461,6 +462,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         <button id="refresh-jobs" class="secondary">Refresh</button>
       </div>
       <div id="jobs" class="jobs"></div>
+      <button id="load-more-jobs" class="secondary" hidden>Load older jobs</button>
     </section>
     <section class="panel">
       <div class="panel-heading">
@@ -468,6 +470,13 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         <button id="refresh-usage" class="secondary">Refresh</button>
       </div>
       <div id="usage" class="muted">Paste an API key to inspect usage.</div>
+    </section>
+    <section id="metrics-panel" class="panel" hidden>
+      <div class="panel-heading">
+        <h2>Operational metrics</h2>
+        <button id="refresh-metrics" class="secondary">Refresh</button>
+      </div>
+      <div id="metrics" class="muted"></div>
     </section>
     <section class="panel">
       <div class="panel-heading">
@@ -499,6 +508,11 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <button id="create-custom-pack" class="primary">Create immutable custom pack</button>
       <pre id="custom-pack-output" class="output"></pre>
       <div id="custom-packs" class="jobs"></div>
+    </section>
+    <section class="panel">
+      <h2>Documentation</h2>
+      <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/README.md" target="_blank" rel="noopener">User manual</a></p>
+      <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/doc/openapi.yaml" target="_blank" rel="noopener">OpenAPI reference</a></p>
     </section>
   </main>
   <script src="/syn_sig_ra/ui/app.js"></script>
@@ -726,6 +740,7 @@ const char kUiJs[] = R"JS((() => {
   const base = "/syn_sig_ra";
   const state = {
     apiKey: sessionStorage.getItem("syn_sig_ra_api_key") || "",
+    role: "",
     packs: [],
     projects: [],
     scenarios: [],
@@ -734,7 +749,8 @@ const char kUiJs[] = R"JS((() => {
     jobs: [],
     jobsFingerprint: "",
     jobsLoaded: false,
-    jobPollInFlight: false
+    jobPollInFlight: false,
+    jobsNextOffset: null
   };
 
   const $ = (id) => document.getElementById(id);
@@ -776,6 +792,19 @@ const char kUiJs[] = R"JS((() => {
       setText("health-status", `${body.status} (${body.build.version})`, "status ok");
     } catch (error) {
       setText("health-status", error.message, "status error");
+    }
+    try {
+      const ready = await api("/readyz");
+      const components = ["database", "generator", "pack_catalog", "artifact_store"]
+        .map((name) => `${name}: ${ready[name] ? "ok" : "failed"}`)
+        .join(" · ");
+      setText(
+        "readiness-status",
+        `${ready.status} · ${components} · ${ready.disk_free_bytes || 0} bytes free`,
+        ready.status === "ready" ? "muted ok" : "muted error"
+      );
+    } catch (error) {
+      setText("readiness-status", error.message, "muted error");
     }
   }
 
@@ -847,17 +876,29 @@ const char kUiJs[] = R"JS((() => {
   async function loadProjects() {
     const select = $("project-select");
     select.innerHTML = "";
-    if (!state.apiKey) return;
+    if (!state.apiKey) {
+      state.role = "";
+      $("metrics-panel").hidden = true;
+      return;
+    }
     try {
       const body = await api("/v1/projects");
       state.projects = body.projects || [];
+      state.role = body.role || "";
+      setText(
+        "key-status",
+        `API key loaded for this tab session · role: ${state.role || "unknown"}`,
+        "muted ok"
+      );
       $("create-project").disabled = !["owner", "admin"].includes(body.role);
+      $("metrics-panel").hidden = !["owner", "admin"].includes(body.role);
       state.projects.forEach((project) => {
         const option = document.createElement("option");
         option.value = project.project_id;
         option.textContent = project.display_name;
         select.appendChild(option);
       });
+      if (!($("metrics-panel").hidden)) loadMetrics();
     } catch (error) {
       $("create-output").textContent = error.message;
     }
@@ -878,6 +919,25 @@ const char kUiJs[] = R"JS((() => {
       `;
     } catch (error) {
       $("usage").textContent = error.message;
+    }
+  }
+
+  async function loadMetrics() {
+    if (!state.apiKey || !["owner", "admin"].includes(state.role)) {
+      $("metrics-panel").hidden = true;
+      return;
+    }
+    $("metrics-panel").hidden = false;
+    try {
+      const metrics = await api("/v1/metrics");
+      $("metrics").innerHTML = `
+        <p>Queue: ${escapeHtml(metrics.queued_jobs)} queued · ${escapeHtml(metrics.running_jobs)} running</p>
+        <p>Failures this month: ${escapeHtml(metrics.failed_jobs_this_month)} · quota rejections: ${escapeHtml(metrics.quota_rejections_this_month)}</p>
+        <p>Worker: ${escapeHtml(metrics.worker_last_status || "unknown")} · last seen ${escapeHtml(metrics.worker_last_seen_at || "never")}</p>
+        <p>Stored packages this month: ${escapeHtml(metrics.packages_this_month)} · ${escapeHtml(metrics.package_bytes_this_month)} bytes</p>
+      `;
+    } catch (error) {
+      $("metrics").textContent = error.message;
     }
   }
 
@@ -1070,6 +1130,7 @@ const char kUiJs[] = R"JS((() => {
       $("create-output").textContent = JSON.stringify(body, null, 2);
       await loadJobs({ force: true });
       await loadUsage();
+      await loadMetrics();
     } catch (error) {
       $("create-output").textContent = error.message;
     } finally {
@@ -1095,6 +1156,8 @@ const char kUiJs[] = R"JS((() => {
       state.jobs = [];
       state.jobsFingerprint = "";
       state.jobsLoaded = false;
+      state.jobsNextOffset = null;
+      $("load-more-jobs").hidden = true;
       container.innerHTML = "<p class=\"muted\">Paste an API key to list jobs.</p>";
       return;
     }
@@ -1104,8 +1167,20 @@ const char kUiJs[] = R"JS((() => {
       container.textContent = "Loading jobs…";
     }
     try {
-      const body = await api("/v1/jobs");
-      const jobs = body.jobs || [];
+      const pageSize = 25;
+      const offset = options.more ? state.jobsNextOffset : 0;
+      const limit = options.more
+        ? pageSize
+        : Math.min(100, Math.max(pageSize, state.jobs.length));
+      const body = await api(`/v1/jobs?limit=${limit}&offset=${offset || 0}`);
+      const page = body.jobs || [];
+      const jobs = options.more
+        ? [...state.jobs, ...page.filter((job) => !state.jobs.some((known) => known.job_id === job.job_id))]
+        : page;
+      state.jobsNextOffset = body.next_offset === undefined
+        ? null
+        : (options.more ? body.next_offset : body.next_offset);
+      $("load-more-jobs").hidden = state.jobsNextOffset === null;
       const fingerprint = jobsFingerprint(jobs);
       if (options.force || fingerprint !== state.jobsFingerprint) {
         state.jobs = jobs;
@@ -1192,6 +1267,8 @@ const char kUiJs[] = R"JS((() => {
         method: "POST"
       });
       await loadJobs({ force: true });
+      await loadUsage();
+      await loadMetrics();
     } catch (error) {
       alert(error.message);
     }
@@ -1254,6 +1331,8 @@ const char kUiJs[] = R"JS((() => {
   $("refresh-packs").addEventListener("click", loadPacks);
   $("refresh-jobs").addEventListener("click", () => loadJobs({ force: true }));
   $("refresh-usage").addEventListener("click", loadUsage);
+  $("refresh-metrics").addEventListener("click", loadMetrics);
+  $("load-more-jobs").addEventListener("click", () => loadJobs({ more: true }));
   $("new-scenario").addEventListener("click", newScenario);
   $("save-scenario").addEventListener("click", saveScenario);
   $("create-custom-pack").addEventListener("click", createCustomPack);
