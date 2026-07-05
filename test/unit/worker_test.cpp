@@ -1,4 +1,5 @@
 #include "syn_sig_ra/metadata_store.h"
+#include "syn_sig_ra/route.h"
 #include "syn_sig_ra/sha256.h"
 #include "syn_sig_ra/worker.h"
 
@@ -58,9 +59,14 @@ int main() {
     const std::string root = root_builder.str();
     const std::string work = root + "/work";
     const std::string packs = root + "/packs";
+    const std::string packages = root + "/packages";
     require(mkdir(root.c_str(), 0700) == 0, "test root should be created");
     require(mkdir(work.c_str(), 0700) == 0, "work root should be created");
     require(mkdir(packs.c_str(), 0700) == 0, "pack root should be created");
+    require(
+        mkdir(packages.c_str(), 0700) == 0,
+        "package root should be created"
+    );
 
     const std::string pack_path = packs + "/test_pack.json";
     write_file(pack_path, "{}\n", 0600);
@@ -69,6 +75,7 @@ int main() {
         success_cli,
         "#!/bin/sh\n"
         "mkdir \"$5\"\n"
+        "echo '{\"schema_version\":1}' > \"$5/manifest.json\"\n"
         "echo status=challenge-rendered\n"
         "echo output_directory=\"$5\"\n"
         "echo package_id=test_pack\n"
@@ -135,6 +142,61 @@ int main() {
             job.status == "succeeded",
         "successful worker should persist succeeded status"
     );
+    require(
+        !job.package_id.empty() &&
+            job.artifact_storage_key ==
+                packages + "/" + job.package_id,
+        "successful worker should persist immutable package metadata"
+    );
+    const std::string successful_package_id = job.package_id;
+    const syn_sig_ra::RouteResponse manifest_download =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/artifacts/" + job.package_id + "/manifest.json",
+            "/syn_sig_ra",
+            "Bearer worker-secret",
+            &store,
+            packs,
+            "",
+            "",
+            root
+        );
+    require(
+        manifest_download.status == 200 &&
+            manifest_download.content_type == "application/json" &&
+            !manifest_download.file_path.empty(),
+        "package owner should resolve manifest download"
+    );
+    syn_sig_ra::ApiKeyIdentity other_owner;
+    other_owner.api_key_id = "worker_other_key";
+    other_owner.organization_id = "worker_other_org";
+    other_owner.user_id = "worker_other_user";
+    require(
+        syn_sig_ra::sha256_hex("worker-other-secret", key_hash, error) &&
+            store.create_api_key(
+                other_owner,
+                key_hash,
+                "worker other",
+                error
+            ),
+        "other artifact owner should be created"
+    );
+    const syn_sig_ra::RouteResponse isolated_download =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/artifacts/" + job.package_id + "/manifest.json",
+            "/syn_sig_ra",
+            "Bearer worker-other-secret",
+            &store,
+            packs,
+            "",
+            "",
+            root
+        );
+    require(
+        isolated_download.status == 404,
+        "another owner must not discover package artifacts"
+    );
 
     std::string failed_job;
     require(
@@ -163,7 +225,15 @@ int main() {
         "stable CLI error should be persisted"
     );
 
-    unlink((work + "/" + succeeded_job).c_str());
+    const std::string package_root =
+        packages + "/" + successful_package_id;
+    chmod((package_root + "/extracted").c_str(), 0700);
+    chmod(package_root.c_str(), 0700);
+    unlink((package_root + "/extracted/manifest.json").c_str());
+    unlink((package_root + "/manifest.json").c_str());
+    unlink((package_root + "/package.zip").c_str());
+    rmdir((package_root + "/extracted").c_str());
+    rmdir(package_root.c_str());
     unlink(success_cli.c_str());
     unlink(failure_cli.c_str());
     unlink(pack_path.c_str());
@@ -171,6 +241,7 @@ int main() {
     rmdir((work + "/" + succeeded_job).c_str());
     rmdir(work.c_str());
     rmdir(packs.c_str());
+    rmdir(packages.c_str());
     rmdir(root.c_str());
     return EXIT_SUCCESS;
 }

@@ -257,6 +257,18 @@ GET /syn_sig_ra/v1/artifacts/{package_id}/package.zip
 ```
 
 Artifacts are immutable and scoped to the authenticated organization/user.
+Successful workers allocate a random `pkg_...` ID and store:
+
+```text
+<SynSigRaDataRoot>/packages/<package_id>/
+  manifest.json
+  package.zip
+  extracted/
+```
+
+The generated tree is archived with manifest-relative paths intact, then all
+package files and directories are made read-only. Downloads are streamed by
+Apache after metadata owner authorization; another owner receives HTTP 404.
 
 ## Local development
 

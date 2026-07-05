@@ -82,6 +82,7 @@ configure_file(
 
 add_library(syn_sig_ra_core STATIC
     "${SIGNAL_SYNTH_ROOT}/src/ecg_pack.cpp"
+    src/artifact/artifact_store.cpp
     src/auth/api_key_auth.cpp
     src/auth/sha256.cpp
     src/catalog/pack_catalog.cpp

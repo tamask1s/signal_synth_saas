@@ -197,7 +197,8 @@ RouteResponse route_request(
     MetadataStore* metadata_store,
     const std::string& pack_root,
     const std::string& content_type,
-    const std::string& request_body
+    const std::string& request_body,
+    const std::string& data_root
 ) {
     if (!owns_uri(uri, public_base_path)) {
         RouteResponse response;
@@ -378,6 +379,89 @@ RouteResponse route_request(
             return response;
         }
         return json_response(200, job_json(job, public_base_path));
+    }
+
+    const std::string artifacts_path =
+        public_base_path + "/v1/artifacts";
+    if (path_at_or_below(uri, artifacts_path)) {
+        if (method != "GET") {
+            return json_response(
+                405,
+                "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Artifact endpoints only accept GET.\"}}\n"
+            );
+        }
+        const std::string relative =
+            uri.size() > artifacts_path.size()
+            ? uri.substr(artifacts_path.size() + 1)
+            : std::string();
+        const std::string::size_type separator = relative.find('/');
+        if (separator == std::string::npos ||
+            relative.find('/', separator + 1) != std::string::npos) {
+            return json_response(
+                400,
+                "{\"error\":{\"code\":\"invalid_artifact_path\","
+                "\"message\":\"The artifact path is invalid.\"}}\n"
+            );
+        }
+        const std::string package_id = relative.substr(0, separator);
+        const std::string filename = relative.substr(separator + 1);
+        if (!is_valid_pack_id(package_id) ||
+            package_id.compare(0, 4, "pkg_") != 0 ||
+            (filename != "manifest.json" && filename != "package.zip")) {
+            return json_response(
+                400,
+                "{\"error\":{\"code\":\"invalid_artifact_path\","
+                "\"message\":\"The artifact path is invalid.\"}}\n"
+            );
+        }
+        PackageRecord package;
+        std::string error;
+        const RecordLookupStatus lookup = metadata_store->find_package(
+            package_id,
+            authenticated_identity,
+            package,
+            error
+        );
+        if (lookup == RecordLookupStatus::not_found) {
+            return json_response(
+                404,
+                "{\"error\":{\"code\":\"artifact_not_found\","
+                "\"message\":\"The requested artifact does not exist.\"}}\n"
+            );
+        }
+        if (lookup == RecordLookupStatus::storage_error) {
+            RouteResponse response = json_response(
+                503,
+                "{\"error\":{\"code\":\"metadata_unavailable\","
+                "\"message\":\"Artifact metadata is unavailable.\"}}\n"
+            );
+            response.internal_error = error;
+            return response;
+        }
+        const std::string expected_storage =
+            data_root + "/packages/" + package_id;
+        if (data_root.empty() ||
+            package.artifact_storage_key != expected_storage) {
+            RouteResponse response = json_response(
+                500,
+                "{\"error\":{\"code\":\"artifact_storage_invalid\","
+                "\"message\":\"Artifact storage is unavailable.\"}}\n"
+            );
+            response.internal_error =
+                "artifact storage key does not match configured data root";
+            return response;
+        }
+        RouteResponse response;
+        response.disposition = RouteDisposition::handled;
+        response.status = 200;
+        response.content_type = filename == "manifest.json"
+            ? "application/json"
+            : "application/zip";
+        response.file_path = expected_storage + "/" + filename;
+        response.content_disposition =
+            std::string("attachment; filename=\"") + filename + "\"";
+        return response;
     }
 
     if (uri == public_base_path + "/healthz") {

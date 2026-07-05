@@ -667,6 +667,86 @@ bool MetadataStore::complete_job(
     return succeeded;
 }
 
+bool MetadataStore::complete_job_with_package(
+    const JobRecord& job,
+    const std::string& package_id,
+    const std::string& package_fingerprint,
+    const std::string& generator_version,
+    const std::string& generator_build_identity,
+    const std::string& normalized_cli_command,
+    const std::string& manifest_hash,
+    const std::string& artifact_storage_key,
+    std::string& error
+) {
+    if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
+        return false;
+    }
+    sqlite3_stmt* package_statement = nullptr;
+    const char* package_sql =
+        "INSERT INTO packages "
+        "(id, job_id, organization_id, user_id, pack_fingerprint, "
+        "package_fingerprint, generator_version, "
+        "generator_build_identity, manifest_hash, artifact_storage_key) "
+        "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10);";
+    bool succeeded =
+        sqlite3_prepare_v2(
+            database_,
+            package_sql,
+            -1,
+            &package_statement,
+            nullptr
+        ) == SQLITE_OK &&
+        bind_text(package_statement, 1, package_id) &&
+        bind_text(package_statement, 2, job.job_id) &&
+        bind_text(package_statement, 3, job.organization_id) &&
+        bind_text(package_statement, 4, job.user_id) &&
+        bind_text(package_statement, 5, job.pack_fingerprint) &&
+        bind_text(package_statement, 6, package_fingerprint) &&
+        bind_text(package_statement, 7, generator_version) &&
+        bind_text(package_statement, 8, generator_build_identity) &&
+        bind_text(package_statement, 9, manifest_hash) &&
+        bind_text(package_statement, 10, artifact_storage_key) &&
+        sqlite3_step(package_statement) == SQLITE_DONE;
+    sqlite3_finalize(package_statement);
+
+    sqlite3_stmt* job_statement = nullptr;
+    const char* job_sql =
+        "UPDATE jobs SET status = 'succeeded', package_fingerprint = ?2, "
+        "generator_version = ?3, generator_build_identity = ?4, "
+        "normalized_cli_command = ?5, manifest_hash = ?6, "
+        "artifact_storage_key = ?7, "
+        "completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
+        "WHERE id = ?1 AND status = 'running';";
+    succeeded = succeeded &&
+        sqlite3_prepare_v2(
+            database_,
+            job_sql,
+            -1,
+            &job_statement,
+            nullptr
+        ) == SQLITE_OK &&
+        bind_text(job_statement, 1, job.job_id) &&
+        bind_text(job_statement, 2, package_fingerprint) &&
+        bind_text(job_statement, 3, generator_version) &&
+        bind_text(job_statement, 4, generator_build_identity) &&
+        bind_text(job_statement, 5, normalized_cli_command) &&
+        bind_text(job_statement, 6, manifest_hash) &&
+        bind_text(job_statement, 7, artifact_storage_key) &&
+        sqlite3_step(job_statement) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    sqlite3_finalize(job_statement);
+
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (error.empty()) {
+            error = sqlite3_errmsg(database_);
+        }
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return false;
+    }
+    return true;
+}
+
 bool MetadataStore::fail_job(
     const std::string& job_id,
     const std::string& error_code,
@@ -695,6 +775,58 @@ bool MetadataStore::fail_job(
     }
     sqlite3_finalize(statement);
     return succeeded;
+}
+
+RecordLookupStatus MetadataStore::find_package(
+    const std::string& package_id,
+    const ApiKeyIdentity& owner,
+    PackageRecord& package,
+    std::string& error
+) {
+    if (!initialize(error)) {
+        return RecordLookupStatus::storage_error;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT id, job_id, organization_id, user_id, "
+        "package_fingerprint, manifest_hash, artifact_storage_key "
+        "FROM packages WHERE id = ?1 AND organization_id = ?2 "
+        "AND user_id = ?3;";
+    if (sqlite3_prepare_v2(
+            database_,
+            sql,
+            -1,
+            &statement,
+            nullptr
+        ) != SQLITE_OK ||
+        !bind_text(statement, 1, package_id) ||
+        !bind_text(statement, 2, owner.organization_id) ||
+        !bind_text(statement, 3, owner.user_id)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    const int result = sqlite3_step(statement);
+    if (result == SQLITE_DONE) {
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::not_found;
+    }
+    if (result != SQLITE_ROW) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    PackageRecord loaded;
+    loaded.package_id = column_text(statement, 0);
+    loaded.job_id = column_text(statement, 1);
+    loaded.organization_id = column_text(statement, 2);
+    loaded.user_id = column_text(statement, 3);
+    loaded.package_fingerprint = column_text(statement, 4);
+    loaded.manifest_hash = column_text(statement, 5);
+    loaded.artifact_storage_key = column_text(statement, 6);
+    sqlite3_finalize(statement);
+    package = loaded;
+    return RecordLookupStatus::found;
 }
 
 }  // namespace syn_sig_ra

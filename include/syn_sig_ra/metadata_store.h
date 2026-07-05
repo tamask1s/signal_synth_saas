@@ -35,6 +35,16 @@ struct JobRecord {
     std::string completed_at;
 };
 
+struct PackageRecord {
+    std::string package_id;
+    std::string job_id;
+    std::string organization_id;
+    std::string user_id;
+    std::string package_fingerprint;
+    std::string manifest_hash;
+    std::string artifact_storage_key;
+};
+
 enum class RecordLookupStatus {
     found,
     not_found,
@@ -107,10 +117,29 @@ public:
         std::string& error
     );
 
+    bool complete_job_with_package(
+        const JobRecord& job,
+        const std::string& package_id,
+        const std::string& package_fingerprint,
+        const std::string& generator_version,
+        const std::string& generator_build_identity,
+        const std::string& normalized_cli_command,
+        const std::string& manifest_hash,
+        const std::string& artifact_storage_key,
+        std::string& error
+    );
+
     bool fail_job(
         const std::string& job_id,
         const std::string& error_code,
         const std::string& error_message,
+        std::string& error
+    );
+
+    RecordLookupStatus find_package(
+        const std::string& package_id,
+        const ApiKeyIdentity& owner,
+        PackageRecord& package,
         std::string& error
     );
 

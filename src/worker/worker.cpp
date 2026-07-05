@@ -1,5 +1,6 @@
 #include "syn_sig_ra/worker.h"
 
+#include "syn_sig_ra/artifact_store.h"
 #include "syn_sig_ra/metadata_store.h"
 #include "syn_sig_ra/pack_catalog.h"
 #include "syn_sig_ra/sha256.h"
@@ -357,13 +358,32 @@ WorkerRunStatus run_worker_once(
     const std::string normalized_command =
         config.signal_synth_cli + " pack challenge " + expected_pack +
         " --out " + output_directory;
-    if (!store.complete_job(
+    StoredPackage package;
+    if (!directory_exists(config.data_root + "/packages") ||
+        !store_immutable_package(
+            config.data_root,
+            output_directory,
+            package,
+            error
+        )) {
+        std::string ignored;
+        store.fail_job(
             job.job_id,
+            "ARTIFACT_STORAGE_FAILED",
+            "Generated package could not be stored.",
+            ignored
+        );
+        return WorkerRunStatus::failed_job;
+    }
+    if (!store.complete_job_with_package(
+            job,
+            package.package_id,
             challenge.package_fingerprint,
             "signal_synth-cli",
             generator_hash,
             normalized_command,
-            output_directory,
+            package.manifest_hash,
+            package.package_directory,
             error
         )) {
         return WorkerRunStatus::worker_error;

@@ -281,7 +281,8 @@ int syn_sig_ra_handler(request_rec* request) {
         metadata_store_pointer,
         config->pack_root,
         content_type,
-        request_body
+        request_body,
+        config->data_root
     );
 
     if (response.disposition == syn_sig_ra::RouteDisposition::declined) {
@@ -309,6 +310,46 @@ int syn_sig_ra_handler(request_rec* request) {
             "WWW-Authenticate",
             response.www_authenticate.c_str()
         );
+    }
+    if (!response.content_disposition.empty()) {
+        apr_table_set(
+            request->headers_out,
+            "Content-Disposition",
+            response.content_disposition.c_str()
+        );
+    }
+    if (!response.file_path.empty()) {
+        apr_file_t* file = nullptr;
+        apr_finfo_t information;
+        if (apr_file_open(
+                &file,
+                response.file_path.c_str(),
+                APR_READ | APR_BINARY,
+                APR_OS_DEFAULT,
+                request->pool
+            ) != APR_SUCCESS ||
+            apr_file_info_get(&information, APR_FINFO_SIZE, file) !=
+                APR_SUCCESS) {
+            request->status = HTTP_INTERNAL_SERVER_ERROR;
+            ap_set_content_type(request, "application/json");
+            ap_rputs(
+                "{\"error\":{\"code\":\"artifact_storage_unavailable\","
+                "\"message\":\"Artifact storage is unavailable.\"}}\n",
+                request
+            );
+            return OK;
+        }
+        ap_set_content_length(request, information.size);
+        apr_size_t bytes_sent = 0;
+        ap_send_fd(
+            file,
+            request,
+            0,
+            static_cast<apr_size_t>(information.size),
+            &bytes_sent
+        );
+        apr_file_close(file);
+        return OK;
     }
     ap_rwrite(
         response.body.data(),
