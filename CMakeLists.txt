@@ -13,6 +13,12 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(
+    SYN_SIG_RA_ENABLE_INTEGRATION_TESTS
+    "Enable Apache-backed end-to-end integration tests"
+    OFF
+)
+
 find_package(OpenSSL REQUIRED)
 find_package(SQLite3 REQUIRED)
 find_path(JANSSON_INCLUDE_DIR jansson.h REQUIRED)
@@ -225,6 +231,20 @@ if(BUILD_TESTING)
                 "-DNM_EXECUTABLE=${NM_EXECUTABLE}"
                 "-DMODULE_FILE=$<TARGET_FILE:mod_syn_sig_ra>"
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/test/module_symbol_test.cmake"
+        )
+    endif()
+
+    if(SYN_SIG_RA_ENABLE_INTEGRATION_TESTS)
+        add_test(
+            NAME integration_e2e_smoke
+            COMMAND
+                "${CMAKE_CURRENT_SOURCE_DIR}/test/integration/e2e_smoke.sh"
+        )
+        set_tests_properties(
+            integration_e2e_smoke
+            PROPERTIES
+                ENVIRONMENT
+                    "SYN_SIG_RA_BUILD_DIR=${CMAKE_CURRENT_BINARY_DIR};SIGNAL_SYNTH_ROOT=${SIGNAL_SYNTH_ROOT};APXS_EXECUTABLE=${APXS_EXECUTABLE};SYN_SIG_RA_MODULE=$<TARGET_FILE:mod_syn_sig_ra>;SYN_SIG_RA_ADMIN=$<TARGET_FILE:syn_sig_ra_admin>;SYN_SIG_RA_WORKER=$<TARGET_FILE:syn_sig_ra_worker>"
         )
     endif()
 endif()

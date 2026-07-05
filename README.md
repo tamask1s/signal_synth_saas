@@ -308,6 +308,37 @@ ctest --output-on-failure
 cd ..
 ```
 
+Run the Apache-backed end-to-end smoke test:
+
+```sh
+test/integration/e2e_smoke.sh
+```
+
+The script uses a disposable database and data root under `/tmp`, creates a
+temporary API key, starts Apache on `127.0.0.1`, queues
+`r_peak_stress_v1`, runs one worker pass, downloads `manifest.json` and
+`package.zip`, and validates the archive layout. On the VPS, or anywhere the
+old Apache 2.2 runtime is the target, make the runtime explicit:
+
+```sh
+APXS_EXECUTABLE=/usr/local/apache2/bin/apxs \
+APACHE_HTTPD=/usr/local/apache2/bin/httpd \
+test/integration/e2e_smoke.sh
+```
+
+The same smoke test can be enabled in CTest when explicitly requested:
+
+```sh
+cmake -S . -B build/e2e \
+  -DSIGNAL_SYNTH_ROOT=../signal_synth \
+  -DAPXS_EXECUTABLE=/usr/local/apache2/bin/apxs \
+  -DSYN_SIG_RA_ENABLE_INTEGRATION_TESTS=ON
+cmake --build build/e2e
+cd build/e2e
+ctest --output-on-failure
+cd ../..
+```
+
 The build produces `build/mod_syn_sig_ra.so`. The test suite verifies the
 health routing contract, prefix ownership, and exported Apache module
 registration symbol. A full load/configuration smoke test additionally
