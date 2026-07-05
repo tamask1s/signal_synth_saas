@@ -1,0 +1,31 @@
+# CMake build trees and generated files
+/build/
+/cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+CTestTestfile.cmake
+Makefile
+cmake_install.cmake
+compile_commands.json
+Testing/
+
+# Compiled artifacts
+*.a
+*.o
+*.so
+*.so.*
+
+# Local runtime state and secrets
+/.env
+/.env.*
+!/var.example/
+/var/
+*.sqlite
+*.sqlite3
+
+# Editor and operating-system files
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
