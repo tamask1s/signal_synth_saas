@@ -179,6 +179,7 @@ authoritative pack implementation compiled directly from the sibling
 ### Create challenge job
 
 ```http
+GET /syn_sig_ra/v1/jobs
 POST /syn_sig_ra/v1/jobs
 Authorization: Bearer <api-key>
 Content-Type: application/json
@@ -196,6 +197,23 @@ Initial response:
 {
   "job_id": "job_...",
   "status": "queued"
+}
+```
+
+`GET /syn_sig_ra/v1/jobs` returns the authenticated user's most recent jobs:
+
+```json
+{
+  "jobs": [
+    {
+      "job_id": "job_...",
+      "status": "queued",
+      "pack_id": "r_peak_stress_v1",
+      "created_at": "..."
+    }
+  ],
+  "limit": 25,
+  "count": 1
 }
 ```
 
@@ -271,6 +289,21 @@ Successful workers allocate a random `pkg_...` ID and store:
 The generated tree is archived with manifest-relative paths intact, then all
 package files and directories are made read-only. Downloads are streamed by
 Apache after metadata owner authorization; another owner receives HTTP 404.
+
+## Web UI
+
+The module serves a minimal browser UI directly from the Apache module:
+
+```text
+/syn_sig_ra
+/syn_sig_ra/ui
+```
+
+The UI is static HTML/CSS/JavaScript and has no server-side session. A beta
+user pastes an API key into the page; the key is kept in browser
+`sessionStorage` for the current tab session and sent as a Bearer token to the
+existing API. The UI supports service health, pack browsing, job creation,
+recent job status, and authenticated manifest/ZIP downloads.
 
 ## Local development
 
@@ -425,6 +458,19 @@ printf '%s\n' "$API_KEY" |
   build/syn_sig_ra_admin create-api-key \
     build/var/db.sqlite3 org_dev user_dev key_dev "local development"
 unset API_KEY
+```
+
+List API keys without exposing plaintext secrets:
+
+```sh
+build/syn_sig_ra_admin list-api-keys build/var/db.sqlite3
+build/syn_sig_ra_admin list-api-keys build/var/db.sqlite3 org_dev
+```
+
+Revoke an API key:
+
+```sh
+build/syn_sig_ra_admin revoke-api-key build/var/db.sqlite3 key_dev
 ```
 
 `/syn_sig_ra/healthz` remains public. Routes at or below

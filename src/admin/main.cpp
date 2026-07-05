@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -12,8 +13,12 @@ void print_usage(const char* executable) {
         << "Usage:\n"
         << "  " << executable << " init-db <database-path>\n"
         << "  " << executable
+        << " list-api-keys <database-path> [organization-id]\n"
+        << "  " << executable
         << " create-api-key <database-path> <organization-id>"
         << " <user-id> <key-id> <label>\n"
+        << "  " << executable
+        << " revoke-api-key <database-path> <key-id>\n"
         << "\ncreate-api-key reads the plaintext API key as one line from stdin.\n";
 }
 
@@ -29,6 +34,35 @@ int main(int argc, char** argv) {
         }
         std::cout << "status=metadata-initialized\n";
         std::cout << "database=" << argv[2] << '\n';
+        return EXIT_SUCCESS;
+    }
+
+    if ((argc == 3 || argc == 4) &&
+        std::string(argv[1]) == "list-api-keys") {
+        syn_sig_ra::MetadataStore store(argv[2]);
+        std::string error;
+        std::vector<syn_sig_ra::ApiKeyRecord> api_keys;
+        const std::string organization_id = argc == 4 ? argv[3] : "";
+        if (!store.list_api_keys(organization_id, api_keys, error)) {
+            std::cerr << "error=api-key-list-failed message=" << error << '\n';
+            return EXIT_FAILURE;
+        }
+        std::cout
+            << "api_key_id\torganization_id\tuser_id\tactive\tcreated_at"
+            << "\tlast_used_at\tlabel\n";
+        for (std::vector<syn_sig_ra::ApiKeyRecord>::const_iterator it =
+                 api_keys.begin();
+             it != api_keys.end();
+             ++it) {
+            std::cout
+                << it->api_key_id << '\t'
+                << it->organization_id << '\t'
+                << it->user_id << '\t'
+                << (it->active ? "1" : "0") << '\t'
+                << it->created_at << '\t'
+                << it->last_used_at << '\t'
+                << it->label << '\n';
+        }
         return EXIT_SUCCESS;
     }
 
@@ -60,6 +94,18 @@ int main(int argc, char** argv) {
         std::cout << "api_key_id=" << identity.api_key_id << '\n';
         std::cout << "organization_id=" << identity.organization_id << '\n';
         std::cout << "user_id=" << identity.user_id << '\n';
+        return EXIT_SUCCESS;
+    }
+
+    if (argc == 4 && std::string(argv[1]) == "revoke-api-key") {
+        syn_sig_ra::MetadataStore store(argv[2]);
+        std::string error;
+        if (!store.revoke_api_key(argv[3], error)) {
+            std::cerr << "error=api-key-revoke-failed message=" << error << '\n';
+            return EXIT_FAILURE;
+        }
+        std::cout << "status=api-key-revoked\n";
+        std::cout << "api_key_id=" << argv[3] << '\n';
         return EXIT_SUCCESS;
     }
 

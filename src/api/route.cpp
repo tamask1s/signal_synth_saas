@@ -11,6 +11,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -67,7 +68,7 @@ std::string json_dump_line(json_t* value) {
     return output;
 }
 
-std::string job_json(
+json_t* job_json_object(
     const syn_sig_ra::JobRecord& job,
     const std::string& public_base_path
 ) {
@@ -153,10 +154,545 @@ std::string job_json(
         );
         json_object_set_new(root, "error", error);
     }
+    return root;
+}
+
+std::string job_json(
+    const syn_sig_ra::JobRecord& job,
+    const std::string& public_base_path
+) {
+    json_t* root = job_json_object(job, public_base_path);
     const std::string output = json_dump_line(root);
     json_decref(root);
     return output;
 }
+
+std::string job_list_json(
+    const std::vector<syn_sig_ra::JobRecord>& jobs,
+    const std::string& public_base_path,
+    int limit
+) {
+    json_t* root = json_object();
+    json_t* array = json_array();
+    for (std::vector<syn_sig_ra::JobRecord>::const_iterator it = jobs.begin();
+         it != jobs.end();
+         ++it) {
+        json_array_append_new(array, job_json_object(*it, public_base_path));
+    }
+    json_object_set_new(root, "jobs", array);
+    json_object_set_new(
+        root,
+        "limit",
+        json_integer(static_cast<json_int_t>(limit))
+    );
+    json_object_set_new(
+        root,
+        "count",
+        json_integer(static_cast<json_int_t>(jobs.size()))
+    );
+    const std::string output = json_dump_line(root);
+    json_decref(root);
+    return output;
+}
+
+const char kUiHtml[] = R"HTML(<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SynSigRa SaaS</title>
+  <link rel="stylesheet" href="/syn_sig_ra/ui/style.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">SynSigRa private beta</p>
+        <h1>Challenge package generator</h1>
+        <p class="lede">Generate deterministic synthetic biosignal QA packages from curated packs, then download the manifest and archive.</p>
+      </div>
+      <div class="status-card">
+        <div class="label">Service</div>
+        <div id="health-status" class="status">checking…</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>API key</h2>
+      <p class="muted">Paste a beta API key. It is kept only in this browser tab session.</p>
+      <div class="row">
+        <input id="api-key" type="password" autocomplete="off" placeholder="Bearer API key">
+        <button id="save-key">Use key</button>
+        <button id="clear-key" class="secondary">Clear</button>
+      </div>
+      <p id="key-status" class="muted"></p>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <div class="panel-heading">
+          <h2>Packs</h2>
+          <button id="refresh-packs" class="secondary">Refresh</button>
+        </div>
+        <div id="packs" class="cards"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-heading">
+          <h2>Create job</h2>
+        </div>
+        <label for="pack-select">Pack</label>
+        <select id="pack-select"></select>
+        <button id="create-job" class="primary">Create challenge job</button>
+        <pre id="create-output" class="output"></pre>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <h2>Jobs</h2>
+        <button id="refresh-jobs" class="secondary">Refresh</button>
+      </div>
+      <div id="jobs" class="jobs"></div>
+    </section>
+  </main>
+  <script src="/syn_sig_ra/ui/app.js"></script>
+</body>
+</html>
+)HTML";
+
+const char kUiCss[] = R"CSS(:root {
+  color-scheme: light;
+  --bg: #f6f7fb;
+  --panel: #ffffff;
+  --text: #172033;
+  --muted: #667085;
+  --border: #d9deea;
+  --primary: #2258e8;
+  --primary-dark: #1644bb;
+  --danger: #b42318;
+  --ok: #067647;
+  --warn: #b54708;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1fr minmax(220px, 280px);
+  gap: 24px;
+  align-items: stretch;
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--primary);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: 12px;
+}
+
+h1, h2, h3, p { margin-top: 0; }
+h1 { font-size: clamp(32px, 5vw, 56px); line-height: 1; margin-bottom: 16px; }
+h2 { font-size: 20px; margin-bottom: 14px; }
+h3 { font-size: 16px; margin-bottom: 8px; }
+.lede { max-width: 720px; color: var(--muted); font-size: 18px; }
+.muted { color: var(--muted); }
+
+.panel, .status-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, .06);
+}
+
+.status-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.label {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.status {
+  margin-top: 8px;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, .7fr);
+  gap: 20px;
+  margin: 20px 0;
+}
+
+.row, .panel-heading {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.panel-heading {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+input, select, button {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 11px 12px;
+  font: inherit;
+}
+
+input, select {
+  background: #fff;
+  min-width: 0;
+  width: 100%;
+}
+
+button {
+  cursor: pointer;
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+button:hover { background: var(--primary-dark); }
+button.secondary {
+  background: #fff;
+  border-color: var(--border);
+  color: var(--text);
+}
+button.secondary:hover { background: #eef2ff; }
+button.primary { width: 100%; margin-top: 12px; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.card, .job {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  background: #fff;
+}
+
+.fingerprint {
+  display: block;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.jobs {
+  display: grid;
+  gap: 12px;
+}
+
+.job-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.badge {
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #eef2ff;
+  color: var(--primary);
+}
+
+.badge.succeeded { background: #dcfae6; color: var(--ok); }
+.badge.failed { background: #fee4e2; color: var(--danger); }
+.badge.running { background: #fef0c7; color: var(--warn); }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.output {
+  min-height: 44px;
+  max-height: 220px;
+  overflow: auto;
+  background: #101828;
+  color: #f2f4f7;
+  border-radius: 12px;
+  padding: 12px;
+  white-space: pre-wrap;
+}
+
+.error { color: var(--danger); }
+.ok { color: var(--ok); }
+
+@media (max-width: 820px) {
+  .hero, .grid { grid-template-columns: 1fr; }
+  .row { align-items: stretch; flex-direction: column; }
+}
+)CSS";
+
+const char kUiJs[] = R"JS(() => {
+  const base = "/syn_sig_ra";
+  const state = {
+    apiKey: sessionStorage.getItem("syn_sig_ra_api_key") || "",
+    packs: [],
+    jobs: []
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  function setText(id, text, className) {
+    const node = $(id);
+    node.textContent = text;
+    node.className = className || "";
+  }
+
+  function headers(json) {
+    const h = {};
+    if (json) h["Content-Type"] = "application/json";
+    if (state.apiKey) h.Authorization = `Bearer ${state.apiKey}`;
+    return h;
+  }
+
+  async function api(path, options = {}) {
+    const response = await fetch(base + path, {
+      ...options,
+      headers: { ...headers(options.json), ...(options.headers || {}) },
+      body: options.json ? JSON.stringify(options.json) : options.body
+    });
+    const text = await response.text();
+    let body = null;
+    try { body = text ? JSON.parse(text) : null; } catch (_) {}
+    if (!response.ok) {
+      const message = body && body.error ? `${body.error.code}: ${body.error.message}` : text || response.statusText;
+      throw new Error(message);
+    }
+    return body;
+  }
+
+  async function checkHealth() {
+    try {
+      const body = await api("/healthz");
+      setText("health-status", `${body.status} (${body.build.version})`, "status ok");
+    } catch (error) {
+      setText("health-status", error.message, "status error");
+    }
+  }
+
+  function renderKeyState() {
+    $("api-key").value = state.apiKey;
+    setText(
+      "key-status",
+      state.apiKey ? "API key loaded for this tab session." : "No API key loaded.",
+      state.apiKey ? "muted ok" : "muted"
+    );
+  }
+
+  async function loadPacks() {
+    $("packs").textContent = "Loading packs…";
+    try {
+      const body = await api("/v1/packs");
+      state.packs = body.packs || [];
+      const select = $("pack-select");
+      select.innerHTML = "";
+      state.packs.forEach((pack) => {
+        const option = document.createElement("option");
+        option.value = pack.pack_id;
+        option.textContent = `${pack.name || pack.pack_id} (${pack.pack_id})`;
+        select.appendChild(option);
+      });
+      $("packs").innerHTML = state.packs.map((pack) => `
+        <article class="card">
+          <h3>${escapeHtml(pack.name || pack.pack_id)}</h3>
+          <p class="muted">${escapeHtml(pack.description || "")}</p>
+          <span class="fingerprint">${escapeHtml(pack.pack_fingerprint || "")}</span>
+        </article>
+      `).join("") || "<p class=\"muted\">No packs configured.</p>";
+    } catch (error) {
+      $("packs").innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+    }
+  }
+
+  async function createJob() {
+    if (!state.apiKey) {
+      $("create-output").textContent = "Paste an API key first.";
+      return;
+    }
+    const packId = $("pack-select").value;
+    $("create-job").disabled = true;
+    $("create-output").textContent = "Creating job…";
+    try {
+      const body = await api("/v1/jobs", { method: "POST", json: { pack_id: packId } });
+      $("create-output").textContent = JSON.stringify(body, null, 2);
+      await loadJobs();
+    } catch (error) {
+      $("create-output").textContent = error.message;
+    } finally {
+      $("create-job").disabled = false;
+    }
+  }
+
+  async function loadJobs() {
+    const container = $("jobs");
+    if (!state.apiKey) {
+      container.innerHTML = "<p class=\"muted\">Paste an API key to list jobs.</p>";
+      return;
+    }
+    container.textContent = "Loading jobs…";
+    try {
+      const body = await api("/v1/jobs");
+      state.jobs = body.jobs || [];
+      renderJobs();
+    } catch (error) {
+      container.innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+    }
+  }
+
+  function renderJobs() {
+    const container = $("jobs");
+    if (!state.jobs.length) {
+      container.innerHTML = "<p class=\"muted\">No jobs yet.</p>";
+      return;
+    }
+    container.innerHTML = state.jobs.map((job) => {
+      const artifactActions = job.status === "succeeded" ? `
+        <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="manifest.json">Manifest</button>
+        <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="package.zip">Package ZIP</button>
+      ` : "";
+      const error = job.error ? `<p class="error">${escapeHtml(job.error.code)}: ${escapeHtml(job.error.message)}</p>` : "";
+      return `
+        <article class="job">
+          <div class="job-header">
+            <div>
+              <h3>${escapeHtml(job.pack_id || "(unknown pack)")}</h3>
+              <span class="fingerprint">${escapeHtml(job.job_id)}</span>
+            </div>
+            <span class="badge ${escapeHtml(job.status)}">${escapeHtml(job.status)}</span>
+          </div>
+          <p class="muted">Created: ${escapeHtml(job.created_at || "")}</p>
+          ${job.package_id ? `<p class="muted">Package: <span class="fingerprint">${escapeHtml(job.package_id)}</span></p>` : ""}
+          ${job.package_fingerprint ? `<span class="fingerprint">${escapeHtml(job.package_fingerprint)}</span>` : ""}
+          ${error}
+          <div class="actions">
+            <button class="secondary" data-refresh-job="${escapeHtml(job.job_id)}">Refresh this job</button>
+            ${artifactActions}
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  async function refreshJob(jobId) {
+    try {
+      const job = await api(`/v1/jobs/${encodeURIComponent(jobId)}`);
+      const index = state.jobs.findIndex((item) => item.job_id === jobId);
+      if (index >= 0) state.jobs[index] = job;
+      else state.jobs.unshift(job);
+      renderJobs();
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  async function downloadArtifact(packageId, file) {
+    try {
+      const response = await fetch(`${base}/v1/artifacts/${encodeURIComponent(packageId)}/${file}`, {
+        headers: headers(false)
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || response.statusText);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${packageId}-${file}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  $("save-key").addEventListener("click", async () => {
+    state.apiKey = $("api-key").value.trim();
+    if (state.apiKey) sessionStorage.setItem("syn_sig_ra_api_key", state.apiKey);
+    else sessionStorage.removeItem("syn_sig_ra_api_key");
+    renderKeyState();
+    await loadJobs();
+  });
+
+  $("clear-key").addEventListener("click", async () => {
+    state.apiKey = "";
+    sessionStorage.removeItem("syn_sig_ra_api_key");
+    renderKeyState();
+    await loadJobs();
+  });
+
+  $("refresh-packs").addEventListener("click", loadPacks);
+  $("refresh-jobs").addEventListener("click", loadJobs);
+  $("create-job").addEventListener("click", createJob);
+  $("jobs").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const jobId = target.getAttribute("data-refresh-job");
+    if (jobId) refreshJob(jobId);
+    const packageId = target.getAttribute("data-download");
+    const file = target.getAttribute("data-file");
+    if (packageId && file) downloadArtifact(packageId, file);
+  });
+
+  renderKeyState();
+  checkHealth();
+  loadPacks();
+  loadJobs();
+  setInterval(loadJobs, 10000);
+})();
+)JS";
 
 }  // namespace
 
@@ -253,11 +789,33 @@ RouteResponse route_request(
             );
         }
         if (uri == jobs_path) {
+            if (method == "GET") {
+                std::vector<JobRecord> jobs;
+                std::string error;
+                if (!metadata_store->list_jobs(
+                        authenticated_identity,
+                        25,
+                        jobs,
+                        error
+                    )) {
+                    RouteResponse response = json_response(
+                        503,
+                        "{\"error\":{\"code\":\"metadata_unavailable\","
+                        "\"message\":\"Job storage is unavailable.\"}}\n"
+                    );
+                    response.internal_error = error;
+                    return response;
+                }
+                return json_response(
+                    200,
+                    job_list_json(jobs, public_base_path, 25)
+                );
+            }
             if (method != "POST") {
                 return json_response(
                     405,
                     "{\"error\":{\"code\":\"method_not_allowed\","
-                    "\"message\":\"Job collection only accepts POST.\"}}\n"
+                    "\"message\":\"Job collection only accepts GET or POST.\"}}\n"
                 );
             }
             if (!is_json_content_type(content_type)) {
@@ -461,6 +1019,44 @@ RouteResponse route_request(
         response.file_path = expected_storage + "/" + filename;
         response.content_disposition =
             std::string("attachment; filename=\"") + filename + "\"";
+        return response;
+    }
+
+    if (uri == public_base_path || uri == public_base_path + "/ui") {
+        if (method != "GET") {
+            return json_response(
+                405,
+                "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"The web UI only accepts GET.\"}}\n"
+            );
+        }
+        RouteResponse response;
+        response.disposition = RouteDisposition::handled;
+        response.status = 200;
+        response.content_type = "text/html; charset=utf-8";
+        response.body = kUiHtml;
+        return response;
+    }
+
+    if (uri == public_base_path + "/ui/style.css" ||
+        uri == public_base_path + "/ui/app.js") {
+        if (method != "GET") {
+            return json_response(
+                405,
+                "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Static UI assets only accept GET.\"}}\n"
+            );
+        }
+        RouteResponse response;
+        response.disposition = RouteDisposition::handled;
+        response.status = 200;
+        if (uri == public_base_path + "/ui/style.css") {
+            response.content_type = "text/css; charset=utf-8";
+            response.body = kUiCss;
+        } else {
+            response.content_type = "application/javascript; charset=utf-8";
+            response.body = kUiJs;
+        }
         return response;
     }
 

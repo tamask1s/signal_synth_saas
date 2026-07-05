@@ -115,6 +115,21 @@ int main() {
         "new job should have queued status"
     );
 
+    const syn_sig_ra::RouteResponse job_list = syn_sig_ra::route_request(
+        "GET",
+        "/syn_sig_ra/v1/jobs",
+        "/syn_sig_ra",
+        "Bearer job-owner-secret",
+        &store,
+        config.pack_root
+    );
+    require(job_list.status == 200, "owner should list jobs");
+    require(
+        job_list.body.find("\"jobs\":[") != std::string::npos &&
+            job_list.body.find(job_id) != std::string::npos,
+        "job list should contain the queued job"
+    );
+
     syn_sig_ra::ApiKeyIdentity other;
     other.api_key_id = "key_other";
     other.organization_id = "org_other";

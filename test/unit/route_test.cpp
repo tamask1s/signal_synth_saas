@@ -55,6 +55,22 @@ int main() {
         "health route should reject methods other than GET"
     );
 
+    const syn_sig_ra::RouteResponse ui =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra");
+    require(ui.status == 200, "base route should serve the web UI");
+    require(
+        ui.content_type.find("text/html") != std::string::npos &&
+            ui.body.find("Challenge package generator") != std::string::npos,
+        "web UI route should return HTML"
+    );
+    const syn_sig_ra::RouteResponse ui_js =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/ui/app.js");
+    require(
+        ui_js.status == 200 &&
+            ui_js.content_type.find("javascript") != std::string::npos,
+        "web UI JavaScript asset should be served"
+    );
+
     const syn_sig_ra::RouteResponse missing =
         syn_sig_ra::route_request("GET", "/syn_sig_ra/v1/missing");
     require(

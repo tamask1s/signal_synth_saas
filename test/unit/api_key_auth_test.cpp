@@ -10,6 +10,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -111,6 +112,44 @@ int main() {
                 authenticated.identity.user_id == "user_test",
             "authentication should return the owner scope"
         );
+
+        std::vector<syn_sig_ra::ApiKeyRecord> api_keys;
+        require(
+            store.list_api_keys("org_test", api_keys, error),
+            "API key listing should succeed: " + error
+        );
+        require(api_keys.size() == 1, "one API key should be listed");
+        require(
+            api_keys[0].api_key_id == "key_test" &&
+                api_keys[0].active &&
+                !api_keys[0].created_at.empty() &&
+                !api_keys[0].last_used_at.empty(),
+            "API key listing should expose safe lifecycle metadata"
+        );
+
+        require(
+            store.revoke_api_key("key_test", error),
+            "API key revocation should succeed: " + error
+        );
+        api_keys.clear();
+        require(
+            store.list_api_keys("org_test", api_keys, error),
+            "API key listing after revoke should succeed: " + error
+        );
+        require(
+            api_keys.size() == 1 && !api_keys[0].active,
+            "revoked API keys should remain visible but inactive"
+        );
+        const syn_sig_ra::AuthenticationResult revoked =
+            syn_sig_ra::authenticate_bearer(
+                "bearer " + plaintext_key,
+                store
+            );
+        require(
+            revoked.status ==
+                syn_sig_ra::AuthenticationStatus::invalid_credentials,
+            "revoked API keys should no longer authenticate"
+        );
     }
 
     sqlite3* verification_database = nullptr;
@@ -145,8 +184,8 @@ int main() {
         scalar_int(
             verification_database,
             "SELECT count(*) FROM audit_events;"
-        ) == 2,
-        "key creation and successful authentication should be audited"
+        ) == 3,
+        "key creation, successful authentication, and revocation should be audited"
     );
     require(
         scalar_int(verification_database, "PRAGMA user_version;") == 1,

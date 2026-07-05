@@ -143,7 +143,7 @@ MODULE_PATH=${SYN_SIG_RA_MODULE:-"$SYN_SIG_RA_BUILD_DIR/mod_syn_sig_ra.so"}
 ADMIN_BIN=${SYN_SIG_RA_ADMIN:-"$SYN_SIG_RA_BUILD_DIR/syn_sig_ra_admin"}
 WORKER_BIN=${SYN_SIG_RA_WORKER:-"$SYN_SIG_RA_BUILD_DIR/syn_sig_ra_worker"}
 
-if [ ! -f "$MODULE_PATH" ] || [ ! -x "$ADMIN_BIN" ] || [ ! -x "$WORKER_BIN" ]; then
+if [ ! -f "$SYN_SIG_RA_BUILD_DIR/CMakeCache.txt" ]; then
     info "building signal_synth_saas module and tools"
     cmake \
         -S "$REPO_ROOT" \
@@ -151,11 +151,11 @@ if [ ! -f "$MODULE_PATH" ] || [ ! -x "$ADMIN_BIN" ] || [ ! -x "$WORKER_BIN" ]; t
         -DSIGNAL_SYNTH_ROOT="$SIGNAL_SYNTH_ROOT" \
         -DAPXS_EXECUTABLE="$APXS_EXECUTABLE" \
         -DBUILD_TESTING=ON
-    cmake --build "$SYN_SIG_RA_BUILD_DIR" --target \
-        mod_syn_sig_ra \
-        syn_sig_ra_admin \
-        syn_sig_ra_worker
 fi
+cmake --build "$SYN_SIG_RA_BUILD_DIR" --target \
+    mod_syn_sig_ra \
+    syn_sig_ra_admin \
+    syn_sig_ra_worker
 
 if [ ! -f "$MODULE_PATH" ]; then
     fail "Apache module was not built: $MODULE_PATH"
@@ -261,6 +261,19 @@ if [ "$ready" != "1" ]; then
     fail "Apache healthz did not become available at $BASE_URL/healthz"
 fi
 
+curl -fsS "$BASE_URL" >"$WORK_ROOT/ui.html" ||
+    fail "web UI HTML request failed"
+if ! grep -q 'Challenge package generator' "$WORK_ROOT/ui.html"; then
+    dump_file "$WORK_ROOT/ui.html" "web UI HTML"
+    fail "web UI HTML did not contain the expected title"
+fi
+curl -fsS "$BASE_URL/ui/app.js" >"$WORK_ROOT/app.js" ||
+    fail "web UI JavaScript request failed"
+if ! grep -q '/v1/jobs' "$WORK_ROOT/app.js"; then
+    dump_file "$WORK_ROOT/app.js" "web UI JavaScript"
+    fail "web UI JavaScript did not contain API wiring"
+fi
+
 curl -fsS "$BASE_URL/v1/packs" >"$WORK_ROOT/packs.json" ||
     fail "pack catalog request failed"
 
@@ -290,6 +303,27 @@ if not job_id.startswith("job_"):
 print(job_id)
 PY
 ) || fail "job create response did not contain a valid job_id"
+
+JOBS_HTTP=$(
+    curl -sS \
+        -o "$WORK_ROOT/jobs-list.json" \
+        -w '%{http_code}' \
+        -H "Authorization: Bearer $API_KEY" \
+        "$BASE_URL/v1/jobs"
+)
+if [ "$JOBS_HTTP" != "200" ]; then
+    dump_file "$WORK_ROOT/jobs-list.json" "jobs list response"
+    fail "jobs list returned HTTP $JOBS_HTTP, expected 200"
+fi
+python3 - "$WORK_ROOT/jobs-list.json" "$JOB_ID" <<'PY' ||
+import json
+import sys
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    body = json.load(handle)
+if not any(job.get("job_id") == sys.argv[2] for job in body.get("jobs", [])):
+    raise SystemExit("created job was not found in jobs list")
+PY
+    fail "jobs list did not contain the created job"
 
 if ! "$WORKER_BIN" run-once "$DB_PATH" "$SIGNAL_SYNTH_CLI" "$PACK_ROOT" "$DATA_ROOT" \
     >"$WORK_ROOT/worker.stdout" \

@@ -2,6 +2,7 @@
 #define SYN_SIG_RA_METADATA_STORE_H
 
 #include <string>
+#include <vector>
 
 struct sqlite3;
 
@@ -43,6 +44,16 @@ struct PackageRecord {
     std::string package_fingerprint;
     std::string manifest_hash;
     std::string artifact_storage_key;
+};
+
+struct ApiKeyRecord {
+    std::string api_key_id;
+    std::string organization_id;
+    std::string user_id;
+    std::string label;
+    bool active;
+    std::string created_at;
+    std::string last_used_at;
 };
 
 enum class RecordLookupStatus {
@@ -102,6 +113,13 @@ public:
         std::string& error
     );
 
+    bool list_jobs(
+        const ApiKeyIdentity& owner,
+        int limit,
+        std::vector<JobRecord>& jobs,
+        std::string& error
+    );
+
     RecordLookupStatus claim_next_job(
         JobRecord& job,
         std::string& error
@@ -140,6 +158,17 @@ public:
         const std::string& package_id,
         const ApiKeyIdentity& owner,
         PackageRecord& package,
+        std::string& error
+    );
+
+    bool list_api_keys(
+        const std::string& organization_id,
+        std::vector<ApiKeyRecord>& api_keys,
+        std::string& error
+    );
+
+    bool revoke_api_key(
+        const std::string& api_key_id,
         std::string& error
     );
 

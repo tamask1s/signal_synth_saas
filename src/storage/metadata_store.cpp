@@ -555,6 +555,81 @@ RecordLookupStatus MetadataStore::find_job(
     return RecordLookupStatus::found;
 }
 
+bool MetadataStore::list_jobs(
+    const ApiKeyIdentity& owner,
+    int limit,
+    std::vector<JobRecord>& jobs,
+    std::string& error
+) {
+    jobs.clear();
+    if (limit <= 0 || limit > 100) {
+        error = "job list limit must be between 1 and 100";
+        return false;
+    }
+    if (!initialize(error)) {
+        return false;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT j.id, j.organization_id, j.user_id, j.status, "
+        "j.request_json, j.selected_pack_id, j.source_pack_path, "
+        "j.pack_fingerprint, COALESCE(p.id, ''), "
+        "j.package_fingerprint, j.generator_version, "
+        "j.generator_build_identity, j.manifest_hash, "
+        "j.artifact_storage_key, j.error_code, j.error_message, "
+        "j.created_at, j.started_at, j.completed_at "
+        "FROM jobs j LEFT JOIN packages p ON p.job_id = j.id "
+        "WHERE j.organization_id = ?1 AND j.user_id = ?2 "
+        "ORDER BY j.created_at DESC, j.id DESC LIMIT ?3;";
+    if (sqlite3_prepare_v2(
+            database_,
+            sql,
+            -1,
+            &statement,
+            nullptr
+        ) != SQLITE_OK ||
+        !bind_text(statement, 1, owner.organization_id) ||
+        !bind_text(statement, 2, owner.user_id) ||
+        sqlite3_bind_int(statement, 3, limit) != SQLITE_OK) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return false;
+    }
+    for (;;) {
+        const int result = sqlite3_step(statement);
+        if (result == SQLITE_DONE) {
+            sqlite3_finalize(statement);
+            return true;
+        }
+        if (result != SQLITE_ROW) {
+            error = sqlite3_errmsg(database_);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        JobRecord loaded;
+        loaded.job_id = column_text(statement, 0);
+        loaded.organization_id = column_text(statement, 1);
+        loaded.user_id = column_text(statement, 2);
+        loaded.status = column_text(statement, 3);
+        loaded.request_json = column_text(statement, 4);
+        loaded.selected_pack_id = column_text(statement, 5);
+        loaded.source_pack_path = column_text(statement, 6);
+        loaded.pack_fingerprint = column_text(statement, 7);
+        loaded.package_id = column_text(statement, 8);
+        loaded.package_fingerprint = column_text(statement, 9);
+        loaded.generator_version = column_text(statement, 10);
+        loaded.generator_build_identity = column_text(statement, 11);
+        loaded.manifest_hash = column_text(statement, 12);
+        loaded.artifact_storage_key = column_text(statement, 13);
+        loaded.error_code = column_text(statement, 14);
+        loaded.error_message = column_text(statement, 15);
+        loaded.created_at = column_text(statement, 16);
+        loaded.started_at = column_text(statement, 17);
+        loaded.completed_at = column_text(statement, 18);
+        jobs.push_back(loaded);
+    }
+}
+
 RecordLookupStatus MetadataStore::claim_next_job(
     JobRecord& job,
     std::string& error
@@ -827,6 +902,120 @@ RecordLookupStatus MetadataStore::find_package(
     sqlite3_finalize(statement);
     package = loaded;
     return RecordLookupStatus::found;
+}
+
+bool MetadataStore::list_api_keys(
+    const std::string& organization_id,
+    std::vector<ApiKeyRecord>& api_keys,
+    std::string& error
+) {
+    api_keys.clear();
+    if (!initialize(error)) {
+        return false;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* all_sql =
+        "SELECT id, organization_id, user_id, label, active, "
+        "created_at, COALESCE(last_used_at, '') "
+        "FROM api_keys ORDER BY organization_id, user_id, created_at;";
+    const char* org_sql =
+        "SELECT id, organization_id, user_id, label, active, "
+        "created_at, COALESCE(last_used_at, '') "
+        "FROM api_keys WHERE organization_id = ?1 "
+        "ORDER BY user_id, created_at;";
+    const char* sql = organization_id.empty() ? all_sql : org_sql;
+    if (sqlite3_prepare_v2(
+            database_,
+            sql,
+            -1,
+            &statement,
+            nullptr
+        ) != SQLITE_OK ||
+        (!organization_id.empty() &&
+         !bind_text(statement, 1, organization_id))) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return false;
+    }
+    for (;;) {
+        const int result = sqlite3_step(statement);
+        if (result == SQLITE_DONE) {
+            sqlite3_finalize(statement);
+            return true;
+        }
+        if (result != SQLITE_ROW) {
+            error = sqlite3_errmsg(database_);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        ApiKeyRecord loaded;
+        loaded.api_key_id = column_text(statement, 0);
+        loaded.organization_id = column_text(statement, 1);
+        loaded.user_id = column_text(statement, 2);
+        loaded.label = column_text(statement, 3);
+        loaded.active = sqlite3_column_int(statement, 4) == 1;
+        loaded.created_at = column_text(statement, 5);
+        loaded.last_used_at = column_text(statement, 6);
+        api_keys.push_back(loaded);
+    }
+}
+
+bool MetadataStore::revoke_api_key(
+    const std::string& api_key_id,
+    std::string& error
+) {
+    if (api_key_id.empty()) {
+        error = "API key ID is required";
+        return false;
+    }
+    if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
+        return false;
+    }
+
+    sqlite3_stmt* update = nullptr;
+    const char* update_sql =
+        "UPDATE api_keys SET active = 0 WHERE id = ?1 AND active = 1;";
+    bool succeeded =
+        sqlite3_prepare_v2(
+            database_,
+            update_sql,
+            -1,
+            &update,
+            nullptr
+        ) == SQLITE_OK &&
+        bind_text(update, 1, api_key_id) &&
+        sqlite3_step(update) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    sqlite3_finalize(update);
+
+    sqlite3_stmt* audit = nullptr;
+    const char* audit_sql =
+        "INSERT INTO audit_events "
+        "(organization_id, user_id, api_key_id, event_type, "
+        "subject_type, subject_id) "
+        "SELECT organization_id, user_id, id, 'api_key.revoked', "
+        "'api_key', id FROM api_keys WHERE id = ?1;";
+    succeeded = succeeded &&
+        sqlite3_prepare_v2(
+            database_,
+            audit_sql,
+            -1,
+            &audit,
+            nullptr
+        ) == SQLITE_OK &&
+        bind_text(audit, 1, api_key_id) &&
+        sqlite3_step(audit) == SQLITE_DONE;
+    sqlite3_finalize(audit);
+
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (error.empty()) {
+            error = sqlite3_errmsg(database_);
+        }
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return false;
+    }
+    return true;
 }
 
 }  // namespace syn_sig_ra

@@ -261,6 +261,7 @@ Public checks:
 ```sh
 curl -fsS http://www.timeonion.com/syn_sig_ra/healthz
 curl -fsS http://www.timeonion.com/syn_sig_ra/v1/packs
+curl -fsS http://www.timeonion.com/syn_sig_ra/ | grep 'Challenge package generator'
 ```
 
 Create and inspect a real job without printing the API key:
@@ -298,6 +299,15 @@ sudo sh -c 'key=$(cat /root/syn_sig_ra_api_key);
   unzip -t /tmp/syn_sig_ra_package.zip'
 ```
 
+The same flow is available through the browser UI:
+
+```text
+http://www.timeonion.com/syn_sig_ra/
+```
+
+Paste the beta API key into the page. The key is held only in browser
+`sessionStorage` for the current tab session.
+
 ## Logs and diagnostics
 
 Apache:
@@ -312,6 +322,15 @@ Worker:
 ```sh
 sudo systemctl status syn_sig_ra_worker.service --no-pager -l
 sudo journalctl -u syn_sig_ra_worker.service -n 200 --no-pager
+```
+
+API-key lifecycle:
+
+```sh
+sudo /usr/local/bin/syn_sig_ra_admin \
+  list-api-keys /var/lib/syn_sig_ra/db.sqlite3
+sudo /usr/local/bin/syn_sig_ra_admin \
+  revoke-api-key /var/lib/syn_sig_ra/db.sqlite3 KEY_ID
 ```
 
 Database and data root permissions:
