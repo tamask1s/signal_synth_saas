@@ -1,5 +1,7 @@
 #include "syn_sig_ra/metadata_store.h"
 
+#include "syn_sig_ra/random_id.h"
+
 #include <sqlite3.h>
 
 #include <cctype>
@@ -142,6 +144,13 @@ bool bind_text(
         static_cast<int>(value.size()),
         SQLITE_TRANSIENT
     ) == SQLITE_OK;
+}
+
+std::string column_text(sqlite3_stmt* statement, int index) {
+    const unsigned char* value = sqlite3_column_text(statement, index);
+    return value == nullptr
+        ? std::string()
+        : std::string(reinterpret_cast<const char*>(value));
 }
 
 }  // namespace
@@ -439,6 +448,111 @@ bool MetadataStore::record_api_key_use(
         return false;
     }
     return true;
+}
+
+bool MetadataStore::create_job(
+    const ApiKeyIdentity& owner,
+    const std::string& request_json,
+    const std::string& pack_id,
+    const std::string& source_pack_path,
+    const std::string& pack_fingerprint,
+    std::string& job_id,
+    std::string& error
+) {
+    if (!initialize(error) || !random_id("job_", job_id, error)) {
+        return false;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO jobs "
+        "(id, organization_id, user_id, status, request_json, "
+        "selected_pack_id, source_pack_path, pack_fingerprint) "
+        "VALUES (?1, ?2, ?3, 'queued', ?4, ?5, ?6, ?7);";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) ==
+            SQLITE_OK &&
+        bind_text(statement, 1, job_id) &&
+        bind_text(statement, 2, owner.organization_id) &&
+        bind_text(statement, 3, owner.user_id) &&
+        bind_text(statement, 4, request_json) &&
+        bind_text(statement, 5, pack_id) &&
+        bind_text(statement, 6, source_pack_path) &&
+        bind_text(statement, 7, pack_fingerprint) &&
+        sqlite3_step(statement) == SQLITE_DONE;
+    if (!succeeded) {
+        error = sqlite3_errmsg(database_);
+    }
+    sqlite3_finalize(statement);
+    return succeeded;
+}
+
+RecordLookupStatus MetadataStore::find_job(
+    const std::string& job_id,
+    const ApiKeyIdentity& owner,
+    JobRecord& job,
+    std::string& error
+) {
+    if (!initialize(error)) {
+        return RecordLookupStatus::storage_error;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT j.id, j.organization_id, j.user_id, j.status, "
+        "j.request_json, j.selected_pack_id, j.source_pack_path, "
+        "j.pack_fingerprint, COALESCE(p.id, ''), "
+        "j.package_fingerprint, j.generator_version, "
+        "j.generator_build_identity, j.manifest_hash, "
+        "j.artifact_storage_key, j.error_code, j.error_message, "
+        "j.created_at, j.started_at, j.completed_at "
+        "FROM jobs j LEFT JOIN packages p ON p.job_id = j.id "
+        "WHERE j.id = ?1 AND j.organization_id = ?2 AND j.user_id = ?3;";
+    if (sqlite3_prepare_v2(
+            database_,
+            sql,
+            -1,
+            &statement,
+            nullptr
+        ) != SQLITE_OK ||
+        !bind_text(statement, 1, job_id) ||
+        !bind_text(statement, 2, owner.organization_id) ||
+        !bind_text(statement, 3, owner.user_id)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    const int result = sqlite3_step(statement);
+    if (result == SQLITE_DONE) {
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::not_found;
+    }
+    if (result != SQLITE_ROW) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    JobRecord loaded;
+    loaded.job_id = column_text(statement, 0);
+    loaded.organization_id = column_text(statement, 1);
+    loaded.user_id = column_text(statement, 2);
+    loaded.status = column_text(statement, 3);
+    loaded.request_json = column_text(statement, 4);
+    loaded.selected_pack_id = column_text(statement, 5);
+    loaded.source_pack_path = column_text(statement, 6);
+    loaded.pack_fingerprint = column_text(statement, 7);
+    loaded.package_id = column_text(statement, 8);
+    loaded.package_fingerprint = column_text(statement, 9);
+    loaded.generator_version = column_text(statement, 10);
+    loaded.generator_build_identity = column_text(statement, 11);
+    loaded.manifest_hash = column_text(statement, 12);
+    loaded.artifact_storage_key = column_text(statement, 13);
+    loaded.error_code = column_text(statement, 14);
+    loaded.error_message = column_text(statement, 15);
+    loaded.created_at = column_text(statement, 16);
+    loaded.started_at = column_text(statement, 17);
+    loaded.completed_at = column_text(statement, 18);
+    sqlite3_finalize(statement);
+    job = loaded;
+    return RecordLookupStatus::found;
 }
 
 }  // namespace syn_sig_ra

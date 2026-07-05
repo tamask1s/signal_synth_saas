@@ -22,6 +22,33 @@ APLOG_USE_MODULE(syn_sig_ra);
 
 namespace {
 
+bool read_request_body(request_rec* request, std::string& body) {
+    if (request->method == nullptr ||
+        std::string(request->method) != "POST") {
+        return true;
+    }
+    if (ap_setup_client_block(request, REQUEST_CHUNKED_ERROR) != OK) {
+        return false;
+    }
+    if (!ap_should_client_block(request)) {
+        return true;
+    }
+    char buffer[8192];
+    long read_count = 0;
+    while ((read_count = ap_get_client_block(
+                request,
+                buffer,
+                sizeof(buffer)
+            )) > 0) {
+        if (body.size() + static_cast<std::size_t>(read_count) >
+            64u * 1024u) {
+            return false;
+        }
+        body.append(buffer, static_cast<std::size_t>(read_count));
+    }
+    return read_count == 0;
+}
+
 struct ApacheServerConfig {
     const char* data_root;
     const char* signal_synth_cli;
@@ -199,6 +226,24 @@ int syn_sig_ra_handler(request_rec* request) {
     const std::string authorization = authorization_value == nullptr
         ? std::string()
         : authorization_value;
+    const char* content_type_value = apr_table_get(
+        request->headers_in,
+        "Content-Type"
+    );
+    const std::string content_type = content_type_value == nullptr
+        ? std::string()
+        : content_type_value;
+    std::string request_body;
+    if (!read_request_body(request, request_body)) {
+        request->status = HTTP_REQUEST_ENTITY_TOO_LARGE;
+        ap_set_content_type(request, "application/json");
+        ap_rputs(
+            "{\"error\":{\"code\":\"request_too_large\","
+            "\"message\":\"Request body exceeds 64 KiB.\"}}\n",
+            request
+        );
+        return OK;
+    }
     const ApacheServerConfig* config =
         static_cast<const ApacheServerConfig*>(
             ap_get_module_config(
@@ -234,7 +279,9 @@ int syn_sig_ra_handler(request_rec* request) {
         config->public_base_path,
         authorization,
         metadata_store_pointer,
-        config->pack_root
+        config->pack_root,
+        content_type,
+        request_body
     );
 
     if (response.disposition == syn_sig_ra::RouteDisposition::declined) {

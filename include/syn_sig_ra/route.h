@@ -33,7 +33,9 @@ RouteResponse route_request(
     const std::string& public_base_path,
     const std::string& authorization_header,
     MetadataStore* metadata_store,
-    const std::string& pack_root = ""
+    const std::string& pack_root = "",
+    const std::string& content_type = "",
+    const std::string& request_body = ""
 );
 
 bool route_requires_authentication(

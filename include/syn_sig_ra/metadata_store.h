@@ -13,6 +13,34 @@ struct ApiKeyIdentity {
     std::string user_id;
 };
 
+struct JobRecord {
+    std::string job_id;
+    std::string organization_id;
+    std::string user_id;
+    std::string status;
+    std::string request_json;
+    std::string selected_pack_id;
+    std::string source_pack_path;
+    std::string pack_fingerprint;
+    std::string package_id;
+    std::string package_fingerprint;
+    std::string generator_version;
+    std::string generator_build_identity;
+    std::string manifest_hash;
+    std::string artifact_storage_key;
+    std::string error_code;
+    std::string error_message;
+    std::string created_at;
+    std::string started_at;
+    std::string completed_at;
+};
+
+enum class RecordLookupStatus {
+    found,
+    not_found,
+    storage_error
+};
+
 enum class ApiKeyLookupStatus {
     found,
     not_found,
@@ -44,6 +72,23 @@ public:
 
     bool record_api_key_use(
         const ApiKeyIdentity& identity,
+        std::string& error
+    );
+
+    bool create_job(
+        const ApiKeyIdentity& owner,
+        const std::string& request_json,
+        const std::string& pack_id,
+        const std::string& source_pack_path,
+        const std::string& pack_fingerprint,
+        std::string& job_id,
+        std::string& error
+    );
+
+    RecordLookupStatus find_job(
+        const std::string& job_id,
+        const ApiKeyIdentity& owner,
+        JobRecord& job,
         std::string& error
     );
 

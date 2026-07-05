@@ -15,6 +15,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(OpenSSL REQUIRED)
 find_package(SQLite3 REQUIRED)
+find_path(JANSSON_INCLUDE_DIR jansson.h REQUIRED)
+find_library(JANSSON_LIBRARY NAMES jansson REQUIRED)
+add_library(Jansson::Jansson UNKNOWN IMPORTED)
+set_target_properties(Jansson::Jansson PROPERTIES
+    IMPORTED_LOCATION "${JANSSON_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${JANSSON_INCLUDE_DIR}"
+)
 
 set(
     SIGNAL_SYNTH_ROOT
@@ -79,6 +86,8 @@ add_library(syn_sig_ra_core STATIC
     src/auth/sha256.cpp
     src/catalog/pack_catalog.cpp
     src/config/runtime_config.cpp
+    src/job/job_request.cpp
+    src/job/random_id.cpp
     src/storage/metadata_store.cpp
     src/api/route.cpp
 )
@@ -94,6 +103,7 @@ target_link_libraries(syn_sig_ra_core
     PUBLIC
         OpenSSL::Crypto
         SQLite::SQLite3
+        Jansson::Jansson
 )
 
 add_executable(syn_sig_ra_admin
@@ -179,10 +189,16 @@ if(BUILD_TESTING)
     )
     target_link_libraries(syn_sig_ra_pack_catalog_test PRIVATE syn_sig_ra_core)
 
+    add_executable(syn_sig_ra_job_test
+        test/unit/job_test.cpp
+    )
+    target_link_libraries(syn_sig_ra_job_test PRIVATE syn_sig_ra_core)
+
     add_test(NAME route_unit COMMAND syn_sig_ra_route_test)
     add_test(NAME runtime_config_unit COMMAND syn_sig_ra_config_test)
     add_test(NAME api_key_auth_unit COMMAND syn_sig_ra_auth_test)
     add_test(NAME pack_catalog_unit COMMAND syn_sig_ra_pack_catalog_test)
+    add_test(NAME job_unit COMMAND syn_sig_ra_job_test)
 
     find_program(NM_EXECUTABLE NAMES nm llvm-nm)
     if(NM_EXECUTABLE)

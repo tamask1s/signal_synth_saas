@@ -199,6 +199,16 @@ Initial response:
 }
 ```
 
+Implemented request policy:
+
+- `pack_id` is required and must name a catalog pack;
+- `export_formats` is optional and accepts unique `wfdb`, `edf`, and `bdf`
+  values;
+- `report_format` is optional and currently accepts only `html`;
+- duplicate or unsupported JSON fields are rejected;
+- accepted requests return HTTP 202 and are persisted as owner-scoped
+  `queued` jobs.
+
 ### Read job status
 
 ```http
@@ -218,6 +228,8 @@ failed
 Succeeded jobs return package metadata, manifest URL, archive URL, package fingerprint, generator version, and scenario fingerprints where available.
 
 Failed jobs return a stable error code and safe message.
+Job IDs are cryptographically random, and status reads deliberately return
+HTTP 404 when the job does not belong to the authenticated organization/user.
 
 ### Download artifacts
 
