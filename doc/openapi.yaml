@@ -36,6 +36,16 @@ components:
         completed_at: {type: string, format: date-time}
         package_id: {type: string}
         artifact_status: {type: string, enum: [available, expired]}
+        package_fingerprint: {type: string}
+        generator_version: {type: string}
+        generator_build_identity: {type: string}
+        manifest_url: {type: string}
+        archive_url: {type: string}
+        error:
+          type: object
+          properties:
+            code: {type: string}
+            message: {type: string}
 paths:
   /healthz:
     get:
@@ -53,6 +63,15 @@ paths:
       summary: List curated versioned packs
       responses:
         '200': {description: Pack catalog}
+  /v1/packs/{pack_id}:
+    get:
+      summary: Read a curated versioned pack
+      parameters:
+        - {in: path, name: pack_id, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Curated pack detail}
+        '400': {description: Invalid pack ID}
+        '404': {description: Pack not found}
   /v1/projects:
     get:
       summary: List caller organization projects
@@ -97,10 +116,6 @@ paths:
               properties:
                 project_id: {type: string}
                 pack_id: {type: string}
-                export_formats:
-                  type: array
-                  items: {type: string, enum: [wfdb, edf, bdf]}
-                report_format: {type: string, enum: [html]}
               additionalProperties: false
       responses:
         '202': {description: Job queued}

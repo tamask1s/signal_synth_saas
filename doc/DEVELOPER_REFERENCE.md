@@ -187,9 +187,8 @@ Authorization: Bearer <api-key>
 Content-Type: application/json
 
 {
-  "pack_id": "example_pack",
-  "export_formats": ["wfdb", "edf", "bdf"],
-  "report_format": "html"
+  "project_id": "org_example_default",
+  "pack_id": "example_pack"
 }
 ```
 
@@ -251,9 +250,7 @@ Implemented request policy:
 
 - `pack_id` is required and must name a catalog pack;
 - `project_id` is required and must name a project in the caller's organization;
-- `export_formats` is optional and accepts unique `wfdb`, `edf`, and `bdf`
-  values;
-- `report_format` is optional and currently accepts only `html`;
+- challenge jobs produce the service's complete fixed export/report set;
 - duplicate or unsupported JSON fields are rejected;
 - accepted requests return HTTP 202 and are persisted as owner-scoped
   `queued` jobs.

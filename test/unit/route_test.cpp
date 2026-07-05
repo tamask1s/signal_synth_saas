@@ -63,7 +63,9 @@ int main() {
             ui.body.find("Challenge package generator") != std::string::npos &&
             ui.body.find("readiness-status") != std::string::npos &&
             ui.body.find("metrics-panel") != std::string::npos &&
-            ui.body.find("load-more-jobs") != std::string::npos,
+            ui.body.find("load-more-jobs") != std::string::npos &&
+            ui.body.find("load-scenario-template") != std::string::npos &&
+            ui.body.find("Recommended workflow") != std::string::npos,
         "web UI route should return HTML"
     );
     const syn_sig_ra::RouteResponse ui_js =
@@ -73,7 +75,9 @@ int main() {
             ui_js.content_type.find("javascript") != std::string::npos &&
             ui_js.body.find("(() => {") == 0 &&
             ui_js.body.find("loadMetrics") != std::string::npos &&
-            ui_js.body.find("jobsNextOffset") != std::string::npos,
+            ui_js.body.find("jobsNextOffset") != std::string::npos &&
+            ui_js.body.find("cleanEcgTemplate") != std::string::npos &&
+            ui_js.body.find("Reproducibility details") != std::string::npos,
         "web UI JavaScript asset should be served as an executable IIFE"
     );
     const syn_sig_ra::RouteResponse ui_trailing_slash =

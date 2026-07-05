@@ -406,7 +406,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
 </head>
 <body>
   <main class="shell">
-    <section class="hero">
+    <section id="overview" class="hero">
       <div>
         <p class="eyebrow">SynSigRa private beta</p>
         <h1>Challenge package generator</h1>
@@ -419,6 +419,23 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       </div>
     </section>
 
+    <nav class="quick-nav" aria-label="Page sections">
+      <a href="#generate">Generate</a>
+      <a href="#jobs-section">Jobs</a>
+      <a href="#scenario-workbench">Scenarios</a>
+      <a href="#custom-pack-workbench">Custom packs</a>
+      <a href="#account">Usage</a>
+      <a href="#documentation">Documentation</a>
+    </nav>
+
+    <aside class="workflow" aria-label="Recommended workflow">
+      <strong>Workflow</strong>
+      <span>1. Choose or draft scenarios</span>
+      <span>2. Choose or compose a pack</span>
+      <span>3. Generate and download</span>
+      <span>4. Run and verify your algorithm locally</span>
+    </aside>
+
     <section class="panel">
       <h2>API key</h2>
       <p class="muted">Paste a beta API key. It is kept only in this browser tab session.</p>
@@ -430,7 +447,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <p id="key-status" class="muted"></p>
     </section>
 
-    <section class="grid">
+    <section id="generate" class="grid">
       <div class="panel">
         <div class="panel-heading">
           <h2>Packs</h2>
@@ -447,24 +464,29 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         <select id="project-select"></select>
         <div class="row">
           <input id="project-name" type="text" maxlength="100" placeholder="New project name">
-          <button id="create-project" class="secondary">Create project</button>
+          <button id="create-project" class="secondary" disabled>Create project</button>
         </div>
         <label for="pack-select">Pack</label>
         <select id="pack-select"></select>
-        <button id="create-job" class="primary">Create challenge job</button>
+        <p class="muted compact">Generation produces the complete challenge export set. Format options are not configurable per job.</p>
+        <button id="create-job" class="primary" disabled>Create challenge job</button>
         <pre id="create-output" class="output"></pre>
       </div>
     </section>
 
-    <section class="panel">
+    <section id="jobs-section" class="panel">
       <div class="panel-heading">
         <h2>Jobs</h2>
-        <button id="refresh-jobs" class="secondary">Refresh</button>
+        <div class="actions no-margin">
+          <span id="jobs-sync-status" class="muted" aria-live="polite"></span>
+          <button id="refresh-jobs" class="secondary">Refresh</button>
+        </div>
       </div>
+      <p class="muted">The list polls in place. Download a completed ZIP, run your algorithm locally, then score its outputs with the verification helper.</p>
       <div id="jobs" class="jobs"></div>
       <button id="load-more-jobs" class="secondary" hidden>Load older jobs</button>
     </section>
-    <section class="panel">
+    <section id="account" class="panel">
       <div class="panel-heading">
         <h2>Usage</h2>
         <button id="refresh-usage" class="secondary">Refresh</button>
@@ -478,22 +500,25 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       </div>
       <div id="metrics" class="muted"></div>
     </section>
-    <section class="panel">
+    <section id="scenario-workbench" class="panel">
       <div class="panel-heading">
         <h2>Scenario drafts</h2>
         <button id="new-scenario" class="secondary">New draft</button>
       </div>
+      <p class="muted">Start from a working ECG example or edit raw JSON. Invalid drafts remain editable and show validation details.</p>
       <label for="scenario-name">Name</label>
       <input id="scenario-name" type="text" maxlength="100" placeholder="Scenario name">
       <label for="scenario-json">Scenario JSON</label>
       <textarea id="scenario-json" rows="16" spellcheck="false">{}</textarea>
       <div class="actions">
-        <button id="save-scenario" class="primary">Validate and save</button>
+        <button id="load-scenario-template" class="secondary">Load clean ECG example</button>
+        <button id="format-scenario-json" class="secondary">Format JSON</button>
+        <button id="save-scenario" class="primary" disabled>Validate and save</button>
       </div>
       <pre id="scenario-output" class="output"></pre>
       <div id="scenarios" class="jobs"></div>
     </section>
-    <section class="panel">
+    <section id="custom-pack-workbench" class="panel">
       <div class="panel-heading">
         <h2>Custom pack composer</h2>
         <button id="refresh-custom-packs" class="secondary">Refresh</button>
@@ -503,15 +528,24 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <label for="custom-pack-description">Description</label>
       <input id="custom-pack-description" type="text" placeholder="What this pack tests">
       <label for="custom-pack-targets">Targets (comma-separated)</label>
-      <input id="custom-pack-targets" type="text" value="r_peak">
+      <input id="custom-pack-targets" type="text" value="r_peak" list="target-suggestions">
+      <datalist id="target-suggestions">
+        <option value="r_peak">
+        <option value="ppg_systolic_peak">
+        <option value="beat_classification">
+        <option value="signal_quality">
+        <option value="hrv">
+      </datalist>
+      <p class="muted compact">Select at least one valid draft. The resulting pack snapshots its scenarios; later draft edits do not alter it.</p>
       <div id="pack-scenario-options" class="cards"></div>
-      <button id="create-custom-pack" class="primary">Create immutable custom pack</button>
+      <button id="create-custom-pack" class="primary" disabled>Create immutable custom pack</button>
       <pre id="custom-pack-output" class="output"></pre>
       <div id="custom-packs" class="jobs"></div>
     </section>
-    <section class="panel">
+    <section id="documentation" class="panel">
       <h2>Documentation</h2>
       <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/README.md" target="_blank" rel="noopener">User manual</a></p>
+      <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/README.md#recommended-algorithm-developer-workflow" target="_blank" rel="noopener">Algorithm developer workflow</a></p>
       <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/doc/openapi.yaml" target="_blank" rel="noopener">OpenAPI reference</a></p>
     </section>
   </main>
@@ -556,6 +590,42 @@ body {
   margin-bottom: 24px;
 }
 
+.quick-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 0 0 16px;
+  padding: 10px;
+  background: rgba(246, 247, 251, .94);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+}
+.quick-nav a {
+  flex: 0 0 auto;
+  color: var(--primary);
+  padding: 6px 10px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.quick-nav a:hover { text-decoration: underline; }
+
+.workflow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: #eef4ff;
+  border: 1px solid #c7d7fe;
+  border-radius: 14px;
+  color: #344054;
+}
+
 .eyebrow {
   margin: 0 0 8px;
   color: var(--primary);
@@ -571,6 +641,7 @@ h2 { font-size: 20px; margin-bottom: 14px; }
 h3 { font-size: 16px; margin-bottom: 8px; }
 .lede { max-width: 720px; color: var(--muted); font-size: 18px; }
 .muted { color: var(--muted); }
+.compact { margin-bottom: 8px; }
 
 .panel, .status-card {
   background: var(--panel);
@@ -715,6 +786,31 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   gap: 8px;
   margin-top: 12px;
 }
+.actions.no-margin { margin-top: 0; align-items: center; }
+.actions .primary { width: auto; margin-top: 0; }
+
+details.meta {
+  margin-top: 10px;
+  padding: 8px 0;
+}
+details.meta summary { cursor: pointer; font-weight: 700; }
+.meta-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 5px 12px;
+  margin-top: 10px;
+}
+.meta-grid dt { color: var(--muted); }
+.meta-grid dd { margin: 0; overflow-wrap: anywhere; }
+.verify-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #ecfdf3;
+  border: 1px solid #abefc6;
+  border-radius: 10px;
+}
+.card input[type="checkbox"] { width: auto; margin-right: 8px; }
+.output:empty { display: none; }
 
 .output {
   min-height: 44px;
@@ -733,6 +829,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 @media (max-width: 820px) {
   .hero, .grid { grid-template-columns: 1fr; }
   .row { align-items: stretch; flex-direction: column; }
+  .meta-grid { grid-template-columns: 1fr; }
 }
 )CSS";
 
@@ -754,11 +851,65 @@ const char kUiJs[] = R"JS((() => {
   };
 
   const $ = (id) => document.getElementById(id);
+  const cleanEcgTemplate = {
+    schema_version: 1,
+    scenario_id: "ecg_clean_001",
+    name: "Clean ECG",
+    description: "Deterministic clean ECG engineering scenario.",
+    author: "Synsigra",
+    tags: ["clean", "ecg"],
+    duration_seconds: 10,
+    sample_rate_hz: 500,
+    seed: 12345,
+    ecg: {
+      heart_rate_bpm: 70,
+      rr_variability_seconds: 0,
+      ectopic_every_n_beats: 0,
+      second_degree_av_pattern: "unspecified",
+      q_wave_territory: "unspecified",
+      episode_type: "none",
+      episode_start_seconds: 2,
+      episode_duration_seconds: 4,
+      episode_rate_bpm: 170,
+      fidelity_policy: "allow_parameterized",
+      conditions: [{ code: "NORM", severity: 1 }]
+    }
+  };
 
   function setText(id, text, className) {
     const node = $(id);
     node.textContent = text;
     node.className = className || "";
+  }
+
+  function formatBytes(value) {
+    const bytes = Number(value);
+    if (!Number.isFinite(bytes) || bytes < 0) return "n/a";
+    if (bytes < 1024) return `${bytes} B`;
+    const units = ["KiB", "MiB", "GiB", "TiB"];
+    let amount = bytes;
+    let unit = -1;
+    do {
+      amount /= 1024;
+      unit += 1;
+    } while (amount >= 1024 && unit < units.length - 1);
+    return `${amount.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${units[unit]}`;
+  }
+
+  function formatDate(value) {
+    if (!value) return "—";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? String(value)
+      : new Intl.DateTimeFormat(undefined, {
+          dateStyle: "medium",
+          timeStyle: "medium"
+        }).format(date);
+  }
+
+  function canWrite() {
+    return ["owner", "admin", "developer"].includes(state.role);
   }
 
   function headers(json) {
@@ -800,7 +951,7 @@ const char kUiJs[] = R"JS((() => {
         .join(" · ");
       setText(
         "readiness-status",
-        `${ready.status} · ${components} · ${ready.disk_free_bytes || 0} bytes free`,
+        `${ready.status} · ${components} · ${formatBytes(ready.disk_free_bytes)} free`,
         ready.status === "ready" ? "muted ok" : "muted error"
       );
     } catch (error) {
@@ -812,7 +963,9 @@ const char kUiJs[] = R"JS((() => {
     $("api-key").value = state.apiKey;
     setText(
       "key-status",
-      state.apiKey ? "API key loaded for this tab session." : "No API key loaded.",
+      state.apiKey
+        ? `API key loaded for this tab session${state.role ? ` · role: ${state.role}` : ""}.`
+        : "No API key loaded.",
       state.apiKey ? "muted ok" : "muted"
     );
   }
@@ -843,7 +996,7 @@ const char kUiJs[] = R"JS((() => {
       $("packs").innerHTML = state.packs.map((pack) => `
         <article class="card">
           <h3>${escapeHtml(pack.display_name || pack.pack_id)}</h3>
-          <p class="muted">Version ${escapeHtml(pack.version || "")} · ${escapeHtml(pack.scenario_count || 0)} scenarios</p>
+          <p class="muted">Version ${escapeHtml(pack.version || "")} · released ${escapeHtml(formatDate(pack.released_at))} · ${escapeHtml(pack.scenario_count || 0)} scenarios</p>
           <p><span class="badge ${escapeHtml(pack.release_status || "")}">${escapeHtml(pack.release_status || "unknown")}</span></p>
           <p class="muted">${escapeHtml(pack.description || "")}</p>
           <p class="muted">Targets: ${escapeHtml((pack.targets || []).join(", ") || "n/a")}</p>
@@ -878,7 +1031,12 @@ const char kUiJs[] = R"JS((() => {
     select.innerHTML = "";
     if (!state.apiKey) {
       state.role = "";
+      state.projects = [];
       $("metrics-panel").hidden = true;
+      $("create-project").disabled = true;
+      $("create-job").disabled = true;
+      $("save-scenario").disabled = true;
+      $("create-custom-pack").disabled = true;
       return;
     }
     try {
@@ -891,6 +1049,9 @@ const char kUiJs[] = R"JS((() => {
         "muted ok"
       );
       $("create-project").disabled = !["owner", "admin"].includes(body.role);
+      $("create-job").disabled = !canWrite();
+      $("save-scenario").disabled = !canWrite();
+      $("create-custom-pack").disabled = !canWrite();
       $("metrics-panel").hidden = !["owner", "admin"].includes(body.role);
       state.projects.forEach((project) => {
         const option = document.createElement("option");
@@ -900,7 +1061,13 @@ const char kUiJs[] = R"JS((() => {
       });
       if (!($("metrics-panel").hidden)) loadMetrics();
     } catch (error) {
+      state.role = "";
       $("create-output").textContent = error.message;
+      $("create-project").disabled = true;
+      $("create-job").disabled = true;
+      $("save-scenario").disabled = true;
+      $("create-custom-pack").disabled = true;
+      $("metrics-panel").hidden = true;
     }
   }
 
@@ -915,7 +1082,7 @@ const char kUiJs[] = R"JS((() => {
         <p>Requests/minute: ${escapeHtml(usage.requests_last_minute)} / ${escapeHtml(usage.limits.requests_per_minute)}</p>
         <p>Active jobs: ${escapeHtml(usage.active_jobs)} / ${escapeHtml(usage.limits.concurrent_jobs)}</p>
         <p>Jobs this month: ${escapeHtml(usage.jobs_this_month)} / ${escapeHtml(usage.limits.jobs_per_month)}</p>
-        <p>Packages this month: ${escapeHtml(usage.packages_this_month)} · ${escapeHtml(usage.package_bytes_this_month)} bytes</p>
+        <p>Packages this month: ${escapeHtml(usage.packages_this_month)} · ${escapeHtml(formatBytes(usage.package_bytes_this_month))}</p>
       `;
     } catch (error) {
       $("usage").textContent = error.message;
@@ -933,8 +1100,8 @@ const char kUiJs[] = R"JS((() => {
       $("metrics").innerHTML = `
         <p>Queue: ${escapeHtml(metrics.queued_jobs)} queued · ${escapeHtml(metrics.running_jobs)} running</p>
         <p>Failures this month: ${escapeHtml(metrics.failed_jobs_this_month)} · quota rejections: ${escapeHtml(metrics.quota_rejections_this_month)}</p>
-        <p>Worker: ${escapeHtml(metrics.worker_last_status || "unknown")} · last seen ${escapeHtml(metrics.worker_last_seen_at || "never")}</p>
-        <p>Stored packages this month: ${escapeHtml(metrics.packages_this_month)} · ${escapeHtml(metrics.package_bytes_this_month)} bytes</p>
+        <p>Worker: ${escapeHtml(metrics.worker_last_status || "unknown")} · last seen ${escapeHtml(formatDate(metrics.worker_last_seen_at))}</p>
+        <p>Stored packages this month: ${escapeHtml(metrics.packages_this_month)} · ${escapeHtml(formatBytes(metrics.package_bytes_this_month))}</p>
       `;
     } catch (error) {
       $("metrics").textContent = error.message;
@@ -958,11 +1125,19 @@ const char kUiJs[] = R"JS((() => {
             <div><h3>${escapeHtml(draft.name)}</h3><span class="fingerprint">${escapeHtml(draft.scenario_id)}</span></div>
             <span class="badge ${escapeHtml(draft.status)}">${escapeHtml(draft.status)}</span>
           </div>
-          <p class="muted">${escapeHtml(draft.document_fingerprint || "No fingerprint until valid")}</p>
-          ${(draft.validation_errors || []).map((item) => `<p class="error">${escapeHtml(item.code)} ${escapeHtml(item.path)}: ${escapeHtml(item.message)}</p>`).join("")}
+          <p class="muted">Updated ${escapeHtml(formatDate(draft.updated_at))}</p>
+          <span class="fingerprint">${escapeHtml(draft.document_fingerprint || "No fingerprint until valid")}</span>
+          ${(draft.validation_errors || []).length ? `
+            <details class="meta">
+              <summary class="error">${escapeHtml(draft.validation_errors.length)} validation issue(s)</summary>
+              <ul>
+                ${draft.validation_errors.map((item) => `<li class="error"><strong>${escapeHtml(item.code)}</strong> ${escapeHtml(item.path)}: ${escapeHtml(item.message)}</li>`).join("")}
+              </ul>
+            </details>
+          ` : ""}
           <div class="actions">
-            <button class="secondary" data-edit-scenario="${escapeHtml(draft.scenario_id)}">Edit</button>
-            <button class="danger" data-delete-scenario="${escapeHtml(draft.scenario_id)}">Delete</button>
+            <button class="secondary" data-edit-scenario="${escapeHtml(draft.scenario_id)}">${canWrite() ? "Edit" : "View"}</button>
+            ${canWrite() ? `<button class="danger" data-delete-scenario="${escapeHtml(draft.scenario_id)}">Delete</button>` : ""}
           </div>
         </article>
       `).join("") || "<p class=\"muted\">No scenario drafts yet.</p>";
@@ -977,6 +1152,7 @@ const char kUiJs[] = R"JS((() => {
       <label class="card">
         <input type="checkbox" data-pack-scenario="${escapeHtml(draft.scenario_id)}">
         <strong>${escapeHtml(draft.name)}</strong>
+        <span class="muted">${escapeHtml(draft.scenario && draft.scenario.scenario_id ? draft.scenario.scenario_id : "scenario")}</span>
         <span class="fingerprint">${escapeHtml(draft.document_fingerprint || "")}</span>
       </label>
     `).join("") || "<p class=\"muted\">Create at least one valid scenario draft first.</p>";
@@ -1000,9 +1176,10 @@ const char kUiJs[] = R"JS((() => {
             <span class="badge">custom ${escapeHtml(pack.version)}</span>
           </div>
           <p class="muted">${escapeHtml(pack.description)}</p>
-          <p class="muted">Targets: ${escapeHtml((pack.targets || []).join(", "))} · ${escapeHtml((pack.scenario_ids || []).length)} scenarios</p>
+          <p class="muted">Created ${escapeHtml(formatDate(pack.created_at))} · ${escapeHtml((pack.scenario_ids || []).length)} scenarios</p>
+          <p class="muted">Targets: ${escapeHtml((pack.targets || []).join(", "))}</p>
           <span class="fingerprint">${escapeHtml(pack.pack_fingerprint)}</span>
-          <div class="actions"><button class="danger" data-delete-custom-pack="${escapeHtml(pack.pack_id)}">Delete</button></div>
+          ${canWrite() ? `<div class="actions"><button class="danger" data-delete-custom-pack="${escapeHtml(pack.pack_id)}">Delete</button></div>` : ""}
         </article>
       `).join("") || "<p class=\"muted\">No custom packs yet.</p>";
     } catch (error) {
@@ -1015,17 +1192,40 @@ const char kUiJs[] = R"JS((() => {
       .map((input) => input.getAttribute("data-pack-scenario"));
     const targets = $("custom-pack-targets").value.split(",")
       .map((value) => value.trim()).filter(Boolean);
+    const name = $("custom-pack-name").value.trim();
+    const description = $("custom-pack-description").value.trim();
+    const uniqueTargets = [...new Set(targets)];
+    if (!name || !description) {
+      $("custom-pack-output").textContent = "Enter both a pack name and a description.";
+      return;
+    }
+    if (!uniqueTargets.length) {
+      $("custom-pack-output").textContent = "Enter at least one scoring target.";
+      return;
+    }
+    if (uniqueTargets.length !== targets.length) {
+      $("custom-pack-output").textContent = "Remove duplicate scoring targets.";
+      return;
+    }
+    if (!scenarioIds.length) {
+      $("custom-pack-output").textContent = "Select at least one valid scenario draft.";
+      return;
+    }
     try {
       const pack = await api("/v1/custom-packs", {
         method: "POST",
         json: {
-          name: $("custom-pack-name").value.trim(),
-          description: $("custom-pack-description").value.trim(),
-          targets,
+          name,
+          description,
+          targets: uniqueTargets,
           scenario_ids: scenarioIds
         }
       });
       $("custom-pack-output").textContent = `Created ${pack.pack_id}`;
+      $("custom-pack-name").value = "";
+      $("custom-pack-description").value = "";
+      document.querySelectorAll("[data-pack-scenario]:checked")
+        .forEach((input) => { input.checked = false; });
       await loadCustomPacks();
       $("pack-select").value = pack.pack_id;
     } catch (error) {
@@ -1050,6 +1250,23 @@ const char kUiJs[] = R"JS((() => {
     $("scenario-output").textContent = "";
   }
 
+  function loadScenarioTemplate() {
+    state.selectedScenarioId = "";
+    $("scenario-name").value = "Clean ECG";
+    $("scenario-json").value = JSON.stringify(cleanEcgTemplate, null, 2);
+    $("scenario-output").textContent = "Example loaded. Review it, then validate and save.";
+  }
+
+  function formatScenarioJson() {
+    try {
+      const scenario = JSON.parse($("scenario-json").value);
+      $("scenario-json").value = JSON.stringify(scenario, null, 2);
+      $("scenario-output").textContent = "JSON formatted.";
+    } catch (error) {
+      $("scenario-output").textContent = `Invalid JSON: ${error.message}`;
+    }
+  }
+
   function editScenario(id) {
     const draft = state.scenarios.find((item) => item.scenario_id === id);
     if (!draft) return;
@@ -1068,6 +1285,10 @@ const char kUiJs[] = R"JS((() => {
       return;
     }
     const name = $("scenario-name").value.trim();
+    if (!name) {
+      $("scenario-output").textContent = "Enter a draft name.";
+      return;
+    }
     const path = state.selectedScenarioId
       ? `/v1/scenarios/${encodeURIComponent(state.selectedScenarioId)}`
       : "/v1/scenarios";
@@ -1113,6 +1334,8 @@ const char kUiJs[] = R"JS((() => {
       $("project-select").value = created.project_id;
     } catch (error) {
       $("create-output").textContent = error.message;
+    } finally {
+      $("create-project").disabled = !["owner", "admin"].includes(state.role);
     }
   }
 
@@ -1123,6 +1346,10 @@ const char kUiJs[] = R"JS((() => {
     }
     const packId = $("pack-select").value;
     const projectId = $("project-select").value;
+    if (!projectId || !packId) {
+      $("create-output").textContent = "Choose both a project and a pack.";
+      return;
+    }
     $("create-job").disabled = true;
     $("create-output").textContent = "Creating job…";
     try {
@@ -1134,7 +1361,7 @@ const char kUiJs[] = R"JS((() => {
     } catch (error) {
       $("create-output").textContent = error.message;
     } finally {
-      $("create-job").disabled = false;
+      $("create-job").disabled = !canWrite();
     }
   }
 
@@ -1145,7 +1372,11 @@ const char kUiJs[] = R"JS((() => {
       status: job.status,
       package_id: job.package_id || "",
       package_fingerprint: job.package_fingerprint || "",
+      artifact_status: job.artifact_status || "",
+      started_at: job.started_at || "",
       completed_at: job.completed_at || "",
+      generator_version: job.generator_version || "",
+      generator_build_identity: job.generator_build_identity || "",
       error: job.error || null
     })));
   }
@@ -1158,6 +1389,7 @@ const char kUiJs[] = R"JS((() => {
       state.jobsLoaded = false;
       state.jobsNextOffset = null;
       $("load-more-jobs").hidden = true;
+      setText("jobs-sync-status", "", "muted");
       container.innerHTML = "<p class=\"muted\">Paste an API key to list jobs.</p>";
       return;
     }
@@ -1187,11 +1419,17 @@ const char kUiJs[] = R"JS((() => {
         state.jobsFingerprint = fingerprint;
         state.jobsLoaded = true;
         renderJobs();
+        setText(
+          "jobs-sync-status",
+          `Updated ${new Intl.DateTimeFormat(undefined, { timeStyle: "medium" }).format(new Date())}`,
+          "muted"
+        );
       }
     } catch (error) {
       if (!options.silent) {
         container.innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
       }
+      setText("jobs-sync-status", `Sync failed: ${error.message}`, "error");
     } finally {
       state.jobPollInFlight = false;
     }
@@ -1211,16 +1449,22 @@ const char kUiJs[] = R"JS((() => {
       const artifactExpired = job.artifact_status === "expired"
         ? `<p class="muted">Artifacts expired; reproducibility metadata remains.</p>`
         : "";
-      const deleteAction = job.status === "running" ? "" : `
+      const deleteAction = !canWrite() || job.status === "running" ? "" : `
         <button class="danger" data-delete-job="${escapeHtml(job.job_id)}">Delete</button>
       `;
-      const cancelAction = job.status === "queued" ? `
+      const cancelAction = canWrite() && job.status === "queued" ? `
         <button class="secondary" data-job-action="cancel" data-job-id="${escapeHtml(job.job_id)}">Cancel</button>
       ` : "";
-      const retryAction = ["failed", "cancelled"].includes(job.status) ? `
+      const retryAction = canWrite() && ["failed", "cancelled"].includes(job.status) ? `
         <button class="secondary" data-job-action="retry" data-job-id="${escapeHtml(job.job_id)}">Retry</button>
       ` : "";
       const error = job.error ? `<p class="error">${escapeHtml(job.error.code)}: ${escapeHtml(job.error.message)}</p>` : "";
+      const verification = job.status === "succeeded" && job.package_id ? `
+        <p class="verify-note">
+          Next: run your algorithm on the ZIP, then
+          <a href="https://github.com/tamask1s/signal_synth_saas/blob/master/README.md#verify-algorithm-output-against-a-downloaded-package" target="_blank" rel="noopener">verify its output locally</a>.
+        </p>
+      ` : "";
       return `
         <article class="job">
           <div class="job-header">
@@ -1230,11 +1474,22 @@ const char kUiJs[] = R"JS((() => {
             </div>
             <span class="badge ${escapeHtml(job.status)}">${escapeHtml(job.status)}</span>
           </div>
-          <p class="muted">Created: ${escapeHtml(job.created_at || "")}</p>
+          <p class="muted">Created ${escapeHtml(formatDate(job.created_at))}</p>
           ${job.package_id ? `<p class="muted">Package: <span class="fingerprint">${escapeHtml(job.package_id)}</span></p>` : ""}
-          ${job.package_fingerprint ? `<span class="fingerprint">${escapeHtml(job.package_fingerprint)}</span>` : ""}
+          <details class="meta">
+            <summary>Reproducibility details</summary>
+            <dl class="meta-grid">
+              <dt>Project</dt><dd>${escapeHtml(job.project_id || "—")}</dd>
+              <dt>Started</dt><dd>${escapeHtml(formatDate(job.started_at))}</dd>
+              <dt>Completed</dt><dd>${escapeHtml(formatDate(job.completed_at))}</dd>
+              <dt>Generator</dt><dd>${escapeHtml(job.generator_version || "—")}</dd>
+              <dt>Build identity</dt><dd class="fingerprint">${escapeHtml(job.generator_build_identity || "—")}</dd>
+              <dt>Package fingerprint</dt><dd class="fingerprint">${escapeHtml(job.package_fingerprint || "—")}</dd>
+            </dl>
+          </details>
           ${artifactExpired}
           ${error}
+          ${verification}
           <div class="actions">
             ${artifactActions}
             ${cancelAction}
@@ -1312,10 +1567,12 @@ const char kUiJs[] = R"JS((() => {
     else sessionStorage.removeItem("syn_sig_ra_api_key");
     renderKeyState();
     await loadProjects();
-    await loadUsage();
-    await loadScenarios();
-    await loadCustomPacks();
-    await loadJobs({ force: true });
+    await Promise.all([
+      loadUsage(),
+      loadScenarios(),
+      loadCustomPacks(),
+      loadJobs({ force: true })
+    ]);
   });
 
   $("clear-key").addEventListener("click", async () => {
@@ -1323,9 +1580,12 @@ const char kUiJs[] = R"JS((() => {
     sessionStorage.removeItem("syn_sig_ra_api_key");
     renderKeyState();
     await loadProjects();
-    await loadUsage();
-    await loadScenarios();
-    await loadJobs({ force: true });
+    await Promise.all([
+      loadUsage(),
+      loadScenarios(),
+      loadCustomPacks(),
+      loadJobs({ force: true })
+    ]);
   });
 
   $("refresh-packs").addEventListener("click", loadPacks);
@@ -1334,6 +1594,8 @@ const char kUiJs[] = R"JS((() => {
   $("refresh-metrics").addEventListener("click", loadMetrics);
   $("load-more-jobs").addEventListener("click", () => loadJobs({ more: true }));
   $("new-scenario").addEventListener("click", newScenario);
+  $("load-scenario-template").addEventListener("click", loadScenarioTemplate);
+  $("format-scenario-json").addEventListener("click", formatScenarioJson);
   $("save-scenario").addEventListener("click", saveScenario);
   $("create-custom-pack").addEventListener("click", createCustomPack);
   $("refresh-custom-packs").addEventListener("click", loadCustomPacks);
@@ -1366,14 +1628,20 @@ const char kUiJs[] = R"JS((() => {
     if (packageId && file) downloadArtifact(packageId, file);
   });
 
-  renderKeyState();
-  checkHealth();
-  loadPacks();
-  loadProjects();
-  loadUsage();
-  loadScenarios();
-  loadCustomPacks();
-  loadJobs({ force: true });
+  async function initialize() {
+    renderKeyState();
+    checkHealth();
+    loadPacks();
+    await loadProjects();
+    await Promise.all([
+      loadUsage(),
+      loadScenarios(),
+      loadCustomPacks(),
+      loadJobs({ force: true })
+    ]);
+  }
+
+  initialize();
   setInterval(() => loadJobs({ silent: true }), 5000);
 })();
 )JS";

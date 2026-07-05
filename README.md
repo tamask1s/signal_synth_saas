@@ -26,6 +26,30 @@ or other personal data.
 5. Create the job. The list updates automatically without reloading the page.
 6. Wait for `succeeded`, then download `manifest.json` and `package.zip`.
 
+## Recommended algorithm developer workflow
+
+1. Start with a curated pack whose targets match the algorithm. Record its
+   version and pack fingerprint in the experiment configuration.
+2. If the curated cases do not cover an important edge case, load the clean
+   ECG example in the scenario editor, change one concern at a time, validate
+   it, and compose an immutable custom pack from the valid drafts.
+3. Generate a challenge job and download both its manifest and ZIP. Preserve
+   the job ID, package fingerprint, generator version, and build identity shown
+   under **Reproducibility details** in the UI.
+4. Run the algorithm locally against each compatible case. The SaaS does not
+   receive or execute proprietary detector code.
+5. Name detection files after their case IDs and use
+   `scripts/verify_downloaded_package.py` to create per-case comparisons and an
+   aggregate verification summary.
+6. Archive the package, manifest, detector build identity/configuration, raw
+   detections, and generated comparison reports together. This makes a result
+   independently repeatable instead of relying on a mutable UI state.
+
+For a first integration, use one short case and inspect
+`comparison_report.html` before automating a full pack. A fingerprint change
+means the test input changed and results should not be compared as though they
+came from the same fixture.
+
 ## Everything available in the UI
 
 ### Service status
@@ -72,9 +96,12 @@ Curated pack files are immutable product releases.
 The JSON editor can create, validate, update, list, and delete user-owned
 scenario drafts.
 
+- **Load clean ECG example** provides a valid, deterministic starting point.
+- **Format JSON** validates JSON syntax locally and normalizes indentation
+  before submission.
 - Valid drafts are canonicalized and receive a SHA-256 document fingerprint.
 - Invalid drafts are still saved and display actionable validation code, JSON
-  path, and message.
+  path, and message in a collapsible issue list.
 - Another user, including one in the same organization, cannot read the draft.
 - Viewer keys cannot modify drafts.
 
@@ -84,7 +111,8 @@ The scenario JSON contract is validated directly by the sibling
 ### Custom pack composer
 
 Select one or more valid drafts, enter a name, description, and comma-separated
-targets, then create the custom pack.
+targets, then create the custom pack. The UI checks required fields, duplicate
+targets, and scenario selection before sending the request.
 
 Composition snapshots the canonical scenario documents. Editing or deleting a
 source draft later does not change the pack. Removing a custom pack hides it
@@ -101,6 +129,10 @@ The UI supports:
 - retrying failed or cancelled jobs as new records;
 - soft-deleting non-running jobs;
 - downloading manifests and ZIP packages;
+- viewing project, lifecycle timestamps, generator identity, build identity,
+  and package fingerprint without inspecting raw JSON;
+- following the completed-job link directly to the local verification
+  workflow;
 - displaying queued, running, succeeded, failed, cancelled, and
   artifact-expired states.
 
@@ -162,10 +194,13 @@ and generator identity remain, while downloads return 404 and the UI reports
 - `cases/<case-id>/annotations.json`: deterministic ground truth;
 - `cases/<case-id>/ground_truth_metrics.json`: reference metrics;
 - `cases/<case-id>/report.html`: case report;
-- WFDB (`.hea`, `.dat`, `.atr`), EDF and BDF exports where requested.
+- WFDB (`.hea`, `.dat`, `.atr`), EDF and BDF exports.
 
 Treat `manifest.json`, document fingerprints, package fingerprint, and
 generator build identity as the verification evidence chain.
+
+Challenge jobs always produce the service's complete export/report set. The
+job API intentionally has no per-request format switches.
 
 ## Verify algorithm output against a downloaded package
 
@@ -324,6 +359,10 @@ curl -fsS \
   -d '{"project_id":"org_live_default","pack_id":"r_peak_stress_v1"}' \
   "$BASE/v1/jobs"
 ```
+
+The create body accepts exactly `project_id` and `pack_id`; unsupported fields
+are rejected. Export and report formats are fixed for challenge-package
+reproducibility.
 
 See [doc/API_GUIDE.md](doc/API_GUIDE.md) for curl onboarding and stable error
 codes, and [doc/openapi.yaml](doc/openapi.yaml) for the machine-readable

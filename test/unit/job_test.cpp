@@ -37,9 +37,7 @@ int main() {
     require(
         syn_sig_ra::parse_job_request(
             "{\"project_id\":\"org_job_owner_default\","
-            "\"pack_id\":\"r_peak_stress_v1\","
-            "\"export_formats\":[\"wfdb\",\"edf\"],"
-            "\"report_format\":\"html\"}",
+            "\"pack_id\":\"r_peak_stress_v1\"}",
             parsed,
             error
         ) == syn_sig_ra::JobRequestStatus::valid,
@@ -52,6 +50,16 @@ int main() {
             error
         ) == syn_sig_ra::JobRequestStatus::unsupported_field,
         "unknown fields should be rejected"
+    );
+    require(
+        syn_sig_ra::parse_job_request(
+            "{\"project_id\":\"org_job_owner_default\","
+            "\"pack_id\":\"r_peak_stress_v1\","
+            "\"export_formats\":[\"wfdb\"]}",
+            parsed,
+            error
+        ) == syn_sig_ra::JobRequestStatus::unsupported_field,
+        "non-operative export options should be rejected"
     );
     require(
         syn_sig_ra::parse_job_request(
