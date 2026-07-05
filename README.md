@@ -400,6 +400,9 @@ See `var.example/README.md` for directory creation and permission guidance.
 For the current Apache 2.2 VPS deployment procedure, see
 [`doc/VPS_DEPLOYMENT.md`](doc/VPS_DEPLOYMENT.md).
 
+For the next steps toward a real user-ready SaaS, see
+[`doc/SAAS_PRODUCT_PLAN.md`](doc/SAAS_PRODUCT_PLAN.md).
+
 ## Metadata and API keys
 
 The module initializes a versioned SQLite database at
