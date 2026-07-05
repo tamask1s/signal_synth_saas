@@ -44,12 +44,14 @@ int run_once(
     }
     if (status == syn_sig_ra::WorkerRunStatus::succeeded) {
         std::cout << "event=job_finished status=succeeded job_id="
-                  << job_id << "\nstatus=succeeded\njob_id=" << job_id << '\n';
+                  << job_id << "\nstatus=succeeded\njob_id=" << job_id << '\n'
+                  << std::flush;
         return EXIT_SUCCESS;
     }
     if (status == syn_sig_ra::WorkerRunStatus::failed_job) {
         std::cout << "event=job_finished status=failed job_id="
-                  << job_id << "\nstatus=failed\njob_id=" << job_id << '\n';
+                  << job_id << "\nstatus=failed\njob_id=" << job_id << '\n'
+                  << std::flush;
         return 2;
     }
     std::cerr << "event=worker_failed message=" << error << '\n';
