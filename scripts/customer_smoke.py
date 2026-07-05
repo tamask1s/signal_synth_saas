@@ -26,7 +26,7 @@ def request(base, key, path, method="GET", body=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base", default="http://www.timeonion.com/syn_sig_ra")
+    parser.add_argument("--base", default="https://www.timeonion.com/syn_sig_ra")
     parser.add_argument("--key", default=os.environ.get("SYN_SIG_RA_API_KEY"))
     parser.add_argument("--project")
     parser.add_argument("--pack", default="r_peak_stress_v1")

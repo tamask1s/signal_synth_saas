@@ -2,18 +2,17 @@
 
 SynSigRa creates deterministic synthetic biosignal challenge packages for
 engineering verification. The service can be used from the browser or through
-its HTTP API.
+its HTTPS API.
 
 Live browser UI:
 
 ```text
-http://www.timeonion.com/syn_sig_ra/
+https://www.timeonion.com/syn_sig_ra/
 ```
 
-This private-beta deployment currently uses HTTP, not HTTPS. Do not transmit
-production credentials over an untrusted network. Submit synthetic engineering
-data only: never enter patient data, names, identifiers, clinical notes, PHI,
-or other personal data.
+The deployment uses HTTPS and redirects HTTP requests to HTTPS. Submit
+synthetic engineering data only: never enter patient data, names, identifiers,
+clinical notes, PHI, or other personal data.
 
 ## Quick start in the browser
 
@@ -310,7 +309,7 @@ reference artifacts but no event-detector score.
 Base URL:
 
 ```text
-http://www.timeonion.com/syn_sig_ra
+https://www.timeonion.com/syn_sig_ra
 ```
 
 Authenticated requests use:
@@ -351,7 +350,7 @@ Create a job:
 
 ```sh
 read -r -s SYN_SIG_RA_API_KEY
-BASE=http://www.timeonion.com/syn_sig_ra
+BASE=https://www.timeonion.com/syn_sig_ra
 
 curl -fsS \
   -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
@@ -370,7 +369,8 @@ contract.
 
 ## Security and limitations
 
-- HTTPS is not enabled yet.
+- HTTPS terminates at nginx; the Apache application backend listens only on
+  localhost.
 - API keys are stored server-side only as SHA-256 hashes.
 - Browser keys live only in the current tab session.
 - This is synthetic engineering tooling, not clinical validation evidence.

@@ -4,7 +4,7 @@ info:
   version: 0.1.0
   description: Private-beta API for deterministic synthetic signal QA packages. Synthetic engineering data only; do not submit PHI.
 servers:
-  - url: http://www.timeonion.com/syn_sig_ra
+  - url: https://www.timeonion.com/syn_sig_ra
 components:
   securitySchemes:
     bearerAuth:

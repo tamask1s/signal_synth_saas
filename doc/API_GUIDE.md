@@ -3,11 +3,10 @@
 Base URL:
 
 ```text
-http://www.timeonion.com/syn_sig_ra
+https://www.timeonion.com/syn_sig_ra
 ```
 
-HTTPS is intentionally pending. Do not send production credentials or use the
-service across an untrusted network until TLS is enabled.
+Plain HTTP redirects to HTTPS.
 
 ## Data policy
 
@@ -23,7 +22,7 @@ Store the private-beta key without putting it in shell history:
 ```sh
 read -r -s SYN_SIG_RA_API_KEY
 export SYN_SIG_RA_API_KEY
-BASE=http://www.timeonion.com/syn_sig_ra
+BASE=https://www.timeonion.com/syn_sig_ra
 ```
 
 List projects and packs:

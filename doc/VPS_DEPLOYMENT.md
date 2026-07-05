@@ -16,7 +16,11 @@ All public SaaS routes must stay below:
 Current production shape:
 
 ```text
+Public HTTP/HTTPS:     nginx.service (ports 80/443)
+TLS certificate:      /etc/letsencrypt/live/timeonion.com/
+TLS renewal:          certbot.timer
 Apache service:       apache22.service
+Apache listen address: 127.0.0.1:8080
 Apache binary:        /usr/local/apache2/bin/httpd
 Apache control:       /usr/local/apache2/bin/apachectl
 APXS:                 /usr/local/apache2/bin/apxs
@@ -31,7 +35,26 @@ Worker service:       syn_sig_ra_worker.service
 ```
 
 The packaged `apache2.service` may exist on the host, but it should remain
-disabled/inactive while Apache 2.2 owns port 80.
+disabled/inactive. nginx owns the public ports and proxies HTTPS requests to
+the custom Apache 2.2 backend. Apache is deliberately inaccessible from the
+network.
+
+The versioned nginx configuration is
+`ops/nginx/timeonion.conf`. HTTP serves only ACME challenges and redirects all
+other requests to the canonical `https://www.timeonion.com` origin. The apex
+HTTPS origin redirects there as well, which keeps future login cookies on one
+origin. Unknown hostnames are rejected. The edge also limits request bodies to
+1 MiB, each source IP to 30 concurrent connections, and request rates to
+30/second with a 60-request burst allowance.
+
+Certbot renews the certificate twice daily when needed;
+`ops/letsencrypt/reload-nginx.sh` validates and reloads nginx after a real
+renewal. Validate the renewal path after configuration changes:
+
+```sh
+sudo certbot renew --dry-run --no-random-sleep-on-renew
+sudo systemctl status certbot.timer nginx apache22 --no-pager
+```
 
 ## Build prerequisites
 
@@ -259,9 +282,9 @@ sudo systemctl status syn_sig_ra_worker.service --no-pager -l
 Public checks:
 
 ```sh
-curl -fsS http://www.timeonion.com/syn_sig_ra/healthz
-curl -fsS http://www.timeonion.com/syn_sig_ra/v1/packs
-curl -fsS http://www.timeonion.com/syn_sig_ra/ | grep 'Challenge package generator'
+curl -fsS https://www.timeonion.com/syn_sig_ra/healthz
+curl -fsS https://www.timeonion.com/syn_sig_ra/v1/packs
+curl -fsS https://www.timeonion.com/syn_sig_ra/ | grep 'Challenge package generator'
 ```
 
 Create and inspect a real job without printing the API key:
@@ -271,8 +294,8 @@ sudo sh -c 'key=$(cat /root/syn_sig_ra_api_key);
   curl -fsS \
     -H "Authorization: Bearer $key" \
     -H "Content-Type: application/json" \
-    -d "{\"pack_id\":\"r_peak_stress_v1\"}" \
-    http://www.timeonion.com/syn_sig_ra/v1/jobs'
+    -d "{\"project_id\":\"org_live_default\",\"pack_id\":\"r_peak_stress_v1\"}" \
+    https://www.timeonion.com/syn_sig_ra/v1/jobs'
 ```
 
 Then poll the returned `job_id`:
@@ -281,7 +304,7 @@ Then poll the returned `job_id`:
 sudo sh -c 'key=$(cat /root/syn_sig_ra_api_key);
   curl -fsS \
     -H "Authorization: Bearer $key" \
-    http://www.timeonion.com/syn_sig_ra/v1/jobs/JOB_ID'
+    https://www.timeonion.com/syn_sig_ra/v1/jobs/JOB_ID'
 ```
 
 Download artifacts from the returned `package_id`:
@@ -291,18 +314,18 @@ sudo sh -c 'key=$(cat /root/syn_sig_ra_api_key);
   curl -fsS \
     -H "Authorization: Bearer $key" \
     -o /tmp/syn_sig_ra_manifest.json \
-    http://www.timeonion.com/syn_sig_ra/v1/artifacts/PACKAGE_ID/manifest.json;
+    https://www.timeonion.com/syn_sig_ra/v1/artifacts/PACKAGE_ID/manifest.json;
   curl -fsS \
     -H "Authorization: Bearer $key" \
     -o /tmp/syn_sig_ra_package.zip \
-    http://www.timeonion.com/syn_sig_ra/v1/artifacts/PACKAGE_ID/package.zip;
+    https://www.timeonion.com/syn_sig_ra/v1/artifacts/PACKAGE_ID/package.zip;
   unzip -t /tmp/syn_sig_ra_package.zip'
 ```
 
 The same flow is available through the browser UI:
 
 ```text
-http://www.timeonion.com/syn_sig_ra/
+https://www.timeonion.com/syn_sig_ra/
 ```
 
 Paste the beta API key into the page. The key is held only in browser
@@ -317,7 +340,7 @@ sudo sh -c 'key=$(cat /root/syn_sig_ra_api_key);
   curl -fsS \
     -X DELETE \
     -H "Authorization: Bearer $key" \
-    http://www.timeonion.com/syn_sig_ra/v1/jobs/JOB_ID'
+    https://www.timeonion.com/syn_sig_ra/v1/jobs/JOB_ID'
 ```
 
 ## Logs and diagnostics
