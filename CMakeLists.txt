@@ -89,6 +89,7 @@ add_library(syn_sig_ra_core STATIC
     src/job/job_request.cpp
     src/job/random_id.cpp
     src/storage/metadata_store.cpp
+    src/worker/worker.cpp
     src/api/route.cpp
 )
 set_target_properties(syn_sig_ra_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -110,6 +111,11 @@ add_executable(syn_sig_ra_admin
     src/admin/main.cpp
 )
 target_link_libraries(syn_sig_ra_admin PRIVATE syn_sig_ra_core)
+
+add_executable(syn_sig_ra_worker
+    src/worker/main.cpp
+)
+target_link_libraries(syn_sig_ra_worker PRIVATE syn_sig_ra_core)
 
 find_program(APXS_EXECUTABLE NAMES apxs apxs2 REQUIRED)
 execute_process(
@@ -167,6 +173,10 @@ install(
     TARGETS syn_sig_ra_admin
     RUNTIME DESTINATION bin
 )
+install(
+    TARGETS syn_sig_ra_worker
+    RUNTIME DESTINATION bin
+)
 
 if(BUILD_TESTING)
     add_executable(syn_sig_ra_route_test
@@ -194,11 +204,17 @@ if(BUILD_TESTING)
     )
     target_link_libraries(syn_sig_ra_job_test PRIVATE syn_sig_ra_core)
 
+    add_executable(syn_sig_ra_worker_test
+        test/unit/worker_test.cpp
+    )
+    target_link_libraries(syn_sig_ra_worker_test PRIVATE syn_sig_ra_core)
+
     add_test(NAME route_unit COMMAND syn_sig_ra_route_test)
     add_test(NAME runtime_config_unit COMMAND syn_sig_ra_config_test)
     add_test(NAME api_key_auth_unit COMMAND syn_sig_ra_auth_test)
     add_test(NAME pack_catalog_unit COMMAND syn_sig_ra_pack_catalog_test)
     add_test(NAME job_unit COMMAND syn_sig_ra_job_test)
+    add_test(NAME worker_unit COMMAND syn_sig_ra_worker_test)
 
     find_program(NM_EXECUTABLE NAMES nm llvm-nm)
     if(NM_EXECUTABLE)

@@ -92,6 +92,28 @@ public:
         std::string& error
     );
 
+    RecordLookupStatus claim_next_job(
+        JobRecord& job,
+        std::string& error
+    );
+
+    bool complete_job(
+        const std::string& job_id,
+        const std::string& package_fingerprint,
+        const std::string& generator_version,
+        const std::string& generator_build_identity,
+        const std::string& normalized_cli_command,
+        const std::string& artifact_storage_key,
+        std::string& error
+    );
+
+    bool fail_job(
+        const std::string& job_id,
+        const std::string& error_code,
+        const std::string& error_message,
+        std::string& error
+    );
+
 private:
     bool open(std::string& error);
     bool execute(const char* sql, std::string& error);

@@ -555,4 +555,146 @@ RecordLookupStatus MetadataStore::find_job(
     return RecordLookupStatus::found;
 }
 
+RecordLookupStatus MetadataStore::claim_next_job(
+    JobRecord& job,
+    std::string& error
+) {
+    if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
+        return RecordLookupStatus::storage_error;
+    }
+    sqlite3_stmt* select = nullptr;
+    const char* select_sql =
+        "SELECT id, organization_id, user_id, request_json, "
+        "selected_pack_id, source_pack_path, pack_fingerprint, created_at "
+        "FROM jobs WHERE status = 'queued' "
+        "ORDER BY created_at, id LIMIT 1;";
+    if (sqlite3_prepare_v2(
+            database_,
+            select_sql,
+            -1,
+            &select,
+            nullptr
+        ) != SQLITE_OK) {
+        error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return RecordLookupStatus::storage_error;
+    }
+    const int result = sqlite3_step(select);
+    if (result == SQLITE_DONE) {
+        sqlite3_finalize(select);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return RecordLookupStatus::not_found;
+    }
+    if (result != SQLITE_ROW) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(select);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return RecordLookupStatus::storage_error;
+    }
+    JobRecord claimed;
+    claimed.job_id = column_text(select, 0);
+    claimed.organization_id = column_text(select, 1);
+    claimed.user_id = column_text(select, 2);
+    claimed.request_json = column_text(select, 3);
+    claimed.selected_pack_id = column_text(select, 4);
+    claimed.source_pack_path = column_text(select, 5);
+    claimed.pack_fingerprint = column_text(select, 6);
+    claimed.created_at = column_text(select, 7);
+    sqlite3_finalize(select);
+
+    sqlite3_stmt* update = nullptr;
+    const char* update_sql =
+        "UPDATE jobs SET status = 'running', started_at = "
+        "strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
+        "WHERE id = ?1 AND status = 'queued';";
+    const bool updated =
+        sqlite3_prepare_v2(database_, update_sql, -1, &update, nullptr) ==
+            SQLITE_OK &&
+        bind_text(update, 1, claimed.job_id) &&
+        sqlite3_step(update) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    sqlite3_finalize(update);
+    if (!updated || !execute("COMMIT;", error)) {
+        if (error.empty()) {
+            error = sqlite3_errmsg(database_);
+        }
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return RecordLookupStatus::storage_error;
+    }
+    claimed.status = "running";
+    job = claimed;
+    return RecordLookupStatus::found;
+}
+
+bool MetadataStore::complete_job(
+    const std::string& job_id,
+    const std::string& package_fingerprint,
+    const std::string& generator_version,
+    const std::string& generator_build_identity,
+    const std::string& normalized_cli_command,
+    const std::string& artifact_storage_key,
+    std::string& error
+) {
+    if (!initialize(error)) {
+        return false;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE jobs SET status = 'succeeded', package_fingerprint = ?2, "
+        "generator_version = ?3, generator_build_identity = ?4, "
+        "normalized_cli_command = ?5, artifact_storage_key = ?6, "
+        "completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
+        "WHERE id = ?1 AND status = 'running';";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) ==
+            SQLITE_OK &&
+        bind_text(statement, 1, job_id) &&
+        bind_text(statement, 2, package_fingerprint) &&
+        bind_text(statement, 3, generator_version) &&
+        bind_text(statement, 4, generator_build_identity) &&
+        bind_text(statement, 5, normalized_cli_command) &&
+        bind_text(statement, 6, artifact_storage_key) &&
+        sqlite3_step(statement) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    if (!succeeded) {
+        error = sqlite3_errmsg(database_);
+    }
+    sqlite3_finalize(statement);
+    return succeeded;
+}
+
+bool MetadataStore::fail_job(
+    const std::string& job_id,
+    const std::string& error_code,
+    const std::string& error_message,
+    std::string& error
+) {
+    if (!initialize(error)) {
+        return false;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE jobs SET status = 'failed', error_code = ?2, "
+        "error_message = ?3, "
+        "completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
+        "WHERE id = ?1 AND status = 'running';";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) ==
+            SQLITE_OK &&
+        bind_text(statement, 1, job_id) &&
+        bind_text(statement, 2, error_code) &&
+        bind_text(statement, 3, error_message) &&
+        sqlite3_step(statement) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    if (!succeeded) {
+        error = sqlite3_errmsg(database_);
+    }
+    sqlite3_finalize(statement);
+    return succeeded;
+}
+
 }  // namespace syn_sig_ra

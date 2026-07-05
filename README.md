@@ -231,6 +231,24 @@ Failed jobs return a stable error code and safe message.
 Job IDs are cryptographically random, and status reads deliberately return
 HTTP 404 when the job does not belong to the authenticated organization/user.
 
+## Local worker
+
+Render work runs outside Apache request handling. Process one queued job:
+
+```sh
+build/syn_sig_ra_worker run-once \
+  build/var/db.sqlite3 \
+  ../signal_synth/build/signal-synth \
+  packs \
+  build/var
+```
+
+The worker atomically claims the oldest queued job, invokes
+`signal-synth pack challenge` without a shell, captures bounded stdout/stderr,
+validates every required machine-output field, records a SHA-256 generator
+build identity, and transitions the job to `succeeded` or `failed`. Stable CLI
+error codes are persisted; raw stderr is not returned through the API.
+
 ### Download artifacts
 
 ```http
