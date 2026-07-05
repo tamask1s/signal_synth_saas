@@ -167,6 +167,7 @@ bool load_product_metadata(
     json_t* deprecation = json_object_get(root, "deprecation_message");
     json_t* changelog = json_object_get(root, "changelog");
     const bool scalar_valid =
+        json_object_size(root) == 10 &&
         json_is_integer(schema) && json_integer_value(schema) == 1 &&
         json_is_string(pack_id) && json_is_string(version) &&
         json_is_string(status) && json_is_string(released) &&
@@ -201,11 +202,13 @@ bool load_product_metadata(
         pack.compatible_generator_versions.push_back(json_string_value(item));
     }
     pack.changelog.clear();
+    bool current_version_documented = false;
     json_array_foreach(changelog, index, item) {
         json_t* item_version = json_object_get(item, "version");
         json_t* item_date = json_object_get(item, "date");
         json_t* item_summary = json_object_get(item, "summary");
-        if (!json_is_object(item) || !json_is_string(item_version) ||
+        if (!json_is_object(item) || json_object_size(item) != 3 ||
+            !json_is_string(item_version) ||
             !json_is_string(item_date) || !json_is_string(item_summary) ||
             !is_semantic_version(json_string_value(item_version))) {
             json_decref(root);
@@ -216,7 +219,15 @@ bool load_product_metadata(
         entry.version = json_string_value(item_version);
         entry.date = json_string_value(item_date);
         entry.summary = json_string_value(item_summary);
+        if (entry.version == pack.version) {
+            current_version_documented = true;
+        }
         pack.changelog.push_back(entry);
+    }
+    if (!current_version_documented) {
+        json_decref(root);
+        error = "current pack version requires a changelog entry";
+        return false;
     }
     if (pack.release_status == "deprecated" &&
         pack.deprecation_message.empty()) {

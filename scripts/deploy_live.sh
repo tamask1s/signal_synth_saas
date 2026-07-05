@@ -20,6 +20,10 @@ sudo install -m 0755 "$build_dir/syn_sig_ra_admin" \
 sudo install -m 0755 "$build_dir/syn_sig_ra_worker" \
   /usr/local/bin/syn_sig_ra_worker
 sudo install -d -m 0755 /opt/signal_synth_saas/packs
+sudo tar -C /opt/signal_synth_saas -czf \
+  "/opt/signal_synth_saas/packs.before-$timestamp.tar.gz" packs
+sudo find /opt/signal_synth_saas/packs -maxdepth 1 -type f \
+  \( -name '*.json' -o -name '*.product' \) -delete
 sudo install -m 0644 "$repo_dir"/packs/*.json "$repo_dir"/packs/*.product \
   /opt/signal_synth_saas/packs/
 
