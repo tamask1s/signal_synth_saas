@@ -29,6 +29,26 @@ if(NOT EXISTS "${SIGNAL_SYNTH_ROOT}/CMakeLists.txt")
     )
 endif()
 
+set(
+    SYN_SIG_RA_DEFAULT_DATA_ROOT
+    "${CMAKE_CURRENT_BINARY_DIR}/var"
+)
+set(
+    SYN_SIG_RA_DEFAULT_SIGNAL_SYNTH_CLI
+    "${SIGNAL_SYNTH_ROOT}/build/signal-synth"
+)
+set(
+    SYN_SIG_RA_DEFAULT_PACK_ROOT
+    "${CMAKE_CURRENT_SOURCE_DIR}/packs"
+)
+set(SYN_SIG_RA_DEFAULT_PUBLIC_BASE_PATH "/syn_sig_ra")
+
+file(MAKE_DIRECTORY
+    "${SYN_SIG_RA_DEFAULT_DATA_ROOT}/jobs"
+    "${SYN_SIG_RA_DEFAULT_DATA_ROOT}/work"
+    "${SYN_SIG_RA_DEFAULT_DATA_ROOT}/packages"
+)
+
 find_package(Git QUIET)
 set(SYN_SIG_RA_GIT_COMMIT "unknown")
 if(Git_FOUND)
@@ -52,6 +72,7 @@ configure_file(
 )
 
 add_library(syn_sig_ra_core STATIC
+    src/config/runtime_config.cpp
     src/api/route.cpp
 )
 set_target_properties(syn_sig_ra_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -120,7 +141,13 @@ if(BUILD_TESTING)
     )
     target_link_libraries(syn_sig_ra_route_test PRIVATE syn_sig_ra_core)
 
+    add_executable(syn_sig_ra_config_test
+        test/unit/runtime_config_test.cpp
+    )
+    target_link_libraries(syn_sig_ra_config_test PRIVATE syn_sig_ra_core)
+
     add_test(NAME route_unit COMMAND syn_sig_ra_route_test)
+    add_test(NAME runtime_config_unit COMMAND syn_sig_ra_config_test)
 
     find_program(NM_EXECUTABLE NAMES nm llvm-nm)
     if(NM_EXECUTABLE)

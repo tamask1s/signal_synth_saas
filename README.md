@@ -277,13 +277,25 @@ Example Apache configuration:
 ```apache
 LoadModule syn_sig_ra_module /usr/lib/apache2/modules/mod_syn_sig_ra.so
 
+SynSigRaDataRoot /var/lib/syn_sig_ra
+SynSigRaSignalSynthCli /opt/signal_synth/build/signal-synth
+SynSigRaPackRoot /opt/signal_synth_saas/packs
+SynSigRaPublicBasePath /syn_sig_ra
+
 <Location "/syn_sig_ra">
     SetHandler syn_sig_ra
 </Location>
 ```
 
-The data, CLI, pack-root, and public-base-path directives belong to Task 3 and
-are not accepted by the module yet.
+All filesystem directive values must be absolute. Apache configuration parsing
+rejects a missing or non-writable data directory, a missing/non-executable CLI,
+and a missing/non-readable pack directory. `SynSigRaPublicBasePath` must be
+`/syn_sig_ra` or a normalized descendant and must not end in `/`.
+
+CMake supplies disposable development defaults: runtime state is placed below
+the build directory, packs are read from this checkout, and the CLI defaults to
+`../signal_synth/build/signal-synth`. Explicit Apache directive values are
+validated at configuration time.
 
 ## Storage model for v1
 
@@ -302,6 +314,7 @@ Use local storage first:
 ```
 
 The storage interface should be abstracted so local filesystem storage can later be replaced with object storage.
+See `var.example/README.md` for directory creation and permission guidance.
 
 ## Security requirements
 

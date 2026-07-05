@@ -1,6 +1,13 @@
 # Replace this path with the installed module location.
 LoadModule syn_sig_ra_module /usr/lib/apache2/modules/mod_syn_sig_ra.so
 
+# These paths must exist before Apache validates its configuration. The CLI
+# path must point to an executable built from the sibling signal_synth repo.
+SynSigRaDataRoot /var/lib/syn_sig_ra
+SynSigRaSignalSynthCli /opt/signal_synth/build/signal-synth
+SynSigRaPackRoot /opt/signal_synth_saas/packs
+SynSigRaPublicBasePath /syn_sig_ra
+
 # The module owns only /syn_sig_ra and descendants. This Location block
 # prevents the core file handler from attempting to resolve those URLs.
 <Location "/syn_sig_ra">

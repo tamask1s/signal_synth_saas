@@ -4,11 +4,7 @@
 
 namespace {
 
-const char kRoutePrefix[] = "/syn_sig_ra";
-const char kHealthPath[] = "/syn_sig_ra/healthz";
-
-bool owns_uri(const std::string& uri) {
-    const std::string prefix(kRoutePrefix);
+bool owns_uri(const std::string& uri, const std::string& prefix) {
     return uri == prefix ||
            (uri.size() > prefix.size() &&
             uri.compare(0, prefix.size(), prefix) == 0 &&
@@ -32,14 +28,22 @@ syn_sig_ra::RouteResponse json_response(
 namespace syn_sig_ra {
 
 RouteResponse route_request(const std::string& method, const std::string& uri) {
-    if (!owns_uri(uri)) {
+    return route_request(method, uri, "/syn_sig_ra");
+}
+
+RouteResponse route_request(
+    const std::string& method,
+    const std::string& uri,
+    const std::string& public_base_path
+) {
+    if (!owns_uri(uri, public_base_path)) {
         RouteResponse response;
         response.disposition = RouteDisposition::declined;
         response.status = 0;
         return response;
     }
 
-    if (uri == kHealthPath) {
+    if (uri == public_base_path + "/healthz") {
         if (method != "GET") {
             return json_response(
                 405,

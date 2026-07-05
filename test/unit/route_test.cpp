@@ -69,5 +69,25 @@ int main() {
         "a similar path prefix should not be claimed"
     );
 
+    const syn_sig_ra::RouteResponse custom_base = syn_sig_ra::route_request(
+        "GET",
+        "/syn_sig_ra/internal/healthz",
+        "/syn_sig_ra/internal"
+    );
+    require(
+        custom_base.status == 200,
+        "a configured base path should move the health route"
+    );
+
+    const syn_sig_ra::RouteResponse old_base = syn_sig_ra::route_request(
+        "GET",
+        "/syn_sig_ra/healthz",
+        "/syn_sig_ra/internal"
+    );
+    require(
+        old_base.disposition == syn_sig_ra::RouteDisposition::declined,
+        "a configured child base should not claim its former health route"
+    );
+
     return EXIT_SUCCESS;
 }

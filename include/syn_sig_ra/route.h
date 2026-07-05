@@ -18,6 +18,11 @@ struct RouteResponse {
 };
 
 RouteResponse route_request(const std::string& method, const std::string& uri);
+RouteResponse route_request(
+    const std::string& method,
+    const std::string& uri,
+    const std::string& public_base_path
+);
 
 }  // namespace syn_sig_ra
 
