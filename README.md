@@ -479,6 +479,10 @@ For immutable artifact retention, backups, and restore drills, see
 For built-in pack semantic versions, compatibility, changelog, and
 deprecation rules, see [`doc/PACK_CATALOG.md`](doc/PACK_CATALOG.md).
 
+For the customer onboarding flow, curl examples, stable error codes, and the
+OpenAPI reference, see [`doc/API_GUIDE.md`](doc/API_GUIDE.md) and
+[`doc/openapi.yaml`](doc/openapi.yaml).
+
 ## Metadata and API keys
 
 The module initializes a versioned SQLite database at
