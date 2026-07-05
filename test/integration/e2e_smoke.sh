@@ -435,6 +435,58 @@ for name in names:
 PY
     fail "downloaded artifacts failed package layout validation"
 
+DELETE_HTTP=$(
+    curl -sS \
+        -o "$WORK_ROOT/job-delete.json" \
+        -w '%{http_code}' \
+        -X DELETE \
+        -H "Authorization: Bearer $API_KEY" \
+        "$BASE_URL/v1/jobs/$JOB_ID"
+)
+if [ "$DELETE_HTTP" != "200" ]; then
+    dump_file "$WORK_ROOT/job-delete.json" "job delete response"
+    fail "job delete returned HTTP $DELETE_HTTP, expected 200"
+fi
+
+POST_DELETE_JOB_HTTP=$(
+    curl -sS \
+        -o "$WORK_ROOT/job-after-delete.json" \
+        -w '%{http_code}' \
+        -H "Authorization: Bearer $API_KEY" \
+        "$BASE_URL/v1/jobs/$JOB_ID"
+)
+if [ "$POST_DELETE_JOB_HTTP" != "404" ]; then
+    dump_file "$WORK_ROOT/job-after-delete.json" "job after delete response"
+    fail "deleted job returned HTTP $POST_DELETE_JOB_HTTP, expected 404"
+fi
+
+POST_DELETE_ARTIFACT_HTTP=$(
+    curl -sS \
+        -o "$WORK_ROOT/artifact-after-delete.json" \
+        -w '%{http_code}' \
+        -H "Authorization: Bearer $API_KEY" \
+        "$BASE_URL/v1/artifacts/$PACKAGE_ID/manifest.json"
+)
+if [ "$POST_DELETE_ARTIFACT_HTTP" != "404" ]; then
+    dump_file "$WORK_ROOT/artifact-after-delete.json" "artifact after delete response"
+    fail "deleted job artifact returned HTTP $POST_DELETE_ARTIFACT_HTTP, expected 404"
+fi
+
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -o "$WORK_ROOT/jobs-after-delete.json" \
+    "$BASE_URL/v1/jobs" ||
+    fail "jobs list after delete failed"
+python3 - "$WORK_ROOT/jobs-after-delete.json" "$JOB_ID" <<'PY' ||
+import json
+import sys
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    body = json.load(handle)
+if any(job.get("job_id") == sys.argv[2] for job in body.get("jobs", [])):
+    raise SystemExit("deleted job was still present in jobs list")
+PY
+    fail "jobs list still contained the deleted job"
+
 printf 'status=e2e-succeeded\n'
 printf 'job_id=%s\n' "$JOB_ID"
 printf 'package_id=%s\n' "$PACKAGE_ID"

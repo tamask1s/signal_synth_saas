@@ -180,6 +180,7 @@ authoritative pack implementation compiled directly from the sibling
 
 ```http
 GET /syn_sig_ra/v1/jobs
+DELETE /syn_sig_ra/v1/jobs/{job_id}
 POST /syn_sig_ra/v1/jobs
 Authorization: Bearer <api-key>
 Content-Type: application/json
@@ -216,6 +217,12 @@ Initial response:
   "count": 1
 }
 ```
+
+`DELETE /syn_sig_ra/v1/jobs/{job_id}` soft-deletes a non-running job from the
+authenticated user's job list. Succeeded job artifacts become inaccessible
+through the API after deletion; the physical immutable files are left in local
+storage for a later retention/cleanup process. Running jobs currently return
+HTTP 409.
 
 Implemented request policy:
 
@@ -303,7 +310,9 @@ The UI is static HTML/CSS/JavaScript and has no server-side session. A beta
 user pastes an API key into the page; the key is kept in browser
 `sessionStorage` for the current tab session and sent as a Bearer token to the
 existing API. The UI supports service health, pack browsing, job creation,
-recent job status, and authenticated manifest/ZIP downloads.
+recent job status, authenticated manifest/ZIP downloads, and job deletion.
+It polls the job list in the background, but only re-renders the list when the
+job payload actually changes.
 
 ## Local development
 
@@ -439,9 +448,11 @@ For the next steps toward a real user-ready SaaS, see
 ## Metadata and API keys
 
 The module initializes a versioned SQLite database at
-`<SynSigRaDataRoot>/db.sqlite3`. Schema version 1 contains organizations,
+`<SynSigRaDataRoot>/db.sqlite3`. Schema version 2 contains organizations,
 users, API-key hashes, jobs, packages, and audit events. API keys must be
 high-entropy secrets; only their lowercase SHA-256 hashes are persisted.
+Version 2 adds soft-delete timestamps for jobs and packages and migrates
+version 1 databases automatically on startup.
 
 Initialize a development database:
 

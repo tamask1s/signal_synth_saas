@@ -155,6 +155,45 @@ int main() {
         "another owner must not discover or read the job"
     );
 
+    const syn_sig_ra::RouteResponse deleted = syn_sig_ra::route_request(
+        "DELETE",
+        "/syn_sig_ra/v1/jobs/" + job_id,
+        "/syn_sig_ra",
+        "Bearer job-owner-secret",
+        &store,
+        config.pack_root
+    );
+    require(deleted.status == 200, "owner should soft-delete the job");
+    require(
+        deleted.body.find("\"status\":\"deleted\"") != std::string::npos,
+        "delete response should confirm deletion"
+    );
+
+    const syn_sig_ra::RouteResponse hidden = syn_sig_ra::route_request(
+        "GET",
+        "/syn_sig_ra/v1/jobs/" + job_id,
+        "/syn_sig_ra",
+        "Bearer job-owner-secret",
+        &store,
+        config.pack_root
+    );
+    require(hidden.status == 404, "deleted jobs should not be readable");
+
+    const syn_sig_ra::RouteResponse list_after_delete =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/jobs",
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root
+        );
+    require(
+        list_after_delete.status == 200 &&
+            list_after_delete.body.find(job_id) == std::string::npos,
+        "deleted jobs should not appear in the job list"
+    );
+
     std::remove(path.str().c_str());
     return EXIT_SUCCESS;
 }

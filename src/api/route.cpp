@@ -388,6 +388,12 @@ button.secondary {
 }
 button.secondary:hover { background: #eef2ff; }
 button.primary { width: 100%; margin-top: 12px; }
+button.danger {
+  background: #fff;
+  border-color: #fda29b;
+  color: var(--danger);
+}
+button.danger:hover { background: #fee4e2; }
 button:disabled { opacity: .55; cursor: not-allowed; }
 
 .cards {
@@ -468,7 +474,10 @@ const char kUiJs[] = R"JS((() => {
   const state = {
     apiKey: sessionStorage.getItem("syn_sig_ra_api_key") || "",
     packs: [],
-    jobs: []
+    jobs: [],
+    jobsFingerprint: "",
+    jobsLoaded: false,
+    jobPollInFlight: false
   };
 
   const $ = (id) => document.getElementById(id);
@@ -556,7 +565,7 @@ const char kUiJs[] = R"JS((() => {
     try {
       const body = await api("/v1/jobs", { method: "POST", json: { pack_id: packId } });
       $("create-output").textContent = JSON.stringify(body, null, 2);
-      await loadJobs();
+      await loadJobs({ force: true });
     } catch (error) {
       $("create-output").textContent = error.message;
     } finally {
@@ -564,19 +573,47 @@ const char kUiJs[] = R"JS((() => {
     }
   }
 
-  async function loadJobs() {
+  function jobsFingerprint(jobs) {
+    return JSON.stringify(jobs.map((job) => ({
+      job_id: job.job_id,
+      status: job.status,
+      package_id: job.package_id || "",
+      package_fingerprint: job.package_fingerprint || "",
+      completed_at: job.completed_at || "",
+      error: job.error || null
+    })));
+  }
+
+  async function loadJobs(options = {}) {
     const container = $("jobs");
     if (!state.apiKey) {
+      state.jobs = [];
+      state.jobsFingerprint = "";
+      state.jobsLoaded = false;
       container.innerHTML = "<p class=\"muted\">Paste an API key to list jobs.</p>";
       return;
     }
-    container.textContent = "Loading jobs…";
+    if (state.jobPollInFlight) return;
+    state.jobPollInFlight = true;
+    if (!options.silent && !state.jobsLoaded) {
+      container.textContent = "Loading jobs…";
+    }
     try {
       const body = await api("/v1/jobs");
-      state.jobs = body.jobs || [];
-      renderJobs();
+      const jobs = body.jobs || [];
+      const fingerprint = jobsFingerprint(jobs);
+      if (options.force || fingerprint !== state.jobsFingerprint) {
+        state.jobs = jobs;
+        state.jobsFingerprint = fingerprint;
+        state.jobsLoaded = true;
+        renderJobs();
+      }
     } catch (error) {
-      container.innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+      if (!options.silent) {
+        container.innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+      }
+    } finally {
+      state.jobPollInFlight = false;
     }
   }
 
@@ -591,6 +628,9 @@ const char kUiJs[] = R"JS((() => {
         <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="manifest.json">Manifest</button>
         <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="package.zip">Package ZIP</button>
       ` : "";
+      const deleteAction = job.status === "running" ? "" : `
+        <button class="danger" data-delete-job="${escapeHtml(job.job_id)}">Delete</button>
+      `;
       const error = job.error ? `<p class="error">${escapeHtml(job.error.code)}: ${escapeHtml(job.error.message)}</p>` : "";
       return `
         <article class="job">
@@ -606,20 +646,23 @@ const char kUiJs[] = R"JS((() => {
           ${job.package_fingerprint ? `<span class="fingerprint">${escapeHtml(job.package_fingerprint)}</span>` : ""}
           ${error}
           <div class="actions">
-            <button class="secondary" data-refresh-job="${escapeHtml(job.job_id)}">Refresh this job</button>
             ${artifactActions}
+            ${deleteAction}
           </div>
         </article>
       `;
     }).join("");
   }
 
-  async function refreshJob(jobId) {
+  async function deleteJob(jobId) {
+    if (!confirm("Delete this job from your job list? Download links for its package will stop working.")) {
+      return;
+    }
     try {
-      const job = await api(`/v1/jobs/${encodeURIComponent(jobId)}`);
-      const index = state.jobs.findIndex((item) => item.job_id === jobId);
-      if (index >= 0) state.jobs[index] = job;
-      else state.jobs.unshift(job);
+      await api(`/v1/jobs/${encodeURIComponent(jobId)}`, { method: "DELETE" });
+      state.jobs = state.jobs.filter((job) => job.job_id !== jobId);
+      state.jobsFingerprint = jobsFingerprint(state.jobs);
+      state.jobsLoaded = true;
       renderJobs();
     } catch (error) {
       alert(error.message);
@@ -663,24 +706,24 @@ const char kUiJs[] = R"JS((() => {
     if (state.apiKey) sessionStorage.setItem("syn_sig_ra_api_key", state.apiKey);
     else sessionStorage.removeItem("syn_sig_ra_api_key");
     renderKeyState();
-    await loadJobs();
+    await loadJobs({ force: true });
   });
 
   $("clear-key").addEventListener("click", async () => {
     state.apiKey = "";
     sessionStorage.removeItem("syn_sig_ra_api_key");
     renderKeyState();
-    await loadJobs();
+    await loadJobs({ force: true });
   });
 
   $("refresh-packs").addEventListener("click", loadPacks);
-  $("refresh-jobs").addEventListener("click", loadJobs);
+  $("refresh-jobs").addEventListener("click", () => loadJobs({ force: true }));
   $("create-job").addEventListener("click", createJob);
   $("jobs").addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    const jobId = target.getAttribute("data-refresh-job");
-    if (jobId) refreshJob(jobId);
+    const deleteJobId = target.getAttribute("data-delete-job");
+    if (deleteJobId) deleteJob(deleteJobId);
     const packageId = target.getAttribute("data-download");
     const file = target.getAttribute("data-file");
     if (packageId && file) downloadArtifact(packageId, file);
@@ -689,8 +732,8 @@ const char kUiJs[] = R"JS((() => {
   renderKeyState();
   checkHealth();
   loadPacks();
-  loadJobs();
-  setInterval(loadJobs, 10000);
+  loadJobs({ force: true });
+  setInterval(() => loadJobs({ silent: true }), 5000);
 })();
 )JS";
 
@@ -896,13 +939,6 @@ RouteResponse route_request(
             return json_response(202, body);
         }
 
-        if (method != "GET") {
-            return json_response(
-                405,
-                "{\"error\":{\"code\":\"method_not_allowed\","
-                "\"message\":\"Job status only accepts GET.\"}}\n"
-            );
-        }
         const std::string job_id = uri.substr(jobs_path.size() + 1);
         if (!is_valid_pack_id(job_id) ||
             job_id.compare(0, 4, "job_") != 0) {
@@ -910,6 +946,49 @@ RouteResponse route_request(
                 400,
                 "{\"error\":{\"code\":\"invalid_job_id\","
                 "\"message\":\"The job ID is invalid.\"}}\n"
+            );
+        }
+        if (method == "DELETE") {
+            std::string error;
+            const JobDeleteStatus delete_status = metadata_store->delete_job(
+                job_id,
+                authenticated_identity,
+                error
+            );
+            if (delete_status == JobDeleteStatus::deleted) {
+                return json_response(
+                    200,
+                    std::string("{\"job_id\":\"") + job_id +
+                    "\",\"status\":\"deleted\"}\n"
+                );
+            }
+            if (delete_status == JobDeleteStatus::not_found) {
+                return json_response(
+                    404,
+                    "{\"error\":{\"code\":\"job_not_found\","
+                    "\"message\":\"The requested job does not exist.\"}}\n"
+                );
+            }
+            if (delete_status == JobDeleteStatus::running) {
+                return json_response(
+                    409,
+                    "{\"error\":{\"code\":\"job_running\","
+                    "\"message\":\"A running job cannot be deleted.\"}}\n"
+                );
+            }
+            RouteResponse response = json_response(
+                503,
+                "{\"error\":{\"code\":\"metadata_unavailable\","
+                "\"message\":\"Job storage is unavailable.\"}}\n"
+            );
+            response.internal_error = error;
+            return response;
+        }
+        if (method != "GET") {
+            return json_response(
+                405,
+                "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Job status only accepts GET or DELETE.\"}}\n"
             );
         }
         JobRecord job;

@@ -34,6 +34,7 @@ struct JobRecord {
     std::string created_at;
     std::string started_at;
     std::string completed_at;
+    std::string deleted_at;
 };
 
 struct PackageRecord {
@@ -65,6 +66,13 @@ enum class RecordLookupStatus {
 enum class ApiKeyLookupStatus {
     found,
     not_found,
+    storage_error
+};
+
+enum class JobDeleteStatus {
+    deleted,
+    not_found,
+    running,
     storage_error
 };
 
@@ -117,6 +125,12 @@ public:
         const ApiKeyIdentity& owner,
         int limit,
         std::vector<JobRecord>& jobs,
+        std::string& error
+    );
+
+    JobDeleteStatus delete_job(
+        const std::string& job_id,
+        const ApiKeyIdentity& owner,
         std::string& error
     );
 

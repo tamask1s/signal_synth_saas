@@ -188,10 +188,109 @@ int main() {
         "key creation, successful authentication, and revocation should be audited"
     );
     require(
-        scalar_int(verification_database, "PRAGMA user_version;") == 1,
+        scalar_int(verification_database, "PRAGMA user_version;") == 2,
         "schema version should be deterministic"
     );
     sqlite3_close(verification_database);
     std::remove(database_path.c_str());
+
+    std::ostringstream migration_path_builder;
+    migration_path_builder
+        << "/tmp/syn_sig_ra_auth_migration_test_" << getpid() << ".sqlite3";
+    const std::string migration_database_path = migration_path_builder.str();
+    std::remove(migration_database_path.c_str());
+    sqlite3* migration_database = nullptr;
+    require(
+        sqlite3_open_v2(
+            migration_database_path.c_str(),
+            &migration_database,
+            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
+            nullptr
+        ) == SQLITE_OK,
+        "migration database should open"
+    );
+    require(
+        sqlite3_exec(
+            migration_database,
+            "CREATE TABLE jobs ("
+            "id TEXT PRIMARY KEY,"
+            "organization_id TEXT NOT NULL,"
+            "user_id TEXT NOT NULL,"
+            "status TEXT NOT NULL,"
+            "request_json TEXT NOT NULL,"
+            "selected_pack_id TEXT,"
+            "source_pack_path TEXT,"
+            "pack_fingerprint TEXT,"
+            "package_fingerprint TEXT,"
+            "generator_version TEXT,"
+            "generator_build_identity TEXT,"
+            "normalized_cli_command TEXT,"
+            "manifest_hash TEXT,"
+            "artifact_storage_key TEXT,"
+            "error_code TEXT,"
+            "error_message TEXT,"
+            "created_at TEXT NOT NULL,"
+            "started_at TEXT,"
+            "completed_at TEXT"
+            ");"
+            "CREATE TABLE packages ("
+            "id TEXT PRIMARY KEY,"
+            "job_id TEXT NOT NULL UNIQUE,"
+            "organization_id TEXT NOT NULL,"
+            "user_id TEXT NOT NULL,"
+            "pack_fingerprint TEXT,"
+            "package_fingerprint TEXT NOT NULL,"
+            "generator_version TEXT,"
+            "generator_build_identity TEXT,"
+            "manifest_hash TEXT NOT NULL,"
+            "artifact_storage_key TEXT NOT NULL UNIQUE,"
+            "created_at TEXT NOT NULL"
+            ");"
+            "PRAGMA user_version = 1;",
+            nullptr,
+            nullptr,
+            nullptr
+        ) == SQLITE_OK,
+        "v1-style migration fixture should be created"
+    );
+    sqlite3_close(migration_database);
+    {
+        syn_sig_ra::MetadataStore migration_store(migration_database_path);
+        require(
+            migration_store.initialize(error),
+            "v1 database should migrate to v2: " + error
+        );
+    }
+    require(
+        sqlite3_open_v2(
+            migration_database_path.c_str(),
+            &migration_database,
+            SQLITE_OPEN_READONLY,
+            nullptr
+        ) == SQLITE_OK,
+        "migrated database should reopen"
+    );
+    require(
+        scalar_int(migration_database, "PRAGMA user_version;") == 2,
+        "migrated database should have schema version 2"
+    );
+    require(
+        scalar_int(
+            migration_database,
+            "SELECT count(*) FROM pragma_table_info('jobs') "
+            "WHERE name = 'deleted_at';"
+        ) == 1,
+        "migrated jobs table should have deleted_at"
+    );
+    require(
+        scalar_int(
+            migration_database,
+            "SELECT count(*) FROM pragma_table_info('packages') "
+            "WHERE name = 'deleted_at';"
+        ) == 1,
+        "migrated packages table should have deleted_at"
+    );
+    sqlite3_close(migration_database);
+    std::remove(migration_database_path.c_str());
     return EXIT_SUCCESS;
 }

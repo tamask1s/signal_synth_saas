@@ -9,7 +9,7 @@
 
 namespace {
 
-const int kSchemaVersion = 1;
+const int kSchemaVersion = 2;
 
 const char kSchemaSql[] = R"SQL(
 CREATE TABLE IF NOT EXISTS organizations (
@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     ),
     started_at TEXT,
     completed_at TEXT,
+    deleted_at TEXT,
     FOREIGN KEY (organization_id) REFERENCES organizations(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -88,6 +89,7 @@ CREATE TABLE IF NOT EXISTS packages (
     created_at TEXT NOT NULL DEFAULT (
         strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     ),
+    deleted_at TEXT,
     FOREIGN KEY (job_id) REFERENCES jobs(id),
     FOREIGN KEY (organization_id) REFERENCES organizations(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -116,6 +118,11 @@ CREATE INDEX IF NOT EXISTS packages_owner_created_idx
     ON packages (organization_id, user_id, created_at);
 CREATE INDEX IF NOT EXISTS audit_owner_created_idx
     ON audit_events (organization_id, user_id, created_at);
+)SQL";
+
+const char kMigration1To2Sql[] = R"SQL(
+ALTER TABLE jobs ADD COLUMN deleted_at TEXT;
+ALTER TABLE packages ADD COLUMN deleted_at TEXT;
 )SQL";
 
 bool is_sha256_hex(const std::string& value) {
@@ -236,9 +243,14 @@ bool MetadataStore::initialize(std::string& error) {
     if (!execute("BEGIN IMMEDIATE;", error)) {
         return false;
     }
-    if (!execute(kSchemaSql, error) ||
-        !execute("PRAGMA user_version = 1;", error) ||
-        !execute("COMMIT;", error)) {
+    bool succeeded = execute(kSchemaSql, error);
+    if (succeeded && schema_version == 1) {
+        succeeded = execute(kMigration1To2Sql, error);
+    }
+    if (succeeded) {
+        succeeded = execute("PRAGMA user_version = 2;", error);
+    }
+    if (!succeeded || !execute("COMMIT;", error)) {
         std::string rollback_error;
         execute("ROLLBACK;", rollback_error);
         return false;
@@ -504,8 +516,10 @@ RecordLookupStatus MetadataStore::find_job(
         "j.generator_build_identity, j.manifest_hash, "
         "j.artifact_storage_key, j.error_code, j.error_message, "
         "j.created_at, j.started_at, j.completed_at "
-        "FROM jobs j LEFT JOIN packages p ON p.job_id = j.id "
-        "WHERE j.id = ?1 AND j.organization_id = ?2 AND j.user_id = ?3;";
+        "FROM jobs j LEFT JOIN packages p "
+        "ON p.job_id = j.id AND p.deleted_at IS NULL "
+        "WHERE j.id = ?1 AND j.organization_id = ?2 AND j.user_id = ?3 "
+        "AND j.deleted_at IS NULL;";
     if (sqlite3_prepare_v2(
             database_,
             sql,
@@ -578,8 +592,10 @@ bool MetadataStore::list_jobs(
         "j.generator_build_identity, j.manifest_hash, "
         "j.artifact_storage_key, j.error_code, j.error_message, "
         "j.created_at, j.started_at, j.completed_at "
-        "FROM jobs j LEFT JOIN packages p ON p.job_id = j.id "
+        "FROM jobs j LEFT JOIN packages p "
+        "ON p.job_id = j.id AND p.deleted_at IS NULL "
         "WHERE j.organization_id = ?1 AND j.user_id = ?2 "
+        "AND j.deleted_at IS NULL "
         "ORDER BY j.created_at DESC, j.id DESC LIMIT ?3;";
     if (sqlite3_prepare_v2(
             database_,
@@ -630,6 +646,134 @@ bool MetadataStore::list_jobs(
     }
 }
 
+JobDeleteStatus MetadataStore::delete_job(
+    const std::string& job_id,
+    const ApiKeyIdentity& owner,
+    std::string& error
+) {
+    if (job_id.empty()) {
+        error = "job ID is required";
+        return JobDeleteStatus::storage_error;
+    }
+    if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
+        return JobDeleteStatus::storage_error;
+    }
+
+    sqlite3_stmt* select = nullptr;
+    const char* select_sql =
+        "SELECT status FROM jobs WHERE id = ?1 AND organization_id = ?2 "
+        "AND user_id = ?3 AND deleted_at IS NULL;";
+    if (sqlite3_prepare_v2(
+            database_,
+            select_sql,
+            -1,
+            &select,
+            nullptr
+        ) != SQLITE_OK ||
+        !bind_text(select, 1, job_id) ||
+        !bind_text(select, 2, owner.organization_id) ||
+        !bind_text(select, 3, owner.user_id)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(select);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return JobDeleteStatus::storage_error;
+    }
+    const int select_result = sqlite3_step(select);
+    if (select_result == SQLITE_DONE) {
+        sqlite3_finalize(select);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return JobDeleteStatus::not_found;
+    }
+    if (select_result != SQLITE_ROW) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(select);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return JobDeleteStatus::storage_error;
+    }
+    const std::string status = column_text(select, 0);
+    sqlite3_finalize(select);
+    if (status == "running") {
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return JobDeleteStatus::running;
+    }
+
+    sqlite3_stmt* update_job = nullptr;
+    const char* update_job_sql =
+        "UPDATE jobs SET deleted_at = "
+        "strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
+        "WHERE id = ?1 AND organization_id = ?2 AND user_id = ?3 "
+        "AND deleted_at IS NULL AND status != 'running';";
+    bool succeeded =
+        sqlite3_prepare_v2(
+            database_,
+            update_job_sql,
+            -1,
+            &update_job,
+            nullptr
+        ) == SQLITE_OK &&
+        bind_text(update_job, 1, job_id) &&
+        bind_text(update_job, 2, owner.organization_id) &&
+        bind_text(update_job, 3, owner.user_id) &&
+        sqlite3_step(update_job) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    sqlite3_finalize(update_job);
+
+    sqlite3_stmt* update_package = nullptr;
+    const char* update_package_sql =
+        "UPDATE packages SET deleted_at = "
+        "strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
+        "WHERE job_id = ?1 AND organization_id = ?2 AND user_id = ?3 "
+        "AND deleted_at IS NULL;";
+    succeeded = succeeded &&
+        sqlite3_prepare_v2(
+            database_,
+            update_package_sql,
+            -1,
+            &update_package,
+            nullptr
+        ) == SQLITE_OK &&
+        bind_text(update_package, 1, job_id) &&
+        bind_text(update_package, 2, owner.organization_id) &&
+        bind_text(update_package, 3, owner.user_id) &&
+        sqlite3_step(update_package) == SQLITE_DONE;
+    sqlite3_finalize(update_package);
+
+    sqlite3_stmt* audit = nullptr;
+    const char* audit_sql =
+        "INSERT INTO audit_events "
+        "(organization_id, user_id, api_key_id, event_type, "
+        "subject_type, subject_id) "
+        "VALUES (?1, ?2, ?3, 'job.deleted', 'job', ?4);";
+    succeeded = succeeded &&
+        sqlite3_prepare_v2(
+            database_,
+            audit_sql,
+            -1,
+            &audit,
+            nullptr
+        ) == SQLITE_OK &&
+        bind_text(audit, 1, owner.organization_id) &&
+        bind_text(audit, 2, owner.user_id) &&
+        bind_text(audit, 3, owner.api_key_id) &&
+        bind_text(audit, 4, job_id) &&
+        sqlite3_step(audit) == SQLITE_DONE;
+    sqlite3_finalize(audit);
+
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (error.empty()) {
+            error = sqlite3_errmsg(database_);
+        }
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return JobDeleteStatus::storage_error;
+    }
+    return JobDeleteStatus::deleted;
+}
+
 RecordLookupStatus MetadataStore::claim_next_job(
     JobRecord& job,
     std::string& error
@@ -641,7 +785,7 @@ RecordLookupStatus MetadataStore::claim_next_job(
     const char* select_sql =
         "SELECT id, organization_id, user_id, request_json, "
         "selected_pack_id, source_pack_path, pack_fingerprint, created_at "
-        "FROM jobs WHERE status = 'queued' "
+        "FROM jobs WHERE status = 'queued' AND deleted_at IS NULL "
         "ORDER BY created_at, id LIMIT 1;";
     if (sqlite3_prepare_v2(
             database_,
@@ -684,7 +828,7 @@ RecordLookupStatus MetadataStore::claim_next_job(
     const char* update_sql =
         "UPDATE jobs SET status = 'running', started_at = "
         "strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
-        "WHERE id = ?1 AND status = 'queued';";
+        "WHERE id = ?1 AND status = 'queued' AND deleted_at IS NULL;";
     const bool updated =
         sqlite3_prepare_v2(database_, update_sql, -1, &update, nullptr) ==
             SQLITE_OK &&
@@ -723,7 +867,7 @@ bool MetadataStore::complete_job(
         "generator_version = ?3, generator_build_identity = ?4, "
         "normalized_cli_command = ?5, artifact_storage_key = ?6, "
         "completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
-        "WHERE id = ?1 AND status = 'running';";
+        "WHERE id = ?1 AND status = 'running' AND deleted_at IS NULL;";
     const bool succeeded =
         sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) ==
             SQLITE_OK &&
@@ -791,7 +935,7 @@ bool MetadataStore::complete_job_with_package(
         "normalized_cli_command = ?5, manifest_hash = ?6, "
         "artifact_storage_key = ?7, "
         "completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
-        "WHERE id = ?1 AND status = 'running';";
+        "WHERE id = ?1 AND status = 'running' AND deleted_at IS NULL;";
     succeeded = succeeded &&
         sqlite3_prepare_v2(
             database_,
@@ -836,7 +980,7 @@ bool MetadataStore::fail_job(
         "UPDATE jobs SET status = 'failed', error_code = ?2, "
         "error_message = ?3, "
         "completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
-        "WHERE id = ?1 AND status = 'running';";
+        "WHERE id = ?1 AND status = 'running' AND deleted_at IS NULL;";
     const bool succeeded =
         sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) ==
             SQLITE_OK &&
@@ -863,10 +1007,12 @@ RecordLookupStatus MetadataStore::find_package(
     }
     sqlite3_stmt* statement = nullptr;
     const char* sql =
-        "SELECT id, job_id, organization_id, user_id, "
-        "package_fingerprint, manifest_hash, artifact_storage_key "
-        "FROM packages WHERE id = ?1 AND organization_id = ?2 "
-        "AND user_id = ?3;";
+        "SELECT p.id, p.job_id, p.organization_id, p.user_id, "
+        "p.package_fingerprint, p.manifest_hash, p.artifact_storage_key "
+        "FROM packages p JOIN jobs j ON j.id = p.job_id "
+        "WHERE p.id = ?1 AND p.organization_id = ?2 "
+        "AND p.user_id = ?3 AND p.deleted_at IS NULL "
+        "AND j.deleted_at IS NULL;";
     if (sqlite3_prepare_v2(
             database_,
             sql,

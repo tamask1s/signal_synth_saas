@@ -306,7 +306,19 @@ http://www.timeonion.com/syn_sig_ra/
 ```
 
 Paste the beta API key into the page. The key is held only in browser
-`sessionStorage` for the current tab session.
+`sessionStorage` for the current tab session. The UI can also delete jobs from
+the visible job list. Job deletion is a soft delete: API downloads stop working,
+but physical files remain until a later retention cleanup task removes them.
+
+Delete a job from the API:
+
+```sh
+sudo sh -c 'key=$(cat /root/syn_sig_ra_api_key);
+  curl -fsS \
+    -X DELETE \
+    -H "Authorization: Bearer $key" \
+    http://www.timeonion.com/syn_sig_ra/v1/jobs/JOB_ID'
+```
 
 ## Logs and diagnostics
 
@@ -342,6 +354,10 @@ sudo stat -c '%U:%G %a %n' \
   /var/lib/syn_sig_ra/work \
   /var/lib/syn_sig_ra/packages
 ```
+
+The module automatically migrates the SQLite metadata database to the current
+schema version during initialization. Back up `/var/lib/syn_sig_ra/db.sqlite3`
+before deploying schema-changing module builds.
 
 ## Rollback
 
