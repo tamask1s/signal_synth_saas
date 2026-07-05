@@ -67,8 +67,15 @@ int main() {
         syn_sig_ra::route_request("GET", "/syn_sig_ra/ui/app.js");
     require(
         ui_js.status == 200 &&
-            ui_js.content_type.find("javascript") != std::string::npos,
-        "web UI JavaScript asset should be served"
+            ui_js.content_type.find("javascript") != std::string::npos &&
+            ui_js.body.find("(() => {") == 0,
+        "web UI JavaScript asset should be served as an executable IIFE"
+    );
+    const syn_sig_ra::RouteResponse ui_trailing_slash =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/");
+    require(
+        ui_trailing_slash.status == 200,
+        "base route with trailing slash should serve the web UI"
     );
 
     const syn_sig_ra::RouteResponse missing =

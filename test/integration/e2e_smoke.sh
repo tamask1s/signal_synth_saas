@@ -267,11 +267,18 @@ if ! grep -q 'Challenge package generator' "$WORK_ROOT/ui.html"; then
     dump_file "$WORK_ROOT/ui.html" "web UI HTML"
     fail "web UI HTML did not contain the expected title"
 fi
+curl -fsS "$BASE_URL/" >"$WORK_ROOT/ui-trailing-slash.html" ||
+    fail "web UI trailing-slash HTML request failed"
+if ! grep -q 'Challenge package generator' "$WORK_ROOT/ui-trailing-slash.html"; then
+    dump_file "$WORK_ROOT/ui-trailing-slash.html" "web UI trailing-slash HTML"
+    fail "web UI trailing-slash HTML did not contain the expected title"
+fi
 curl -fsS "$BASE_URL/ui/app.js" >"$WORK_ROOT/app.js" ||
     fail "web UI JavaScript request failed"
-if ! grep -q '/v1/jobs' "$WORK_ROOT/app.js"; then
+if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
+    ! grep -q '/v1/jobs' "$WORK_ROOT/app.js"; then
     dump_file "$WORK_ROOT/app.js" "web UI JavaScript"
-    fail "web UI JavaScript did not contain API wiring"
+    fail "web UI JavaScript was not executable or did not contain API wiring"
 fi
 
 curl -fsS "$BASE_URL/v1/packs" >"$WORK_ROOT/packs.json" ||

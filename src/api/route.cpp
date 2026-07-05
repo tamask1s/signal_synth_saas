@@ -463,7 +463,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 }
 )CSS";
 
-const char kUiJs[] = R"JS(() => {
+const char kUiJs[] = R"JS((() => {
   const base = "/syn_sig_ra";
   const state = {
     apiKey: sessionStorage.getItem("syn_sig_ra_api_key") || "",
@@ -530,12 +530,12 @@ const char kUiJs[] = R"JS(() => {
       state.packs.forEach((pack) => {
         const option = document.createElement("option");
         option.value = pack.pack_id;
-        option.textContent = `${pack.name || pack.pack_id} (${pack.pack_id})`;
+        option.textContent = `${pack.display_name || pack.pack_id} (${pack.pack_id})`;
         select.appendChild(option);
       });
       $("packs").innerHTML = state.packs.map((pack) => `
         <article class="card">
-          <h3>${escapeHtml(pack.name || pack.pack_id)}</h3>
+          <h3>${escapeHtml(pack.display_name || pack.pack_id)}</h3>
           <p class="muted">${escapeHtml(pack.description || "")}</p>
           <span class="fingerprint">${escapeHtml(pack.pack_fingerprint || "")}</span>
         </article>
@@ -1022,7 +1022,10 @@ RouteResponse route_request(
         return response;
     }
 
-    if (uri == public_base_path || uri == public_base_path + "/ui") {
+    if (uri == public_base_path ||
+        uri == public_base_path + "/" ||
+        uri == public_base_path + "/ui" ||
+        uri == public_base_path + "/ui/") {
         if (method != "GET") {
             return json_response(
                 405,
