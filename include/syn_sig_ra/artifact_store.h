@@ -9,6 +9,7 @@ struct StoredPackage {
     std::string package_id;
     std::string package_directory;
     std::string manifest_hash;
+    long long size_bytes;
 };
 
 bool store_immutable_package(

@@ -55,6 +55,32 @@ struct PackageRecord {
     std::string package_fingerprint;
     std::string manifest_hash;
     std::string artifact_storage_key;
+    long long size_bytes;
+};
+
+struct UsageSummary {
+    int requests_last_minute;
+    int active_jobs;
+    int jobs_this_month;
+    int packages_this_month;
+    long long package_bytes_this_month;
+    int queued_jobs;
+    int running_jobs;
+    int failed_jobs_this_month;
+    int quota_rejections_this_month;
+    std::string worker_last_seen_at;
+    std::string worker_last_status;
+    int request_limit_per_minute;
+    int concurrent_job_limit;
+    int monthly_job_limit;
+};
+
+enum class QuotaStatus {
+    allowed,
+    rate_limited,
+    concurrent_limit,
+    monthly_limit,
+    storage_error
 };
 
 struct ApiKeyRecord {
@@ -119,6 +145,29 @@ public:
 
     bool record_api_key_use(
         const ApiKeyIdentity& identity,
+        std::string& error
+    );
+
+    QuotaStatus check_request_quota(
+        const ApiKeyIdentity& identity,
+        UsageSummary& usage,
+        std::string& error
+    );
+
+    QuotaStatus check_job_quota(
+        const ApiKeyIdentity& identity,
+        UsageSummary& usage,
+        std::string& error
+    );
+
+    bool usage_summary(
+        const ApiKeyIdentity& identity,
+        UsageSummary& usage,
+        std::string& error
+    );
+
+    bool record_worker_heartbeat(
+        const std::string& status,
         std::string& error
     );
 
@@ -211,6 +260,7 @@ public:
         const std::string& normalized_cli_command,
         const std::string& manifest_hash,
         const std::string& artifact_storage_key,
+        long long size_bytes,
         std::string& error
     );
 

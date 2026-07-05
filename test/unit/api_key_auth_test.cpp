@@ -168,8 +168,9 @@ int main() {
             verification_database,
             "SELECT count(*) FROM sqlite_master WHERE type = 'table' "
             "AND name IN ('organizations', 'users', 'organization_memberships', "
-            "'projects', 'api_keys', 'jobs', 'packages', 'audit_events');"
-        ) == 8,
+            "'projects', 'api_keys', 'jobs', 'packages', 'audit_events', "
+            "'quota_decisions', 'worker_heartbeat');"
+        ) == 10,
         "all metadata tables should exist"
     );
     require(
@@ -189,7 +190,7 @@ int main() {
         "key creation, successful authentication, and revocation should be audited"
     );
     require(
-        scalar_int(verification_database, "PRAGMA user_version;") == 4,
+        scalar_int(verification_database, "PRAGMA user_version;") == 5,
         "schema version should be deterministic"
     );
     sqlite3_close(verification_database);

@@ -384,6 +384,7 @@ WorkerRunStatus run_worker_once(
             normalized_command,
             package.manifest_hash,
             package.package_directory,
+            package.size_bytes,
             error
         )) {
         return WorkerRunStatus::worker_error;

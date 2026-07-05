@@ -39,7 +39,8 @@ RouteResponse route_request(
     const std::string& content_type = "",
     const std::string& request_body = "",
     const std::string& data_root = "",
-    const std::string& query_string = ""
+    const std::string& query_string = "",
+    const std::string& signal_synth_cli = ""
 );
 
 bool route_requires_authentication(

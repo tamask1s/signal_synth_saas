@@ -10,6 +10,8 @@
 
 #include <cctype>
 #include <cstdlib>
+#include <sys/statvfs.h>
+#include <unistd.h>
 #include <string>
 #include <vector>
 
@@ -238,6 +240,40 @@ json_t* project_json_object(const syn_sig_ra::ProjectRecord& project) {
     return root;
 }
 
+std::string usage_json(const syn_sig_ra::UsageSummary& usage) {
+    json_t* root = json_object();
+    json_object_set_new(root, "requests_last_minute",
+                        json_integer(usage.requests_last_minute));
+    json_object_set_new(root, "active_jobs", json_integer(usage.active_jobs));
+    json_object_set_new(root, "jobs_this_month",
+                        json_integer(usage.jobs_this_month));
+    json_object_set_new(root, "packages_this_month",
+                        json_integer(usage.packages_this_month));
+    json_object_set_new(root, "package_bytes_this_month",
+                        json_integer(usage.package_bytes_this_month));
+    json_object_set_new(root, "queued_jobs", json_integer(usage.queued_jobs));
+    json_object_set_new(root, "running_jobs", json_integer(usage.running_jobs));
+    json_object_set_new(root, "failed_jobs_this_month",
+                        json_integer(usage.failed_jobs_this_month));
+    json_object_set_new(root, "quota_rejections_this_month",
+                        json_integer(usage.quota_rejections_this_month));
+    json_object_set_new(root, "worker_last_seen_at",
+                        json_string(usage.worker_last_seen_at.c_str()));
+    json_object_set_new(root, "worker_last_status",
+                        json_string(usage.worker_last_status.c_str()));
+    json_t* limits = json_object();
+    json_object_set_new(limits, "requests_per_minute",
+                        json_integer(usage.request_limit_per_minute));
+    json_object_set_new(limits, "concurrent_jobs",
+                        json_integer(usage.concurrent_job_limit));
+    json_object_set_new(limits, "jobs_per_month",
+                        json_integer(usage.monthly_job_limit));
+    json_object_set_new(root, "limits", limits);
+    const std::string output = json_dump_line(root);
+    json_decref(root);
+    return output;
+}
+
 const char kUiHtml[] = R"HTML(<!doctype html>
 <html lang="en">
 <head>
@@ -303,6 +339,13 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         <button id="refresh-jobs" class="secondary">Refresh</button>
       </div>
       <div id="jobs" class="jobs"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-heading">
+        <h2>Usage</h2>
+        <button id="refresh-usage" class="secondary">Refresh</button>
+      </div>
+      <div id="usage" class="muted">Paste an API key to inspect usage.</div>
     </section>
   </main>
   <script src="/syn_sig_ra/ui/app.js"></script>
@@ -633,6 +676,24 @@ const char kUiJs[] = R"JS((() => {
     }
   }
 
+  async function loadUsage() {
+    if (!state.apiKey) {
+      $("usage").textContent = "Paste an API key to inspect usage.";
+      return;
+    }
+    try {
+      const usage = await api("/v1/usage");
+      $("usage").innerHTML = `
+        <p>Requests/minute: ${escapeHtml(usage.requests_last_minute)} / ${escapeHtml(usage.limits.requests_per_minute)}</p>
+        <p>Active jobs: ${escapeHtml(usage.active_jobs)} / ${escapeHtml(usage.limits.concurrent_jobs)}</p>
+        <p>Jobs this month: ${escapeHtml(usage.jobs_this_month)} / ${escapeHtml(usage.limits.jobs_per_month)}</p>
+        <p>Packages this month: ${escapeHtml(usage.packages_this_month)} · ${escapeHtml(usage.package_bytes_this_month)} bytes</p>
+      `;
+    } catch (error) {
+      $("usage").textContent = error.message;
+    }
+  }
+
   async function createProject() {
     const displayName = $("project-name").value.trim();
     if (!displayName) return;
@@ -663,6 +724,7 @@ const char kUiJs[] = R"JS((() => {
       const body = await api("/v1/jobs", { method: "POST", json: { project_id: projectId, pack_id: packId } });
       $("create-output").textContent = JSON.stringify(body, null, 2);
       await loadJobs({ force: true });
+      await loadUsage();
     } catch (error) {
       $("create-output").textContent = error.message;
     } finally {
@@ -824,6 +886,7 @@ const char kUiJs[] = R"JS((() => {
     else sessionStorage.removeItem("syn_sig_ra_api_key");
     renderKeyState();
     await loadProjects();
+    await loadUsage();
     await loadJobs({ force: true });
   });
 
@@ -832,11 +895,13 @@ const char kUiJs[] = R"JS((() => {
     sessionStorage.removeItem("syn_sig_ra_api_key");
     renderKeyState();
     await loadProjects();
+    await loadUsage();
     await loadJobs({ force: true });
   });
 
   $("refresh-packs").addEventListener("click", loadPacks);
   $("refresh-jobs").addEventListener("click", () => loadJobs({ force: true }));
+  $("refresh-usage").addEventListener("click", loadUsage);
   $("create-job").addEventListener("click", createJob);
   $("create-project").addEventListener("click", createProject);
   $("jobs").addEventListener("click", (event) => {
@@ -856,6 +921,7 @@ const char kUiJs[] = R"JS((() => {
   checkHealth();
   loadPacks();
   loadProjects();
+  loadUsage();
   loadJobs({ force: true });
   setInterval(() => loadJobs({ silent: true }), 5000);
 })();
@@ -890,7 +956,9 @@ bool route_requires_authentication(
 ) {
     return path_at_or_below(uri, public_base_path + "/v1/jobs") ||
            path_at_or_below(uri, public_base_path + "/v1/artifacts") ||
-           path_at_or_below(uri, public_base_path + "/v1/projects");
+           path_at_or_below(uri, public_base_path + "/v1/projects") ||
+           path_at_or_below(uri, public_base_path + "/v1/usage") ||
+           path_at_or_below(uri, public_base_path + "/v1/metrics");
 }
 
 RouteResponse route_request(
@@ -903,13 +971,47 @@ RouteResponse route_request(
     const std::string& content_type,
     const std::string& request_body,
     const std::string& data_root,
-    const std::string& query_string
+    const std::string& query_string,
+    const std::string& signal_synth_cli
 ) {
     if (!owns_uri(uri, public_base_path)) {
         RouteResponse response;
         response.disposition = RouteDisposition::declined;
         response.status = 0;
         return response;
+    }
+
+    const std::string ready_path = public_base_path + "/readyz";
+    if (uri == ready_path) {
+        if (method != "GET") {
+            return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Readiness only accepts GET.\"}}\n");
+        }
+        const bool database_ok = metadata_store != nullptr;
+        const bool generator_ok =
+            !signal_synth_cli.empty() && access(signal_synth_cli.c_str(), X_OK) == 0;
+        std::vector<PackSummary> packs;
+        std::string pack_error;
+        const bool packs_ok = PackCatalog(pack_root).list(packs, pack_error) &&
+            !packs.empty();
+        struct statvfs disk;
+        const bool storage_ok = !data_root.empty() &&
+            statvfs(data_root.c_str(), &disk) == 0 &&
+            access(data_root.c_str(), W_OK) == 0;
+        const bool ready = database_ok && generator_ok && packs_ok && storage_ok;
+        json_t* body = json_object();
+        json_object_set_new(body, "status", json_string(ready ? "ready" : "not_ready"));
+        json_object_set_new(body, "database", json_boolean(database_ok));
+        json_object_set_new(body, "generator", json_boolean(generator_ok));
+        json_object_set_new(body, "pack_catalog", json_boolean(packs_ok));
+        json_object_set_new(body, "artifact_store", json_boolean(storage_ok));
+        if (storage_ok) {
+            json_object_set_new(body, "disk_free_bytes", json_integer(
+                static_cast<json_int_t>(disk.f_bavail) * disk.f_frsize));
+        }
+        const std::string encoded = json_dump_line(body);
+        json_decref(body);
+        return json_response(ready ? 200 : 503, encoded);
     }
 
     ApiKeyIdentity authenticated_identity;
@@ -946,6 +1048,74 @@ RouteResponse route_request(
         }
         authenticated_identity = authentication.identity;
         authenticated = true;
+        UsageSummary usage;
+        std::string quota_error;
+        const QuotaStatus quota = metadata_store->check_request_quota(
+            authenticated_identity, usage, quota_error
+        );
+        if (quota == QuotaStatus::storage_error) {
+            RouteResponse response = json_response(
+                503,
+                "{\"error\":{\"code\":\"metadata_unavailable\","
+                "\"message\":\"Quota storage is unavailable.\"}}\n"
+            );
+            response.internal_error = quota_error;
+            return response;
+        }
+        if (quota == QuotaStatus::rate_limited) {
+            return json_response(
+                429,
+                "{\"error\":{\"code\":\"request_rate_limit\","
+                "\"message\":\"Per-key request rate limit exceeded.\"}}\n"
+            );
+        }
+    }
+
+    const std::string usage_path = public_base_path + "/v1/usage";
+    if (uri == usage_path) {
+        if (method != "GET") {
+            return json_response(
+                405,
+                "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Usage only accepts GET.\"}}\n"
+            );
+        }
+        UsageSummary usage;
+        std::string error;
+        if (!metadata_store->usage_summary(
+                authenticated_identity, usage, error)) {
+            RouteResponse response = json_response(
+                503,
+                "{\"error\":{\"code\":\"metadata_unavailable\","
+                "\"message\":\"Usage storage is unavailable.\"}}\n"
+            );
+            response.internal_error = error;
+            return response;
+        }
+        return json_response(200, usage_json(usage));
+    }
+
+    const std::string metrics_path = public_base_path + "/v1/metrics";
+    if (uri == metrics_path) {
+        if (method != "GET") {
+            return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Metrics only accepts GET.\"}}\n");
+        }
+        if (authenticated_identity.role != "owner" &&
+            authenticated_identity.role != "admin") {
+            return json_response(403, "{\"error\":{\"code\":\"forbidden\","
+                "\"message\":\"Owner or admin role is required.\"}}\n");
+        }
+        UsageSummary usage;
+        std::string error;
+        if (!metadata_store->usage_summary(authenticated_identity, usage, error)) {
+            RouteResponse response = json_response(503,
+                "{\"error\":{\"code\":\"metadata_unavailable\","
+                "\"message\":\"Metrics storage is unavailable.\"}}\n");
+            response.internal_error = error;
+            return response;
+        }
+        return json_response(200, usage_json(usage));
     }
 
     const std::string projects_path = public_base_path + "/v1/projects";
@@ -1161,6 +1331,30 @@ RouteResponse route_request(
                     500,
                     "{\"error\":{\"code\":\"pack_catalog_invalid\","
                     "\"message\":\"The configured pack catalog is invalid.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            UsageSummary usage;
+            const QuotaStatus job_quota = metadata_store->check_job_quota(
+                authenticated_identity, usage, error
+            );
+            if (job_quota == QuotaStatus::concurrent_limit ||
+                job_quota == QuotaStatus::monthly_limit) {
+                const char* code = job_quota == QuotaStatus::concurrent_limit
+                    ? "concurrent_job_limit"
+                    : "monthly_job_limit";
+                return json_response(
+                    429,
+                    std::string("{\"error\":{\"code\":\"") + code +
+                    "\",\"message\":\"Job quota exceeded.\"}}\n"
+                );
+            }
+            if (job_quota == QuotaStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503,
+                    "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Quota storage is unavailable.\"}}\n"
                 );
                 response.internal_error = error;
                 return response;

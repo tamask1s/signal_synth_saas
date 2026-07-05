@@ -9,7 +9,10 @@
 
 namespace {
 
-const int kSchemaVersion = 4;
+const int kSchemaVersion = 5;
+const int kRequestLimitPerMinute = 120;
+const int kConcurrentJobLimit = 2;
+const int kMonthlyJobLimit = 100;
 
 const char kSchemaSql[] = R"SQL(
 CREATE TABLE IF NOT EXISTS organizations (
@@ -110,6 +113,7 @@ CREATE TABLE IF NOT EXISTS packages (
     generator_build_identity TEXT,
     manifest_hash TEXT NOT NULL,
     artifact_storage_key TEXT NOT NULL UNIQUE,
+    size_bytes INTEGER NOT NULL DEFAULT 0 CHECK (size_bytes >= 0),
     created_at TEXT NOT NULL DEFAULT (
         strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     ),
@@ -135,6 +139,26 @@ CREATE TABLE IF NOT EXISTS audit_events (
     FOREIGN KEY (organization_id) REFERENCES organizations(id),
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (api_key_id) REFERENCES api_keys(id)
+);
+
+CREATE TABLE IF NOT EXISTS quota_decisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id TEXT NOT NULL,
+    api_key_id TEXT NOT NULL,
+    decision TEXT NOT NULL,
+    observed_value INTEGER NOT NULL,
+    configured_limit INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    ),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (api_key_id) REFERENCES api_keys(id)
+);
+
+CREATE TABLE IF NOT EXISTS worker_heartbeat (
+    singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+    status TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS jobs_owner_created_idx
@@ -270,7 +294,7 @@ bool MetadataStore::initialize(std::string& error) {
     }
     bool succeeded = execute(kSchemaSql, error);
     if (succeeded) {
-        succeeded = execute("PRAGMA user_version = 4;", error);
+        succeeded = execute("PRAGMA user_version = 5;", error);
     }
     if (!succeeded || !execute("COMMIT;", error)) {
         std::string rollback_error;
@@ -498,6 +522,158 @@ bool MetadataStore::record_api_key_use(
         return false;
     }
     return true;
+}
+
+bool MetadataStore::usage_summary(
+    const ApiKeyIdentity& identity,
+    UsageSummary& usage,
+    std::string& error
+) {
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT "
+        "(SELECT count(*) FROM audit_events WHERE api_key_id = ?1 "
+        " AND event_type = 'api_key.authenticated' "
+        " AND created_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 minute')),"
+        "(SELECT count(*) FROM jobs WHERE organization_id = ?2 "
+        " AND status IN ('queued','running') AND deleted_at IS NULL),"
+        "(SELECT count(*) FROM jobs WHERE organization_id = ?2 "
+        " AND strftime('%Y-%m',created_at)=strftime('%Y-%m','now')),"
+        "(SELECT count(*) FROM packages WHERE organization_id = ?2 "
+        " AND strftime('%Y-%m',created_at)=strftime('%Y-%m','now')),"
+        "(SELECT COALESCE(sum(size_bytes),0) FROM packages "
+        " WHERE organization_id = ?2 "
+        " AND strftime('%Y-%m',created_at)=strftime('%Y-%m','now')),"
+        "(SELECT count(*) FROM jobs WHERE organization_id = ?2 "
+        " AND status = 'queued' AND deleted_at IS NULL),"
+        "(SELECT count(*) FROM jobs WHERE organization_id = ?2 "
+        " AND status = 'running' AND deleted_at IS NULL),"
+        "(SELECT count(*) FROM jobs WHERE organization_id = ?2 "
+        " AND status = 'failed' "
+        " AND strftime('%Y-%m',created_at)=strftime('%Y-%m','now')),"
+        "(SELECT count(*) FROM quota_decisions WHERE organization_id = ?2 "
+        " AND strftime('%Y-%m',created_at)=strftime('%Y-%m','now')),"
+        "(SELECT COALESCE(last_seen_at,'') FROM worker_heartbeat WHERE singleton=1),"
+        "(SELECT COALESCE(status,'') FROM worker_heartbeat WHERE singleton=1);";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, identity.api_key_id) ||
+        !bind_text(statement, 2, identity.organization_id) ||
+        sqlite3_step(statement) != SQLITE_ROW) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return false;
+    }
+    usage.requests_last_minute = sqlite3_column_int(statement, 0);
+    usage.active_jobs = sqlite3_column_int(statement, 1);
+    usage.jobs_this_month = sqlite3_column_int(statement, 2);
+    usage.packages_this_month = sqlite3_column_int(statement, 3);
+    usage.package_bytes_this_month = sqlite3_column_int64(statement, 4);
+    usage.queued_jobs = sqlite3_column_int(statement, 5);
+    usage.running_jobs = sqlite3_column_int(statement, 6);
+    usage.failed_jobs_this_month = sqlite3_column_int(statement, 7);
+    usage.quota_rejections_this_month = sqlite3_column_int(statement, 8);
+    usage.worker_last_seen_at = column_text(statement, 9);
+    usage.worker_last_status = column_text(statement, 10);
+    usage.request_limit_per_minute = kRequestLimitPerMinute;
+    usage.concurrent_job_limit = kConcurrentJobLimit;
+    usage.monthly_job_limit = kMonthlyJobLimit;
+    sqlite3_finalize(statement);
+    return true;
+}
+
+bool MetadataStore::record_worker_heartbeat(
+    const std::string& status,
+    std::string& error
+) {
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT OR REPLACE INTO worker_heartbeat "
+        "(singleton,status,last_seen_at) VALUES "
+        "(1,?1,strftime('%Y-%m-%dT%H:%M:%fZ','now'));";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, status) &&
+        sqlite3_step(statement) == SQLITE_DONE;
+    if (!succeeded) error = sqlite3_errmsg(database_);
+    sqlite3_finalize(statement);
+    return succeeded;
+}
+
+QuotaStatus MetadataStore::check_request_quota(
+    const ApiKeyIdentity& identity,
+    UsageSummary& usage,
+    std::string& error
+) {
+    if (!usage_summary(identity, usage, error)) {
+        return QuotaStatus::storage_error;
+    }
+    if (usage.requests_last_minute <= kRequestLimitPerMinute) {
+        return QuotaStatus::allowed;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO quota_decisions "
+        "(organization_id,api_key_id,decision,observed_value,configured_limit) "
+        "VALUES (?1,?2,'request_rate_limited',?3,?4);";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, identity.organization_id) ||
+        !bind_text(statement, 2, identity.api_key_id) ||
+        sqlite3_bind_int(statement, 3, usage.requests_last_minute) != SQLITE_OK ||
+        sqlite3_bind_int(statement, 4, kRequestLimitPerMinute) != SQLITE_OK ||
+        sqlite3_step(statement) != SQLITE_DONE) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return QuotaStatus::storage_error;
+    }
+    sqlite3_finalize(statement);
+    return QuotaStatus::rate_limited;
+}
+
+QuotaStatus MetadataStore::check_job_quota(
+    const ApiKeyIdentity& identity,
+    UsageSummary& usage,
+    std::string& error
+) {
+    if (!usage_summary(identity, usage, error)) {
+        return QuotaStatus::storage_error;
+    }
+    const char* decision = nullptr;
+    int observed = 0;
+    int limit = 0;
+    QuotaStatus status = QuotaStatus::allowed;
+    if (usage.active_jobs >= kConcurrentJobLimit) {
+        decision = "concurrent_job_limit";
+        observed = usage.active_jobs;
+        limit = kConcurrentJobLimit;
+        status = QuotaStatus::concurrent_limit;
+    } else if (usage.jobs_this_month >= kMonthlyJobLimit) {
+        decision = "monthly_job_limit";
+        observed = usage.jobs_this_month;
+        limit = kMonthlyJobLimit;
+        status = QuotaStatus::monthly_limit;
+    } else {
+        return status;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO quota_decisions "
+        "(organization_id,api_key_id,decision,observed_value,configured_limit) "
+        "VALUES (?1,?2,?3,?4,?5);";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, identity.organization_id) ||
+        !bind_text(statement, 2, identity.api_key_id) ||
+        !bind_text(statement, 3, decision) ||
+        sqlite3_bind_int(statement, 4, observed) != SQLITE_OK ||
+        sqlite3_bind_int(statement, 5, limit) != SQLITE_OK ||
+        sqlite3_step(statement) != SQLITE_DONE) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return QuotaStatus::storage_error;
+    }
+    sqlite3_finalize(statement);
+    return status;
 }
 
 bool MetadataStore::list_projects(
@@ -1116,6 +1292,7 @@ bool MetadataStore::complete_job_with_package(
     const std::string& normalized_cli_command,
     const std::string& manifest_hash,
     const std::string& artifact_storage_key,
+    long long size_bytes,
     std::string& error
 ) {
     if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
@@ -1126,8 +1303,8 @@ bool MetadataStore::complete_job_with_package(
         "INSERT INTO packages "
         "(id, job_id, organization_id, project_id, user_id, pack_fingerprint, "
         "package_fingerprint, generator_version, "
-        "generator_build_identity, manifest_hash, artifact_storage_key) "
-        "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11);";
+        "generator_build_identity, manifest_hash, artifact_storage_key, size_bytes) "
+        "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12);";
     bool succeeded =
         sqlite3_prepare_v2(
             database_,
@@ -1147,6 +1324,7 @@ bool MetadataStore::complete_job_with_package(
         bind_text(package_statement, 9, generator_build_identity) &&
         bind_text(package_statement, 10, manifest_hash) &&
         bind_text(package_statement, 11, artifact_storage_key) &&
+        sqlite3_bind_int64(package_statement, 12, size_bytes) == SQLITE_OK &&
         sqlite3_step(package_statement) == SQLITE_DONE;
     sqlite3_finalize(package_statement);
 

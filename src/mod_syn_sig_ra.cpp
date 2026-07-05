@@ -4,6 +4,7 @@
 
 extern "C" {
 #include <apr_strings.h>
+#include <apr_time.h>
 #include <httpd.h>
 #include <http_config.h>
 #include <http_log.h>
@@ -215,6 +216,7 @@ const command_rec syn_sig_ra_directives[] = {
 #endif
 
 int syn_sig_ra_handler(request_rec* request) {
+    const apr_time_t request_started_at = apr_time_now();
     const std::string method =
         request->method == nullptr ? std::string() : request->method;
     const std::string uri =
@@ -258,9 +260,8 @@ int syn_sig_ra_handler(request_rec* request) {
     );
     syn_sig_ra::MetadataStore* metadata_store_pointer = nullptr;
     if (syn_sig_ra::route_requires_authentication(
-            uri,
-            config->public_base_path
-        )) {
+            uri, config->public_base_path) ||
+        uri == std::string(config->public_base_path) + "/readyz") {
         std::string storage_error;
         if (metadata_store.initialize(storage_error)) {
             metadata_store_pointer = &metadata_store;
@@ -285,12 +286,26 @@ int syn_sig_ra_handler(request_rec* request) {
         content_type,
         request_body,
         config->data_root,
-        query_string
+        query_string,
+        config->signal_synth_cli
     );
 
     if (response.disposition == syn_sig_ra::RouteDisposition::declined) {
         return DECLINED;
     }
+    ap_log_rerror(
+        APLOG_MARK,
+        APLOG_INFO,
+        0,
+        request,
+        "event=http_request method=%s path=%s status=%d duration_ms=%lld",
+        method.c_str(),
+        uri.c_str(),
+        response.status,
+        static_cast<long long>(
+            (apr_time_now() - request_started_at) / 1000
+        )
+    );
 
     if (!response.internal_error.empty()) {
         ap_log_rerror(

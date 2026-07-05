@@ -260,6 +260,10 @@ done
 if [ "$ready" != "1" ]; then
     fail "Apache healthz did not become available at $BASE_URL/healthz"
 fi
+curl -fsS "$BASE_URL/readyz" >"$WORK_ROOT/ready.json" ||
+    fail "readiness request failed"
+grep -q '"status":"ready"' "$WORK_ROOT/ready.json" ||
+    fail "readiness endpoint did not report ready"
 
 curl -fsS "$BASE_URL" >"$WORK_ROOT/ui.html" ||
     fail "web UI HTML request failed"

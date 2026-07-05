@@ -236,6 +236,17 @@ job from a failed or cancelled job, preserving the original record.
 The current pre-beta retention state is explicit: soft-deleted records and
 immutable files remain until the cleanup policy in task #18 is implemented.
 
+### Usage and quota policy
+
+`GET /syn_sig_ra/v1/usage` returns the authenticated key's requests in the
+last minute plus organization-wide active jobs, monthly jobs, monthly package
+count, actual immutable package bytes, and configured limits. Current private
+beta limits are 120 requests/minute per key, 2 concurrent queued/running jobs
+per organization, and 100 jobs/month per organization. Rejections return HTTP
+429 with stable `request_rate_limit`, `concurrent_job_limit`, or
+`monthly_job_limit` codes. Every rejected quota decision is persisted in
+`quota_decisions` for operator inspection.
+
 Implemented request policy:
 
 - `pack_id` is required and must name a catalog pack;
@@ -459,10 +470,13 @@ For the current Apache 2.2 VPS deployment procedure, see
 For the next steps toward a real user-ready SaaS, see
 [`doc/SAAS_PRODUCT_PLAN.md`](doc/SAAS_PRODUCT_PLAN.md).
 
+For readiness, metrics, alert thresholds, and repeatable build/deploy/verify
+commands, see [`doc/OPERATIONS.md`](doc/OPERATIONS.md).
+
 ## Metadata and API keys
 
 The module initializes a versioned SQLite database at
-`<SynSigRaDataRoot>/db.sqlite3`. Schema version 4 contains organizations,
+`<SynSigRaDataRoot>/db.sqlite3`. Schema version 5 contains organizations,
 memberships, projects, users, API-key hashes, jobs, packages, and audit
 events. API keys must be high-entropy secrets; only their lowercase SHA-256
 hashes are persisted. This pre-beta schema requires a clean database reset

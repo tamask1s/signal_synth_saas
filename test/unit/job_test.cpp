@@ -297,6 +297,54 @@ int main() {
                 std::string::npos,
         "cancelled jobs should retry as a new queued job"
     );
+    const syn_sig_ra::RouteResponse second_active =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/jobs",
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root,
+            "application/json",
+            "{\"project_id\":\"org_job_owner_default\","
+            "\"pack_id\":\"r_peak_stress_v1\"}"
+        );
+    require(
+        second_active.status == 202,
+        "organization should use its configured concurrent job capacity"
+    );
+    const syn_sig_ra::RouteResponse quota_rejected =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/jobs",
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root,
+            "application/json",
+            "{\"project_id\":\"org_job_owner_default\","
+            "\"pack_id\":\"r_peak_stress_v1\"}"
+        );
+    require(
+        quota_rejected.status == 429 &&
+            quota_rejected.body.find("concurrent_job_limit") !=
+                std::string::npos,
+        "concurrent job quota should return a stable HTTP 429"
+    );
+    const syn_sig_ra::RouteResponse usage = syn_sig_ra::route_request(
+        "GET",
+        "/syn_sig_ra/v1/usage",
+        "/syn_sig_ra",
+        "Bearer job-owner-secret",
+        &store,
+        config.pack_root
+    );
+    require(
+        usage.status == 200 &&
+            usage.body.find("\"active_jobs\":2") != std::string::npos &&
+            usage.body.find("\"concurrent_jobs\":2") != std::string::npos,
+        "usage API should expose current counters and configured limits"
+    );
 
     const syn_sig_ra::RouteResponse deleted = syn_sig_ra::route_request(
         "DELETE",
