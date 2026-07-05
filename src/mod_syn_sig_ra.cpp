@@ -1,6 +1,7 @@
 #include "syn_sig_ra/route.h"
 
 extern "C" {
+#include <apr_strings.h>
 #include <httpd.h>
 #include <http_config.h>
 #include <http_protocol.h>
@@ -23,7 +24,10 @@ int syn_sig_ra_handler(request_rec* request) {
     }
 
     request->status = response.status;
-    ap_set_content_type(request, response.content_type.c_str());
+    ap_set_content_type(
+        request,
+        apr_pstrdup(request->pool, response.content_type.c_str())
+    );
     ap_rwrite(
         response.body.data(),
         static_cast<int>(response.body.size()),
