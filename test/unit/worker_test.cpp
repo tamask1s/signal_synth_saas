@@ -3,6 +3,7 @@
 #include "syn_sig_ra/sha256.h"
 #include "syn_sig_ra/worker.h"
 
+#include <sqlite3.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -197,6 +198,68 @@ int main() {
     require(
         isolated_download.status == 404,
         "another owner must not discover package artifacts"
+    );
+    sqlite3* retention_database = nullptr;
+    require(
+        sqlite3_open(database.c_str(), &retention_database) == SQLITE_OK &&
+            sqlite3_exec(
+                retention_database,
+                "UPDATE packages SET created_at='2000-01-01T00:00:00.000Z';",
+                nullptr, nullptr, nullptr
+            ) == SQLITE_OK,
+        "retention fixture should age the package"
+    );
+    sqlite3_close(retention_database);
+    std::vector<syn_sig_ra::RetentionCandidate> retention_candidates;
+    require(
+        store.list_retention_candidates(
+            90, retention_candidates, error
+        ) &&
+            retention_candidates.size() == 1 &&
+            retention_candidates[0].package_id == successful_package_id,
+        "old immutable packages should become retention candidates"
+    );
+    require(
+        store.mark_package_expired(successful_package_id, error),
+        "retention cleanup should hide the package"
+    );
+    require(
+        store.find_job(succeeded_job, owner, job, error) ==
+            syn_sig_ra::RecordLookupStatus::found &&
+            job.status == "succeeded" && job.package_id.empty(),
+        "artifact expiry must preserve the succeeded job record"
+    );
+    const syn_sig_ra::RouteResponse expired_job =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/jobs/" + succeeded_job,
+            "/syn_sig_ra",
+            "Bearer worker-secret",
+            &store,
+            packs
+        );
+    require(
+        expired_job.status == 200 &&
+            expired_job.body.find("\"artifact_status\":\"expired\"") !=
+                std::string::npos,
+        "expired artifacts should be explicit in the job API"
+    );
+    const syn_sig_ra::RouteResponse expired_download =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/artifacts/" + successful_package_id +
+                "/manifest.json",
+            "/syn_sig_ra",
+            "Bearer worker-secret",
+            &store,
+            packs,
+            "",
+            "",
+            root
+        );
+    require(
+        expired_download.status == 404,
+        "expired artifacts must no longer be downloadable"
     );
 
     std::string failed_job;

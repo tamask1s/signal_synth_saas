@@ -473,6 +473,9 @@ For the next steps toward a real user-ready SaaS, see
 For readiness, metrics, alert thresholds, and repeatable build/deploy/verify
 commands, see [`doc/OPERATIONS.md`](doc/OPERATIONS.md).
 
+For immutable artifact retention, backups, and restore drills, see
+[`doc/RETENTION_BACKUP.md`](doc/RETENTION_BACKUP.md).
+
 ## Metadata and API keys
 
 The module initializes a versioned SQLite database at

@@ -40,7 +40,9 @@ int main() {
     std::ostringstream path_builder;
     path_builder << "/tmp/syn_sig_ra_auth_test_" << getpid() << ".sqlite3";
     const std::string database_path = path_builder.str();
+    const std::string backup_path = database_path + ".backup";
     std::remove(database_path.c_str());
+    std::remove(backup_path.c_str());
 
     const std::string plaintext_key = "test-key-with-enough-randomness";
     std::string key_hash;
@@ -164,6 +166,10 @@ int main() {
                 syn_sig_ra::AuthenticationStatus::invalid_credentials,
             "revoked API keys should no longer authenticate"
         );
+        require(
+            store.backup_database(backup_path, error),
+            "SQLite online backup should succeed: " + error
+        );
     }
 
     sqlite3* verification_database = nullptr;
@@ -215,7 +221,17 @@ int main() {
         "schema version should be deterministic"
     );
     sqlite3_close(verification_database);
+    sqlite3* backup_database = nullptr;
+    require(
+        sqlite3_open_v2(
+            backup_path.c_str(), &backup_database, SQLITE_OPEN_READONLY, nullptr
+        ) == SQLITE_OK &&
+            scalar_int(backup_database, "SELECT count(*) FROM api_keys;") == 1,
+        "backup database should open with copied metadata"
+    );
+    sqlite3_close(backup_database);
     std::remove(database_path.c_str());
+    std::remove(backup_path.c_str());
 
     return EXIT_SUCCESS;
 }

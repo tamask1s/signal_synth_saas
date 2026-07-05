@@ -103,6 +103,15 @@ json_t* job_json_object(
         );
     }
     if (job.status == "succeeded") {
+        if (job.package_id.empty()) {
+            json_object_set_new(
+                root, "artifact_status", json_string("expired")
+            );
+            return root;
+        }
+        json_object_set_new(
+            root, "artifact_status", json_string("available")
+        );
         json_object_set_new(
             root,
             "package_id",
@@ -784,10 +793,13 @@ const char kUiJs[] = R"JS((() => {
       return;
     }
     container.innerHTML = state.jobs.map((job) => {
-      const artifactActions = job.status === "succeeded" ? `
+      const artifactActions = job.status === "succeeded" && job.package_id ? `
         <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="manifest.json">Manifest</button>
         <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="package.zip">Package ZIP</button>
       ` : "";
+      const artifactExpired = job.artifact_status === "expired"
+        ? `<p class="muted">Artifacts expired; reproducibility metadata remains.</p>`
+        : "";
       const deleteAction = job.status === "running" ? "" : `
         <button class="danger" data-delete-job="${escapeHtml(job.job_id)}">Delete</button>
       `;
@@ -810,6 +822,7 @@ const char kUiJs[] = R"JS((() => {
           <p class="muted">Created: ${escapeHtml(job.created_at || "")}</p>
           ${job.package_id ? `<p class="muted">Package: <span class="fingerprint">${escapeHtml(job.package_id)}</span></p>` : ""}
           ${job.package_fingerprint ? `<span class="fingerprint">${escapeHtml(job.package_fingerprint)}</span>` : ""}
+          ${artifactExpired}
           ${error}
           <div class="actions">
             ${artifactActions}

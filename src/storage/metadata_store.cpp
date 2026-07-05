@@ -5,6 +5,7 @@
 #include <sqlite3.h>
 
 #include <cctype>
+#include <sstream>
 #include <string>
 
 namespace {
@@ -1566,6 +1567,93 @@ bool MetadataStore::revoke_api_key(
         return false;
     }
     return true;
+}
+
+bool MetadataStore::list_retention_candidates(
+    int retention_days,
+    std::vector<RetentionCandidate>& candidates,
+    std::string& error
+) {
+    candidates.clear();
+    if (retention_days < 1 || retention_days > 3650 || !initialize(error)) {
+        if (error.empty()) error = "retention days must be between 1 and 3650";
+        return false;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT id,job_id,artifact_storage_key,deleted_at IS NOT NULL "
+        "FROM packages WHERE deleted_at IS NOT NULL OR "
+        "created_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now',?1) "
+        "ORDER BY created_at,id;";
+    std::ostringstream modifier;
+    modifier << '-' << retention_days << " days";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, modifier.str())) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return false;
+    }
+    for (;;) {
+        const int result = sqlite3_step(statement);
+        if (result == SQLITE_DONE) {
+            sqlite3_finalize(statement);
+            return true;
+        }
+        if (result != SQLITE_ROW) {
+            error = sqlite3_errmsg(database_);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        RetentionCandidate candidate;
+        candidate.package_id = column_text(statement, 0);
+        candidate.job_id = column_text(statement, 1);
+        candidate.artifact_storage_key = column_text(statement, 2);
+        candidate.already_hidden = sqlite3_column_int(statement, 3) == 1;
+        candidates.push_back(candidate);
+    }
+}
+
+bool MetadataStore::mark_package_expired(
+    const std::string& package_id,
+    std::string& error
+) {
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE packages SET deleted_at=COALESCE(deleted_at,"
+        "strftime('%Y-%m-%dT%H:%M:%fZ','now')) WHERE id=?1;";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, package_id) &&
+        sqlite3_step(statement) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    if (!succeeded) error = sqlite3_errmsg(database_);
+    sqlite3_finalize(statement);
+    return succeeded;
+}
+
+bool MetadataStore::backup_database(
+    const std::string& destination_path,
+    std::string& error
+) {
+    if (destination_path.empty() || !initialize(error)) return false;
+    sqlite3* destination = nullptr;
+    if (sqlite3_open_v2(
+            destination_path.c_str(), &destination,
+            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr) != SQLITE_OK) {
+        error = destination == nullptr ? "unable to open backup database" :
+            sqlite3_errmsg(destination);
+        if (destination != nullptr) sqlite3_close(destination);
+        return false;
+    }
+    sqlite3_backup* backup =
+        sqlite3_backup_init(destination, "main", database_, "main");
+    bool succeeded = backup != nullptr &&
+        sqlite3_backup_step(backup, -1) == SQLITE_DONE;
+    if (backup != nullptr) sqlite3_backup_finish(backup);
+    if (!succeeded) error = sqlite3_errmsg(destination);
+    sqlite3_close(destination);
+    return succeeded;
 }
 
 }  // namespace syn_sig_ra

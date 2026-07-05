@@ -94,6 +94,13 @@ struct ApiKeyRecord {
     std::string last_used_at;
 };
 
+struct RetentionCandidate {
+    std::string package_id;
+    std::string job_id;
+    std::string artifact_storage_key;
+    bool already_hidden;
+};
+
 enum class RecordLookupStatus {
     found,
     not_found,
@@ -286,6 +293,22 @@ public:
 
     bool revoke_api_key(
         const std::string& api_key_id,
+        std::string& error
+    );
+
+    bool list_retention_candidates(
+        int retention_days,
+        std::vector<RetentionCandidate>& candidates,
+        std::string& error
+    );
+
+    bool mark_package_expired(
+        const std::string& package_id,
+        std::string& error
+    );
+
+    bool backup_database(
+        const std::string& destination_path,
         std::string& error
     );
 

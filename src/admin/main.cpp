@@ -2,7 +2,11 @@
 #include "syn_sig_ra/sha256.h"
 
 #include <cstdlib>
+#include <cerrno>
+#include <dirent.h>
 #include <iostream>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <string>
 #include <vector>
 
@@ -19,7 +23,50 @@ void print_usage(const char* executable) {
         << " <user-id> <key-id> <label> [owner|admin|developer|viewer]\n"
         << "  " << executable
         << " revoke-api-key <database-path> <key-id>\n"
+        << "  " << executable
+        << " backup-db <database-path> <destination-path>\n"
+        << "  " << executable
+        << " cleanup-retention <database-path> <data-root> <days> [--apply]\n"
         << "\ncreate-api-key reads the plaintext API key as one line from stdin.\n";
+}
+
+bool remove_tree(const std::string& path, std::string& error) {
+    struct stat information;
+    if (lstat(path.c_str(), &information) != 0) {
+        if (errno == ENOENT) return true;
+        error = "unable to inspect retention path";
+        return false;
+    }
+    if (S_ISLNK(information.st_mode)) {
+        error = "retention path must not contain symlinks";
+        return false;
+    }
+    if (S_ISDIR(information.st_mode)) {
+        chmod(path.c_str(), 0700);
+        DIR* directory = opendir(path.c_str());
+        if (directory == nullptr) {
+            error = "unable to open retention directory";
+            return false;
+        }
+        bool succeeded = true;
+        for (dirent* entry = readdir(directory);
+             entry != nullptr; entry = readdir(directory)) {
+            const std::string name(entry->d_name);
+            if (name != "." && name != ".." &&
+                !remove_tree(path + "/" + name, error)) {
+                succeeded = false;
+                break;
+            }
+        }
+        closedir(directory);
+        return succeeded && rmdir(path.c_str()) == 0;
+    }
+    chmod(path.c_str(), 0600);
+    if (unlink(path.c_str()) != 0) {
+        error = "unable to remove retained artifact";
+        return false;
+    }
+    return true;
 }
 
 }  // namespace
@@ -110,6 +157,55 @@ int main(int argc, char** argv) {
         }
         std::cout << "status=api-key-revoked\n";
         std::cout << "api_key_id=" << argv[3] << '\n';
+        return EXIT_SUCCESS;
+    }
+
+    if (argc == 4 && std::string(argv[1]) == "backup-db") {
+        syn_sig_ra::MetadataStore store(argv[2]);
+        std::string error;
+        if (!store.backup_database(argv[3], error)) {
+            std::cerr << "error=database-backup-failed message=" << error << '\n';
+            return EXIT_FAILURE;
+        }
+        std::cout << "status=database-backed-up\npath=" << argv[3] << '\n';
+        return EXIT_SUCCESS;
+    }
+
+    if ((argc == 5 || argc == 6) &&
+        std::string(argv[1]) == "cleanup-retention") {
+        const int days = std::atoi(argv[4]);
+        const bool apply = argc == 6 && std::string(argv[5]) == "--apply";
+        if (argc == 6 && !apply) {
+            print_usage(argv[0]);
+            return EXIT_FAILURE;
+        }
+        syn_sig_ra::MetadataStore store(argv[2]);
+        std::vector<syn_sig_ra::RetentionCandidate> candidates;
+        std::string error;
+        if (!store.list_retention_candidates(days, candidates, error)) {
+            std::cerr << "error=retention-list-failed message=" << error << '\n';
+            return EXIT_FAILURE;
+        }
+        int removed = 0;
+        for (std::vector<syn_sig_ra::RetentionCandidate>::const_iterator it =
+                 candidates.begin(); it != candidates.end(); ++it) {
+            const std::string expected =
+                std::string(argv[3]) + "/packages/" + it->package_id;
+            std::cout << "candidate=" << it->package_id
+                      << " job_id=" << it->job_id << '\n';
+            if (!apply) continue;
+            if (it->artifact_storage_key != expected ||
+                !store.mark_package_expired(it->package_id, error) ||
+                !remove_tree(expected, error)) {
+                std::cerr << "error=retention-cleanup-failed package_id="
+                          << it->package_id << " message=" << error << '\n';
+                return EXIT_FAILURE;
+            }
+            ++removed;
+        }
+        std::cout << "status=" << (apply ? "retention-applied" : "retention-dry-run")
+                  << "\ncandidates=" << candidates.size()
+                  << "\nremoved=" << removed << '\n';
         return EXIT_SUCCESS;
     }
 
