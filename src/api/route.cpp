@@ -2034,7 +2034,7 @@ const char kUiJs[] = R"JS((() => {
       return `
         <details class="verify-note">
           <summary>Reference-only package</summary>
-          <p>This pack has no local scoring policy. Use the downloaded package for reference artifact inspection and contract/manual QA.</p>
+          <p>This pack has no local scoring policy, so there is no detector-template ZIP and no <code>synsigra-verify</code> scoring command. Use the downloaded package for reference artifact inspection and contract/manual QA.</p>
           <p><strong>Reference targets:</strong> ${escapeHtml(referenceOnly.join(", ") || "n/a")}</p>
         </details>
       `;
@@ -2060,6 +2060,17 @@ const char kUiJs[] = R"JS((() => {
         <p class="muted compact">CI semantics: exit 0 = pass, exit 1 = verification/input/scoring/threshold failure, exit 2 = invalid CLI usage.</p>
       </details>
     `;
+  }
+
+  function hasDetectionTemplates(job) {
+    const pack = packById(job.pack_id);
+    return Boolean(
+      job.status === "succeeded" &&
+      job.package_id &&
+      pack &&
+      pack.source !== "custom" &&
+      targetNames(pack.scoreable_targets).length
+    );
   }
 
   async function loadJobs(options = {}) {
@@ -2126,7 +2137,7 @@ const char kUiJs[] = R"JS((() => {
       const artifactActions = job.status === "succeeded" && job.package_id ? `
         <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="manifest.json">Manifest</button>
         <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="package.zip">Package ZIP</button>
-        ${job.detection_templates_url ? `<button class="secondary" data-download-templates="${escapeHtml(job.job_id)}">Detection templates ZIP</button>` : ""}
+        ${hasDetectionTemplates(job) ? `<button class="secondary" data-download-templates="${escapeHtml(job.job_id)}">Detection templates ZIP</button>` : ""}
       ` : "";
       const artifactExpired = job.artifact_status === "expired"
         ? `<p class="muted">Artifacts expired; reproducibility metadata remains.</p>`
