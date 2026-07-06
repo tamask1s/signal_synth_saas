@@ -15,6 +15,6 @@ cmake --build "$build_dir" -j"${BUILD_JOBS:-2}"
 if [ "${RUN_E2E:-0}" = 1 ]; then
   (cd "$build_dir" && \
     APACHE_HTTPD=/usr/local/apache2/bin/httpd \
-    SIGNAL_SYNTH_CLI=/opt/signal_synth/bin/signal-synth \
+    SIGNAL_SYNTH_CLI="${SIGNAL_SYNTH_CLI:-/opt/signal_synth/bin/signal-synth}" \
     ctest -R integration_e2e_smoke --output-on-failure)
 fi

@@ -5,7 +5,7 @@
   "scenarios": [
     {
       "id": "clean_delay",
-      "path": "../../signal_synth/examples/scenarios/packs/ppg_delay_180.json",
+      "path": "scenarios/packs/ppg_delay_180.json",
       "targets": [
         "ppg_systolic_peak",
         "ppg_pulse_onset"
@@ -13,7 +13,7 @@
     },
     {
       "id": "variable_ptt",
-      "path": "../../signal_synth/examples/scenarios/ppg_variable_ptt_v4.json",
+      "path": "scenarios/ppg_variable_ptt_v4.json",
       "targets": [
         "ppg_systolic_peak",
         "ppg_pulse_onset"
@@ -21,7 +21,7 @@
     },
     {
       "id": "respiratory_modulation",
-      "path": "../../signal_synth/examples/scenarios/ppg_respiratory_modulation_v4.json",
+      "path": "scenarios/ppg_respiratory_modulation_v4.json",
       "targets": [
         "ppg_systolic_peak",
         "ppg_pulse_onset"
@@ -29,7 +29,7 @@
     },
     {
       "id": "perfusion_drop",
-      "path": "../../signal_synth/examples/scenarios/ppg_perfusion_drop_v4.json",
+      "path": "scenarios/ppg_perfusion_drop_v4.json",
       "targets": [
         "ppg_systolic_peak",
         "ppg_pulse_onset"
@@ -37,7 +37,7 @@
     },
     {
       "id": "motion_and_saturation",
-      "path": "../../signal_synth/examples/scenarios/ppg_motion_accelerometer_v4.json",
+      "path": "scenarios/ppg_motion_accelerometer_v4.json",
       "targets": [
         "ppg_systolic_peak",
         "ppg_pulse_onset"
@@ -45,7 +45,7 @@
     },
     {
       "id": "dropout",
-      "path": "../../signal_synth/examples/scenarios/ppg_dropout_saturation_v4.json",
+      "path": "scenarios/ppg_dropout_saturation_v4.json",
       "targets": [
         "ppg_systolic_peak",
         "ppg_pulse_onset"
@@ -53,7 +53,7 @@
     },
     {
       "id": "weak_and_missing",
-      "path": "../../signal_synth/examples/scenarios/ppg_weak_missing_v4.json",
+      "path": "scenarios/ppg_weak_missing_v4.json",
       "targets": [
         "ppg_systolic_peak",
         "ppg_pulse_onset"
@@ -61,7 +61,7 @@
     },
     {
       "id": "combined_wearable",
-      "path": "../../signal_synth/examples/scenarios/packs/wearable_cardiorespiratory_stress_v3.json",
+      "path": "scenarios/packs/wearable_cardiorespiratory_stress_v3.json",
       "targets": [
         "ppg_systolic_peak",
         "ppg_pulse_onset"

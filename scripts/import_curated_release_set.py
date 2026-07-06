@@ -88,9 +88,18 @@ def import_pack(source_root, output_root, path_base, metadata, signal_synth_cli)
     source_pack_path = os.path.normpath(os.path.join(os.path.dirname(source_catalog_path), source["pack_path"]))
     pack = read_json(source_pack_path)
     pack_dir = os.path.dirname(source_pack_path)
+    scenario_root = os.path.join(source_root, "examples", "scenarios")
     for scenario in pack.get("scenarios", []):
         scenario_path = os.path.normpath(os.path.join(pack_dir, scenario["path"]))
-        scenario["path"] = slash_relpath(scenario_path, path_base)
+        relative_scenario = slash_relpath(scenario_path, scenario_root)
+        if relative_scenario.startswith("../"):
+            raise RuntimeError("pack scenario is outside examples/scenarios: %s" % scenario_path)
+        output_scenario_path = os.path.join(output_root, "scenarios", *relative_scenario.split("/"))
+        parent = os.path.dirname(output_scenario_path)
+        if parent and not os.path.isdir(parent):
+            os.makedirs(parent)
+        shutil.copyfile(scenario_path, output_scenario_path)
+        scenario["path"] = slash_relpath(output_scenario_path, path_base)
     pack_id = metadata["pack_id"]
     output_pack_path = os.path.join(output_root, pack_id + ".json")
     write_json(output_pack_path, pack)
@@ -136,6 +145,9 @@ def main(argv=None):
         for name in os.listdir(output_root):
             if name.endswith(".json") or name.endswith(".product") or name.endswith(".catalog"):
                 os.remove(os.path.join(output_root, name))
+        scenarios = os.path.join(output_root, "scenarios")
+        if os.path.isdir(scenarios):
+            shutil.rmtree(scenarios)
     if not os.path.isdir(output_root):
         os.makedirs(output_root)
     write_json(os.path.join(output_root, "curated_pack_metadata_v1.catalog"), release_set)

@@ -5,28 +5,28 @@
   "scenarios": [
     {
       "id": "clean_70",
-      "path": "../../signal_synth/examples/scenarios/packs/rpeak_clean_70.json",
+      "path": "scenarios/packs/rpeak_clean_70.json",
       "targets": [
         "r_peak"
       ]
     },
     {
       "id": "slow_45",
-      "path": "../../signal_synth/examples/scenarios/packs/rpeak_slow_45.json",
+      "path": "scenarios/packs/rpeak_slow_45.json",
       "targets": [
         "r_peak"
       ]
     },
     {
       "id": "fast_120",
-      "path": "../../signal_synth/examples/scenarios/packs/rpeak_fast_120.json",
+      "path": "scenarios/packs/rpeak_fast_120.json",
       "targets": [
         "r_peak"
       ]
     },
     {
       "id": "baseline_powerline",
-      "path": "../../signal_synth/examples/scenarios/packs/sq_baseline_powerline.json",
+      "path": "scenarios/packs/sq_baseline_powerline.json",
       "targets": [
         "r_peak",
         "signal_quality"

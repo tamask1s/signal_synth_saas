@@ -1,0 +1,82 @@
+{
+  "schema_version": 3,
+  "scenario_id": "wearable_long_duration_compact_v3",
+  "name": "Long-duration compact wearable benchmark",
+  "description": "Ten-minute ECG, PPG and HRV benchmark using compact WFDB-first export.",
+  "author": "Synsigra",
+  "tags": ["compact", "hrv", "long_duration", "multimodal", "wearable"],
+  "duration_seconds": 600,
+  "sample_rate_hz": 100,
+  "seed": 6402001,
+  "ecg": {
+    "heart_rate_bpm": 62,
+    "rr_variability_seconds": 0.05,
+    "ectopic_every_n_beats": 0,
+    "second_degree_av_pattern": "unspecified",
+    "q_wave_territory": "unspecified",
+    "episode_type": "none",
+    "episode_start_seconds": 2,
+    "episode_duration_seconds": 4,
+    "episode_rate_bpm": 170,
+    "flutter_conduction_pattern": "fixed",
+    "pacing_mode": "ventricular",
+    "pacing_non_capture_every_n_beats": 0,
+    "fidelity_policy": "allow_parameterized",
+    "conditions": [{"code": "NORM", "severity": 1}]
+  },
+  "hrv": {
+    "enabled": true,
+    "target_mean_hr_bpm": 62,
+    "target_sdnn_seconds": 0.055,
+    "lf_hf_ratio": 1.4,
+    "lf_center_hz": 0.1,
+    "lf_bandwidth_hz": 0.04,
+    "hf_center_hz": 0.25,
+    "hf_bandwidth_hz": 0.12,
+    "respiratory_frequency_hz": 0.24,
+    "respiratory_amplitude_seconds": 0.035,
+    "minimum_rr_seconds": 0.5,
+    "maximum_rr_seconds": 1.6,
+    "seed": 6402002
+  },
+  "ppg": {
+    "enabled": true,
+    "pulse_delay_ms": 190,
+    "rise_time_ms": 120,
+    "decay_time_ms": 300,
+    "amplitude_au": 1,
+    "baseline_au": 0,
+    "dicrotic_delay_ms": 180,
+    "dicrotic_width_ms": 80,
+    "dicrotic_amplitude_ratio": 0.15,
+    "pulse_delay_variation_ms": 15,
+    "pulse_delay_variation_hz": 0.02,
+    "missing_pulse_every_n_beats": 0,
+    "clock_drift_ppm": 80,
+    "seed": 6402003
+  },
+  "randomization": {
+    "enabled": true,
+    "seed": 6402004,
+    "envelopes": [
+      {"parameter": "hrv.lf_hf_ratio", "minimum": 0.8, "maximum": 2.2},
+      {"parameter": "hrv.target_sdnn_seconds", "minimum": 0.045, "maximum": 0.075}
+    ]
+  },
+  "physiology": {
+    "respiration_frequency_hz": 0.24,
+    "respiratory_rr_amplitude_seconds": 0.035,
+    "ecg_baseline_amplitude_mv": 0.04,
+    "ppg_amplitude_modulation_ratio": 0.12,
+    "activity_start_seconds": 0,
+    "activity_duration_seconds": 0,
+    "activity_intensity": 0,
+    "seed": 6402005
+  },
+  "output": {
+    "compact": true,
+    "retain_source_channels": false,
+    "include_waveform_csv": false,
+    "include_edf_bdf": false
+  }
+}

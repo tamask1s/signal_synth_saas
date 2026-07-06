@@ -5,35 +5,35 @@
   "scenarios": [
     {
       "id": "normal",
-      "path": "../../signal_synth/examples/scenarios/packs/rpeak_clean_70.json",
+      "path": "scenarios/packs/rpeak_clean_70.json",
       "targets": [
         "ecg_beat_classification"
       ]
     },
     {
       "id": "pac_periodic",
-      "path": "../../signal_synth/examples/scenarios/catalog/beat_pac_periodic.json",
+      "path": "scenarios/catalog/beat_pac_periodic.json",
       "targets": [
         "ecg_beat_classification"
       ]
     },
     {
       "id": "pvc_periodic",
-      "path": "../../signal_synth/examples/scenarios/catalog/beat_pvc_periodic.json",
+      "path": "scenarios/catalog/beat_pvc_periodic.json",
       "targets": [
         "ecg_beat_classification"
       ]
     },
     {
       "id": "paced_capture",
-      "path": "../../signal_synth/examples/scenarios/catalog/beat_paced_capture.json",
+      "path": "scenarios/catalog/beat_paced_capture.json",
       "targets": [
         "ecg_beat_classification"
       ]
     },
     {
       "id": "paced_non_capture",
-      "path": "../../signal_synth/examples/scenarios/catalog/beat_paced_non_capture.json",
+      "path": "scenarios/catalog/beat_paced_non_capture.json",
       "targets": [
         "ecg_beat_classification"
       ]

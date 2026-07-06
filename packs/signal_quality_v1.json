@@ -5,28 +5,28 @@
   "scenarios": [
     {
       "id": "baseline_powerline",
-      "path": "../../signal_synth/examples/scenarios/packs/sq_baseline_powerline.json",
+      "path": "scenarios/packs/sq_baseline_powerline.json",
       "targets": [
         "signal_quality"
       ]
     },
     {
       "id": "dropout_saturation",
-      "path": "../../signal_synth/examples/scenarios/packs/sq_dropout_saturation.json",
+      "path": "scenarios/packs/sq_dropout_saturation.json",
       "targets": [
         "signal_quality"
       ]
     },
     {
       "id": "lead_faults",
-      "path": "../../signal_synth/examples/scenarios/packs/sq_lead_faults.json",
+      "path": "scenarios/packs/sq_lead_faults.json",
       "targets": [
         "signal_quality"
       ]
     },
     {
       "id": "combined_ecg_ppg",
-      "path": "../../signal_synth/examples/scenarios/packs/combined_ecg_ppg_quality.json",
+      "path": "scenarios/packs/combined_ecg_ppg_quality.json",
       "targets": [
         "signal_quality",
         "ppg_systolic_peak"
@@ -34,7 +34,7 @@
     },
     {
       "id": "full_artifact_demo",
-      "path": "../../signal_synth/examples/scenarios/ecg_artifact_signal_quality.json",
+      "path": "scenarios/ecg_artifact_signal_quality.json",
       "targets": [
         "signal_quality"
       ]

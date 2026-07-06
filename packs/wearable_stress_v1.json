@@ -5,7 +5,7 @@
   "scenarios": [
     {
       "id": "cardiorespiratory_activity",
-      "path": "../../signal_synth/examples/scenarios/packs/wearable_cardiorespiratory_stress_v3.json",
+      "path": "scenarios/packs/wearable_cardiorespiratory_stress_v3.json",
       "targets": [
         "r_peak",
         "ppg_systolic_peak",
@@ -14,7 +14,7 @@
     },
     {
       "id": "long_duration_compact",
-      "path": "../../signal_synth/examples/scenarios/packs/wearable_long_duration_compact_v3.json",
+      "path": "scenarios/packs/wearable_long_duration_compact_v3.json",
       "targets": [
         "r_peak",
         "ppg_systolic_peak",

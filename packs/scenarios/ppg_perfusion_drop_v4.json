@@ -1,0 +1,72 @@
+{
+  "schema_version": 4,
+  "scenario_id": "ppg_perfusion_drop_v4",
+  "name": "PPG perfusion drop",
+  "description": "Isolated low-perfusion amplitude and morphology episode without omitted pulses.",
+  "author": "Synsigra",
+  "tags": ["benchmark", "perfusion", "ppg"],
+  "duration_seconds": 60,
+  "sample_rate_hz": 250,
+  "seed": 5205001,
+  "ecg": {
+    "heart_rate_bpm": 70,
+    "rr_variability_seconds": 0.02,
+    "ectopic_every_n_beats": 0,
+    "second_degree_av_pattern": "unspecified",
+    "q_wave_territory": "unspecified",
+    "episode_type": "none",
+    "episode_start_seconds": 2,
+    "episode_duration_seconds": 4,
+    "episode_rate_bpm": 170,
+    "flutter_conduction_pattern": "fixed",
+    "pacing_mode": "ventricular",
+    "pacing_non_capture_every_n_beats": 0,
+    "fidelity_policy": "allow_parameterized",
+    "conditions": [{"code": "NORM", "severity": 1}]
+  },
+  "ppg": {
+    "enabled": true,
+    "pulse_delay_ms": 185,
+    "rise_time_ms": 120,
+    "decay_time_ms": 300,
+    "amplitude_au": 1,
+    "baseline_au": 0,
+    "dicrotic_delay_ms": 180,
+    "dicrotic_width_ms": 80,
+    "dicrotic_amplitude_ratio": 0.15,
+    "pulse_delay_variation_ms": 10,
+    "pulse_delay_variation_hz": 0.08,
+    "missing_pulse_every_n_beats": 0,
+    "clock_drift_ppm": 0,
+    "seed": 5205002,
+    "pulse_delay_jitter_ms": 8,
+    "low_frequency_amplitude_modulation_ratio": 0.15,
+    "low_frequency_amplitude_modulation_hz": 0.05,
+    "rise_time_variation_ratio": 0.1,
+    "decay_time_variation_ratio": 0.15,
+    "perfusion_episodes": [
+      {
+        "start_seconds": 15,
+        "duration_seconds": 30,
+        "amplitude_scale": 0.4,
+        "rise_time_scale": 1.3,
+        "decay_time_scale": 1.2,
+        "weak_pulse_every_n_beats": 0,
+        "weak_pulse_amplitude_scale": 0.3,
+        "missing_pulse_every_n_beats": 0
+      }
+    ]
+  },
+  "randomization": {"enabled": false, "seed": 5205003, "envelopes": []},
+  "physiology": {
+    "respiration_frequency_hz": 0.22,
+    "respiratory_rr_amplitude_seconds": 0.025,
+    "ecg_baseline_amplitude_mv": 0.03,
+    "ppg_amplitude_modulation_ratio": 0.15,
+    "activity_start_seconds": 0,
+    "activity_duration_seconds": 0,
+    "activity_intensity": 0,
+    "seed": 5205004
+  },
+  "output": {"compact": false, "retain_source_channels": true, "include_waveform_csv": true, "include_edf_bdf": true}
+}

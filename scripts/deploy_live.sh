@@ -3,14 +3,28 @@ set -eu
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 build_dir=${BUILD_DIR:-"$repo_dir/build/e2e"}
+signal_synth_root=${SIGNAL_SYNTH_ROOT:-"$repo_dir/../signal_synth"}
+signal_synth_build_dir=${SIGNAL_SYNTH_BUILD_DIR:-"$repo_dir/build/signal_synth_live"}
 timestamp=$(date -u +%Y%m%d%H%M%S)
 reset_db=0
 [ "${1:-}" = "--reset-db" ] && reset_db=1
 
-"$repo_dir/scripts/build_release.sh"
+cmake -S "$signal_synth_root" -B "$signal_synth_build_dir" \
+  -DSIGNAL_SYNTH_BUILD_TESTS=OFF \
+  -DSIGNAL_SYNTH_BUILD_CLI=ON
+cmake --build "$signal_synth_build_dir" --target signal_synth_cli -j2
+SIGNAL_SYNTH_CLI="$signal_synth_build_dir/signal-synth" \
+  "$repo_dir/scripts/build_release.sh"
 
 sudo systemctl stop syn_sig_ra_worker.service
 sudo systemctl stop apache22
+sudo install -d -m 0755 /opt/signal_synth/bin
+if [ -f /opt/signal_synth/bin/signal-synth ]; then
+  sudo cp /opt/signal_synth/bin/signal-synth \
+    "/opt/signal_synth/bin/signal-synth.before-$timestamp"
+fi
+sudo install -m 0755 "$signal_synth_build_dir/signal-synth" \
+  /opt/signal_synth/bin/signal-synth
 sudo cp /usr/local/apache2/modules/mod_syn_sig_ra.so \
   "/usr/local/apache2/modules/mod_syn_sig_ra.so.before-$timestamp"
 sudo install -m 0755 "$build_dir/mod_syn_sig_ra.so" \
@@ -24,8 +38,12 @@ sudo tar -C /opt/signal_synth_saas -czf \
   "/opt/signal_synth_saas/packs.before-$timestamp.tar.gz" packs
 sudo find /opt/signal_synth_saas/packs -maxdepth 1 -type f \
   \( -name '*.json' -o -name '*.product' -o -name '*.catalog' \) -delete
+sudo rm -rf /opt/signal_synth_saas/packs/scenarios
 sudo install -m 0644 "$repo_dir"/packs/*.json "$repo_dir"/packs/*.product "$repo_dir"/packs/*.catalog \
   /opt/signal_synth_saas/packs/
+sudo cp -R "$repo_dir"/packs/scenarios /opt/signal_synth_saas/packs/
+sudo find /opt/signal_synth_saas/packs/scenarios -type d -exec chmod 0755 {} +
+sudo find /opt/signal_synth_saas/packs/scenarios -type f -exec chmod 0644 {} +
 sudo install -d -o apache -g nogroup -m 0750 \
   /var/lib/syn_sig_ra/custom_packs
 

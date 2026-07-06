@@ -11,7 +11,7 @@
     "signal_synth-cli"
   ],
   "deprecation_message": "",
-  "expected_pack_fingerprint": "sha256:5eca5cbad0c8d37cc82a7eb2658074f89da080a096a9b772356900bddede84c2",
+  "expected_pack_fingerprint": "sha256:fbbec63842de10af31ccd6e86adf32f2c0691f3ac4596e7ca80bc9059dd4997e",
   "generator_contract": "signal-synth-cli/pack-challenge-v1",
   "pack_id": "ecg_morphology_stress_v1",
   "release_status": "beta",

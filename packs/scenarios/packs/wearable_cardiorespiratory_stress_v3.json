@@ -1,0 +1,68 @@
+{
+  "schema_version": 3,
+  "scenario_id": "wearable_cardiorespiratory_stress_v3",
+  "name": "Wearable cardiorespiratory stress",
+  "description": "Reproducible ECG and PPG stress with respiration, activity, variable pulse transit delay, missing pulses and clock drift.",
+  "author": "Synsigra",
+  "tags": ["activity", "multimodal", "respiration", "timing", "wearable"],
+  "duration_seconds": 60,
+  "sample_rate_hz": 250,
+  "seed": 6401001,
+  "ecg": {
+    "heart_rate_bpm": 72,
+    "rr_variability_seconds": 0.025,
+    "ectopic_every_n_beats": 0,
+    "second_degree_av_pattern": "unspecified",
+    "q_wave_territory": "unspecified",
+    "episode_type": "none",
+    "episode_start_seconds": 2,
+    "episode_duration_seconds": 4,
+    "episode_rate_bpm": 170,
+    "flutter_conduction_pattern": "fixed",
+    "pacing_mode": "ventricular",
+    "pacing_non_capture_every_n_beats": 0,
+    "fidelity_policy": "allow_parameterized",
+    "conditions": [{"code": "NORM", "severity": 1}]
+  },
+  "ppg": {
+    "enabled": true,
+    "pulse_delay_ms": 180,
+    "rise_time_ms": 120,
+    "decay_time_ms": 300,
+    "amplitude_au": 1,
+    "baseline_au": 0,
+    "dicrotic_delay_ms": 180,
+    "dicrotic_width_ms": 80,
+    "dicrotic_amplitude_ratio": 0.15,
+    "pulse_delay_variation_ms": 25,
+    "pulse_delay_variation_hz": 0.1,
+    "missing_pulse_every_n_beats": 9,
+    "clock_drift_ppm": 250,
+    "seed": 6401002
+  },
+  "randomization": {
+    "enabled": true,
+    "seed": 6401003,
+    "envelopes": [
+      {"parameter": "ecg.heart_rate_bpm", "minimum": 65, "maximum": 85},
+      {"parameter": "ppg.amplitude_au", "minimum": 0.8, "maximum": 1.2},
+      {"parameter": "ppg.pulse_delay_ms", "minimum": 150, "maximum": 230}
+    ]
+  },
+  "physiology": {
+    "respiration_frequency_hz": 0.22,
+    "respiratory_rr_amplitude_seconds": 0.035,
+    "ecg_baseline_amplitude_mv": 0.08,
+    "ppg_amplitude_modulation_ratio": 0.18,
+    "activity_start_seconds": 20,
+    "activity_duration_seconds": 25,
+    "activity_intensity": 0.5,
+    "seed": 6401004
+  },
+  "output": {
+    "compact": false,
+    "retain_source_channels": true,
+    "include_waveform_csv": true,
+    "include_edf_bdf": true
+  }
+}

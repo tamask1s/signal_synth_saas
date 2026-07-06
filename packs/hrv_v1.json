@@ -5,63 +5,63 @@
   "scenarios": [
     {
       "id": "clean_baseline",
-      "path": "../../signal_synth/examples/scenarios/hrv/hrv_clean_baseline.json",
+      "path": "scenarios/hrv/hrv_clean_baseline.json",
       "targets": [
         "hrv"
       ]
     },
     {
       "id": "mild_variability",
-      "path": "../../signal_synth/examples/scenarios/hrv/hrv_mild_variability.json",
+      "path": "scenarios/hrv/hrv_mild_variability.json",
       "targets": [
         "hrv"
       ]
     },
     {
       "id": "high_variability",
-      "path": "../../signal_synth/examples/scenarios/hrv/hrv_high_variability.json",
+      "path": "scenarios/hrv/hrv_high_variability.json",
       "targets": [
         "hrv"
       ]
     },
     {
       "id": "lf_dominant",
-      "path": "../../signal_synth/examples/scenarios/hrv/hrv_lf_dominant.json",
+      "path": "scenarios/hrv/hrv_lf_dominant.json",
       "targets": [
         "hrv"
       ]
     },
     {
       "id": "hf_dominant",
-      "path": "../../signal_synth/examples/scenarios/hrv/hrv_hf_dominant.json",
+      "path": "scenarios/hrv/hrv_hf_dominant.json",
       "targets": [
         "hrv"
       ]
     },
     {
       "id": "balanced_lf_hf",
-      "path": "../../signal_synth/examples/scenarios/hrv/hrv_balanced_lf_hf.json",
+      "path": "scenarios/hrv/hrv_balanced_lf_hf.json",
       "targets": [
         "hrv"
       ]
     },
     {
       "id": "respiratory_variation",
-      "path": "../../signal_synth/examples/scenarios/hrv/hrv_respiratory_variation.json",
+      "path": "scenarios/hrv/hrv_respiratory_variation.json",
       "targets": [
         "hrv"
       ]
     },
     {
       "id": "ectopic_contamination",
-      "path": "../../signal_synth/examples/scenarios/hrv/hrv_ectopic_contamination.json",
+      "path": "scenarios/hrv/hrv_ectopic_contamination.json",
       "targets": [
         "hrv"
       ]
     },
     {
       "id": "artifact_contamination",
-      "path": "../../signal_synth/examples/scenarios/hrv/hrv_artifact_contamination.json",
+      "path": "scenarios/hrv/hrv_artifact_contamination.json",
       "targets": [
         "hrv",
         "signal_quality"

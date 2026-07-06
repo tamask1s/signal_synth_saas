@@ -11,7 +11,7 @@
     "signal_synth-cli"
   ],
   "deprecation_message": "",
-  "expected_pack_fingerprint": "sha256:9c3c5c485b84cf85e28bf5f94ce978a5f3f81268a9a36c1bd09397f19eb9178e",
+  "expected_pack_fingerprint": "sha256:197b42c92ecdbd2af0971462b6a99314ac28e8cbae9d9c03d5fb0a206a4a5505",
   "generator_contract": "signal-synth-cli/pack-challenge-v1",
   "pack_id": "r_peak_stress_v1",
   "release_status": "beta",

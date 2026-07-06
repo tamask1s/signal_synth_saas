@@ -11,7 +11,7 @@
     "signal_synth-cli"
   ],
   "deprecation_message": "",
-  "expected_pack_fingerprint": "sha256:1565a03d13b69e971b3b5cfd2742017b8621cd05ea197731a64d5d64fe96bb72",
+  "expected_pack_fingerprint": "sha256:508c2c721851a96e92cb392158774333bc5cd3be7c4c168d53c9a304df876615",
   "generator_contract": "signal-synth-cli/pack-challenge-v1",
   "pack_id": "combined_worst_case_v1",
   "release_status": "beta",

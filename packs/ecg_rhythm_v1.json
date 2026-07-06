@@ -5,7 +5,7 @@
   "scenarios": [
     {
       "id": "afib",
-      "path": "../../signal_synth/examples/scenarios/catalog/rhythm_afib.json",
+      "path": "scenarios/catalog/rhythm_afib.json",
       "targets": [
         "r_peak",
         "ecg_beat_classification"
@@ -13,7 +13,7 @@
     },
     {
       "id": "flutter_variable",
-      "path": "../../signal_synth/examples/scenarios/catalog/rhythm_flutter_variable.json",
+      "path": "scenarios/catalog/rhythm_flutter_variable.json",
       "targets": [
         "r_peak",
         "ecg_beat_classification"
@@ -21,7 +21,7 @@
     },
     {
       "id": "svt",
-      "path": "../../signal_synth/examples/scenarios/catalog/rhythm_svt.json",
+      "path": "scenarios/catalog/rhythm_svt.json",
       "targets": [
         "r_peak",
         "ecg_beat_classification"
@@ -29,7 +29,7 @@
     },
     {
       "id": "psvt_episode",
-      "path": "../../signal_synth/examples/scenarios/catalog/rhythm_psvt_episode.json",
+      "path": "scenarios/catalog/rhythm_psvt_episode.json",
       "targets": [
         "r_peak",
         "ecg_beat_classification"
@@ -37,7 +37,7 @@
     },
     {
       "id": "mobitz_ii_pause",
-      "path": "../../signal_synth/examples/scenarios/catalog/rhythm_mobitz_ii_pause.json",
+      "path": "scenarios/catalog/rhythm_mobitz_ii_pause.json",
       "targets": [
         "r_peak",
         "ecg_beat_classification"
@@ -45,7 +45,7 @@
     },
     {
       "id": "pvc_bigeminy",
-      "path": "../../signal_synth/examples/scenarios/catalog/rhythm_pvc_bigeminy.json",
+      "path": "scenarios/catalog/rhythm_pvc_bigeminy.json",
       "targets": [
         "r_peak",
         "ecg_beat_classification"
@@ -53,7 +53,7 @@
     },
     {
       "id": "pac_trigeminy",
-      "path": "../../signal_synth/examples/scenarios/catalog/rhythm_pac_trigeminy.json",
+      "path": "scenarios/catalog/rhythm_pac_trigeminy.json",
       "targets": [
         "r_peak",
         "ecg_beat_classification"
@@ -61,7 +61,7 @@
     },
     {
       "id": "paced",
-      "path": "../../signal_synth/examples/scenarios/catalog/beat_paced_capture.json",
+      "path": "scenarios/catalog/beat_paced_capture.json",
       "targets": [
         "r_peak",
         "ecg_beat_classification"

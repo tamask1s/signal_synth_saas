@@ -5,7 +5,7 @@
   "scenarios": [
     {
       "id": "delay_180",
-      "path": "../../signal_synth/examples/scenarios/packs/ppg_delay_180.json",
+      "path": "scenarios/packs/ppg_delay_180.json",
       "targets": [
         "ppg_systolic_peak",
         "ecg_ppg_alignment"
@@ -13,7 +13,7 @@
     },
     {
       "id": "delay_260",
-      "path": "../../signal_synth/examples/scenarios/packs/ppg_delay_260.json",
+      "path": "scenarios/packs/ppg_delay_260.json",
       "targets": [
         "ppg_systolic_peak",
         "ecg_ppg_alignment"
@@ -21,7 +21,7 @@
     },
     {
       "id": "combined_dropout",
-      "path": "../../signal_synth/examples/scenarios/packs/combined_ecg_ppg_quality.json",
+      "path": "scenarios/packs/combined_ecg_ppg_quality.json",
       "targets": [
         "ppg_systolic_peak",
         "signal_quality"
@@ -29,7 +29,7 @@
     },
     {
       "id": "artifact_reference",
-      "path": "../../signal_synth/examples/scenarios/ecg_artifact_signal_quality.json",
+      "path": "scenarios/ecg_artifact_signal_quality.json",
       "targets": [
         "ppg_systolic_peak",
         "signal_quality"
