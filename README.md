@@ -1,244 +1,97 @@
-# SynSigRa SaaS user manual
+# SynSigRa SaaS
 
-SynSigRa creates deterministic synthetic biosignal challenge packages for
-engineering verification. The service can be used from the browser or through
-its HTTPS API.
+SynSigRa SaaS is the hosted orchestration layer for deterministic synthetic biosignal challenge-package generation. It lets an algorithm developer or QA team create reproducible ECG/PPG/HRV test packages, download waveform and ground-truth artifacts, run proprietary algorithms locally, and verify the algorithm output against packaged reference data.
 
-Live browser UI:
+The service is intentionally thin: signal generation and authoritative scoring contracts remain in the sibling [`signal_synth`](https://github.com/tamask1s/signal_synth) project. The SaaS layer handles browser access, projects, curated/custom packs, job orchestration, artifact retention, usage limits, and operational visibility.
+
+Live beta UI:
 
 ```text
 https://www.timeonion.com/syn_sig_ra/
 ```
 
-The deployment uses HTTPS and redirects HTTP requests to HTTPS. Submit
-synthetic engineering data only: never enter patient data, names, identifiers,
-clinical notes, PHI, or other personal data.
-
-## Quick start in the browser
-
-1. Open the UI and create an account with an e-mail address, display name, and
-   password of at least 12 characters. Registration signs the browser in.
-2. Check the Service card. `health` means Apache responds; `ready` means the
-   database, generator, pack catalog, and artifact store are available.
-3. Select the Default project or create another project if your role permits.
-4. Select a curated or custom pack.
-5. Create the job. The list updates automatically without reloading the page.
-6. Wait for `succeeded`, then download `manifest.json` and `package.zip`.
-
-## Recommended algorithm developer workflow
-
-1. Start with a curated pack whose targets match the algorithm. Record its
-   version and pack fingerprint in the experiment configuration.
-2. If the curated cases do not cover an important edge case, load the clean
-   ECG example in the scenario editor, change one concern at a time, validate
-   it, and compose an immutable custom pack from the valid drafts.
-3. Generate a challenge job and download both its manifest and ZIP. Preserve
-   the job ID, package fingerprint, generator version, and build identity shown
-   under **Reproducibility details** in the UI.
-4. Run the algorithm locally against each compatible case. The SaaS does not
-   receive or execute proprietary detector code.
-5. Name detection files after their case IDs and use
-   `scripts/verify_downloaded_package.py` to create per-case comparisons and an
-   aggregate verification summary.
-6. Archive the package, manifest, detector build identity/configuration, raw
-   detections, and generated comparison reports together. This makes a result
-   independently repeatable instead of relying on a mutable UI state.
-
-For a first integration, use one short case and inspect
-`comparison_report.html` before automating a full pack. A fingerprint change
-means the test input changed and results should not be compared as though they
-came from the same fixture.
-
-## Everything available in the UI
-
-### Service status
-
-The header shows:
-
-- service liveness and build version;
-- database readiness;
-- generator readiness;
-- pack catalog readiness;
-- artifact storage readiness;
-- free server disk space.
-
-### Accounts, browser sessions, and API keys
-
-The UI uses a seven-day `Secure`, `HttpOnly`, `SameSite=Lax` session cookie.
-It never asks for or stores an API key. Sign out invalidates the server-side
-session.
-
-The account panel can create named personal API keys for scripts and CI. The
-secret is displayed exactly once; only its SHA-256 hash is stored. Keys can be
-listed and revoked from the UI.
-
-Accounts and keys belong to a user in an organization. Supported roles are:
-
-- `owner`: read/write jobs and drafts, create projects, view metrics;
-- `admin`: the same product operations as owner;
-- `developer`: read/write jobs, scenarios, and custom packs;
-- `viewer`: read-only access to resources owned by that identity.
-
-Registration is currently open. E-mail addresses are login identifiers but
-are not yet verified because no transactional mail provider is configured.
-
-### Projects
-
-Jobs belong to projects. The UI lists available projects and lets owners/admins
-create a project. Cross-organization resources deliberately return 404.
-
-### Curated packs
-
-The catalog shows:
-
-- stable pack ID and semantic version;
-- release status and release date;
-- purpose, targets, and scenarios;
-- authoritative pack fingerprint;
-- compatible generator contract/version;
-- deprecation message, when applicable;
-- release changelog.
-
-Curated pack files are immutable product releases.
-
-### Scenario drafts
-
-The JSON editor can create, validate, update, list, and delete user-owned
-scenario drafts.
-
-- **Load clean ECG example** provides a valid, deterministic starting point.
-- **Format JSON** validates JSON syntax locally and normalizes indentation
-  before submission.
-- Valid drafts are canonicalized and receive a SHA-256 document fingerprint.
-- Invalid drafts are still saved and display actionable validation code, JSON
-  path, and message in a collapsible issue list.
-- Another user, including one in the same organization, cannot read the draft.
-- Viewer keys cannot modify drafts.
-
-The scenario JSON contract is validated directly by the sibling
-`signal_synth` implementation.
-
-### Custom pack composer
-
-Select one or more valid drafts, enter a name, description, and comma-separated
-targets, then create the custom pack. The UI checks required fields, duplicate
-targets, and scenario selection before sending the request.
-
-Composition snapshots the canonical scenario documents. Editing or deleting a
-source draft later does not change the pack. Removing a custom pack hides it
-from new-job selection, but retained job/package snapshots remain reproducible.
-
-### Jobs
-
-The UI supports:
-
-- creating jobs from curated or custom packs;
-- automatic status polling without full-page refresh;
-- loading older jobs;
-- queued-job cancellation;
-- retrying failed or cancelled jobs as new records;
-- soft-deleting non-running jobs;
-- downloading manifests and ZIP packages;
-- viewing project, lifecycle timestamps, generator identity, build identity,
-  and package fingerprint without inspecting raw JSON;
-- following the completed-job link directly to the local verification
-  workflow;
-- displaying queued, running, succeeded, failed, cancelled, and
-  artifact-expired states.
-
-Running jobs cannot currently be force-cancelled. This returns HTTP 409 because
-terminating the external generator is not yet considered safe.
-
-### Usage and operational metrics
-
-All users can see:
-
-- requests in the last minute;
-- active jobs;
-- monthly jobs and configured limits;
-- monthly package count and stored bytes.
-
-Owners/admins additionally see queue depth, running workers, monthly failures,
-quota rejections, and the worker's last heartbeat.
-
-Current private-beta limits:
-
-- 120 requests/minute per API key;
-- 2 concurrent queued/running jobs per organization;
-- 100 jobs/month per organization.
-
-### Documentation
-
-The UI links to this manual and the
-[OpenAPI reference](doc/openapi.yaml).
-
-## Job and artifact lifecycle
-
-Job states:
+API base URL:
 
 ```text
-queued → running → succeeded
-                 ↘ failed
-queued → cancelled
+https://www.timeonion.com/syn_sig_ra
 ```
 
-A retry creates a new queued job and preserves the original. Deletion is a
-soft delete. Package files are immutable while retained.
+> Synthetic engineering data only. Do not enter patient data, personal identifiers, clinical notes, PHI, or other personal data. SynSigRa SaaS is engineering QA tooling, not a medical diagnostic device, patient monitor, certified validator, or clinical validation system.
 
-Default artifact retention is 90 days. A soft-deleted job becomes immediately
-eligible for cleanup. After expiry, job timestamps, pack/package fingerprints,
-and generator identity remain, while downloads return 404 and the UI reports
-`artifact_status: expired`.
+## Current status
 
-## Package contents
+- HTTPS is enabled. Public HTTP requests are redirected to the canonical HTTPS origin.
+- Browser access uses server-side sessions through `Secure`, `HttpOnly`, `SameSite=Lax` cookies.
+- The browser UI does not ask users to paste API keys.
+- API keys are created from the account panel for scripts and CI; each secret is shown once and only a SHA-256 hash is retained server-side.
+- Registration is currently open, but e-mail ownership verification and password recovery are not implemented until a transactional mail provider is configured.
+- The current curated beta catalog contains `r_peak_stress_v1` 1.0, focused on R-peak smoke, rate-stress, baseline, and powerline scenarios.
+- Generated packages are immutable while retained. Default artifact retention is 90 days.
 
-`package.zip` is a ZIP-compatible challenge package. Important top-level files:
+## Product boundary
 
-- `manifest.json`: package identity, file roles, case IDs, hashes, scenario and
-  generator identities;
-- `pack.json`: pack metadata and case ordering;
-- `summary.json` / `summary.csv`: pack-level generation summary;
-- `index.html`: human-readable package overview;
-- `cases/<case-id>/scenario.json`: canonical scenario;
-- `cases/<case-id>/waveform.csv`: waveform samples;
-- `cases/<case-id>/annotations.json`: deterministic ground truth;
-- `cases/<case-id>/ground_truth_metrics.json`: reference metrics;
-- `cases/<case-id>/report.html`: case report;
-- WFDB (`.hea`, `.dat`, `.atr`), EDF and BDF exports.
+SynSigRa SaaS is for offline-first algorithm verification:
 
-Treat `manifest.json`, document fingerprints, package fingerprint, and
-generator build identity as the verification evidence chain.
+1. Select or compose a deterministic synthetic challenge pack.
+2. Generate a package in the SaaS worker.
+3. Download `manifest.json` and `package.zip`.
+4. Run your algorithm locally against the package files.
+5. Verify local detector outputs against packaged ground truth using the SynSigRa local verifier.
+6. Archive the package, manifest, detector build/configuration, detections, and verification reports together.
 
-Challenge jobs always produce the service's complete export/report set. The
-job API intentionally has no per-request format switches.
+The SaaS does **not** execute customer detector code and does **not** receive proprietary algorithm output unless the user explicitly sends it elsewhere outside this product workflow.
 
-## Verify algorithm output against a downloaded package
+Non-goals:
 
-Scoring is local. The SaaS never needs your proprietary detector executable or
-its output.
+- clinical decision support;
+- patient record storage;
+- PHI or clinical note handling;
+- regulated medical-device validation claims;
+- server-side execution of user algorithms;
+- a generic ECG/PPG datastore.
 
-### 1. Build the authoritative CLI and expose the Python package
+## Quick start: browser
 
-```sh
-git clone https://github.com/tamask1s/signal_synth.git
-cmake -S signal_synth -B signal_synth/build \
-  -DSIGNAL_SYNTH_BUILD_TESTS=OFF
-cmake --build signal_synth/build
+1. Open `https://www.timeonion.com/syn_sig_ra/`.
+2. Create an account with an e-mail address, display name, and a password of at least 12 characters, or sign in with an existing account.
+3. Check the service status card:
+   - `health` means the Apache application responds;
+   - `ready` means the database, generator, pack catalog, and artifact store are available.
+4. Select the `Default` project, or create another project if your role permits.
+5. Select a curated pack or a caller-owned custom pack.
+6. Create a job.
+7. Wait for `succeeded`.
+8. Download `manifest.json` and `package.zip`.
+9. Run local verification using the workflow below.
 
-export SIGNAL_SYNTH_CLI="$PWD/signal_synth/build/signal-synth"
-export PYTHONPATH="$PWD/signal_synth/python"
-```
+## Recommended verification workflow
 
-### 2. Run your algorithm
+### 1. Generate and preserve the package
 
-For each case, run the algorithm on the format it supports:
+For each experiment, preserve at least:
+
+- job ID;
+- pack ID and semantic version;
+- pack fingerprint;
+- package ID;
+- package fingerprint;
+- generator version;
+- generator build identity;
+- `manifest.json`;
+- `package.zip`.
+
+A fingerprint change means the test input changed. Do not compare results as though they came from the same fixture.
+
+### 2. Run your detector locally
+
+Run the algorithm against whichever generated format it supports:
 
 - `waveform.csv`;
 - WFDB files;
-- EDF;
-- BDF.
+- EDF/BDF files;
+- case-level scenario or annotation files, where appropriate.
 
-Write one detection file per case using the case ID as filename:
+Detection files should be named after case IDs. For the current `r_peak_stress_v1` pack, a typical directory is:
 
 ```text
 detections/
@@ -257,49 +110,56 @@ time_seconds
 2.54
 ```
 
-Optional columns include `sample_index`, `channel`, `label`, and `confidence`.
-JSON detection documents are also supported by `signal_synth`.
+Optional columns include:
 
-### 3. Score one case with the upstream example script
-
-The loader accepts `package.zip` directly; extraction is optional:
-
-```sh
-python signal_synth/examples/python/score_challenge.py \
-  package.zip \
-  clean_70 \
-  detections/clean_70.csv \
-  verification-clean-70
+```text
+sample_index, channel, label, confidence
 ```
 
-Outputs include `comparison.json`, `comparison.csv`, and
-`comparison_report.html`, with sensitivity, positive predictive value, F1,
-timing error, false positives, and false negatives.
+JSON detection documents are also supported by the sibling `signal_synth` verifier.
 
-### 4. Score all detector-compatible cases
+### 3. Verify locally with the SynSigRa SDK
 
-This repository includes an orchestration script that still delegates every
-score to the authoritative `signal-synth` CLI:
+Install the local verifier from the sibling repository:
 
 ```sh
-python scripts/verify_downloaded_package.py \
-  package.zip \
-  detections \
-  verification-results
+git clone https://github.com/tamask1s/signal_synth.git
+python -m pip install -e signal_synth/python
 ```
 
-Score selected cases only:
+Run verification:
 
 ```sh
-python scripts/verify_downloaded_package.py \
-  package.zip detections verification-results \
-  --case clean_70 --case fast_120
+synsigra-verify package.zip detections/ verification-results/
 ```
 
-The result directory contains one authoritative comparison report per case and
-`verification_summary.json`.
+Useful options:
 
-### 5. Direct CLI verification
+```sh
+synsigra-verify package.zip detections/ verification-results/ \
+  --case clean_70 \
+  --target r_peak \
+  --profile regression \
+  --force
+```
+
+The verifier checks the package, scores compatible case/target pairs, applies the selected threshold profile, and writes machine-readable and human-readable outputs under `verification-results/`.
+
+### 4. Fallback: direct authoritative CLI scoring
+
+Build the sibling generator CLI:
+
+```sh
+git clone https://github.com/tamask1s/signal_synth.git
+cmake -S signal_synth -B signal_synth/build \
+  -DSIGNAL_SYNTH_BUILD_CLI=ON \
+  -DSIGNAL_SYNTH_BUILD_TESTS=OFF
+cmake --build signal_synth/build
+
+export SIGNAL_SYNTH_CLI="$PWD/signal_synth/build/signal-synth"
+```
+
+Score a single case directly:
 
 ```sh
 unzip package.zip -d challenge
@@ -310,10 +170,183 @@ unzip package.zip -d challenge
   --out verification-clean-70
 ```
 
-Other supported commands include `compare ppg-peaks`,
-`compare beat-classes`, and `hrv score`. Target support depends on the selected
-scenario/pack. Signal-quality-only targets currently provide generated
-reference artifacts but no event-detector score.
+Other supported scoring commands depend on the selected scenario/pack and may include:
+
+```text
+compare rpeaks
+compare ppg-peaks
+compare beat-classes
+hrv score
+```
+
+Signal-quality-only targets may provide generated reference artifacts without event-detector scoring.
+
+## Browser UI capabilities
+
+### Service status
+
+The UI reports:
+
+- service liveness and build version;
+- database readiness;
+- generator readiness;
+- pack catalog readiness;
+- artifact-store readiness;
+- free server disk space.
+
+### Accounts and access
+
+Supported organization roles:
+
+| Role | Capabilities |
+|---|---|
+| `owner` | Read/write jobs and drafts, create projects, manage product operations, view owner/admin metrics. |
+| `admin` | Same product operations as owner. |
+| `developer` | Read/write jobs, scenarios, and custom packs. |
+| `viewer` | Read-only access to resources available to that identity. |
+
+Notes:
+
+- Accounts and API keys belong to a user in an organization.
+- Cross-organization resources deliberately return `404`.
+- Sign out invalidates the server-side browser session.
+- API keys can be listed and revoked from the UI.
+
+### Projects
+
+Jobs belong to projects. The UI lists available projects and lets owners/admins create additional projects.
+
+### Curated packs
+
+The curated catalog shows:
+
+- stable pack ID;
+- semantic version;
+- release status;
+- release date;
+- purpose;
+- targets;
+- scenarios;
+- authoritative pack fingerprint;
+- compatible generator contract/version;
+- changelog;
+- deprecation message, if applicable.
+
+Built-in curated pack files are immutable product releases. A changed curated release requires a semantic version update, changelog, reviewed fingerprint, and generator compatibility declaration.
+
+### Scenario drafts
+
+The scenario editor supports creating, validating, updating, listing, and deleting user-owned drafts.
+
+Key properties:
+
+- The clean ECG example provides a deterministic starting point.
+- Local JSON formatting catches syntax errors before submission.
+- Valid drafts are canonicalized and receive a SHA-256 document fingerprint.
+- Invalid drafts are saved as editable drafts and return actionable validation entries with code, JSON path, and message.
+- Drafts are scoped to the exact owner identity.
+- Viewer-role credentials cannot modify drafts.
+- The scenario contract is validated by the sibling `signal_synth` implementation.
+
+Do not place PHI, personal data, patient identifiers, or clinical free text in draft names or scenario fields.
+
+### Custom pack composer
+
+Custom packs are immutable snapshots assembled from valid scenario drafts.
+
+The composer accepts:
+
+- pack name;
+- description;
+- target list;
+- selected valid scenario drafts.
+
+Composition copies canonical scenario documents into a snapshot. Later edits or deletion of source drafts do not change the pack. Deleting a custom pack hides it from new-job selection, while retained job/package snapshots remain reproducible.
+
+### Jobs
+
+The UI supports:
+
+- creating jobs from curated or custom packs;
+- automatic status polling;
+- loading older jobs;
+- queued-job cancellation;
+- retrying failed or cancelled jobs as new records;
+- soft-deleting non-running jobs;
+- downloading `manifest.json` and `package.zip`;
+- viewing project, lifecycle timestamps, generator identity, build identity, and package fingerprint;
+- linking from completed jobs to the local verification workflow;
+- displaying `queued`, `running`, `succeeded`, `failed`, `cancelled`, and artifact-expired states.
+
+Running jobs cannot currently be force-cancelled. The API returns `409` because terminating the external generator is not yet considered safe.
+
+### Usage and metrics
+
+All users can see:
+
+- requests in the last minute;
+- active jobs;
+- monthly jobs and configured limits;
+- monthly package count;
+- stored bytes.
+
+Owners/admins additionally see:
+
+- queue depth;
+- running workers;
+- monthly failures;
+- quota rejections;
+- last worker heartbeat.
+
+Current private-beta limits:
+
+| Limit | Value |
+|---|---:|
+| Requests per minute per API key | 120 |
+| Concurrent queued/running jobs per organization | 2 |
+| Jobs per month per organization | 100 |
+
+## Job and artifact lifecycle
+
+Job states:
+
+```text
+queued → running → succeeded
+                 ↘ failed
+queued → cancelled
+```
+
+A retry creates a new queued job and preserves the original. Deletion is a soft delete.
+
+Default artifact retention is 90 days. A soft-deleted job becomes immediately eligible for cleanup. After expiry:
+
+- job metadata remains;
+- lifecycle timestamps remain;
+- pack/package fingerprints remain;
+- generator identity remains;
+- downloads return `404`;
+- the UI/API reports `artifact_status: expired`.
+
+## Package contents
+
+`package.zip` is a ZIP-compatible challenge package. Important top-level files include:
+
+| Path | Purpose |
+|---|---|
+| `manifest.json` | Package identity, file roles, case IDs, hashes, scenario identities, generator identities. |
+| `pack.json` | Pack metadata and case ordering. |
+| `summary.json` / `summary.csv` | Pack-level generation summary. |
+| `index.html` | Human-readable package overview. |
+| `cases/<case-id>/scenario.json` | Canonical scenario. |
+| `cases/<case-id>/waveform.csv` | Waveform samples. |
+| `cases/<case-id>/annotations.json` | Deterministic ground truth. |
+| `cases/<case-id>/ground_truth_metrics.json` | Reference metrics. |
+| `cases/<case-id>/report.html` | Case report. |
+| WFDB / EDF / BDF files | Interchange formats for compatible tools. |
+
+Treat `manifest.json`, document fingerprints, package fingerprint, and generator build identity as the evidence chain.
+
+Challenge jobs always produce the service's complete export/report set. The job API intentionally has no per-request format switches.
 
 ## HTTP API
 
@@ -323,48 +356,48 @@ Base URL:
 https://www.timeonion.com/syn_sig_ra
 ```
 
-Authenticated requests use:
+Browser calls use the secure session cookie. Scripts and CI use bearer API keys:
 
 ```http
 Authorization: Bearer <api-key>
 ```
 
-| Method | Path | Purpose | Authentication |
+| Method | Path | Purpose | Auth |
 |---|---|---|---|
-| GET | `/healthz` | Liveness/build | No |
-| GET | `/readyz` | Component readiness/disk | No |
-| GET | `/v1/packs` | Curated pack list | No |
-| GET | `/v1/packs/{pack_id}` | Curated pack detail | No |
-| POST | `/v1/auth/register` | Create account and browser session | No |
-| POST | `/v1/auth/login` | Start browser session | No |
-| GET | `/v1/auth/me` | Current account | Session |
-| POST | `/v1/auth/logout` | End browser session | Session |
-| GET | `/v1/projects` | Project list and caller role | Yes |
-| POST | `/v1/projects` | Create project | Owner/admin |
-| GET | `/v1/api-keys` | List personal API keys | Yes |
-| POST | `/v1/api-keys` | Create one-time API key secret | Yes |
-| DELETE | `/v1/api-keys/{id}` | Revoke personal API key | Yes |
-| GET | `/v1/scenarios` | List owned drafts | Yes |
-| POST | `/v1/scenarios` | Validate/create draft | Developer+ |
-| GET | `/v1/scenarios/{id}` | Draft detail | Owner identity |
-| PUT | `/v1/scenarios/{id}` | Replace/revalidate draft | Developer+ |
-| DELETE | `/v1/scenarios/{id}` | Delete draft | Developer+ |
-| GET | `/v1/custom-packs` | List owned custom packs | Yes |
-| POST | `/v1/custom-packs` | Compose immutable pack | Developer+ |
-| GET | `/v1/custom-packs/{id}` | Custom pack detail | Owner identity |
-| DELETE | `/v1/custom-packs/{id}` | Hide custom pack | Developer+ |
-| GET | `/v1/jobs?limit=25&offset=0` | Paginated job list | Yes |
-| POST | `/v1/jobs` | Queue curated/custom pack | Developer+ |
-| GET | `/v1/jobs/{id}` | Job status/detail | Organization |
-| DELETE | `/v1/jobs/{id}` | Soft-delete non-running job | Developer+ |
-| POST | `/v1/jobs/{id}/cancel` | Cancel queued job | Developer+ |
-| POST | `/v1/jobs/{id}/retry` | Retry failed/cancelled job | Developer+ |
-| GET | `/v1/artifacts/{package_id}/manifest.json` | Download manifest | Organization |
-| GET | `/v1/artifacts/{package_id}/package.zip` | Download ZIP | Organization |
-| GET | `/v1/usage` | Usage and limits | Yes |
-| GET | `/v1/metrics` | Operational metrics | Owner/admin |
+| `GET` | `/healthz` | Liveness/build | Public |
+| `GET` | `/readyz` | Component readiness/disk | Public |
+| `GET` | `/v1/packs` | Curated pack list | Public |
+| `GET` | `/v1/packs/{pack_id}` | Curated pack detail | Public |
+| `POST` | `/v1/auth/register` | Create account and browser session | Public |
+| `POST` | `/v1/auth/login` | Start browser session | Public |
+| `GET` | `/v1/auth/me` | Current account | Session |
+| `POST` | `/v1/auth/logout` | End browser session | Session |
+| `GET` | `/v1/projects` | Project list and caller role | Authenticated |
+| `POST` | `/v1/projects` | Create project | Owner/admin |
+| `GET` | `/v1/api-keys` | List personal API keys | Authenticated |
+| `POST` | `/v1/api-keys` | Create one-time API key secret | Authenticated |
+| `DELETE` | `/v1/api-keys/{id}` | Revoke personal API key | Authenticated |
+| `GET` | `/v1/scenarios` | List owned drafts | Authenticated |
+| `POST` | `/v1/scenarios` | Validate/create draft | Developer+ |
+| `GET` | `/v1/scenarios/{id}` | Draft detail | Owner identity |
+| `PUT` | `/v1/scenarios/{id}` | Replace/revalidate draft | Developer+ |
+| `DELETE` | `/v1/scenarios/{id}` | Delete draft | Developer+ |
+| `GET` | `/v1/custom-packs` | List owned custom packs | Authenticated |
+| `POST` | `/v1/custom-packs` | Compose immutable pack | Developer+ |
+| `GET` | `/v1/custom-packs/{id}` | Custom pack detail | Owner identity |
+| `DELETE` | `/v1/custom-packs/{id}` | Hide custom pack | Developer+ |
+| `GET` | `/v1/jobs?limit=25&offset=0` | Paginated job list | Authenticated |
+| `POST` | `/v1/jobs` | Queue curated/custom pack | Developer+ |
+| `GET` | `/v1/jobs/{id}` | Job status/detail | Organization |
+| `DELETE` | `/v1/jobs/{id}` | Soft-delete non-running job | Developer+ |
+| `POST` | `/v1/jobs/{id}/cancel` | Cancel queued job | Developer+ |
+| `POST` | `/v1/jobs/{id}/retry` | Retry failed/cancelled job | Developer+ |
+| `GET` | `/v1/artifacts/{package_id}/manifest.json` | Download manifest | Organization |
+| `GET` | `/v1/artifacts/{package_id}/package.zip` | Download ZIP | Organization |
+| `GET` | `/v1/usage` | Usage and limits | Authenticated |
+| `GET` | `/v1/metrics` | Operational metrics | Owner/admin |
 
-Create a job:
+Create a job from a script:
 
 ```sh
 read -r -s SYN_SIG_RA_API_KEY
@@ -377,35 +410,82 @@ curl -fsS \
   "$BASE/v1/jobs"
 ```
 
-The create body accepts exactly `project_id` and `pack_id`; unsupported fields
-are rejected. Export and report formats are fixed for challenge-package
-reproducibility.
+The create-job body accepts exactly `project_id` and `pack_id`; unsupported fields are rejected.
 
-See [doc/API_GUIDE.md](doc/API_GUIDE.md) for curl onboarding and stable error
-codes, and [doc/openapi.yaml](doc/openapi.yaml) for the machine-readable
-contract.
+## Operations summary
+
+The production shape is:
+
+```text
+nginx : public HTTP/HTTPS edge, TLS, canonical redirects
+Apache module : localhost backend under /syn_sig_ra
+SQLite : metadata database
+filesystem data root : immutable packages and snapshots
+worker service : queued generation jobs
+signal_synth CLI : authoritative generator
+```
+
+Operational endpoints:
+
+| Endpoint | Use |
+|---|---|
+| `/healthz` | Confirms the Apache module can answer. |
+| `/readyz` | Confirms DB, generator, catalog, and artifact store are usable. |
+| `/v1/usage` | Customer-facing usage counters and limits. |
+| `/v1/metrics` | Owner/admin operational counters and worker heartbeat. |
+
+Operational scripts documented in `doc/` cover build, deploy, live verification, retention cleanup, backup, and restore drill workflows.
+
+## Repository layout
+
+```text
+apache/                 Apache integration files
+include/syn_sig_ra/      Public/internal C++ headers
+src/                    SaaS module, API, auth, jobs, catalog, worker logic
+test/                   Unit/integration tests
+packs/                  Built-in curated pack definitions and product sidecars
+scripts/                Build/deploy/verify/backup/retention helper scripts
+ops/                    nginx, letsencrypt, and service configuration assets
+doc/                    API, operations, tenancy, custom-pack, deployment docs
+var.example/            Example runtime state layout
+```
+
+## Build and deployment references
+
+Start here for implementation and operations details:
+
+- [`doc/DEVELOPER_REFERENCE.md`](doc/DEVELOPER_REFERENCE.md)
+- [`doc/VPS_DEPLOYMENT.md`](doc/VPS_DEPLOYMENT.md)
+- [`doc/OPERATIONS.md`](doc/OPERATIONS.md)
+- [`doc/RETENTION_BACKUP.md`](doc/RETENTION_BACKUP.md)
+- [`doc/openapi.yaml`](doc/openapi.yaml)
+
+The current deployment uses nginx as the public TLS edge and a custom Apache backend bound to localhost. The sibling `signal_synth` CLI is installed separately and invoked by the SaaS worker.
 
 ## Security and limitations
 
-- HTTPS terminates at nginx; the Apache application backend listens only on
-  localhost.
-- API keys are stored server-side only as SHA-256 hashes.
-- Passwords use salted PBKDF2-HMAC-SHA256 with 310,000 iterations.
+- HTTPS terminates at nginx.
+- The Apache application backend listens only on localhost.
 - Browser authentication uses revocable, expiring server-side sessions.
-- E-mail ownership verification and password recovery require a transactional
-  mail provider and are not implemented yet.
-- This is synthetic engineering tooling, not clinical validation evidence.
-- Do not upload PHI or personal data.
+- API key secrets are displayed once and stored only as SHA-256 hashes.
+- Passwords are stored using salted PBKDF2-HMAC-SHA256.
+- E-mail verification and password recovery are not implemented yet.
+- The product accepts synthetic engineering scenarios only.
+- Do not upload PHI, personal data, patient identifiers, or clinical free text.
 - The service does not execute customer detector code.
 - Built-in and composed pack snapshots are immutable.
+- Generated reports are engineering verification evidence, not clinical validation evidence.
 
 ## Further documentation
 
 - [Customer API guide](doc/API_GUIDE.md)
+- [OpenAPI reference](doc/openapi.yaml)
 - [Scenario drafts](doc/SCENARIO_DRAFTS.md)
 - [Custom packs](doc/CUSTOM_PACKS.md)
-- [Pack release policy](doc/PACK_CATALOG.md)
+- [Pack catalog release policy](doc/PACK_CATALOG.md)
+- [Tenancy and authorization](doc/TENANCY.md)
 - [Retention and backup](doc/RETENTION_BACKUP.md)
 - [Operations and observability](doc/OPERATIONS.md)
-- [Developer/build/deployment reference](doc/DEVELOPER_REFERENCE.md)
-- [Product plan](doc/SAAS_PRODUCT_PLAN.md)
+- [Developer reference](doc/DEVELOPER_REFERENCE.md)
+- [VPS deployment runbook](doc/VPS_DEPLOYMENT.md)
+- [SaaS product plan](doc/SAAS_PRODUCT_PLAN.md)
