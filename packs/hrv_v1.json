@@ -1,0 +1,76 @@
+{
+  "description": "Deterministic five-minute ECG scenarios for time-domain, Poincare, spectral, exclusion-policy, and local scoring QA. The companion hrv_short_window_rejected.json is an expected validation failure.",
+  "name": "HRV Benchmark Pack v1",
+  "pack_id": "hrv_v1",
+  "scenarios": [
+    {
+      "id": "clean_baseline",
+      "path": "../../signal_synth/examples/scenarios/hrv/hrv_clean_baseline.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "mild_variability",
+      "path": "../../signal_synth/examples/scenarios/hrv/hrv_mild_variability.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "high_variability",
+      "path": "../../signal_synth/examples/scenarios/hrv/hrv_high_variability.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "lf_dominant",
+      "path": "../../signal_synth/examples/scenarios/hrv/hrv_lf_dominant.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "hf_dominant",
+      "path": "../../signal_synth/examples/scenarios/hrv/hrv_hf_dominant.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "balanced_lf_hf",
+      "path": "../../signal_synth/examples/scenarios/hrv/hrv_balanced_lf_hf.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "respiratory_variation",
+      "path": "../../signal_synth/examples/scenarios/hrv/hrv_respiratory_variation.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "ectopic_contamination",
+      "path": "../../signal_synth/examples/scenarios/hrv/hrv_ectopic_contamination.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "artifact_contamination",
+      "path": "../../signal_synth/examples/scenarios/hrv/hrv_artifact_contamination.json",
+      "targets": [
+        "hrv",
+        "signal_quality"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "targets": [
+    "hrv"
+  ],
+  "version": "1.0"
+}

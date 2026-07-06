@@ -6,6 +6,14 @@ authoritative `signal_synth` parser validates the pack and computes its
 fingerprint; the SaaS then requires the sidecar's ID, semantic version, and
 expected fingerprint to match exactly.
 
+The sidecars and SaaS-local pack JSON files are imported from the sibling
+`signal_synth/examples/catalog/curated_pack_metadata_v1.json` release-set
+artifact:
+
+```sh
+python3 scripts/import_curated_release_set.py --metadata ../signal_synth/examples/catalog/curated_pack_metadata_v1.json --source-root ../signal_synth --out packs --clean
+```
+
 This prevents a scenario or pack edit from silently changing a deployed
 release. A changed pack requires:
 
@@ -29,13 +37,23 @@ unapproved generator. Completed jobs retain the exact generator build hash.
 
 ## Deprecation
 
-Release status is `stable` or `deprecated`. Deprecated releases remain visible
-for reproducibility and require a human-readable migration message. They are
-not silently removed. Physical artifacts follow the retention policy, while
-job, pack fingerprint, package fingerprint, and generator identity metadata
-remain.
+Release status is `beta`, `stable` or `deprecated`. Beta packs are visible and
+usable in the private-beta product catalog, but must not be described as
+clinically validated. Deprecated releases remain visible for reproducibility
+and require a human-readable migration message. They are not silently removed.
+Physical artifacts follow the retention policy, while job, pack fingerprint,
+package fingerprint, and generator identity metadata remain.
 
 ## Current curated beta set
 
 - `r_peak_stress_v1` 1.0: R-peak smoke, rate-stress, and
   baseline/powerline signal-quality scenarios.
+- `hrv_v1` 1.0: HRV metric and RR-tachogram benchmark cases.
+- `ecg_beat_classification_v1` 1.0: normal, PAC, PVC and paced beat labels.
+- `ecg_rhythm_v1` 1.0: rhythm, transition, ectopy and pacing stress cases.
+- `signal_quality_v1` 1.0: signal-quality intervals plus a PPG peak case.
+- `ecg_morphology_stress_v1` 1.0: reference-only morphology and condition assertions.
+- `ppg_alignment_v1` 1.0: PPG peak scoring and ECG/PPG timing references.
+- `combined_worst_case_v1` 1.0: mixed ECG/PPG/HRV/signal-quality stress.
+- `wearable_stress_v1` 1.0: wearable ECG/PPG/HRV long-duration stress.
+- `ppg_benchmark_v1` 1.0: PPG peak and onset benchmark cases.

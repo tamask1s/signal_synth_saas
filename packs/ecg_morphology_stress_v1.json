@@ -1,0 +1,48 @@
+{
+  "description": "Curated conduction, ST-T/ischemia, hypertrophy, infarction, lead-fault, and acquisition-fault reference cases.",
+  "name": "ECG Morphology Stress Pack v1",
+  "pack_id": "ecg_morphology_stress_v1",
+  "scenarios": [
+    {
+      "id": "clbbb",
+      "path": "../../signal_synth/examples/scenarios/catalog/morph_clbbb.json",
+      "targets": [
+        "morphology_assertions"
+      ]
+    },
+    {
+      "id": "ischemia_anterolateral",
+      "path": "../../signal_synth/examples/scenarios/catalog/morph_iscal.json",
+      "targets": [
+        "morphology_assertions"
+      ]
+    },
+    {
+      "id": "lvh",
+      "path": "../../signal_synth/examples/scenarios/catalog/morph_lvh.json",
+      "targets": [
+        "morphology_assertions"
+      ]
+    },
+    {
+      "id": "inferior_infarction",
+      "path": "../../signal_synth/examples/scenarios/catalog/morph_imi.json",
+      "targets": [
+        "morphology_assertions"
+      ]
+    },
+    {
+      "id": "lead_and_acquisition_faults",
+      "path": "../../signal_synth/examples/scenarios/packs/sq_lead_faults.json",
+      "targets": [
+        "signal_quality"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "targets": [
+    "morphology_assertions",
+    "signal_quality"
+  ],
+  "version": "1.0"
+}

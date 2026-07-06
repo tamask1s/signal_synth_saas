@@ -15,6 +15,21 @@ void require(bool condition, const std::string& message) {
     }
 }
 
+const syn_sig_ra::PackSummary* find_pack(
+    const std::vector<syn_sig_ra::PackSummary>& packs,
+    const std::string& pack_id
+) {
+    for (std::vector<syn_sig_ra::PackSummary>::const_iterator it =
+             packs.begin();
+         it != packs.end();
+         ++it) {
+        if (it->pack_id == pack_id) {
+            return &(*it);
+        }
+    }
+    return 0;
+}
+
 }  // namespace
 
 int main() {
@@ -25,33 +40,42 @@ int main() {
     std::vector<syn_sig_ra::PackSummary> packs;
 
     require(catalog.list(packs, error), "catalog list should succeed: " + error);
-    require(!packs.empty(), "catalog should contain the example pack");
+    require(packs.size() >= 10, "catalog should contain the imported release set");
+    const syn_sig_ra::PackSummary* r_peak =
+        find_pack(packs, "r_peak_stress_v1");
+    require(r_peak != 0, "catalog should expose the R-peak pack");
     require(
-        packs[0].pack_id == "r_peak_stress_v1",
+        find_pack(packs, "hrv_v1") != 0 &&
+            find_pack(packs, "ppg_benchmark_v1") != 0 &&
+            find_pack(packs, "wearable_stress_v1") != 0,
+        "catalog should expose HRV, PPG and wearable release packs"
+    );
+    require(
+        r_peak->pack_id == "r_peak_stress_v1",
         "catalog should expose the filename-matched pack ID"
     );
     require(
-        packs[0].display_name == "R-peak Stress Pack v1",
+        r_peak->display_name == "R-peak Stress Pack v1",
         "catalog should expose the authoritative display name"
     );
     require(
-        packs[0].pack_fingerprint.compare(0, 7, "sha256:") == 0,
+        r_peak->pack_fingerprint.compare(0, 7, "sha256:") == 0,
         "catalog should expose the authoritative fingerprint"
     );
     require(
-        packs[0].version == "1.0" && packs[0].scenarios.size() == 4,
+        r_peak->version == "1.0" && r_peak->scenarios.size() == 4,
         "catalog should expose pack version and scenario count"
     );
     require(
-        packs[0].scenarios[0].scenario_id == "clean_70",
+        r_peak->scenarios[0].scenario_id == "clean_70",
         "catalog should expose scenario IDs without source paths"
     );
     require(
-        packs[0].release_status == "stable" &&
-            packs[0].generator_contract ==
+        r_peak->release_status == "beta" &&
+            r_peak->generator_contract ==
                 "signal-synth-cli/pack-challenge-v1" &&
-            packs[0].compatible_generator_versions.size() == 1 &&
-            packs[0].changelog.size() == 1,
+            r_peak->compatible_generator_versions.size() >= 1 &&
+            r_peak->changelog.size() == 1,
         "catalog should expose validated release and compatibility metadata"
     );
 

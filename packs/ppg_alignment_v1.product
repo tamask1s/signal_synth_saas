@@ -2,7 +2,7 @@
   "changelog": [
     {
       "date": "2026-07-06",
-      "summary": "Initial beta curated R-peak stress pack with clean, bradycardia, tachycardia, and artifact cases.",
+      "summary": "Initial beta PPG alignment pack with systolic-peak scoring and ECG/PPG timing references.",
       "version": "1.0"
     }
   ],
@@ -11,9 +11,9 @@
     "signal_synth-cli"
   ],
   "deprecation_message": "",
-  "expected_pack_fingerprint": "sha256:3baac9270fe98e1b999f44a93f461efac8e93ca312e134eb4362b9951c09a2eb",
+  "expected_pack_fingerprint": "sha256:71a2f4956ac86db4669e69d6b0758432f34eada0023474d98754b9eca275bf18",
   "generator_contract": "signal-synth-cli/pack-challenge-v1",
-  "pack_id": "r_peak_stress_v1",
+  "pack_id": "ppg_alignment_v1",
   "release_status": "beta",
   "released_at": "2026-07-06",
   "schema_version": 1,

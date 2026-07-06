@@ -1,0 +1,34 @@
+{
+  "description": "Reproducible ECG, PPG, HRV, cardiorespiratory and synchronization stress for wearable algorithm QA.",
+  "name": "Wearable ECG/PPG Stress Pack v1",
+  "pack_id": "wearable_stress_v1",
+  "scenarios": [
+    {
+      "id": "cardiorespiratory_activity",
+      "path": "../../signal_synth/examples/scenarios/packs/wearable_cardiorespiratory_stress_v3.json",
+      "targets": [
+        "r_peak",
+        "ppg_systolic_peak",
+        "ecg_ppg_alignment"
+      ]
+    },
+    {
+      "id": "long_duration_compact",
+      "path": "../../signal_synth/examples/scenarios/packs/wearable_long_duration_compact_v3.json",
+      "targets": [
+        "r_peak",
+        "ppg_systolic_peak",
+        "ecg_ppg_alignment",
+        "hrv"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "targets": [
+    "r_peak",
+    "ppg_systolic_peak",
+    "ecg_ppg_alignment",
+    "hrv"
+  ],
+  "version": "1.0"
+}

@@ -2,7 +2,7 @@
   "changelog": [
     {
       "date": "2026-07-06",
-      "summary": "Initial beta curated R-peak stress pack with clean, bradycardia, tachycardia, and artifact cases.",
+      "summary": "Initial beta reference-only ECG morphology pack with condition assertions and signal-quality references.",
       "version": "1.0"
     }
   ],
@@ -11,9 +11,9 @@
     "signal_synth-cli"
   ],
   "deprecation_message": "",
-  "expected_pack_fingerprint": "sha256:3baac9270fe98e1b999f44a93f461efac8e93ca312e134eb4362b9951c09a2eb",
+  "expected_pack_fingerprint": "sha256:e24fc01f4e5162326cfd312f657a38a88c34a54e7d4a1dfb1ab640f93cac58ef",
   "generator_contract": "signal-synth-cli/pack-challenge-v1",
-  "pack_id": "r_peak_stress_v1",
+  "pack_id": "ecg_morphology_stress_v1",
   "release_status": "beta",
   "released_at": "2026-07-06",
   "schema_version": 1,

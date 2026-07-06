@@ -1,0 +1,47 @@
+{
+  "description": "Curated normal, PAC, PVC, paced-capture, and paced-non-capture cases with exact beat-class ground truth.",
+  "name": "ECG Beat Classification Pack v1",
+  "pack_id": "ecg_beat_classification_v1",
+  "scenarios": [
+    {
+      "id": "normal",
+      "path": "../../signal_synth/examples/scenarios/packs/rpeak_clean_70.json",
+      "targets": [
+        "ecg_beat_classification"
+      ]
+    },
+    {
+      "id": "pac_periodic",
+      "path": "../../signal_synth/examples/scenarios/catalog/beat_pac_periodic.json",
+      "targets": [
+        "ecg_beat_classification"
+      ]
+    },
+    {
+      "id": "pvc_periodic",
+      "path": "../../signal_synth/examples/scenarios/catalog/beat_pvc_periodic.json",
+      "targets": [
+        "ecg_beat_classification"
+      ]
+    },
+    {
+      "id": "paced_capture",
+      "path": "../../signal_synth/examples/scenarios/catalog/beat_paced_capture.json",
+      "targets": [
+        "ecg_beat_classification"
+      ]
+    },
+    {
+      "id": "paced_non_capture",
+      "path": "../../signal_synth/examples/scenarios/catalog/beat_paced_non_capture.json",
+      "targets": [
+        "ecg_beat_classification"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "targets": [
+    "ecg_beat_classification"
+  ],
+  "version": "1.0"
+}

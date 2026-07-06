@@ -180,7 +180,8 @@ bool load_product_metadata(
         pack.version != json_string_value(version) ||
         !is_semantic_version(pack.version) ||
         pack.pack_fingerprint != json_string_value(expected) ||
-        (std::string(json_string_value(status)) != "stable" &&
+        (std::string(json_string_value(status)) != "beta" &&
+         std::string(json_string_value(status)) != "stable" &&
          std::string(json_string_value(status)) != "deprecated")) {
         json_decref(root);
         error = "pack product metadata does not match the validated release";

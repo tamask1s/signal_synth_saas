@@ -2,7 +2,7 @@
   "changelog": [
     {
       "date": "2026-07-06",
-      "summary": "Initial beta curated R-peak stress pack with clean, bradycardia, tachycardia, and artifact cases.",
+      "summary": "Initial beta combined stress pack spanning ECG, PPG, HRV and signal-quality targets.",
       "version": "1.0"
     }
   ],
@@ -11,9 +11,9 @@
     "signal_synth-cli"
   ],
   "deprecation_message": "",
-  "expected_pack_fingerprint": "sha256:3baac9270fe98e1b999f44a93f461efac8e93ca312e134eb4362b9951c09a2eb",
+  "expected_pack_fingerprint": "sha256:4844b59a5e4de8c537ec46c3398ee820801f14a93613563ed85d940b3b747000",
   "generator_contract": "signal-synth-cli/pack-challenge-v1",
-  "pack_id": "r_peak_stress_v1",
+  "pack_id": "combined_worst_case_v1",
   "release_status": "beta",
   "released_at": "2026-07-06",
   "schema_version": 1,

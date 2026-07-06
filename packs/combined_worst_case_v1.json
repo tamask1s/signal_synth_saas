@@ -1,0 +1,45 @@
+{
+  "description": "Mixed ECG, PPG, HRV and artifact scenarios for end-to-end wearable algorithm stress testing.",
+  "name": "Combined Worst-case Pack v1",
+  "pack_id": "combined_worst_case_v1",
+  "scenarios": [
+    {
+      "id": "fast_rhythm",
+      "path": "../../signal_synth/examples/scenarios/packs/rpeak_fast_120.json",
+      "targets": [
+        "r_peak"
+      ]
+    },
+    {
+      "id": "high_hrv",
+      "path": "../../signal_synth/examples/scenarios/hrv/hrv_high_variability.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "ppg_long_delay",
+      "path": "../../signal_synth/examples/scenarios/packs/ppg_delay_260.json",
+      "targets": [
+        "ppg_systolic_peak"
+      ]
+    },
+    {
+      "id": "combined_quality",
+      "path": "../../signal_synth/examples/scenarios/packs/combined_ecg_ppg_quality.json",
+      "targets": [
+        "r_peak",
+        "ppg_systolic_peak",
+        "signal_quality"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "targets": [
+    "r_peak",
+    "hrv",
+    "ppg_systolic_peak",
+    "signal_quality"
+  ],
+  "version": "1.0"
+}

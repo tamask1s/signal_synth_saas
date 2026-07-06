@@ -25,7 +25,7 @@ https://www.timeonion.com/syn_sig_ra
 - The browser UI does not ask users to paste API keys.
 - API keys are created from the account panel for scripts and CI; each secret is shown once and only a SHA-256 hash is retained server-side.
 - Registration is currently open, but e-mail ownership verification and password recovery are not implemented until a transactional mail provider is configured.
-- The current curated beta catalog contains `r_peak_stress_v1` 1.0, focused on R-peak smoke, rate-stress, baseline, and powerline scenarios.
+- The current curated beta catalog is imported from `signal_synth/examples/catalog/curated_pack_metadata_v1.json` and contains ECG, HRV, PPG, signal-quality and wearable stress packs, not only the R-peak smoke pack.
 - Generated packages are immutable while retained. Default artifact retention is 90 days.
 
 ## Product boundary
@@ -233,6 +233,12 @@ The curated catalog shows:
 - deprecation message, if applicable.
 
 Built-in curated pack files are immutable product releases. A changed curated release requires a semantic version update, changelog, reviewed fingerprint, and generator compatibility declaration.
+
+The committed `packs/*.json` and `packs/*.product` files are generated from the sibling `signal_synth` release-set artifact with:
+
+```sh
+python3 scripts/import_curated_release_set.py --metadata ../signal_synth/examples/catalog/curated_pack_metadata_v1.json --source-root ../signal_synth --out packs --clean
+```
 
 ### Scenario drafts
 

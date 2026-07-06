@@ -2,7 +2,7 @@
   "changelog": [
     {
       "date": "2026-07-06",
-      "summary": "Initial beta curated R-peak stress pack with clean, bradycardia, tachycardia, and artifact cases.",
+      "summary": "Initial beta curated beat-classification pack with normal, PAC, PVC and paced cases.",
       "version": "1.0"
     }
   ],
@@ -11,9 +11,9 @@
     "signal_synth-cli"
   ],
   "deprecation_message": "",
-  "expected_pack_fingerprint": "sha256:3baac9270fe98e1b999f44a93f461efac8e93ca312e134eb4362b9951c09a2eb",
+  "expected_pack_fingerprint": "sha256:63d97c0f3025097688945dbcb5a4b19ab6e145a24f6e6605d0c2a77cc6a1d185",
   "generator_contract": "signal-synth-cli/pack-challenge-v1",
-  "pack_id": "r_peak_stress_v1",
+  "pack_id": "ecg_beat_classification_v1",
   "release_status": "beta",
   "released_at": "2026-07-06",
   "schema_version": 1,

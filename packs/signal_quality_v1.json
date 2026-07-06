@@ -1,0 +1,49 @@
+{
+  "description": "ECG/PPG acquisition artifact scenarios with explicit interval ground truth.",
+  "name": "Signal Quality Pack v1",
+  "pack_id": "signal_quality_v1",
+  "scenarios": [
+    {
+      "id": "baseline_powerline",
+      "path": "../../signal_synth/examples/scenarios/packs/sq_baseline_powerline.json",
+      "targets": [
+        "signal_quality"
+      ]
+    },
+    {
+      "id": "dropout_saturation",
+      "path": "../../signal_synth/examples/scenarios/packs/sq_dropout_saturation.json",
+      "targets": [
+        "signal_quality"
+      ]
+    },
+    {
+      "id": "lead_faults",
+      "path": "../../signal_synth/examples/scenarios/packs/sq_lead_faults.json",
+      "targets": [
+        "signal_quality"
+      ]
+    },
+    {
+      "id": "combined_ecg_ppg",
+      "path": "../../signal_synth/examples/scenarios/packs/combined_ecg_ppg_quality.json",
+      "targets": [
+        "signal_quality",
+        "ppg_systolic_peak"
+      ]
+    },
+    {
+      "id": "full_artifact_demo",
+      "path": "../../signal_synth/examples/scenarios/ecg_artifact_signal_quality.json",
+      "targets": [
+        "signal_quality"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "targets": [
+    "signal_quality",
+    "ppg_systolic_peak"
+  ],
+  "version": "1.0"
+}

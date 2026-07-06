@@ -1,12 +1,7 @@
 {
-  "schema_version": 1,
-  "pack_id": "r_peak_stress_v1",
-  "name": "R-peak Stress Pack v1",
-  "version": "1.0",
   "description": "Deterministic ECG scenarios for R-peak detector smoke, rate and artifact stress testing.",
-  "targets": [
-    "r_peak"
-  ],
+  "name": "R-peak Stress Pack v1",
+  "pack_id": "r_peak_stress_v1",
   "scenarios": [
     {
       "id": "clean_70",
@@ -37,5 +32,10 @@
         "signal_quality"
       ]
     }
-  ]
+  ],
+  "schema_version": 1,
+  "targets": [
+    "r_peak"
+  ],
+  "version": "1.0"
 }
