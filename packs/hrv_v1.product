@@ -11,7 +11,7 @@
     "signal_synth-cli"
   ],
   "deprecation_message": "",
-  "expected_pack_fingerprint": "sha256:84500c0091bf48ec951ff41e1fcc58d5e28a7c8326a5c604cdfcb67af61f1695",
+  "expected_pack_fingerprint": "sha256:2c12a7ba404a348bf937b2472937dd8c8578acded09ce42eb1d47a2f4ed34cc5",
   "generator_contract": "signal-synth-cli/pack-challenge-v1",
   "pack_id": "hrv_v1",
   "release_status": "beta",

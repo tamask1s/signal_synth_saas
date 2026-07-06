@@ -529,6 +529,16 @@ const char kUiHtml[] = R"HTML(<!doctype html>
           <h2>Packs</h2>
           <button id="refresh-packs" class="secondary">Refresh</button>
         </div>
+        <div class="filter-row">
+          <label>
+            Scoreable target
+            <select id="pack-target-filter"></select>
+          </label>
+          <label>
+            Difficulty
+            <select id="pack-difficulty-filter"></select>
+          </label>
+        </div>
         <div id="packs" class="cards"></div>
       </div>
 
@@ -544,6 +554,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         </div>
         <label for="pack-select">Pack</label>
         <select id="pack-select"></select>
+        <div id="selected-pack-summary" class="selected-pack muted"></div>
         <p class="muted compact">Generation produces the complete challenge export set. Format options are not configurable per job.</p>
         <button id="create-job" class="primary" disabled>Create challenge job</button>
         <pre id="create-output" class="output"></pre>
@@ -783,6 +794,12 @@ input, select {
   width: 100%;
 }
 label { display: block; margin: 10px 0 5px; font-weight: 600; }
+.filter-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
 textarea {
   width: 100%;
   border: 1px solid var(--border);
@@ -862,6 +879,32 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .badge.succeeded { background: #dcfae6; color: var(--ok); }
 .badge.failed { background: #fee4e2; color: var(--danger); }
 .badge.running { background: #fef0c7; color: var(--warn); }
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #f2f4f7;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tag.scoreable { background: #dcfae6; color: var(--ok); }
+.tag.reference { background: #fff6ed; color: var(--warn); }
+.tag.mode { background: #eef2ff; color: var(--primary); }
+.selected-pack {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f9fafb;
+}
 
 .actions {
   display: flex;
@@ -910,7 +953,7 @@ details.meta summary { cursor: pointer; font-weight: 700; }
 .ok { color: var(--ok); }
 
 @media (max-width: 820px) {
-  .hero, .grid, .auth-grid { grid-template-columns: 1fr; }
+  .hero, .grid, .auth-grid, .filter-row { grid-template-columns: 1fr; }
   .row { align-items: stretch; flex-direction: column; }
   .meta-grid { grid-template-columns: 1fr; }
 }
@@ -924,6 +967,8 @@ const char kUiJs[] = R"JS((() => {
     apiKeys: [],
     role: "",
     packs: [],
+    packTargetFilter: "",
+    packDifficultyFilter: "",
     projects: [],
     scenarios: [],
     customPacks: [],
@@ -1077,6 +1122,144 @@ const char kUiJs[] = R"JS((() => {
     if ([...select.options].some((option) => option.value === selected)) {
       select.value = selected;
     }
+    renderSelectedPackSummary();
+  }
+
+  function uniqueSorted(values) {
+    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  }
+
+  function targetNames(targets) {
+    return (targets || []).map((target) => target.target || target).filter(Boolean);
+  }
+
+  function targetTags(targets, className) {
+    const items = targetNames(targets);
+    return items.length
+      ? `<span class="tag-list">${items.map((name) => `<span class="tag ${className}">${escapeHtml(name)}</span>`).join("")}</span>`
+      : "<span class=\"muted\">none</span>";
+  }
+
+  function formatSeconds(seconds) {
+    const value = Number(seconds);
+    if (!Number.isFinite(value) || value <= 0) return "n/a";
+    if (value < 90) return `${value}s`;
+    const minutes = value / 60;
+    return `${minutes.toLocaleString(undefined, { maximumFractionDigits: 1 })} min`;
+  }
+
+  function channelRange(pack) {
+    const channels = pack.channels || {};
+    const min = channels.minimum_channel_count;
+    const max = channels.maximum_channel_count;
+    if (!min && !max) return "n/a";
+    return min === max ? `${min}` : `${min}-${max}`;
+  }
+
+  function renderPackFilters() {
+    const targetSelect = $("pack-target-filter");
+    const difficultySelect = $("pack-difficulty-filter");
+    const selectedTarget = state.packTargetFilter;
+    const selectedDifficulty = state.packDifficultyFilter;
+    const targets = uniqueSorted(state.packs.flatMap((pack) => targetNames(pack.scoreable_targets)));
+    const difficulties = uniqueSorted(state.packs.flatMap((pack) => pack.difficulty || []));
+    targetSelect.innerHTML = `<option value="">All scoreable targets</option>` +
+      targets.map((target) => `<option value="${escapeHtml(target)}">${escapeHtml(target)}</option>`).join("");
+    difficultySelect.innerHTML = `<option value="">All difficulties</option>` +
+      difficulties.map((difficulty) => `<option value="${escapeHtml(difficulty)}">${escapeHtml(difficulty)}</option>`).join("");
+    if (targets.includes(selectedTarget)) targetSelect.value = selectedTarget;
+    if (difficulties.includes(selectedDifficulty)) difficultySelect.value = selectedDifficulty;
+  }
+
+  function packMatchesFilters(pack) {
+    const target = state.packTargetFilter;
+    const difficulty = state.packDifficultyFilter;
+    const scoreable = targetNames(pack.scoreable_targets);
+    if (target && !scoreable.includes(target)) return false;
+    if (difficulty && !(pack.difficulty || []).includes(difficulty)) return false;
+    return true;
+  }
+
+  function packFacts(pack) {
+    const duration = pack.duration || {};
+    const estimated = pack.estimated_package || {};
+    return [
+      `${escapeHtml(pack.scenario_count || 0)} cases`,
+      `${escapeHtml(formatSeconds(duration.total_seconds))} total`,
+      `${escapeHtml((pack.sampling_rates_hz || []).join("/") || "n/a")} Hz`,
+      `${escapeHtml(channelRange(pack))} channel(s)`,
+      `${escapeHtml(formatBytes(estimated.bytes))}`
+    ].join(" · ");
+  }
+
+  function renderPacks() {
+    const visible = state.packs.filter(packMatchesFilters);
+    $("packs").innerHTML = visible.map((pack) => `
+      <article class="card">
+        <h3>${escapeHtml(pack.display_name || pack.pack_id)}</h3>
+        <p class="muted">Version ${escapeHtml(pack.version || "")} · released ${escapeHtml(formatDate(pack.released_at))}</p>
+        <p>
+          <span class="badge ${escapeHtml(pack.release_status || "")}">${escapeHtml(pack.release_status || "unknown")}</span>
+          <span class="tag mode">${escapeHtml(pack.scoring_mode || "unknown scoring")}</span>
+        </p>
+        <p class="muted">${escapeHtml(pack.description || "")}</p>
+        <p class="muted">${packFacts(pack)}</p>
+        <p><strong>Scoreable locally</strong>${targetTags(pack.scoreable_targets, "scoreable")}</p>
+        <p><strong>Reference-only</strong>${targetTags(pack.reference_only_targets, "reference")}</p>
+        <p class="muted">Verifier profile: ${escapeHtml(pack.recommended_profile || "none")} · schemas: ${escapeHtml((pack.detector_output_schemas || []).join(", ") || "n/a")}</p>
+        <p class="tag-list">${(pack.difficulty || []).map((item) => `<span class="tag">${escapeHtml(item)}</span>`).join("")}</p>
+        <details>
+          <summary>Recommended use</summary>
+          <p><strong>Use for:</strong> ${escapeHtml((pack.recommended_for || []).join("; ") || "n/a")}</p>
+          <p><strong>Avoid for:</strong> ${escapeHtml((pack.not_recommended_for || []).join("; ") || "n/a")}</p>
+        </details>
+        <details>
+          <summary>Scenarios</summary>
+          <ul>
+            ${(pack.scenarios || []).map((scenario) => `
+              <li>${escapeHtml(scenario.scenario_id)} <span class="muted">(${escapeHtml(formatSeconds(scenario.duration_seconds))}, ${escapeHtml(scenario.sampling_rate_hz || "n/a")} Hz, score: ${escapeHtml((scenario.scoreable_targets || []).join(", ") || "none")}, ref: ${escapeHtml((scenario.reference_only_targets || []).join(", ") || "none")})</span></li>
+            `).join("")}
+          </ul>
+        </details>
+        <details>
+          <summary>Compatibility and changelog</summary>
+          <p class="muted">Generator: ${escapeHtml(pack.generator_contract || "n/a")} · compatible: ${escapeHtml((pack.compatible_generator_versions || []).join(", "))}</p>
+          <p class="muted">Local verifier min: ${escapeHtml((pack.generator_compatibility || {}).local_verifier_min_version || "n/a")}</p>
+          ${pack.deprecation_message ? `<p class="error">${escapeHtml(pack.deprecation_message)}</p>` : ""}
+          <ul>
+            ${(pack.changelog || []).map((entry) => `
+              <li><strong>${escapeHtml(entry.version)}</strong> · ${escapeHtml(entry.date)} — ${escapeHtml(entry.summary)}</li>
+            `).join("")}
+          </ul>
+        </details>
+        <span class="fingerprint">${escapeHtml(pack.pack_fingerprint || "")}</span>
+      </article>
+    `).join("") || "<p class=\"muted\">No packs match the current filters.</p>";
+  }
+
+  function selectedPack() {
+    const id = $("pack-select").value;
+    return [...state.packs, ...state.customPacks].find((pack) => pack.pack_id === id);
+  }
+
+  function renderSelectedPackSummary() {
+    const pack = selectedPack();
+    const node = $("selected-pack-summary");
+    if (!pack) {
+      node.innerHTML = "Select a pack to see scoring support.";
+      return;
+    }
+    if (pack.source === "custom") {
+      node.innerHTML = `<strong>${escapeHtml(pack.display_name || pack.pack_id)}</strong><br>Custom pack · targets: ${escapeHtml((pack.targets || []).join(", ") || "n/a")}`;
+      return;
+    }
+    node.innerHTML = `
+      <strong>${escapeHtml(pack.display_name || pack.pack_id)}</strong><br>
+      ${packFacts(pack)}<br>
+      Scoreable: ${targetNames(pack.scoreable_targets).map(escapeHtml).join(", ") || "none"}<br>
+      Reference-only: ${targetNames(pack.reference_only_targets).map(escapeHtml).join(", ") || "none"}<br>
+      Recommended verifier profile: ${escapeHtml(pack.recommended_profile || "none")}
+    `;
   }
 
   async function loadPacks() {
@@ -1085,34 +1268,8 @@ const char kUiJs[] = R"JS((() => {
       const body = await api("/v1/packs");
       state.packs = body.packs || [];
       renderPackOptions();
-      $("packs").innerHTML = state.packs.map((pack) => `
-        <article class="card">
-          <h3>${escapeHtml(pack.display_name || pack.pack_id)}</h3>
-          <p class="muted">Version ${escapeHtml(pack.version || "")} · released ${escapeHtml(formatDate(pack.released_at))} · ${escapeHtml(pack.scenario_count || 0)} scenarios</p>
-          <p><span class="badge ${escapeHtml(pack.release_status || "")}">${escapeHtml(pack.release_status || "unknown")}</span></p>
-          <p class="muted">${escapeHtml(pack.description || "")}</p>
-          <p class="muted">Targets: ${escapeHtml((pack.targets || []).join(", ") || "n/a")}</p>
-          <p class="muted">Generator: ${escapeHtml(pack.generator_contract || "n/a")} · compatible: ${escapeHtml((pack.compatible_generator_versions || []).join(", "))}</p>
-          ${pack.deprecation_message ? `<p class="error">${escapeHtml(pack.deprecation_message)}</p>` : ""}
-          <details>
-            <summary>Scenarios</summary>
-            <ul>
-              ${(pack.scenarios || []).map((scenario) => `
-                <li>${escapeHtml(scenario.scenario_id)} <span class="muted">(${escapeHtml((scenario.targets || []).join(", "))})</span></li>
-              `).join("")}
-            </ul>
-          </details>
-          <details>
-            <summary>Changelog</summary>
-            <ul>
-              ${(pack.changelog || []).map((entry) => `
-                <li><strong>${escapeHtml(entry.version)}</strong> · ${escapeHtml(entry.date)} — ${escapeHtml(entry.summary)}</li>
-              `).join("")}
-            </ul>
-          </details>
-          <span class="fingerprint">${escapeHtml(pack.pack_fingerprint || "")}</span>
-        </article>
-      `).join("") || "<p class=\"muted\">No packs configured.</p>";
+      renderPackFilters();
+      renderPacks();
     } catch (error) {
       $("packs").innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
     }
@@ -1468,6 +1625,78 @@ const char kUiJs[] = R"JS((() => {
     })));
   }
 
+  function packById(packId) {
+    return [...state.packs, ...state.customPacks].find((pack) => pack.pack_id === packId);
+  }
+
+  function shellQuote(value) {
+    return `"${String(value).replace(/(["\\$`])/g, "\\$1")}"`;
+  }
+
+  function firstScoreableTarget(pack) {
+    return (pack && pack.scoreable_targets && pack.scoreable_targets[0]) || null;
+  }
+
+  function detectionShape(pack) {
+    const target = firstScoreableTarget(pack);
+    if (!target) return "detections/";
+    const caseId = (target.case_ids || [])[0] || "case_id";
+    const targetName = target.target || "target";
+    return [
+      "detections/",
+      `  ${caseId}_${targetName}.csv     # accepted fallback name`,
+      `  ${caseId}_${targetName}.json    # JSON is also accepted`,
+      `  ${caseId}.csv                   # accepted when the case has one scoreable target`
+    ].join("\n");
+  }
+
+  function verifierRecipe(job) {
+    if (job.status !== "succeeded" || !job.package_id) return "";
+    const pack = packById(job.pack_id);
+    const packageFile = `${job.package_id}-package.zip`;
+    const outputDir = `verification-${job.package_id}`;
+    if (!pack || pack.source === "custom") {
+      return `
+        <details class="verify-note">
+          <summary>Local verification recipe</summary>
+          <p>Download the package ZIP, run your algorithm locally, then use the verifier contract from the generated manifest. Custom pack scoring metadata is not expanded in this UI yet.</p>
+        </details>
+      `;
+    }
+    const scoreable = targetNames(pack.scoreable_targets);
+    const referenceOnly = targetNames(pack.reference_only_targets);
+    if (!scoreable.length) {
+      return `
+        <details class="verify-note">
+          <summary>Reference-only package</summary>
+          <p>This pack has no local scoring policy. Use the downloaded package for reference artifact inspection and contract/manual QA.</p>
+          <p><strong>Reference targets:</strong> ${escapeHtml(referenceOnly.join(", ") || "n/a")}</p>
+        </details>
+      `;
+    }
+    const profile = pack.recommended_profile || "regression";
+    const command = `synsigra-verify ${shellQuote(packageFile)} detections/ ${shellQuote(outputDir)} --profile ${profile} --force`;
+    const filtered = `synsigra-verify ${shellQuote(packageFile)} detections/ ${shellQuote(outputDir)} --profile ${profile} --target ${scoreable[0]} --force`;
+    return `
+      <details class="verify-note" open>
+        <summary>First-run local verification recipe</summary>
+        <p><strong>Scoreable targets:</strong> ${escapeHtml(scoreable.join(", "))}</p>
+        <p><strong>Reference-only targets:</strong> ${escapeHtml(referenceOnly.join(", ") || "none")}</p>
+        <p>Install the verifier from the beta checkout or wheel, then put your detector outputs under <code>detections/</code>.</p>
+        <pre class="output">python -m pip install ../signal_synth</pre>
+        <p>Accepted detection file shape:</p>
+        <pre class="output">${escapeHtml(detectionShape(pack))}</pre>
+        <p>Run all scoreable targets with the recommended profile:</p>
+        <pre class="output">${escapeHtml(command)}</pre>
+        <button class="secondary" data-copy-text="${escapeHtml(command)}">Copy verify command</button>
+        <p class="muted compact">Optional single-target smoke run:</p>
+        <pre class="output">${escapeHtml(filtered)}</pre>
+        <p>Machine-readable summaries are written to <code>${escapeHtml(outputDir)}/verification_summary.json</code> and <code>${escapeHtml(outputDir)}/verification_summary.csv</code>; the HTML report is <code>${escapeHtml(outputDir)}/verification_report.html</code>.</p>
+        <p class="muted compact">CI semantics: exit 0 = pass, exit 1 = verification/input/scoring/threshold failure, exit 2 = invalid CLI usage.</p>
+      </details>
+    `;
+  }
+
   async function loadJobs(options = {}) {
     const container = $("jobs");
     if (!state.authenticated) {
@@ -1546,12 +1775,7 @@ const char kUiJs[] = R"JS((() => {
         <button class="secondary" data-job-action="retry" data-job-id="${escapeHtml(job.job_id)}">Retry</button>
       ` : "";
       const error = job.error ? `<p class="error">${escapeHtml(job.error.code)}: ${escapeHtml(job.error.message)}</p>` : "";
-      const verification = job.status === "succeeded" && job.package_id ? `
-        <p class="verify-note">
-          Next: run your algorithm on the ZIP, then
-          <a href="https://github.com/tamask1s/signal_synth_saas/blob/master/README.md#verify-algorithm-output-against-a-downloaded-package" target="_blank" rel="noopener">verify its output locally</a>.
-        </p>
-      ` : "";
+      const verification = verifierRecipe(job);
       return `
         <article class="job">
           <div class="job-header">
@@ -1636,6 +1860,15 @@ const char kUiJs[] = R"JS((() => {
       URL.revokeObjectURL(url);
     } catch (error) {
       alert(error.message);
+    }
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setText("jobs-sync-status", "Copied command", "muted ok");
+    } catch (_) {
+      window.prompt("Copy command", text);
     }
   }
 
@@ -1788,6 +2021,15 @@ const char kUiJs[] = R"JS((() => {
   });
 
   $("refresh-packs").addEventListener("click", loadPacks);
+  $("pack-target-filter").addEventListener("change", () => {
+    state.packTargetFilter = $("pack-target-filter").value;
+    renderPacks();
+  });
+  $("pack-difficulty-filter").addEventListener("change", () => {
+    state.packDifficultyFilter = $("pack-difficulty-filter").value;
+    renderPacks();
+  });
+  $("pack-select").addEventListener("change", renderSelectedPackSummary);
   $("refresh-jobs").addEventListener("click", () => loadJobs({ force: true }));
   $("refresh-usage").addEventListener("click", loadUsage);
   $("refresh-metrics").addEventListener("click", loadMetrics);
@@ -1825,6 +2067,8 @@ const char kUiJs[] = R"JS((() => {
     const packageId = target.getAttribute("data-download");
     const file = target.getAttribute("data-file");
     if (packageId && file) downloadArtifact(packageId, file);
+    const copyValue = target.getAttribute("data-copy-text");
+    if (copyValue) copyText(copyValue);
   });
 
   async function initialize() {

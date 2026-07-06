@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
 import sys
 
 
@@ -55,7 +56,33 @@ def compatible_generator_versions(metadata):
     return output
 
 
-def import_pack(source_root, output_root, path_base, metadata):
+def resolve_signal_synth_cli(cli):
+    if cli:
+        return cli
+    env_cli = os.environ.get("SIGNAL_SYNTH_CLI")
+    if env_cli:
+        return env_cli
+    path_cli = shutil.which("signal-synth")
+    if path_cli:
+        return path_cli
+    default_cli = "/opt/signal_synth/bin/signal-synth"
+    return default_cli if os.path.exists(default_cli) else None
+
+
+def validated_pack_fingerprint(signal_synth_cli, pack_path, fallback):
+    if not signal_synth_cli:
+        return fallback
+    output = subprocess.check_output(
+        [signal_synth_cli, "pack", "validate", pack_path],
+        universal_newlines=True,
+    )
+    for line in output.splitlines():
+        if line.startswith("pack_fingerprint="):
+            return line.split("=", 1)[1].strip()
+    raise RuntimeError("signal-synth pack validate did not print pack_fingerprint for %s" % pack_path)
+
+
+def import_pack(source_root, output_root, path_base, metadata, signal_synth_cli):
     source = metadata["source"]
     source_catalog_path = os.path.join(source_root, source["catalog_path"])
     source_pack_path = os.path.normpath(os.path.join(os.path.dirname(source_catalog_path), source["pack_path"]))
@@ -65,14 +92,20 @@ def import_pack(source_root, output_root, path_base, metadata):
         scenario_path = os.path.normpath(os.path.join(pack_dir, scenario["path"]))
         scenario["path"] = slash_relpath(scenario_path, path_base)
     pack_id = metadata["pack_id"]
-    write_json(os.path.join(output_root, pack_id + ".json"), pack)
+    output_pack_path = os.path.join(output_root, pack_id + ".json")
+    write_json(output_pack_path, pack)
+    pack_fingerprint = validated_pack_fingerprint(
+        signal_synth_cli,
+        output_pack_path,
+        source["pack_fingerprint"],
+    )
     product = {
         "schema_version": 1,
         "pack_id": pack_id,
         "version": metadata["version"],
         "release_status": metadata["release_status"],
         "released_at": metadata["release_date"],
-        "expected_pack_fingerprint": source["pack_fingerprint"],
+        "expected_pack_fingerprint": pack_fingerprint,
         "generator_contract": "signal-synth-cli/pack-challenge-v1",
         "compatible_generator_versions": compatible_generator_versions(metadata),
         "deprecation_message": metadata.get("deprecation_message", ""),
@@ -87,6 +120,7 @@ def main(argv=None):
     parser.add_argument("--source-root", default="../signal_synth", help="signal_synth checkout root.")
     parser.add_argument("--out", default="packs", help="SaaS pack output directory.")
     parser.add_argument("--path-base", default=None, help="Directory used as the base for scenario relative paths. Defaults to --out.")
+    parser.add_argument("--signal-synth-cli", default=None, help="Optional signal-synth CLI used to validate imported pack fingerprints.")
     parser.add_argument("--clean", action="store_true", help="Delete existing JSON/product files in the output directory first.")
     args = parser.parse_args(argv)
 
@@ -94,17 +128,19 @@ def main(argv=None):
     source_root = os.path.abspath(args.source_root)
     output_root = os.path.abspath(args.out)
     path_base = os.path.abspath(args.path_base or args.out)
+    signal_synth_cli = resolve_signal_synth_cli(args.signal_synth_cli)
     release_set = read_json(metadata_path)
     if release_set.get("metadata_type") != "synsigra_curated_pack_catalog":
         raise RuntimeError("metadata is not a Synsigra curated pack catalog")
     if args.clean and os.path.isdir(output_root):
         for name in os.listdir(output_root):
-            if name.endswith(".json") or name.endswith(".product"):
+            if name.endswith(".json") or name.endswith(".product") or name.endswith(".catalog"):
                 os.remove(os.path.join(output_root, name))
     if not os.path.isdir(output_root):
         os.makedirs(output_root)
+    write_json(os.path.join(output_root, "curated_pack_metadata_v1.catalog"), release_set)
     for pack in release_set.get("packs", []):
-        import_pack(source_root, output_root, path_base, pack)
+        import_pack(source_root, output_root, path_base, pack, signal_synth_cli)
         print("imported %s" % pack["pack_id"])
     return 0
 

@@ -11,7 +11,7 @@
     "signal_synth-cli"
   ],
   "deprecation_message": "",
-  "expected_pack_fingerprint": "sha256:7b4a7a2884ea028e922d284fc43845b6fd051e96fbfca0d80b0270dc05ba51fe",
+  "expected_pack_fingerprint": "sha256:5a926d752059d01cbae8001dd5850d8f91e02f2d49b18b9be1d5481b7f3eb1b6",
   "generator_contract": "signal-synth-cli/pack-challenge-v1",
   "pack_id": "ecg_rhythm_v1",
   "release_status": "beta",

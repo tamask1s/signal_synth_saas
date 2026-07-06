@@ -11,7 +11,7 @@
     "signal_synth-cli"
   ],
   "deprecation_message": "",
-  "expected_pack_fingerprint": "sha256:71a2f4956ac86db4669e69d6b0758432f34eada0023474d98754b9eca275bf18",
+  "expected_pack_fingerprint": "sha256:2ea63a9f239ae4ed1e8215bf7453c4ea8d229b7a17a3f499aa54894a6fd8e2dc",
   "generator_contract": "signal-synth-cli/pack-challenge-v1",
   "pack_id": "ppg_alignment_v1",
   "release_status": "beta",

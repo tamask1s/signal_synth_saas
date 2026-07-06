@@ -11,7 +11,7 @@
     "signal_synth-cli"
   ],
   "deprecation_message": "",
-  "expected_pack_fingerprint": "sha256:7560711e322729fd7d04266a458fbb3a2b8791c6499b7b2aaf9d8fca8e5d1783",
+  "expected_pack_fingerprint": "sha256:4c6020deaeb78dba18cc24954dc9a944c0d17d657a097e4def447a5264f7d4d4",
   "generator_contract": "signal-synth-cli/pack-challenge-v1",
   "pack_id": "wearable_stress_v1",
   "release_status": "beta",

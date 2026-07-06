@@ -62,7 +62,7 @@ Non-goals:
 6. Create a job.
 7. Wait for `succeeded`.
 8. Download `manifest.json` and `package.zip`.
-9. Run local verification using the workflow below.
+9. Use the completed-job verification panel to copy the exact `synsigra-verify` command for that package.
 
 ## Recommended verification workflow
 
@@ -91,14 +91,15 @@ Run the algorithm against whichever generated format it supports:
 - EDF/BDF files;
 - case-level scenario or annotation files, where appropriate.
 
-Detection files should be named after case IDs. For the current `r_peak_stress_v1` pack, a typical directory is:
+The UI and `/v1/packs` show which targets are locally scoreable and which are reference-only before you create a job. For a completed curated job, the job card shows a first-run recipe with the package filename, recommended threshold profile, output directory, and accepted detection folder shape.
+
+Detection files live under a local `detections/` directory. The verifier accepts recommended names from the package plus fallback names:
 
 ```text
 detections/
-├── clean_70.csv
-├── slow_45.csv
-├── fast_120.csv
-└── baseline_powerline.csv
+├── <case_id>_<target>.csv
+├── <case_id>_<target>.json
+└── <case_id>.csv              # accepted when the case has one scoreable target
 ```
 
 Minimal R-peak CSV:
@@ -120,30 +121,44 @@ JSON detection documents are also supported by the sibling `signal_synth` verifi
 
 ### 3. Verify locally with the SynSigRa SDK
 
-Install the local verifier from the sibling repository:
+Install the local verifier from the beta checkout or wheel. During local development next to this repo:
 
 ```sh
-git clone https://github.com/tamask1s/signal_synth.git
-python -m pip install -e signal_synth/python
+python -m pip install ../signal_synth
 ```
 
-Run verification:
+If you downloaded `pkg_123-package.zip` from the UI and generated detections under `detections/`, run:
 
 ```sh
-synsigra-verify package.zip detections/ verification-results/
-```
-
-Useful options:
-
-```sh
-synsigra-verify package.zip detections/ verification-results/ \
-  --case clean_70 \
-  --target r_peak \
-  --profile regression \
+synsigra-verify "pkg_123-package.zip" detections/ "verification-pkg_123" \
+  --profile stress \
   --force
 ```
 
-The verifier checks the package, scores compatible case/target pairs, applies the selected threshold profile, and writes machine-readable and human-readable outputs under `verification-results/`.
+The completed-job panel fills in the package ID and recommended profile for the selected pack. Useful filters:
+
+```sh
+synsigra-verify "pkg_123-package.zip" detections/ "verification-pkg_123" \
+  --case clean_70 \
+  --target r_peak \
+  --profile stress \
+  --force
+```
+
+The verifier checks package integrity, scores compatible case/target pairs, applies the selected threshold profile, and writes:
+
+- `verification_summary.json`;
+- `verification_summary.csv`;
+- `verification_report.html`;
+- per-case/per-target details under `verification/`.
+
+CI exit codes:
+
+- `0`: verification passed;
+- `1`: package/input/scoring/threshold-policy failure;
+- `2`: invalid CLI usage.
+
+Reference-only packs or targets intentionally do not have a local scoring policy. Use their artifacts for manual inspection, contract checks, or later template-based work.
 
 ### 4. Fallback: direct authoritative CLI scoring
 
@@ -225,8 +240,14 @@ The curated catalog shows:
 - release status;
 - release date;
 - purpose;
-- targets;
-- scenarios;
+- scoreable targets versus reference-only targets;
+- detector output schemas;
+- recommended verifier profile and supported threshold profiles;
+- scenario/case count;
+- estimated duration, sampling rates, channel count, and package size;
+- difficulty/stress tags;
+- recommended-for and not-recommended-for guidance;
+- scenarios with per-case duration/rate/channel metadata;
 - authoritative pack fingerprint;
 - compatible generator contract/version;
 - changelog;
@@ -237,8 +258,15 @@ Built-in curated pack files are immutable product releases. A changed curated re
 The committed `packs/*.json` and `packs/*.product` files are generated from the sibling `signal_synth` release-set artifact with:
 
 ```sh
-python3 scripts/import_curated_release_set.py --metadata ../signal_synth/examples/catalog/curated_pack_metadata_v1.json --source-root ../signal_synth --out packs --clean
+python3 scripts/import_curated_release_set.py \
+  --metadata ../signal_synth/examples/catalog/curated_pack_metadata_v1.json \
+  --source-root ../signal_synth \
+  --out packs \
+  --clean \
+  --signal-synth-cli /opt/signal_synth/bin/signal-synth
 ```
+
+The import also stores `packs/curated_pack_metadata_v1.catalog`, which the SaaS API uses for discovery metadata. The `.product` sidecars retain the fingerprint of the SaaS-imported pack JSON after path normalization.
 
 ### Scenario drafts
 

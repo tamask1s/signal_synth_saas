@@ -34,6 +34,96 @@ components:
           properties:
             code: {type: string}
             message: {type: string}
+    PackTarget:
+      type: object
+      required: [target, support, scoreable, score_type, case_count, case_ids]
+      properties:
+        target: {type: string}
+        support: {type: string, example: local_scoring}
+        scoreable: {type: boolean}
+        score_type: {type: string}
+        description: {type: string}
+        primary_metric: {type: string}
+        case_count: {type: integer}
+        case_ids: {type: array, items: {type: string}}
+        accepted_formats: {type: array, items: {type: string}}
+        reference_artifacts: {type: array, items: {type: string}}
+        default_tolerance_seconds: {type: number, nullable: true}
+    PackScenario:
+      type: object
+      required: [scenario_id, targets, scoreable_targets, reference_only_targets]
+      properties:
+        scenario_id: {type: string}
+        targets: {type: array, items: {type: string}}
+        scoreable_targets: {type: array, items: {type: string}}
+        reference_only_targets: {type: array, items: {type: string}}
+        duration_seconds: {type: integer}
+        sampling_rate_hz: {type: integer}
+        channel_count: {type: integer}
+        sample_count: {type: integer, format: int64}
+        estimated_package_bytes: {type: integer, format: int64}
+    Pack:
+      type: object
+      required: [pack_id, display_name, version, scoreable_targets, reference_only_targets, scoring_mode]
+      properties:
+        pack_id: {type: string}
+        display_name: {type: string}
+        version: {type: string}
+        description: {type: string}
+        release_status: {type: string, enum: [beta, stable, deprecated]}
+        released_at: {type: string, format: date}
+        targets: {type: array, items: {type: string}}
+        scoring_mode: {type: string, enum: [local, mixed, reference_only]}
+        scoreable_targets: {type: array, items: {$ref: '#/components/schemas/PackTarget'}}
+        reference_only_targets: {type: array, items: {$ref: '#/components/schemas/PackTarget'}}
+        detector_output_schemas: {type: array, items: {type: string}}
+        recommended_profile: {type: string, nullable: true}
+        supported_threshold_profiles: {type: array, items: {type: string}}
+        recommended_for: {type: array, items: {type: string}}
+        not_recommended_for: {type: array, items: {type: string}}
+        difficulty: {type: array, items: {type: string}}
+        feature_tags: {type: array, items: {type: string}}
+        modality: {type: array, items: {type: string}}
+        duration:
+          type: object
+          properties:
+            minimum_case_seconds: {type: integer}
+            maximum_case_seconds: {type: integer}
+            total_seconds: {type: integer}
+        sampling_rates_hz: {type: array, items: {type: integer}}
+        channels:
+          type: object
+          properties:
+            minimum_channel_count: {type: integer}
+            maximum_channel_count: {type: integer}
+        estimated_package:
+          type: object
+          properties:
+            bytes: {type: integer, format: int64}
+            peak_memory_bytes: {type: integer, format: int64}
+            size_class: {type: string}
+        scenarios: {type: array, items: {$ref: '#/components/schemas/PackScenario'}}
+        scenario_count: {type: integer}
+        generator_contract: {type: string}
+        compatible_generator_versions: {type: array, items: {type: string}}
+        generator_compatibility:
+          type: object
+          properties:
+            local_verifier_min_version: {type: string}
+            challenge_package_contract: {type: string}
+            scoring_manifest_contract: {type: string}
+        output_artifact_roles: {type: array, items: {type: string}}
+        primary_badges: {type: array, items: {type: string}}
+        changelog:
+          type: array
+          items:
+            type: object
+            properties:
+              version: {type: string}
+              date: {type: string, format: date}
+              summary: {type: string}
+        deprecation_message: {type: string}
+        pack_fingerprint: {type: string}
     Job:
       type: object
       required: [job_id, project_id, pack_id, status, created_at]
@@ -75,14 +165,28 @@ paths:
     get:
       summary: List curated versioned packs
       responses:
-        '200': {description: Pack catalog}
+        '200':
+          description: Rich curated pack catalog with scoreable/reference-only discovery metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [packs]
+                properties:
+                  packs:
+                    type: array
+                    items: {$ref: '#/components/schemas/Pack'}
   /v1/packs/{pack_id}:
     get:
       summary: Read a curated versioned pack
       parameters:
         - {in: path, name: pack_id, required: true, schema: {type: string}}
       responses:
-        '200': {description: Curated pack detail}
+        '200':
+          description: Curated pack detail
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Pack'}
         '400': {description: Invalid pack ID}
         '404': {description: Pack not found}
   /v1/auth/register:

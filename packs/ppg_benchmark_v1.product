@@ -11,7 +11,7 @@
     "signal_synth-cli"
   ],
   "deprecation_message": "",
-  "expected_pack_fingerprint": "sha256:0703431749c5355350d69dc89345e1043341d0b0b112354eb17566883bb68bba",
+  "expected_pack_fingerprint": "sha256:455b4e09d77017a978e200bf99ac402575ca609a26f61ec2082595f33fd02b38",
   "generator_contract": "signal-synth-cli/pack-challenge-v1",
   "pack_id": "ppg_benchmark_v1",
   "release_status": "beta",

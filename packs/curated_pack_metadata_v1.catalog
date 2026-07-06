@@ -1,0 +1,3799 @@
+{
+  "catalog_id": "synsigra_verification_packs",
+  "catalog_version": "1.3",
+  "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
+  "metadata_type": "synsigra_curated_pack_catalog",
+  "metadata_version": "synsigra_curated_pack_metadata_export_v1",
+  "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment",
+  "pack_count": 10,
+  "packs": [
+    {
+      "case_count": 4,
+      "case_ids": [
+        "clean_70",
+        "slow_45",
+        "fast_120",
+        "baseline_powerline"
+      ],
+      "cases": [
+        {
+          "case_id": "clean_70",
+          "channel_count": 12,
+          "duration_seconds": 20,
+          "estimated_binary_signal_bytes": 840000,
+          "estimated_package_bytes": 3918400,
+          "estimated_peak_memory_bytes": 5848576,
+          "estimated_waveform_csv_bytes": 2340256,
+          "reference_only_targets": [],
+          "sample_count": 10000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_clean_70",
+          "scoreable_targets": [
+            "r_peak"
+          ],
+          "targets": [
+            "r_peak"
+          ]
+        },
+        {
+          "case_id": "slow_45",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5491400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_slow_45",
+          "scoreable_targets": [
+            "r_peak"
+          ],
+          "targets": [
+            "r_peak"
+          ]
+        },
+        {
+          "case_id": "fast_120",
+          "channel_count": 12,
+          "duration_seconds": 20,
+          "estimated_binary_signal_bytes": 840000,
+          "estimated_package_bytes": 4190400,
+          "estimated_peak_memory_bytes": 5848576,
+          "estimated_waveform_csv_bytes": 2340256,
+          "reference_only_targets": [],
+          "sample_count": 10000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_fast_120",
+          "scoreable_targets": [
+            "r_peak"
+          ],
+          "targets": [
+            "r_peak"
+          ]
+        },
+        {
+          "case_id": "baseline_powerline",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5695400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [
+            "signal_quality"
+          ],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "sq_baseline_powerline",
+          "scoreable_targets": [
+            "r_peak"
+          ],
+          "targets": [
+            "r_peak",
+            "signal_quality"
+          ]
+        }
+      ],
+      "catalog_scoring_mode": "local",
+      "changelog": [
+        {
+          "changes": [
+            "Initial beta curated R-peak stress pack with clean, bradycardia, tachycardia, and artifact cases."
+          ],
+          "date": "2026-07-06",
+          "version": "1.0"
+        }
+      ],
+      "channels": {
+        "families": [
+          {
+            "channel_count": 12,
+            "channels": [
+              "I",
+              "II",
+              "III",
+              "aVR",
+              "aVL",
+              "aVF",
+              "V1",
+              "V2",
+              "V3",
+              "V4",
+              "V5",
+              "V6"
+            ],
+            "name": "standard_12_lead_ecg"
+          }
+        ],
+        "maximum_channel_count": 12,
+        "minimum_channel_count": 12
+      },
+      "declared_targets": [
+        "r_peak"
+      ],
+      "deprecation_message": "",
+      "description": "Deterministic ECG scenarios for R-peak detector smoke, rate and artifact stress testing.",
+      "detector_output_schemas": [
+        "detection_json_v1",
+        "detection_csv_v2"
+      ],
+      "difficulty": [
+        "smoke",
+        "stress"
+      ],
+      "duration": {
+        "maximum_case_seconds": 30,
+        "minimum_case_seconds": 20,
+        "total_seconds": 100
+      },
+      "estimated_package": {
+        "bytes": 19295600,
+        "peak_memory_bytes": 8248576,
+        "size_class": "medium"
+      },
+      "feature_tags": [
+        "clean",
+        "bradycardia",
+        "tachycardia",
+        "artifact"
+      ],
+      "generator_compatibility": {
+        "challenge_package_contract": "synsigra_challenge_package_v1",
+        "local_verifier_min_version": "0.2.0",
+        "minimum_generator_version": "0.5.0-dev",
+        "pack_schema_version": 1,
+        "scenario_schema_versions": [
+          2,
+          3,
+          4
+        ],
+        "scoring_manifest_contract": "synsigra_scoring_manifest_v1"
+      },
+      "limitations": {
+        "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
+        "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
+      },
+      "local_verifier_smoke_tests": [
+        {
+          "scope": "golden challenge package compatibility and R-peak scoring fixture",
+          "target": "r_peak",
+          "test_id": "TEST-GOLDEN-CHALLENGE-001"
+        },
+        {
+          "scope": "local event-detection scoring smoke test",
+          "target": "r_peak",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        }
+      ],
+      "messages": [
+        {
+          "code": "REFERENCE_ONLY_TARGET",
+          "message": "signal_quality exports ground truth but has no local scoring policy.",
+          "path": "$.targets",
+          "severity": "warning"
+        }
+      ],
+      "metadata_type": "synsigra_curated_pack_metadata",
+      "metadata_version": "synsigra_curated_pack_metadata_export_v1",
+      "modality": [
+        "ECG"
+      ],
+      "name": "R-peak Stress Pack v1",
+      "not_recommended_for": [
+        "HRV metric validation",
+        "PPG peak or onset testing",
+        "ECG morphology diagnosis claims",
+        "clinical validation certification"
+      ],
+      "output_artifacts": [
+        {
+          "required": true,
+          "role": "manifest_json"
+        },
+        {
+          "required": true,
+          "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "case_summary_json"
+        },
+        {
+          "required": true,
+          "role": "annotations_json"
+        },
+        {
+          "required": true,
+          "role": "waveform_csv"
+        },
+        {
+          "required": true,
+          "role": "wfdb"
+        },
+        {
+          "required": true,
+          "role": "edf_bdf"
+        },
+        {
+          "required": true,
+          "role": "reference_ground_truth",
+          "targets": [
+            "signal_quality"
+          ]
+        }
+      ],
+      "pack_id": "r_peak_stress_v1",
+      "recommended_for": [
+        "R-peak detector smoke tests",
+        "R-peak detector rate-stress checks",
+        "R-peak detector baseline-wander and powerline robustness checks",
+        "CI regression gates using exact synthetic R-peak ground truth"
+      ],
+      "recommended_profile": "stress",
+      "reference_only_targets": [
+        {
+          "case_count": 1,
+          "case_ids": [
+            "baseline_powerline"
+          ],
+          "description": "Generated signal-quality interval and artifact ground truth. No local scoring policy is defined yet.",
+          "reference_artifacts": [
+            "artifact_intervals",
+            "waveform_channels",
+            "annotations_json",
+            "case_summary_json"
+          ],
+          "score_type": "generated_reference_only",
+          "scoreable": false,
+          "support": "reference_only",
+          "target": "signal_quality"
+        }
+      ],
+      "release_date": "2026-07-06",
+      "release_status": "beta",
+      "sampling_rates_hz": [
+        500
+      ],
+      "schema_version": 1,
+      "scoreable_targets": [
+        {
+          "accepted_detection_formats": [
+            "detection_json_v1",
+            "detection_csv_v2"
+          ],
+          "case_count": 4,
+          "case_ids": [
+            "clean_70",
+            "slow_45",
+            "fast_120",
+            "baseline_powerline"
+          ],
+          "default_tolerance_seconds": 0.05,
+          "description": "R-peak detector event timing against exact synthetic beat annotations.",
+          "primary_metric": "f1_score",
+          "score_type": "event_detection",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "r_peak"
+        }
+      ],
+      "scoring_mode": "mixed",
+      "source": {
+        "catalog_path": "examples/catalog/verification_packs_v1.json",
+        "pack_fingerprint": "sha256:3baac9270fe98e1b999f44a93f461efac8e93ca312e134eb4362b9951c09a2eb",
+        "pack_path": "../packs/r_peak_stress_v1.json",
+        "source_content_sha256": "sha256:747a91286c3a0d9fb619bac14a4eb675191eed9734de353dca09c767eab2c999"
+      },
+      "supported_threshold_profiles": [
+        "smoke",
+        "regression",
+        "stress",
+        "benchmark"
+      ],
+      "targets": [
+        "r_peak",
+        "signal_quality"
+      ],
+      "threshold_profile_contract": {
+        "policy_failure_exit_code": 1,
+        "recommended_profile": "stress",
+        "supported_profiles": [
+          "smoke",
+          "regression",
+          "stress",
+          "benchmark"
+        ]
+      },
+      "ui": {
+        "primary_badges": [
+          "smoke",
+          "stress",
+          "clean",
+          "bradycardia",
+          "tachycardia"
+        ],
+        "reference_only_before_job": true,
+        "scoreable_before_job": true
+      },
+      "version": "1.0"
+    },
+    {
+      "case_count": 9,
+      "case_ids": [
+        "clean_baseline",
+        "mild_variability",
+        "high_variability",
+        "lf_dominant",
+        "hf_dominant",
+        "balanced_lf_hf",
+        "respiratory_variation",
+        "ectopic_contamination",
+        "artifact_contamination"
+      ],
+      "cases": [
+        {
+          "case_id": "clean_baseline",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_clean_baseline",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "mild_variability",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_mild_variability",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "high_variability",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_high_variability",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "lf_dominant",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_lf_dominant",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "hf_dominant",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_hf_dominant",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "balanced_lf_hf",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_balanced_lf_hf",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "respiratory_variation",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_respiratory_variation",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "ectopic_contamination",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_ectopic_contamination",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "artifact_contamination",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "reference_only_targets": [
+            "signal_quality"
+          ],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_artifact_contamination",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv",
+            "signal_quality"
+          ]
+        }
+      ],
+      "catalog_scoring_mode": "local",
+      "changelog": [
+        {
+          "changes": [
+            "Initial beta curated HRV pack with time-domain, Poincare, spectral and exclusion-policy cases."
+          ],
+          "date": "2026-07-06",
+          "version": "1.0"
+        }
+      ],
+      "channels": {
+        "families": [
+          {
+            "channel_count": 12,
+            "channels": [
+              "I",
+              "II",
+              "III",
+              "aVR",
+              "aVL",
+              "aVF",
+              "V1",
+              "V2",
+              "V3",
+              "V4",
+              "V5",
+              "V6"
+            ],
+            "name": "standard_12_lead_ecg"
+          }
+        ],
+        "maximum_channel_count": 12,
+        "minimum_channel_count": 12
+      },
+      "declared_targets": [
+        "hrv"
+      ],
+      "deprecation_message": "",
+      "description": "Deterministic five-minute ECG scenarios for time-domain, Poincare, spectral, exclusion-policy, and local scoring QA. The companion hrv_short_window_rejected.json is an expected validation failure.",
+      "detector_output_schemas": [
+        "hrv_json_v1"
+      ],
+      "difficulty": [
+        "benchmark"
+      ],
+      "duration": {
+        "maximum_case_seconds": 300,
+        "minimum_case_seconds": 300,
+        "total_seconds": 2700
+      },
+      "estimated_package": {
+        "bytes": 134733600,
+        "peak_memory_bytes": 15448576,
+        "size_class": "large"
+      },
+      "feature_tags": [
+        "sdnn",
+        "rmssd",
+        "pnn50",
+        "sd1_sd2",
+        "lf_hf",
+        "respiration",
+        "ectopy_exclusion",
+        "artifact_exclusion"
+      ],
+      "generator_compatibility": {
+        "challenge_package_contract": "synsigra_challenge_package_v1",
+        "local_verifier_min_version": "0.2.0",
+        "minimum_generator_version": "0.5.0-dev",
+        "pack_schema_version": 1,
+        "scenario_schema_versions": [
+          2,
+          3,
+          4
+        ],
+        "scoring_manifest_contract": "synsigra_scoring_manifest_v1"
+      },
+      "limitations": {
+        "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
+        "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
+      },
+      "local_verifier_smoke_tests": [
+        {
+          "scope": "core HRV metric scoring smoke test",
+          "target": "hrv",
+          "test_id": "TEST-HRV-SCORING-001"
+        },
+        {
+          "scope": "local HRV user-output scoring smoke test",
+          "target": "hrv",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        }
+      ],
+      "messages": [
+        {
+          "code": "REFERENCE_ONLY_TARGET",
+          "message": "signal_quality exports ground truth but has no local scoring policy.",
+          "path": "$.targets",
+          "severity": "warning"
+        }
+      ],
+      "metadata_type": "synsigra_curated_pack_metadata",
+      "metadata_version": "synsigra_curated_pack_metadata_export_v1",
+      "modality": [
+        "ECG"
+      ],
+      "name": "HRV Benchmark Pack v1",
+      "not_recommended_for": [
+        "R-peak detector timing validation without a separate detector output",
+        "Patient-derived HRV norm claims",
+        "Clinical autonomic function validation",
+        "PPG-only pulse interval validation"
+      ],
+      "output_artifacts": [
+        {
+          "required": true,
+          "role": "manifest_json"
+        },
+        {
+          "required": true,
+          "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "case_summary_json"
+        },
+        {
+          "required": true,
+          "role": "annotations_json"
+        },
+        {
+          "required": true,
+          "role": "waveform_csv"
+        },
+        {
+          "required": true,
+          "role": "wfdb"
+        },
+        {
+          "required": true,
+          "role": "edf_bdf"
+        },
+        {
+          "required": true,
+          "role": "hrv_metrics_json"
+        },
+        {
+          "required": true,
+          "role": "rr_tachogram_csv"
+        },
+        {
+          "required": true,
+          "role": "reference_ground_truth",
+          "targets": [
+            "signal_quality"
+          ]
+        }
+      ],
+      "pack_id": "hrv_v1",
+      "recommended_for": [
+        "HRV metric implementation checks against exact synthetic RR ground truth",
+        "LF/HF, SDNN, RMSSD, pNN50, SD1 and SD2 regression gates",
+        "Ectopy and artifact exclusion policy tests",
+        "Five-minute benchmark windows with deterministic replay"
+      ],
+      "recommended_profile": "benchmark",
+      "reference_only_targets": [
+        {
+          "case_count": 1,
+          "case_ids": [
+            "artifact_contamination"
+          ],
+          "description": "Generated signal-quality interval and artifact ground truth. No local scoring policy is defined yet.",
+          "reference_artifacts": [
+            "artifact_intervals",
+            "waveform_channels",
+            "annotations_json",
+            "case_summary_json"
+          ],
+          "score_type": "generated_reference_only",
+          "scoreable": false,
+          "support": "reference_only",
+          "target": "signal_quality"
+        }
+      ],
+      "release_date": "2026-07-06",
+      "release_status": "beta",
+      "sampling_rates_hz": [
+        100
+      ],
+      "schema_version": 1,
+      "scoreable_targets": [
+        {
+          "accepted_user_output_formats": [
+            "hrv_json_v1"
+          ],
+          "case_count": 9,
+          "case_ids": [
+            "clean_baseline",
+            "mild_variability",
+            "high_variability",
+            "lf_dominant",
+            "hf_dominant",
+            "balanced_lf_hf",
+            "respiratory_variation",
+            "ectopic_contamination",
+            "artifact_contamination"
+          ],
+          "description": "HRV metric and RR-interval scoring against exact synthetic tachogram ground truth.",
+          "primary_metric": "metric_pass_fraction",
+          "score_type": "hrv_metrics",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "hrv"
+        }
+      ],
+      "scoring_mode": "mixed",
+      "source": {
+        "catalog_path": "examples/catalog/verification_packs_v1.json",
+        "pack_fingerprint": "sha256:84500c0091bf48ec951ff41e1fcc58d5e28a7c8326a5c604cdfcb67af61f1695",
+        "pack_path": "../packs/hrv_v1.json",
+        "source_content_sha256": "sha256:a13a1826584b0c5c3e56d1a17277c839e70fb2c67ccdd699fe6b718e4bae4743"
+      },
+      "supported_threshold_profiles": [
+        "smoke",
+        "regression",
+        "stress",
+        "benchmark"
+      ],
+      "targets": [
+        "hrv",
+        "signal_quality"
+      ],
+      "threshold_profile_contract": {
+        "policy_failure_exit_code": 1,
+        "recommended_profile": "benchmark",
+        "supported_profiles": [
+          "smoke",
+          "regression",
+          "stress",
+          "benchmark"
+        ]
+      },
+      "ui": {
+        "primary_badges": [
+          "benchmark",
+          "sdnn",
+          "rmssd",
+          "pnn50"
+        ],
+        "reference_only_before_job": true,
+        "scoreable_before_job": true
+      },
+      "version": "1.0"
+    },
+    {
+      "case_count": 5,
+      "case_ids": [
+        "normal",
+        "pac_periodic",
+        "pvc_periodic",
+        "paced_capture",
+        "paced_non_capture"
+      ],
+      "cases": [
+        {
+          "case_id": "normal",
+          "channel_count": 12,
+          "duration_seconds": 20,
+          "estimated_binary_signal_bytes": 840000,
+          "estimated_package_bytes": 3918400,
+          "estimated_peak_memory_bytes": 5848576,
+          "estimated_waveform_csv_bytes": 2340256,
+          "reference_only_targets": [],
+          "sample_count": 10000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_clean_70",
+          "scoreable_targets": [
+            "ecg_beat_classification"
+          ],
+          "targets": [
+            "ecg_beat_classification"
+          ]
+        },
+        {
+          "case_id": "pac_periodic",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5712400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "beat_pac_periodic",
+          "scoreable_targets": [
+            "ecg_beat_classification"
+          ],
+          "targets": [
+            "ecg_beat_classification"
+          ]
+        },
+        {
+          "case_id": "pvc_periodic",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5712400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "beat_pvc_periodic",
+          "scoreable_targets": [
+            "ecg_beat_classification"
+          ],
+          "targets": [
+            "ecg_beat_classification"
+          ]
+        },
+        {
+          "case_id": "paced_capture",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5695400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "beat_paced_capture",
+          "scoreable_targets": [
+            "ecg_beat_classification"
+          ],
+          "targets": [
+            "ecg_beat_classification"
+          ]
+        },
+        {
+          "case_id": "paced_non_capture",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5695400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "beat_paced_non_capture",
+          "scoreable_targets": [
+            "ecg_beat_classification"
+          ],
+          "targets": [
+            "ecg_beat_classification"
+          ]
+        }
+      ],
+      "catalog_scoring_mode": "local",
+      "changelog": [
+        {
+          "changes": [
+            "Initial beta curated beat-classification pack with normal, PAC, PVC and paced cases."
+          ],
+          "date": "2026-07-06",
+          "version": "1.0"
+        }
+      ],
+      "channels": {
+        "families": [
+          {
+            "channel_count": 12,
+            "channels": [
+              "I",
+              "II",
+              "III",
+              "aVR",
+              "aVL",
+              "aVF",
+              "V1",
+              "V2",
+              "V3",
+              "V4",
+              "V5",
+              "V6"
+            ],
+            "name": "standard_12_lead_ecg"
+          }
+        ],
+        "maximum_channel_count": 12,
+        "minimum_channel_count": 12
+      },
+      "declared_targets": [
+        "ecg_beat_classification"
+      ],
+      "deprecation_message": "",
+      "description": "Curated normal, PAC, PVC, paced-capture, and paced-non-capture cases with exact beat-class ground truth.",
+      "detector_output_schemas": [
+        "detection_json_v1",
+        "detection_csv_v2"
+      ],
+      "difficulty": [
+        "regression"
+      ],
+      "duration": {
+        "maximum_case_seconds": 30,
+        "minimum_case_seconds": 20,
+        "total_seconds": 140
+      },
+      "estimated_package": {
+        "bytes": 26734000,
+        "peak_memory_bytes": 8248576,
+        "size_class": "medium"
+      },
+      "feature_tags": [
+        "normal",
+        "pac",
+        "pvc",
+        "paced",
+        "non_capture"
+      ],
+      "generator_compatibility": {
+        "challenge_package_contract": "synsigra_challenge_package_v1",
+        "local_verifier_min_version": "0.2.0",
+        "minimum_generator_version": "0.5.0-dev",
+        "pack_schema_version": 1,
+        "scenario_schema_versions": [
+          2,
+          3,
+          4
+        ],
+        "scoring_manifest_contract": "synsigra_scoring_manifest_v1"
+      },
+      "limitations": {
+        "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
+        "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
+      },
+      "local_verifier_smoke_tests": [
+        {
+          "scope": "local beat-classification scoring smoke test",
+          "target": "ecg_beat_classification",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        }
+      ],
+      "messages": [],
+      "metadata_type": "synsigra_curated_pack_metadata",
+      "metadata_version": "synsigra_curated_pack_metadata_export_v1",
+      "modality": [
+        "ECG"
+      ],
+      "name": "ECG Beat Classification Pack v1",
+      "not_recommended_for": [
+        "Full rhythm-diagnosis validation",
+        "Morphology interpretation claims",
+        "Clinical beat labeling certification",
+        "PPG pulse classification"
+      ],
+      "output_artifacts": [
+        {
+          "required": true,
+          "role": "manifest_json"
+        },
+        {
+          "required": true,
+          "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "case_summary_json"
+        },
+        {
+          "required": true,
+          "role": "annotations_json"
+        },
+        {
+          "required": true,
+          "role": "waveform_csv"
+        },
+        {
+          "required": true,
+          "role": "wfdb"
+        },
+        {
+          "required": true,
+          "role": "edf_bdf"
+        }
+      ],
+      "pack_id": "ecg_beat_classification_v1",
+      "recommended_for": [
+        "Beat classifier smoke and regression tests",
+        "PAC/PVC/paced label handling checks",
+        "Beat-class output schema integration tests",
+        "CI gates that need exact beat timing and class labels"
+      ],
+      "recommended_profile": "regression",
+      "reference_only_targets": [],
+      "release_date": "2026-07-06",
+      "release_status": "beta",
+      "sampling_rates_hz": [
+        500
+      ],
+      "schema_version": 1,
+      "scoreable_targets": [
+        {
+          "accepted_detection_formats": [
+            "detection_json_v1",
+            "detection_csv_v2"
+          ],
+          "case_count": 5,
+          "case_ids": [
+            "normal",
+            "pac_periodic",
+            "pvc_periodic",
+            "paced_capture",
+            "paced_non_capture"
+          ],
+          "default_tolerance_seconds": 0.075,
+          "description": "Beat-level ECG class labels with exact synthetic beat timing.",
+          "primary_metric": "micro_f1_score",
+          "score_type": "classification",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "ecg_beat_classification"
+        }
+      ],
+      "scoring_mode": "local",
+      "source": {
+        "catalog_path": "examples/catalog/verification_packs_v1.json",
+        "pack_fingerprint": "sha256:63d97c0f3025097688945dbcb5a4b19ab6e145a24f6e6605d0c2a77cc6a1d185",
+        "pack_path": "../packs/ecg_beat_classification_v1.json",
+        "source_content_sha256": "sha256:16371b28debfa5b2fd806d3a577ca7faa17753be3e1affb99ae98b4325802c8e"
+      },
+      "supported_threshold_profiles": [
+        "smoke",
+        "regression",
+        "stress",
+        "benchmark"
+      ],
+      "targets": [
+        "ecg_beat_classification"
+      ],
+      "threshold_profile_contract": {
+        "policy_failure_exit_code": 1,
+        "recommended_profile": "regression",
+        "supported_profiles": [
+          "smoke",
+          "regression",
+          "stress",
+          "benchmark"
+        ]
+      },
+      "ui": {
+        "primary_badges": [
+          "regression",
+          "normal",
+          "pac",
+          "pvc"
+        ],
+        "reference_only_before_job": false,
+        "scoreable_before_job": true
+      },
+      "version": "1.0"
+    },
+    {
+      "case_count": 8,
+      "case_ids": [
+        "afib",
+        "flutter_variable",
+        "svt",
+        "psvt_episode",
+        "mobitz_ii_pause",
+        "pvc_bigeminy",
+        "pac_trigeminy",
+        "paced"
+      ],
+      "cases": [
+        {
+          "case_id": "afib",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5865400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rhythm_afib",
+          "scoreable_targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ],
+          "targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ]
+        },
+        {
+          "case_id": "flutter_variable",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5865400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rhythm_flutter_variable",
+          "scoreable_targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ],
+          "targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ]
+        },
+        {
+          "case_id": "svt",
+          "channel_count": 12,
+          "duration_seconds": 20,
+          "estimated_binary_signal_bytes": 840000,
+          "estimated_package_bytes": 4428400,
+          "estimated_peak_memory_bytes": 5848576,
+          "estimated_waveform_csv_bytes": 2340256,
+          "reference_only_targets": [],
+          "sample_count": 10000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rhythm_svt",
+          "scoreable_targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ],
+          "targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ]
+        },
+        {
+          "case_id": "psvt_episode",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5712400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rhythm_psvt_episode",
+          "scoreable_targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ],
+          "targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ]
+        },
+        {
+          "case_id": "mobitz_ii_pause",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5712400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rhythm_mobitz_ii_pause",
+          "scoreable_targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ],
+          "targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ]
+        },
+        {
+          "case_id": "pvc_bigeminy",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5712400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rhythm_pvc_bigeminy",
+          "scoreable_targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ],
+          "targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ]
+        },
+        {
+          "case_id": "pac_trigeminy",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5712400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rhythm_pac_trigeminy",
+          "scoreable_targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ],
+          "targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ]
+        },
+        {
+          "case_id": "paced",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5695400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "beat_paced_capture",
+          "scoreable_targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ],
+          "targets": [
+            "r_peak",
+            "ecg_beat_classification"
+          ]
+        }
+      ],
+      "catalog_scoring_mode": "local",
+      "changelog": [
+        {
+          "changes": [
+            "Initial beta curated rhythm pack with arrhythmia, transition, ectopy and pacing cases."
+          ],
+          "date": "2026-07-06",
+          "version": "1.0"
+        }
+      ],
+      "channels": {
+        "families": [
+          {
+            "channel_count": 12,
+            "channels": [
+              "I",
+              "II",
+              "III",
+              "aVR",
+              "aVL",
+              "aVF",
+              "V1",
+              "V2",
+              "V3",
+              "V4",
+              "V5",
+              "V6"
+            ],
+            "name": "standard_12_lead_ecg"
+          }
+        ],
+        "maximum_channel_count": 12,
+        "minimum_channel_count": 12
+      },
+      "declared_targets": [
+        "r_peak",
+        "ecg_beat_classification"
+      ],
+      "deprecation_message": "",
+      "description": "Curated AFib, variable-conduction flutter, sustained SVT, PSVT transition, pause, ectopy-cadence, and paced rhythm cases.",
+      "detector_output_schemas": [
+        "detection_json_v1",
+        "detection_csv_v2"
+      ],
+      "difficulty": [
+        "regression",
+        "stress"
+      ],
+      "duration": {
+        "maximum_case_seconds": 30,
+        "minimum_case_seconds": 20,
+        "total_seconds": 230
+      },
+      "estimated_package": {
+        "bytes": 44704200,
+        "peak_memory_bytes": 8248576,
+        "size_class": "medium"
+      },
+      "feature_tags": [
+        "afib",
+        "flutter",
+        "svt",
+        "psvt",
+        "pause",
+        "ectopy",
+        "paced",
+        "transition"
+      ],
+      "generator_compatibility": {
+        "challenge_package_contract": "synsigra_challenge_package_v1",
+        "local_verifier_min_version": "0.2.0",
+        "minimum_generator_version": "0.5.0-dev",
+        "pack_schema_version": 1,
+        "scenario_schema_versions": [
+          2,
+          3,
+          4
+        ],
+        "scoring_manifest_contract": "synsigra_scoring_manifest_v1"
+      },
+      "limitations": {
+        "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
+        "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
+      },
+      "local_verifier_smoke_tests": [
+        {
+          "scope": "golden challenge package compatibility and R-peak scoring fixture",
+          "target": "r_peak",
+          "test_id": "TEST-GOLDEN-CHALLENGE-001"
+        },
+        {
+          "scope": "local event-detection scoring smoke test",
+          "target": "r_peak",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        },
+        {
+          "scope": "local beat-classification scoring smoke test",
+          "target": "ecg_beat_classification",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        }
+      ],
+      "messages": [],
+      "metadata_type": "synsigra_curated_pack_metadata",
+      "metadata_version": "synsigra_curated_pack_metadata_export_v1",
+      "modality": [
+        "ECG"
+      ],
+      "name": "ECG Rhythm and Transition Pack v1",
+      "not_recommended_for": [
+        "Clinical rhythm diagnosis validation claims",
+        "ST-T or ischemia morphology validation",
+        "Standalone HRV spectral validation",
+        "PPG-only algorithm QA"
+      ],
+      "output_artifacts": [
+        {
+          "required": true,
+          "role": "manifest_json"
+        },
+        {
+          "required": true,
+          "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "case_summary_json"
+        },
+        {
+          "required": true,
+          "role": "annotations_json"
+        },
+        {
+          "required": true,
+          "role": "waveform_csv"
+        },
+        {
+          "required": true,
+          "role": "wfdb"
+        },
+        {
+          "required": true,
+          "role": "edf_bdf"
+        }
+      ],
+      "pack_id": "ecg_rhythm_v1",
+      "recommended_for": [
+        "R-peak and beat-classifier stress tests across rhythm transitions",
+        "AFib, flutter, SVT, pause, ectopy and pacing scenario coverage",
+        "Detector robustness checks around abrupt rate changes",
+        "Regression packs for rhythm-sensitive wearable algorithms"
+      ],
+      "recommended_profile": "stress",
+      "reference_only_targets": [],
+      "release_date": "2026-07-06",
+      "release_status": "beta",
+      "sampling_rates_hz": [
+        500
+      ],
+      "schema_version": 1,
+      "scoreable_targets": [
+        {
+          "accepted_detection_formats": [
+            "detection_json_v1",
+            "detection_csv_v2"
+          ],
+          "case_count": 8,
+          "case_ids": [
+            "afib",
+            "flutter_variable",
+            "svt",
+            "psvt_episode",
+            "mobitz_ii_pause",
+            "pvc_bigeminy",
+            "pac_trigeminy",
+            "paced"
+          ],
+          "default_tolerance_seconds": 0.05,
+          "description": "R-peak detector event timing against exact synthetic beat annotations.",
+          "primary_metric": "f1_score",
+          "score_type": "event_detection",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "r_peak"
+        },
+        {
+          "accepted_detection_formats": [
+            "detection_json_v1",
+            "detection_csv_v2"
+          ],
+          "case_count": 8,
+          "case_ids": [
+            "afib",
+            "flutter_variable",
+            "svt",
+            "psvt_episode",
+            "mobitz_ii_pause",
+            "pvc_bigeminy",
+            "pac_trigeminy",
+            "paced"
+          ],
+          "default_tolerance_seconds": 0.075,
+          "description": "Beat-level ECG class labels with exact synthetic beat timing.",
+          "primary_metric": "micro_f1_score",
+          "score_type": "classification",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "ecg_beat_classification"
+        }
+      ],
+      "scoring_mode": "local",
+      "source": {
+        "catalog_path": "examples/catalog/verification_packs_v1.json",
+        "pack_fingerprint": "sha256:7b4a7a2884ea028e922d284fc43845b6fd051e96fbfca0d80b0270dc05ba51fe",
+        "pack_path": "../packs/ecg_rhythm_v1.json",
+        "source_content_sha256": "sha256:abd671f4f4c468d1f00cec35cf2914577f5b40cac6499271dfa8080dc0222d34"
+      },
+      "supported_threshold_profiles": [
+        "smoke",
+        "regression",
+        "stress",
+        "benchmark"
+      ],
+      "targets": [
+        "r_peak",
+        "ecg_beat_classification"
+      ],
+      "threshold_profile_contract": {
+        "policy_failure_exit_code": 1,
+        "recommended_profile": "stress",
+        "supported_profiles": [
+          "smoke",
+          "regression",
+          "stress",
+          "benchmark"
+        ]
+      },
+      "ui": {
+        "primary_badges": [
+          "regression",
+          "stress",
+          "afib",
+          "flutter",
+          "svt"
+        ],
+        "reference_only_before_job": false,
+        "scoreable_before_job": true
+      },
+      "version": "1.0"
+    },
+    {
+      "case_count": 5,
+      "case_ids": [
+        "baseline_powerline",
+        "dropout_saturation",
+        "lead_faults",
+        "combined_ecg_ppg",
+        "full_artifact_demo"
+      ],
+      "cases": [
+        {
+          "case_id": "baseline_powerline",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5695400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [
+            "signal_quality"
+          ],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "sq_baseline_powerline",
+          "scoreable_targets": [],
+          "targets": [
+            "signal_quality"
+          ]
+        },
+        {
+          "case_id": "dropout_saturation",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5712400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [
+            "signal_quality"
+          ],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "sq_dropout_saturation",
+          "scoreable_targets": [],
+          "targets": [
+            "signal_quality"
+          ]
+        },
+        {
+          "case_id": "lead_faults",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5695400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [
+            "signal_quality"
+          ],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "sq_lead_faults",
+          "scoreable_targets": [],
+          "targets": [
+            "signal_quality"
+          ]
+        },
+        {
+          "case_id": "combined_ecg_ppg",
+          "channel_count": 13,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1365000,
+          "estimated_package_bytes": 6121400,
+          "estimated_peak_memory_bytes": 8488576,
+          "estimated_waveform_csv_bytes": 3780256,
+          "reference_only_targets": [
+            "signal_quality"
+          ],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "combined_ecg_ppg_quality",
+          "scoreable_targets": [
+            "ppg_systolic_peak"
+          ],
+          "targets": [
+            "signal_quality",
+            "ppg_systolic_peak"
+          ]
+        },
+        {
+          "case_id": "full_artifact_demo",
+          "channel_count": 13,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1365000,
+          "estimated_package_bytes": 6087400,
+          "estimated_peak_memory_bytes": 8488576,
+          "estimated_waveform_csv_bytes": 3780256,
+          "reference_only_targets": [
+            "signal_quality"
+          ],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "ecg_artifact_signal_quality_001",
+          "scoreable_targets": [],
+          "targets": [
+            "signal_quality"
+          ]
+        }
+      ],
+      "catalog_scoring_mode": "mixed",
+      "changelog": [
+        {
+          "changes": [
+            "Initial beta reference-only signal-quality pack with baseline, powerline, dropout, saturation and lead-fault cases."
+          ],
+          "date": "2026-07-06",
+          "version": "1.0"
+        }
+      ],
+      "channels": {
+        "families": [
+          {
+            "channel_count": 12,
+            "channels": [
+              "I",
+              "II",
+              "III",
+              "aVR",
+              "aVL",
+              "aVF",
+              "V1",
+              "V2",
+              "V3",
+              "V4",
+              "V5",
+              "V6"
+            ],
+            "name": "standard_12_lead_ecg"
+          }
+        ],
+        "maximum_channel_count": 13,
+        "minimum_channel_count": 12
+      },
+      "declared_targets": [
+        "signal_quality",
+        "ppg_systolic_peak"
+      ],
+      "deprecation_message": "",
+      "description": "ECG/PPG acquisition artifact scenarios with explicit interval ground truth.",
+      "detector_output_schemas": [
+        "detection_json_v1",
+        "detection_csv_v2"
+      ],
+      "difficulty": [
+        "stress"
+      ],
+      "duration": {
+        "maximum_case_seconds": 30,
+        "minimum_case_seconds": 30,
+        "total_seconds": 150
+      },
+      "estimated_package": {
+        "bytes": 29312000,
+        "peak_memory_bytes": 8488576,
+        "size_class": "medium"
+      },
+      "feature_tags": [
+        "baseline_wander",
+        "powerline",
+        "dropout",
+        "saturation",
+        "lead_fault",
+        "acquisition_fault"
+      ],
+      "generator_compatibility": {
+        "challenge_package_contract": "synsigra_challenge_package_v1",
+        "local_verifier_min_version": "0.2.0",
+        "minimum_generator_version": "0.5.0-dev",
+        "pack_schema_version": 1,
+        "scenario_schema_versions": [
+          2,
+          3,
+          4
+        ],
+        "scoring_manifest_contract": "synsigra_scoring_manifest_v1"
+      },
+      "limitations": {
+        "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
+        "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
+      },
+      "local_verifier_smoke_tests": [
+        {
+          "scope": "local PPG event-detection scoring smoke test",
+          "target": "ppg_systolic_peak",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        }
+      ],
+      "messages": [
+        {
+          "code": "REFERENCE_ONLY_TARGET",
+          "message": "signal_quality exports ground truth but has no local scoring policy.",
+          "path": "$.targets",
+          "severity": "warning"
+        }
+      ],
+      "metadata_type": "synsigra_curated_pack_metadata",
+      "metadata_version": "synsigra_curated_pack_metadata_export_v1",
+      "modality": [
+        "ECG"
+      ],
+      "name": "Signal Quality Pack v1",
+      "not_recommended_for": [
+        "Local automated scoring without a project-specific quality metric",
+        "Clinical signal-quality certification",
+        "Clean detector smoke tests",
+        "Morphology-only validation"
+      ],
+      "output_artifacts": [
+        {
+          "required": true,
+          "role": "manifest_json"
+        },
+        {
+          "required": true,
+          "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "case_summary_json"
+        },
+        {
+          "required": true,
+          "role": "annotations_json"
+        },
+        {
+          "required": true,
+          "role": "waveform_csv"
+        },
+        {
+          "required": true,
+          "role": "wfdb"
+        },
+        {
+          "required": true,
+          "role": "edf_bdf"
+        },
+        {
+          "required": true,
+          "role": "reference_ground_truth",
+          "targets": [
+            "signal_quality"
+          ]
+        }
+      ],
+      "pack_id": "signal_quality_v1",
+      "recommended_for": [
+        "Signal-quality interval inspection and reference export",
+        "Artifact-aware detector stress scenario generation",
+        "Manual QA of artifact timing, channels and labels",
+        "Downstream scoring development that needs exact synthetic artifact intervals"
+      ],
+      "recommended_profile": "stress",
+      "reference_only_targets": [
+        {
+          "case_count": 5,
+          "case_ids": [
+            "baseline_powerline",
+            "dropout_saturation",
+            "lead_faults",
+            "combined_ecg_ppg",
+            "full_artifact_demo"
+          ],
+          "description": "Generated signal-quality interval and artifact ground truth. No local scoring policy is defined yet.",
+          "reference_artifacts": [
+            "artifact_intervals",
+            "waveform_channels",
+            "annotations_json",
+            "case_summary_json"
+          ],
+          "score_type": "generated_reference_only",
+          "scoreable": false,
+          "support": "reference_only",
+          "target": "signal_quality"
+        }
+      ],
+      "release_date": "2026-07-06",
+      "release_status": "beta",
+      "sampling_rates_hz": [
+        500
+      ],
+      "schema_version": 1,
+      "scoreable_targets": [
+        {
+          "accepted_detection_formats": [
+            "detection_json_v1",
+            "detection_csv_v2"
+          ],
+          "case_count": 1,
+          "case_ids": [
+            "combined_ecg_ppg"
+          ],
+          "default_tolerance_seconds": 0.08,
+          "description": "PPG systolic peak event timing against exact synthetic pulse annotations.",
+          "primary_metric": "f1_score",
+          "score_type": "event_detection",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "ppg_systolic_peak"
+        }
+      ],
+      "scoring_mode": "mixed",
+      "source": {
+        "catalog_path": "examples/catalog/verification_packs_v1.json",
+        "pack_fingerprint": "sha256:e06bf835eb6ab7a718ce0d50a37227915964d669cfddf79c312c193d3834ebac",
+        "pack_path": "../packs/signal_quality_v1.json",
+        "source_content_sha256": "sha256:ce2cba471a33fc3f3ad97c07485505c609064456aa49839820ac0c11b6c1d253"
+      },
+      "supported_threshold_profiles": [
+        "smoke",
+        "regression",
+        "stress"
+      ],
+      "targets": [
+        "signal_quality",
+        "ppg_systolic_peak"
+      ],
+      "threshold_profile_contract": {
+        "policy_failure_exit_code": 1,
+        "recommended_profile": "stress",
+        "supported_profiles": [
+          "smoke",
+          "regression",
+          "stress"
+        ]
+      },
+      "ui": {
+        "primary_badges": [
+          "stress",
+          "baseline_wander",
+          "powerline",
+          "dropout"
+        ],
+        "reference_only_before_job": true,
+        "scoreable_before_job": true
+      },
+      "version": "1.0"
+    },
+    {
+      "case_count": 5,
+      "case_ids": [
+        "clbbb",
+        "ischemia_anterolateral",
+        "lvh",
+        "inferior_infarction",
+        "lead_and_acquisition_faults"
+      ],
+      "cases": [
+        {
+          "case_id": "clbbb",
+          "channel_count": 12,
+          "duration_seconds": 15,
+          "estimated_binary_signal_bytes": 630000,
+          "estimated_package_bytes": 3021400,
+          "estimated_peak_memory_bytes": 4648576,
+          "estimated_waveform_csv_bytes": 1755256,
+          "reference_only_targets": [
+            "morphology_assertions"
+          ],
+          "sample_count": 7500,
+          "sampling_rate_hz": 500,
+          "scenario_id": "morph_clbbb",
+          "scoreable_targets": [],
+          "targets": [
+            "morphology_assertions"
+          ]
+        },
+        {
+          "case_id": "ischemia_anterolateral",
+          "channel_count": 12,
+          "duration_seconds": 15,
+          "estimated_binary_signal_bytes": 630000,
+          "estimated_package_bytes": 3021400,
+          "estimated_peak_memory_bytes": 4648576,
+          "estimated_waveform_csv_bytes": 1755256,
+          "reference_only_targets": [
+            "morphology_assertions"
+          ],
+          "sample_count": 7500,
+          "sampling_rate_hz": 500,
+          "scenario_id": "morph_iscal",
+          "scoreable_targets": [],
+          "targets": [
+            "morphology_assertions"
+          ]
+        },
+        {
+          "case_id": "lvh",
+          "channel_count": 12,
+          "duration_seconds": 15,
+          "estimated_binary_signal_bytes": 630000,
+          "estimated_package_bytes": 3021400,
+          "estimated_peak_memory_bytes": 4648576,
+          "estimated_waveform_csv_bytes": 1755256,
+          "reference_only_targets": [
+            "morphology_assertions"
+          ],
+          "sample_count": 7500,
+          "sampling_rate_hz": 500,
+          "scenario_id": "morph_lvh",
+          "scoreable_targets": [],
+          "targets": [
+            "morphology_assertions"
+          ]
+        },
+        {
+          "case_id": "inferior_infarction",
+          "channel_count": 12,
+          "duration_seconds": 15,
+          "estimated_binary_signal_bytes": 630000,
+          "estimated_package_bytes": 3021400,
+          "estimated_peak_memory_bytes": 4648576,
+          "estimated_waveform_csv_bytes": 1755256,
+          "reference_only_targets": [
+            "morphology_assertions"
+          ],
+          "sample_count": 7500,
+          "sampling_rate_hz": 500,
+          "scenario_id": "morph_imi",
+          "scoreable_targets": [],
+          "targets": [
+            "morphology_assertions"
+          ]
+        },
+        {
+          "case_id": "lead_and_acquisition_faults",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5695400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "reference_only_targets": [
+            "signal_quality"
+          ],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "sq_lead_faults",
+          "scoreable_targets": [],
+          "targets": [
+            "signal_quality"
+          ]
+        }
+      ],
+      "catalog_scoring_mode": "reference_only",
+      "changelog": [
+        {
+          "changes": [
+            "Initial beta reference-only ECG morphology pack with condition assertions and signal-quality references."
+          ],
+          "date": "2026-07-06",
+          "version": "1.0"
+        }
+      ],
+      "channels": {
+        "families": [
+          {
+            "channel_count": 12,
+            "channels": [
+              "I",
+              "II",
+              "III",
+              "aVR",
+              "aVL",
+              "aVF",
+              "V1",
+              "V2",
+              "V3",
+              "V4",
+              "V5",
+              "V6"
+            ],
+            "name": "standard_12_lead_ecg"
+          }
+        ],
+        "maximum_channel_count": 12,
+        "minimum_channel_count": 12
+      },
+      "declared_targets": [
+        "morphology_assertions",
+        "signal_quality"
+      ],
+      "deprecation_message": "",
+      "description": "Curated conduction, ST-T/ischemia, hypertrophy, infarction, lead-fault, and acquisition-fault reference cases.",
+      "detector_output_schemas": [],
+      "difficulty": [
+        "stress"
+      ],
+      "duration": {
+        "maximum_case_seconds": 30,
+        "minimum_case_seconds": 15,
+        "total_seconds": 90
+      },
+      "estimated_package": {
+        "bytes": 17781000,
+        "peak_memory_bytes": 8248576,
+        "size_class": "medium"
+      },
+      "feature_tags": [
+        "conduction",
+        "st_t",
+        "ischemia",
+        "hypertrophy",
+        "infarction",
+        "lead_fault",
+        "acquisition_fault"
+      ],
+      "generator_compatibility": {
+        "challenge_package_contract": "synsigra_challenge_package_v1",
+        "local_verifier_min_version": "0.2.0",
+        "minimum_generator_version": "0.5.0-dev",
+        "pack_schema_version": 1,
+        "scenario_schema_versions": [
+          2,
+          3,
+          4
+        ],
+        "scoring_manifest_contract": "synsigra_scoring_manifest_v1"
+      },
+      "limitations": {
+        "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
+        "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
+      },
+      "local_verifier_smoke_tests": [],
+      "messages": [
+        {
+          "code": "REFERENCE_ONLY_TARGET",
+          "message": "morphology_assertions exports ground truth but has no local scoring policy.",
+          "path": "$.targets",
+          "severity": "warning"
+        },
+        {
+          "code": "REFERENCE_ONLY_TARGET",
+          "message": "signal_quality exports ground truth but has no local scoring policy.",
+          "path": "$.targets",
+          "severity": "warning"
+        }
+      ],
+      "metadata_type": "synsigra_curated_pack_metadata",
+      "metadata_version": "synsigra_curated_pack_metadata_export_v1",
+      "modality": [
+        "ECG"
+      ],
+      "name": "ECG Morphology Stress Pack v1",
+      "not_recommended_for": [
+        "Automated local morphology scoring in the current release",
+        "Diagnostic ECG interpretation claims",
+        "Clinical ischemia or infarction validation",
+        "Pure HRV or PPG tests"
+      ],
+      "output_artifacts": [
+        {
+          "required": true,
+          "role": "manifest_json"
+        },
+        {
+          "required": true,
+          "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "case_summary_json"
+        },
+        {
+          "required": true,
+          "role": "annotations_json"
+        },
+        {
+          "required": true,
+          "role": "waveform_csv"
+        },
+        {
+          "required": true,
+          "role": "wfdb"
+        },
+        {
+          "required": true,
+          "role": "edf_bdf"
+        },
+        {
+          "required": true,
+          "role": "reference_ground_truth",
+          "targets": [
+            "morphology_assertions",
+            "signal_quality"
+          ]
+        }
+      ],
+      "pack_id": "ecg_morphology_stress_v1",
+      "recommended_for": [
+        "Reference morphology and condition assertion export",
+        "Visual QA of conduction, ST-T, hypertrophy and infarction phenotypes",
+        "Stress input generation for morphology-sensitive algorithms",
+        "Future morphology-scoring contract development"
+      ],
+      "recommended_profile": null,
+      "reference_only_targets": [
+        {
+          "case_count": 4,
+          "case_ids": [
+            "clbbb",
+            "ischemia_anterolateral",
+            "lvh",
+            "inferior_infarction"
+          ],
+          "description": "Generated ECG morphology and condition assertions. No local scoring policy is defined yet.",
+          "reference_artifacts": [
+            "conditions",
+            "fiducials",
+            "annotations_json",
+            "case_summary_json"
+          ],
+          "score_type": "generated_reference_only",
+          "scoreable": false,
+          "support": "reference_only",
+          "target": "morphology_assertions"
+        },
+        {
+          "case_count": 1,
+          "case_ids": [
+            "lead_and_acquisition_faults"
+          ],
+          "description": "Generated signal-quality interval and artifact ground truth. No local scoring policy is defined yet.",
+          "reference_artifacts": [
+            "artifact_intervals",
+            "waveform_channels",
+            "annotations_json",
+            "case_summary_json"
+          ],
+          "score_type": "generated_reference_only",
+          "scoreable": false,
+          "support": "reference_only",
+          "target": "signal_quality"
+        }
+      ],
+      "release_date": "2026-07-06",
+      "release_status": "beta",
+      "sampling_rates_hz": [
+        500
+      ],
+      "schema_version": 1,
+      "scoreable_targets": [],
+      "scoring_mode": "reference_only",
+      "source": {
+        "catalog_path": "examples/catalog/verification_packs_v1.json",
+        "pack_fingerprint": "sha256:e24fc01f4e5162326cfd312f657a38a88c34a54e7d4a1dfb1ab640f93cac58ef",
+        "pack_path": "../packs/ecg_morphology_stress_v1.json",
+        "source_content_sha256": "sha256:94f845fb9721c215458c4296a0171e014febb4c7bc03734ba4fc9d2292f14806"
+      },
+      "supported_threshold_profiles": [],
+      "targets": [
+        "morphology_assertions",
+        "signal_quality"
+      ],
+      "threshold_profile_contract": {
+        "policy_failure_exit_code": 1,
+        "recommended_profile": null,
+        "supported_profiles": []
+      },
+      "ui": {
+        "primary_badges": [
+          "stress",
+          "conduction",
+          "st_t",
+          "ischemia"
+        ],
+        "reference_only_before_job": true,
+        "scoreable_before_job": false
+      },
+      "version": "1.0"
+    },
+    {
+      "case_count": 4,
+      "case_ids": [
+        "delay_180",
+        "delay_260",
+        "combined_dropout",
+        "artifact_reference"
+      ],
+      "cases": [
+        {
+          "case_id": "delay_180",
+          "channel_count": 13,
+          "duration_seconds": 20,
+          "estimated_binary_signal_bytes": 910000,
+          "estimated_package_bytes": 4168400,
+          "estimated_peak_memory_bytes": 6008576,
+          "estimated_waveform_csv_bytes": 2520256,
+          "reference_only_targets": [
+            "ecg_ppg_alignment"
+          ],
+          "sample_count": 10000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "ppg_delay_180",
+          "scoreable_targets": [
+            "ppg_systolic_peak"
+          ],
+          "targets": [
+            "ppg_systolic_peak",
+            "ecg_ppg_alignment"
+          ]
+        },
+        {
+          "case_id": "delay_260",
+          "channel_count": 13,
+          "duration_seconds": 20,
+          "estimated_binary_signal_bytes": 910000,
+          "estimated_package_bytes": 4168400,
+          "estimated_peak_memory_bytes": 6008576,
+          "estimated_waveform_csv_bytes": 2520256,
+          "reference_only_targets": [
+            "ecg_ppg_alignment"
+          ],
+          "sample_count": 10000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "ppg_delay_260",
+          "scoreable_targets": [
+            "ppg_systolic_peak"
+          ],
+          "targets": [
+            "ppg_systolic_peak",
+            "ecg_ppg_alignment"
+          ]
+        },
+        {
+          "case_id": "combined_dropout",
+          "channel_count": 13,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1365000,
+          "estimated_package_bytes": 6121400,
+          "estimated_peak_memory_bytes": 8488576,
+          "estimated_waveform_csv_bytes": 3780256,
+          "reference_only_targets": [
+            "signal_quality"
+          ],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "combined_ecg_ppg_quality",
+          "scoreable_targets": [
+            "ppg_systolic_peak"
+          ],
+          "targets": [
+            "ppg_systolic_peak",
+            "signal_quality"
+          ]
+        },
+        {
+          "case_id": "artifact_reference",
+          "channel_count": 13,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1365000,
+          "estimated_package_bytes": 6087400,
+          "estimated_peak_memory_bytes": 8488576,
+          "estimated_waveform_csv_bytes": 3780256,
+          "reference_only_targets": [
+            "signal_quality"
+          ],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "ecg_artifact_signal_quality_001",
+          "scoreable_targets": [
+            "ppg_systolic_peak"
+          ],
+          "targets": [
+            "ppg_systolic_peak",
+            "signal_quality"
+          ]
+        }
+      ],
+      "catalog_scoring_mode": "mixed",
+      "changelog": [
+        {
+          "changes": [
+            "Initial beta PPG alignment pack with systolic-peak scoring and ECG/PPG timing references."
+          ],
+          "date": "2026-07-06",
+          "version": "1.0"
+        }
+      ],
+      "channels": {
+        "families": [
+          {
+            "channel_count": 12,
+            "channels": [
+              "I",
+              "II",
+              "III",
+              "aVR",
+              "aVL",
+              "aVF",
+              "V1",
+              "V2",
+              "V3",
+              "V4",
+              "V5",
+              "V6"
+            ],
+            "name": "standard_12_lead_ecg"
+          },
+          {
+            "channel_count": 1,
+            "channels": [
+              "ppg_green"
+            ],
+            "name": "green_ppg"
+          }
+        ],
+        "maximum_channel_count": 13,
+        "minimum_channel_count": 13
+      },
+      "declared_targets": [
+        "ppg_systolic_peak",
+        "ecg_ppg_alignment"
+      ],
+      "deprecation_message": "",
+      "description": "Linked ECG/PPG scenarios for pulse timing and peak detector QA.",
+      "detector_output_schemas": [
+        "detection_json_v1",
+        "detection_csv_v2"
+      ],
+      "difficulty": [
+        "smoke"
+      ],
+      "duration": {
+        "maximum_case_seconds": 30,
+        "minimum_case_seconds": 20,
+        "total_seconds": 100
+      },
+      "estimated_package": {
+        "bytes": 20545600,
+        "peak_memory_bytes": 8488576,
+        "size_class": "medium"
+      },
+      "feature_tags": [
+        "pulse_transit_delay",
+        "ecg_ppg_alignment"
+      ],
+      "generator_compatibility": {
+        "challenge_package_contract": "synsigra_challenge_package_v1",
+        "local_verifier_min_version": "0.2.0",
+        "minimum_generator_version": "0.5.0-dev",
+        "pack_schema_version": 1,
+        "scenario_schema_versions": [
+          2,
+          3,
+          4
+        ],
+        "scoring_manifest_contract": "synsigra_scoring_manifest_v1"
+      },
+      "limitations": {
+        "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
+        "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
+      },
+      "local_verifier_smoke_tests": [
+        {
+          "scope": "local PPG event-detection scoring smoke test",
+          "target": "ppg_systolic_peak",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        }
+      ],
+      "messages": [
+        {
+          "code": "REFERENCE_ONLY_TARGET",
+          "message": "ecg_ppg_alignment exports ground truth but has no local scoring policy.",
+          "path": "$.targets",
+          "severity": "warning"
+        },
+        {
+          "code": "REFERENCE_ONLY_TARGET",
+          "message": "signal_quality exports ground truth but has no local scoring policy.",
+          "path": "$.targets",
+          "severity": "warning"
+        }
+      ],
+      "metadata_type": "synsigra_curated_pack_metadata",
+      "metadata_version": "synsigra_curated_pack_metadata_export_v1",
+      "modality": [
+        "ECG",
+        "PPG"
+      ],
+      "name": "PPG Alignment Pack v1",
+      "not_recommended_for": [
+        "Standalone ECG rhythm validation",
+        "HRV benchmark scoring",
+        "Clinical pulse transit time claims",
+        "Motion-heavy PPG stress coverage"
+      ],
+      "output_artifacts": [
+        {
+          "required": true,
+          "role": "manifest_json"
+        },
+        {
+          "required": true,
+          "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "case_summary_json"
+        },
+        {
+          "required": true,
+          "role": "annotations_json"
+        },
+        {
+          "required": true,
+          "role": "waveform_csv"
+        },
+        {
+          "required": true,
+          "role": "wfdb"
+        },
+        {
+          "required": true,
+          "role": "edf_bdf"
+        },
+        {
+          "required": true,
+          "role": "reference_ground_truth",
+          "targets": [
+            "ecg_ppg_alignment",
+            "signal_quality"
+          ]
+        }
+      ],
+      "pack_id": "ppg_alignment_v1",
+      "recommended_for": [
+        "PPG systolic peak smoke testing",
+        "ECG-to-PPG timing and pulse-transit-delay reference checks",
+        "Multimodal pipeline integration tests",
+        "Detector tests that need linked ECG and PPG channels"
+      ],
+      "recommended_profile": "smoke",
+      "reference_only_targets": [
+        {
+          "case_count": 2,
+          "case_ids": [
+            "delay_180",
+            "delay_260"
+          ],
+          "description": "Generated ECG-to-PPG timing reference. No local scoring policy is defined yet.",
+          "reference_artifacts": [
+            "ecg_ppg_timing",
+            "ppg_fiducials",
+            "annotations_json",
+            "case_summary_json"
+          ],
+          "score_type": "generated_reference_only",
+          "scoreable": false,
+          "support": "reference_only",
+          "target": "ecg_ppg_alignment"
+        },
+        {
+          "case_count": 2,
+          "case_ids": [
+            "combined_dropout",
+            "artifact_reference"
+          ],
+          "description": "Generated signal-quality interval and artifact ground truth. No local scoring policy is defined yet.",
+          "reference_artifacts": [
+            "artifact_intervals",
+            "waveform_channels",
+            "annotations_json",
+            "case_summary_json"
+          ],
+          "score_type": "generated_reference_only",
+          "scoreable": false,
+          "support": "reference_only",
+          "target": "signal_quality"
+        }
+      ],
+      "release_date": "2026-07-06",
+      "release_status": "beta",
+      "sampling_rates_hz": [
+        500
+      ],
+      "schema_version": 1,
+      "scoreable_targets": [
+        {
+          "accepted_detection_formats": [
+            "detection_json_v1",
+            "detection_csv_v2"
+          ],
+          "case_count": 4,
+          "case_ids": [
+            "delay_180",
+            "delay_260",
+            "combined_dropout",
+            "artifact_reference"
+          ],
+          "default_tolerance_seconds": 0.08,
+          "description": "PPG systolic peak event timing against exact synthetic pulse annotations.",
+          "primary_metric": "f1_score",
+          "score_type": "event_detection",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "ppg_systolic_peak"
+        }
+      ],
+      "scoring_mode": "mixed",
+      "source": {
+        "catalog_path": "examples/catalog/verification_packs_v1.json",
+        "pack_fingerprint": "sha256:71a2f4956ac86db4669e69d6b0758432f34eada0023474d98754b9eca275bf18",
+        "pack_path": "../packs/ppg_alignment_v1.json",
+        "source_content_sha256": "sha256:5355eeb0ce6aba1eee037f8016d025c5640b37895afe9d63e41daa31d12b54b4"
+      },
+      "supported_threshold_profiles": [
+        "smoke",
+        "regression"
+      ],
+      "targets": [
+        "ppg_systolic_peak",
+        "ecg_ppg_alignment",
+        "signal_quality"
+      ],
+      "threshold_profile_contract": {
+        "policy_failure_exit_code": 1,
+        "recommended_profile": "smoke",
+        "supported_profiles": [
+          "smoke",
+          "regression"
+        ]
+      },
+      "ui": {
+        "primary_badges": [
+          "smoke",
+          "pulse_transit_delay",
+          "ecg_ppg_alignment"
+        ],
+        "reference_only_before_job": true,
+        "scoreable_before_job": true
+      },
+      "version": "1.0"
+    },
+    {
+      "case_count": 4,
+      "case_ids": [
+        "fast_rhythm",
+        "high_hrv",
+        "ppg_long_delay",
+        "combined_quality"
+      ],
+      "cases": [
+        {
+          "case_id": "fast_rhythm",
+          "channel_count": 12,
+          "duration_seconds": 20,
+          "estimated_binary_signal_bytes": 840000,
+          "estimated_package_bytes": 4190400,
+          "estimated_peak_memory_bytes": 5848576,
+          "estimated_waveform_csv_bytes": 2340256,
+          "reference_only_targets": [],
+          "sample_count": 10000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_fast_120",
+          "scoreable_targets": [
+            "r_peak"
+          ],
+          "targets": [
+            "r_peak"
+          ]
+        },
+        {
+          "case_id": "high_hrv",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_high_variability",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "ppg_long_delay",
+          "channel_count": 13,
+          "duration_seconds": 20,
+          "estimated_binary_signal_bytes": 910000,
+          "estimated_package_bytes": 4168400,
+          "estimated_peak_memory_bytes": 6008576,
+          "estimated_waveform_csv_bytes": 2520256,
+          "reference_only_targets": [],
+          "sample_count": 10000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "ppg_delay_260",
+          "scoreable_targets": [
+            "ppg_systolic_peak"
+          ],
+          "targets": [
+            "ppg_systolic_peak"
+          ]
+        },
+        {
+          "case_id": "combined_quality",
+          "channel_count": 13,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1365000,
+          "estimated_package_bytes": 6121400,
+          "estimated_peak_memory_bytes": 8488576,
+          "estimated_waveform_csv_bytes": 3780256,
+          "reference_only_targets": [
+            "signal_quality"
+          ],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "combined_ecg_ppg_quality",
+          "scoreable_targets": [
+            "r_peak",
+            "ppg_systolic_peak"
+          ],
+          "targets": [
+            "r_peak",
+            "ppg_systolic_peak",
+            "signal_quality"
+          ]
+        }
+      ],
+      "catalog_scoring_mode": "mixed",
+      "changelog": [
+        {
+          "changes": [
+            "Initial beta combined stress pack spanning ECG, PPG, HRV and signal-quality targets."
+          ],
+          "date": "2026-07-06",
+          "version": "1.0"
+        }
+      ],
+      "channels": {
+        "families": [
+          {
+            "channel_count": 12,
+            "channels": [
+              "I",
+              "II",
+              "III",
+              "aVR",
+              "aVL",
+              "aVF",
+              "V1",
+              "V2",
+              "V3",
+              "V4",
+              "V5",
+              "V6"
+            ],
+            "name": "standard_12_lead_ecg"
+          },
+          {
+            "channel_count": 1,
+            "channels": [
+              "ppg_green"
+            ],
+            "name": "green_ppg"
+          }
+        ],
+        "maximum_channel_count": 13,
+        "minimum_channel_count": 12
+      },
+      "declared_targets": [
+        "r_peak",
+        "hrv",
+        "ppg_systolic_peak",
+        "signal_quality"
+      ],
+      "deprecation_message": "",
+      "description": "Mixed ECG, PPG, HRV and artifact scenarios for end-to-end wearable algorithm stress testing.",
+      "detector_output_schemas": [
+        "detection_json_v1",
+        "detection_csv_v2",
+        "hrv_json_v1"
+      ],
+      "difficulty": [
+        "stress"
+      ],
+      "duration": {
+        "maximum_case_seconds": 300,
+        "minimum_case_seconds": 20,
+        "total_seconds": 370
+      },
+      "estimated_package": {
+        "bytes": 29450600,
+        "peak_memory_bytes": 15448576,
+        "size_class": "medium"
+      },
+      "feature_tags": [
+        "multimodal",
+        "artifact",
+        "dropout",
+        "timing"
+      ],
+      "generator_compatibility": {
+        "challenge_package_contract": "synsigra_challenge_package_v1",
+        "local_verifier_min_version": "0.2.0",
+        "minimum_generator_version": "0.5.0-dev",
+        "pack_schema_version": 1,
+        "scenario_schema_versions": [
+          2,
+          3,
+          4
+        ],
+        "scoring_manifest_contract": "synsigra_scoring_manifest_v1"
+      },
+      "limitations": {
+        "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
+        "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
+      },
+      "local_verifier_smoke_tests": [
+        {
+          "scope": "golden challenge package compatibility and R-peak scoring fixture",
+          "target": "r_peak",
+          "test_id": "TEST-GOLDEN-CHALLENGE-001"
+        },
+        {
+          "scope": "local event-detection scoring smoke test",
+          "target": "r_peak",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        },
+        {
+          "scope": "core HRV metric scoring smoke test",
+          "target": "hrv",
+          "test_id": "TEST-HRV-SCORING-001"
+        },
+        {
+          "scope": "local HRV user-output scoring smoke test",
+          "target": "hrv",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        },
+        {
+          "scope": "local PPG event-detection scoring smoke test",
+          "target": "ppg_systolic_peak",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        }
+      ],
+      "messages": [
+        {
+          "code": "REFERENCE_ONLY_TARGET",
+          "message": "signal_quality exports ground truth but has no local scoring policy.",
+          "path": "$.targets",
+          "severity": "warning"
+        }
+      ],
+      "metadata_type": "synsigra_curated_pack_metadata",
+      "metadata_version": "synsigra_curated_pack_metadata_export_v1",
+      "modality": [
+        "ECG",
+        "PPG"
+      ],
+      "name": "Combined Worst-case Pack v1",
+      "not_recommended_for": [
+        "First-time API integration smoke tests",
+        "Small package size constraints",
+        "Single-target benchmark claims",
+        "Clinical multimodal validation claims"
+      ],
+      "output_artifacts": [
+        {
+          "required": true,
+          "role": "manifest_json"
+        },
+        {
+          "required": true,
+          "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "case_summary_json"
+        },
+        {
+          "required": true,
+          "role": "annotations_json"
+        },
+        {
+          "required": true,
+          "role": "waveform_csv"
+        },
+        {
+          "required": true,
+          "role": "wfdb"
+        },
+        {
+          "required": true,
+          "role": "edf_bdf"
+        },
+        {
+          "required": true,
+          "role": "hrv_metrics_json"
+        },
+        {
+          "required": true,
+          "role": "rr_tachogram_csv"
+        },
+        {
+          "required": true,
+          "role": "reference_ground_truth",
+          "targets": [
+            "signal_quality"
+          ]
+        }
+      ],
+      "pack_id": "combined_worst_case_v1",
+      "recommended_for": [
+        "End-to-end wearable algorithm stress testing",
+        "Combined ECG, PPG, HRV and signal-quality workflow checks",
+        "Robustness tests across artifact, dropout and timing disturbances",
+        "Release-candidate smoke tests for integrated verification tooling"
+      ],
+      "recommended_profile": "stress",
+      "reference_only_targets": [
+        {
+          "case_count": 1,
+          "case_ids": [
+            "combined_quality"
+          ],
+          "description": "Generated signal-quality interval and artifact ground truth. No local scoring policy is defined yet.",
+          "reference_artifacts": [
+            "artifact_intervals",
+            "waveform_channels",
+            "annotations_json",
+            "case_summary_json"
+          ],
+          "score_type": "generated_reference_only",
+          "scoreable": false,
+          "support": "reference_only",
+          "target": "signal_quality"
+        }
+      ],
+      "release_date": "2026-07-06",
+      "release_status": "beta",
+      "sampling_rates_hz": [
+        500,
+        100
+      ],
+      "schema_version": 1,
+      "scoreable_targets": [
+        {
+          "accepted_detection_formats": [
+            "detection_json_v1",
+            "detection_csv_v2"
+          ],
+          "case_count": 2,
+          "case_ids": [
+            "fast_rhythm",
+            "combined_quality"
+          ],
+          "default_tolerance_seconds": 0.05,
+          "description": "R-peak detector event timing against exact synthetic beat annotations.",
+          "primary_metric": "f1_score",
+          "score_type": "event_detection",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "r_peak"
+        },
+        {
+          "accepted_user_output_formats": [
+            "hrv_json_v1"
+          ],
+          "case_count": 1,
+          "case_ids": [
+            "high_hrv"
+          ],
+          "description": "HRV metric and RR-interval scoring against exact synthetic tachogram ground truth.",
+          "primary_metric": "metric_pass_fraction",
+          "score_type": "hrv_metrics",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "hrv"
+        },
+        {
+          "accepted_detection_formats": [
+            "detection_json_v1",
+            "detection_csv_v2"
+          ],
+          "case_count": 2,
+          "case_ids": [
+            "ppg_long_delay",
+            "combined_quality"
+          ],
+          "default_tolerance_seconds": 0.08,
+          "description": "PPG systolic peak event timing against exact synthetic pulse annotations.",
+          "primary_metric": "f1_score",
+          "score_type": "event_detection",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "ppg_systolic_peak"
+        }
+      ],
+      "scoring_mode": "mixed",
+      "source": {
+        "catalog_path": "examples/catalog/verification_packs_v1.json",
+        "pack_fingerprint": "sha256:4844b59a5e4de8c537ec46c3398ee820801f14a93613563ed85d940b3b747000",
+        "pack_path": "../packs/combined_worst_case_v1.json",
+        "source_content_sha256": "sha256:dd5a6a25a4ad6de6d75a42c1766a470a493f52701b6e21c2144444be2629a296"
+      },
+      "supported_threshold_profiles": [
+        "smoke",
+        "regression",
+        "stress",
+        "benchmark"
+      ],
+      "targets": [
+        "r_peak",
+        "hrv",
+        "ppg_systolic_peak",
+        "signal_quality"
+      ],
+      "threshold_profile_contract": {
+        "policy_failure_exit_code": 1,
+        "recommended_profile": "stress",
+        "supported_profiles": [
+          "smoke",
+          "regression",
+          "stress",
+          "benchmark"
+        ]
+      },
+      "ui": {
+        "primary_badges": [
+          "stress",
+          "multimodal",
+          "artifact",
+          "dropout"
+        ],
+        "reference_only_before_job": true,
+        "scoreable_before_job": true
+      },
+      "version": "1.0"
+    },
+    {
+      "case_count": 2,
+      "case_ids": [
+        "cardiorespiratory_activity",
+        "long_duration_compact"
+      ],
+      "cases": [
+        {
+          "case_id": "cardiorespiratory_activity",
+          "channel_count": 13,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 1365000,
+          "estimated_package_bytes": 7260400,
+          "estimated_peak_memory_bytes": 8488576,
+          "estimated_waveform_csv_bytes": 3780256,
+          "reference_only_targets": [
+            "ecg_ppg_alignment"
+          ],
+          "sample_count": 15000,
+          "sampling_rate_hz": 250,
+          "scenario_id": "wearable_cardiorespiratory_stress_v3",
+          "scoreable_targets": [
+            "r_peak",
+            "ppg_systolic_peak"
+          ],
+          "targets": [
+            "r_peak",
+            "ppg_systolic_peak",
+            "ecg_ppg_alignment"
+          ]
+        },
+        {
+          "case_id": "long_duration_compact",
+          "channel_count": 13,
+          "duration_seconds": 600,
+          "estimated_binary_signal_bytes": 1560000,
+          "estimated_package_bytes": 2945344,
+          "estimated_peak_memory_bytes": 19288576,
+          "estimated_waveform_csv_bytes": 0,
+          "reference_only_targets": [
+            "ecg_ppg_alignment"
+          ],
+          "sample_count": 60000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "wearable_long_duration_compact_v3",
+          "scoreable_targets": [
+            "r_peak",
+            "ppg_systolic_peak",
+            "hrv"
+          ],
+          "targets": [
+            "r_peak",
+            "ppg_systolic_peak",
+            "ecg_ppg_alignment",
+            "hrv"
+          ]
+        }
+      ],
+      "catalog_scoring_mode": "mixed",
+      "changelog": [
+        {
+          "changes": [
+            "Initial beta wearable stress pack with cardiorespiratory, activity, timing and compact long-duration cases."
+          ],
+          "date": "2026-07-06",
+          "version": "1.0"
+        }
+      ],
+      "channels": {
+        "families": [
+          {
+            "channel_count": 12,
+            "channels": [
+              "I",
+              "II",
+              "III",
+              "aVR",
+              "aVL",
+              "aVF",
+              "V1",
+              "V2",
+              "V3",
+              "V4",
+              "V5",
+              "V6"
+            ],
+            "name": "standard_12_lead_ecg"
+          },
+          {
+            "channel_count": 1,
+            "channels": [
+              "ppg_green"
+            ],
+            "name": "green_ppg"
+          }
+        ],
+        "maximum_channel_count": 13,
+        "minimum_channel_count": 13
+      },
+      "declared_targets": [
+        "r_peak",
+        "ppg_systolic_peak",
+        "ecg_ppg_alignment",
+        "hrv"
+      ],
+      "deprecation_message": "",
+      "description": "Reproducible ECG, PPG, HRV, cardiorespiratory and synchronization stress for wearable algorithm QA.",
+      "detector_output_schemas": [
+        "detection_json_v1",
+        "detection_csv_v2",
+        "hrv_json_v1"
+      ],
+      "difficulty": [
+        "stress",
+        "benchmark"
+      ],
+      "duration": {
+        "maximum_case_seconds": 600,
+        "minimum_case_seconds": 60,
+        "total_seconds": 660
+      },
+      "estimated_package": {
+        "bytes": 10205744,
+        "peak_memory_bytes": 19288576,
+        "size_class": "small"
+      },
+      "feature_tags": [
+        "controlled_randomization",
+        "respiration",
+        "activity",
+        "pulse_transit_delay",
+        "missing_pulse",
+        "clock_drift",
+        "long_duration",
+        "compact"
+      ],
+      "generator_compatibility": {
+        "challenge_package_contract": "synsigra_challenge_package_v1",
+        "local_verifier_min_version": "0.2.0",
+        "minimum_generator_version": "0.5.0-dev",
+        "pack_schema_version": 1,
+        "scenario_schema_versions": [
+          2,
+          3,
+          4
+        ],
+        "scoring_manifest_contract": "synsigra_scoring_manifest_v1"
+      },
+      "limitations": {
+        "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
+        "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
+      },
+      "local_verifier_smoke_tests": [
+        {
+          "scope": "golden challenge package compatibility and R-peak scoring fixture",
+          "target": "r_peak",
+          "test_id": "TEST-GOLDEN-CHALLENGE-001"
+        },
+        {
+          "scope": "local event-detection scoring smoke test",
+          "target": "r_peak",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        },
+        {
+          "scope": "local PPG event-detection scoring smoke test",
+          "target": "ppg_systolic_peak",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        },
+        {
+          "scope": "core HRV metric scoring smoke test",
+          "target": "hrv",
+          "test_id": "TEST-HRV-SCORING-001"
+        },
+        {
+          "scope": "local HRV user-output scoring smoke test",
+          "target": "hrv",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        }
+      ],
+      "messages": [
+        {
+          "code": "REFERENCE_ONLY_TARGET",
+          "message": "ecg_ppg_alignment exports ground truth but has no local scoring policy.",
+          "path": "$.targets",
+          "severity": "warning"
+        }
+      ],
+      "metadata_type": "synsigra_curated_pack_metadata",
+      "metadata_version": "synsigra_curated_pack_metadata_export_v1",
+      "modality": [
+        "ECG",
+        "PPG"
+      ],
+      "name": "Wearable ECG/PPG Stress Pack v1",
+      "not_recommended_for": [
+        "Minimal first-run examples",
+        "Clinical wearable performance claims",
+        "Standalone morphology diagnosis testing",
+        "PPG onset-specific benchmark scoring"
+      ],
+      "output_artifacts": [
+        {
+          "required": true,
+          "role": "manifest_json"
+        },
+        {
+          "required": true,
+          "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "case_summary_json"
+        },
+        {
+          "required": true,
+          "role": "annotations_json"
+        },
+        {
+          "required": true,
+          "role": "waveform_csv"
+        },
+        {
+          "required": true,
+          "role": "wfdb"
+        },
+        {
+          "required": true,
+          "role": "edf_bdf"
+        },
+        {
+          "required": true,
+          "role": "hrv_metrics_json"
+        },
+        {
+          "required": true,
+          "role": "rr_tachogram_csv"
+        },
+        {
+          "required": true,
+          "role": "reference_ground_truth",
+          "targets": [
+            "ecg_ppg_alignment"
+          ]
+        }
+      ],
+      "pack_id": "wearable_stress_v1",
+      "recommended_for": [
+        "Wearable ECG/PPG algorithm stress and benchmark tests",
+        "Cardiorespiratory, activity and synchronization robustness checks",
+        "Long-duration compact challenge-package generation",
+        "R-peak, PPG peak and HRV workflow integration"
+      ],
+      "recommended_profile": "stress",
+      "reference_only_targets": [
+        {
+          "case_count": 2,
+          "case_ids": [
+            "cardiorespiratory_activity",
+            "long_duration_compact"
+          ],
+          "description": "Generated ECG-to-PPG timing reference. No local scoring policy is defined yet.",
+          "reference_artifacts": [
+            "ecg_ppg_timing",
+            "ppg_fiducials",
+            "annotations_json",
+            "case_summary_json"
+          ],
+          "score_type": "generated_reference_only",
+          "scoreable": false,
+          "support": "reference_only",
+          "target": "ecg_ppg_alignment"
+        }
+      ],
+      "release_date": "2026-07-06",
+      "release_status": "beta",
+      "sampling_rates_hz": [
+        250,
+        100
+      ],
+      "schema_version": 1,
+      "scoreable_targets": [
+        {
+          "accepted_detection_formats": [
+            "detection_json_v1",
+            "detection_csv_v2"
+          ],
+          "case_count": 2,
+          "case_ids": [
+            "cardiorespiratory_activity",
+            "long_duration_compact"
+          ],
+          "default_tolerance_seconds": 0.05,
+          "description": "R-peak detector event timing against exact synthetic beat annotations.",
+          "primary_metric": "f1_score",
+          "score_type": "event_detection",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "r_peak"
+        },
+        {
+          "accepted_detection_formats": [
+            "detection_json_v1",
+            "detection_csv_v2"
+          ],
+          "case_count": 2,
+          "case_ids": [
+            "cardiorespiratory_activity",
+            "long_duration_compact"
+          ],
+          "default_tolerance_seconds": 0.08,
+          "description": "PPG systolic peak event timing against exact synthetic pulse annotations.",
+          "primary_metric": "f1_score",
+          "score_type": "event_detection",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "ppg_systolic_peak"
+        },
+        {
+          "accepted_user_output_formats": [
+            "hrv_json_v1"
+          ],
+          "case_count": 1,
+          "case_ids": [
+            "long_duration_compact"
+          ],
+          "description": "HRV metric and RR-interval scoring against exact synthetic tachogram ground truth.",
+          "primary_metric": "metric_pass_fraction",
+          "score_type": "hrv_metrics",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "hrv"
+        }
+      ],
+      "scoring_mode": "mixed",
+      "source": {
+        "catalog_path": "examples/catalog/verification_packs_v1.json",
+        "pack_fingerprint": "sha256:7560711e322729fd7d04266a458fbb3a2b8791c6499b7b2aaf9d8fca8e5d1783",
+        "pack_path": "../packs/wearable_stress_v1.json",
+        "source_content_sha256": "sha256:6c6b8d53a0f44c0baccca8aa77542120b1233b66476d3fa23c9199c91dbc182d"
+      },
+      "supported_threshold_profiles": [
+        "smoke",
+        "regression",
+        "stress",
+        "benchmark"
+      ],
+      "targets": [
+        "r_peak",
+        "ppg_systolic_peak",
+        "ecg_ppg_alignment",
+        "hrv"
+      ],
+      "threshold_profile_contract": {
+        "policy_failure_exit_code": 1,
+        "recommended_profile": "stress",
+        "supported_profiles": [
+          "smoke",
+          "regression",
+          "stress",
+          "benchmark"
+        ]
+      },
+      "ui": {
+        "primary_badges": [
+          "stress",
+          "benchmark",
+          "controlled_randomization",
+          "respiration",
+          "activity"
+        ],
+        "reference_only_before_job": true,
+        "scoreable_before_job": true
+      },
+      "version": "1.0"
+    },
+    {
+      "case_count": 8,
+      "case_ids": [
+        "clean_delay",
+        "variable_ptt",
+        "respiratory_modulation",
+        "perfusion_drop",
+        "motion_and_saturation",
+        "dropout",
+        "weak_and_missing",
+        "combined_wearable"
+      ],
+      "cases": [
+        {
+          "case_id": "clean_delay",
+          "channel_count": 13,
+          "duration_seconds": 20,
+          "estimated_binary_signal_bytes": 910000,
+          "estimated_package_bytes": 4168400,
+          "estimated_peak_memory_bytes": 6008576,
+          "estimated_waveform_csv_bytes": 2520256,
+          "reference_only_targets": [],
+          "sample_count": 10000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "ppg_delay_180",
+          "scoreable_targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ],
+          "targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ]
+        },
+        {
+          "case_id": "variable_ptt",
+          "channel_count": 13,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 1365000,
+          "estimated_package_bytes": 6665400,
+          "estimated_peak_memory_bytes": 8488576,
+          "estimated_waveform_csv_bytes": 3780256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 250,
+          "scenario_id": "ppg_variable_ptt_v4",
+          "scoreable_targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ],
+          "targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ]
+        },
+        {
+          "case_id": "respiratory_modulation",
+          "channel_count": 13,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 1365000,
+          "estimated_package_bytes": 6665400,
+          "estimated_peak_memory_bytes": 8488576,
+          "estimated_waveform_csv_bytes": 3780256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 250,
+          "scenario_id": "ppg_respiratory_modulation_v4",
+          "scoreable_targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ],
+          "targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ]
+        },
+        {
+          "case_id": "perfusion_drop",
+          "channel_count": 13,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 1365000,
+          "estimated_package_bytes": 6665400,
+          "estimated_peak_memory_bytes": 8488576,
+          "estimated_waveform_csv_bytes": 3780256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 250,
+          "scenario_id": "ppg_perfusion_drop_v4",
+          "scoreable_targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ],
+          "targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ]
+        },
+        {
+          "case_id": "motion_and_saturation",
+          "channel_count": 14,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 1470000,
+          "estimated_package_bytes": 7074400,
+          "estimated_peak_memory_bytes": 8488576,
+          "estimated_waveform_csv_bytes": 4050256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 250,
+          "scenario_id": "ppg_motion_accelerometer_v4",
+          "scoreable_targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ],
+          "targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ]
+        },
+        {
+          "case_id": "dropout",
+          "channel_count": 13,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 1365000,
+          "estimated_package_bytes": 6699400,
+          "estimated_peak_memory_bytes": 8488576,
+          "estimated_waveform_csv_bytes": 3780256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 250,
+          "scenario_id": "ppg_dropout_saturation_v4",
+          "scoreable_targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ],
+          "targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ]
+        },
+        {
+          "case_id": "weak_and_missing",
+          "channel_count": 13,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 1365000,
+          "estimated_package_bytes": 6665400,
+          "estimated_peak_memory_bytes": 8488576,
+          "estimated_waveform_csv_bytes": 3780256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 250,
+          "scenario_id": "ppg_weak_missing_v4",
+          "scoreable_targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ],
+          "targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ]
+        },
+        {
+          "case_id": "combined_wearable",
+          "channel_count": 13,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 1365000,
+          "estimated_package_bytes": 7260400,
+          "estimated_peak_memory_bytes": 8488576,
+          "estimated_waveform_csv_bytes": 3780256,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 250,
+          "scenario_id": "wearable_cardiorespiratory_stress_v3",
+          "scoreable_targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ],
+          "targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ]
+        }
+      ],
+      "catalog_scoring_mode": "local",
+      "changelog": [
+        {
+          "changes": [
+            "Initial beta PPG benchmark pack with systolic-peak and pulse-onset scoring cases."
+          ],
+          "date": "2026-07-06",
+          "version": "1.0"
+        }
+      ],
+      "channels": {
+        "families": [
+          {
+            "channel_count": 12,
+            "channels": [
+              "I",
+              "II",
+              "III",
+              "aVR",
+              "aVL",
+              "aVF",
+              "V1",
+              "V2",
+              "V3",
+              "V4",
+              "V5",
+              "V6"
+            ],
+            "name": "standard_12_lead_ecg"
+          },
+          {
+            "channel_count": 1,
+            "channels": [
+              "ppg_green"
+            ],
+            "name": "green_ppg"
+          },
+          {
+            "channel_count": 1,
+            "channels": [
+              "accel_motion"
+            ],
+            "name": "motion_reference"
+          }
+        ],
+        "maximum_channel_count": 14,
+        "minimum_channel_count": 13
+      },
+      "declared_targets": [
+        "ppg_systolic_peak",
+        "ppg_pulse_onset"
+      ],
+      "deprecation_message": "",
+      "description": "Curated green-PPG onset, peak, pulse-interval and pulse-rate algorithm QA cases.",
+      "detector_output_schemas": [
+        "detection_json_v1",
+        "detection_csv_v2"
+      ],
+      "difficulty": [
+        "benchmark",
+        "stress"
+      ],
+      "duration": {
+        "maximum_case_seconds": 60,
+        "minimum_case_seconds": 20,
+        "total_seconds": 440
+      },
+      "estimated_package": {
+        "bytes": 51864200,
+        "peak_memory_bytes": 8488576,
+        "size_class": "medium"
+      },
+      "feature_tags": [
+        "onset",
+        "peak",
+        "pulse_interval",
+        "pulse_rate",
+        "ptt",
+        "respiration",
+        "perfusion",
+        "motion",
+        "dropout",
+        "saturation",
+        "weak_pulse",
+        "missing_pulse"
+      ],
+      "generator_compatibility": {
+        "challenge_package_contract": "synsigra_challenge_package_v1",
+        "local_verifier_min_version": "0.2.0",
+        "minimum_generator_version": "0.5.0-dev",
+        "pack_schema_version": 1,
+        "scenario_schema_versions": [
+          2,
+          3,
+          4
+        ],
+        "scoring_manifest_contract": "synsigra_scoring_manifest_v1"
+      },
+      "limitations": {
+        "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
+        "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
+      },
+      "local_verifier_smoke_tests": [
+        {
+          "scope": "local PPG event-detection scoring smoke test",
+          "target": "ppg_systolic_peak",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        },
+        {
+          "scope": "local PPG onset event-detection scoring smoke test",
+          "target": "ppg_pulse_onset",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        }
+      ],
+      "messages": [],
+      "metadata_type": "synsigra_curated_pack_metadata",
+      "metadata_version": "synsigra_curated_pack_metadata_export_v1",
+      "modality": [
+        "ECG",
+        "PPG"
+      ],
+      "name": "PPG Detection Benchmark v1",
+      "not_recommended_for": [
+        "ECG-only algorithm validation",
+        "HRV metric benchmark scoring",
+        "Clinical PPG performance claims",
+        "Blood pressure or oxygen saturation validation"
+      ],
+      "output_artifacts": [
+        {
+          "required": true,
+          "role": "manifest_json"
+        },
+        {
+          "required": true,
+          "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "case_summary_json"
+        },
+        {
+          "required": true,
+          "role": "annotations_json"
+        },
+        {
+          "required": true,
+          "role": "waveform_csv"
+        },
+        {
+          "required": true,
+          "role": "wfdb"
+        },
+        {
+          "required": true,
+          "role": "edf_bdf"
+        }
+      ],
+      "pack_id": "ppg_benchmark_v1",
+      "recommended_for": [
+        "PPG systolic peak and pulse onset benchmark tests",
+        "Pulse interval, pulse rate and PTT-related detector QA",
+        "Perfusion, motion, dropout, saturation and missing-pulse stress tests",
+        "Wearable PPG regression and benchmark gates"
+      ],
+      "recommended_profile": "benchmark",
+      "reference_only_targets": [],
+      "release_date": "2026-07-06",
+      "release_status": "beta",
+      "sampling_rates_hz": [
+        500,
+        250
+      ],
+      "schema_version": 1,
+      "scoreable_targets": [
+        {
+          "accepted_detection_formats": [
+            "detection_json_v1",
+            "detection_csv_v2"
+          ],
+          "case_count": 8,
+          "case_ids": [
+            "clean_delay",
+            "variable_ptt",
+            "respiratory_modulation",
+            "perfusion_drop",
+            "motion_and_saturation",
+            "dropout",
+            "weak_and_missing",
+            "combined_wearable"
+          ],
+          "default_tolerance_seconds": 0.08,
+          "description": "PPG systolic peak event timing against exact synthetic pulse annotations.",
+          "primary_metric": "f1_score",
+          "score_type": "event_detection",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "ppg_systolic_peak"
+        },
+        {
+          "accepted_detection_formats": [
+            "detection_json_v1",
+            "detection_csv_v2"
+          ],
+          "case_count": 8,
+          "case_ids": [
+            "clean_delay",
+            "variable_ptt",
+            "respiratory_modulation",
+            "perfusion_drop",
+            "motion_and_saturation",
+            "dropout",
+            "weak_and_missing",
+            "combined_wearable"
+          ],
+          "default_tolerance_seconds": 0.05,
+          "description": "PPG pulse onset event timing against exact synthetic pulse annotations.",
+          "primary_metric": "f1_score",
+          "score_type": "event_detection",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "ppg_pulse_onset"
+        }
+      ],
+      "scoring_mode": "local",
+      "source": {
+        "catalog_path": "examples/catalog/verification_packs_v1.json",
+        "pack_fingerprint": "sha256:0703431749c5355350d69dc89345e1043341d0b0b112354eb17566883bb68bba",
+        "pack_path": "../packs/ppg_benchmark_v1.json",
+        "source_content_sha256": "sha256:5e72b2cfded54ed78d1558e224fa757aa064ba6fba1beeaa8670572531ab5dbd"
+      },
+      "supported_threshold_profiles": [
+        "smoke",
+        "regression",
+        "stress",
+        "benchmark"
+      ],
+      "targets": [
+        "ppg_systolic_peak",
+        "ppg_pulse_onset"
+      ],
+      "threshold_profile_contract": {
+        "policy_failure_exit_code": 1,
+        "recommended_profile": "benchmark",
+        "supported_profiles": [
+          "smoke",
+          "regression",
+          "stress",
+          "benchmark"
+        ]
+      },
+      "ui": {
+        "primary_badges": [
+          "benchmark",
+          "stress",
+          "onset",
+          "peak",
+          "pulse_interval"
+        ],
+        "reference_only_before_job": false,
+        "scoreable_before_job": true
+      },
+      "version": "1.0"
+    }
+  ],
+  "product": "Synsigra Testbench",
+  "release_set_id": "synsigra_curated_release_2026_07_06",
+  "release_set_status": "beta",
+  "schema_version": 1,
+  "source_catalog_sha256": "sha256:c42dd1950bbd60df378b63026708b868391fee235bcb40ab0f5895bc308a1847"
+}

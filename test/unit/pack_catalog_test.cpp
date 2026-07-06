@@ -30,6 +30,22 @@ const syn_sig_ra::PackSummary* find_pack(
     return 0;
 }
 
+bool has_target(
+    const std::vector<syn_sig_ra::PackTargetSummary>& targets,
+    const std::string& target,
+    bool scoreable
+) {
+    for (std::vector<syn_sig_ra::PackTargetSummary>::const_iterator it =
+             targets.begin();
+         it != targets.end();
+         ++it) {
+        if (it->target == target && it->scoreable == scoreable) {
+            return true;
+        }
+    }
+    return false;
+}
+
 }  // namespace
 
 int main() {
@@ -78,6 +94,45 @@ int main() {
             r_peak->changelog.size() == 1,
         "catalog should expose validated release and compatibility metadata"
     );
+    require(
+        r_peak->scoring_mode == "mixed" &&
+            has_target(r_peak->scoreable_targets, "r_peak", true) &&
+            has_target(r_peak->reference_only_targets, "signal_quality", false),
+        "catalog should distinguish scoreable and reference-only R-peak metadata"
+    );
+    require(
+        r_peak->recommended_profile == "stress" &&
+            r_peak->detector_output_schemas.size() >= 1 &&
+            r_peak->estimated_package_bytes > 0 &&
+            r_peak->total_seconds == 100 &&
+            r_peak->minimum_channel_count == 12 &&
+            r_peak->maximum_channel_count == 12 &&
+            r_peak->sampling_rates_hz.size() == 1,
+        "catalog should expose discovery metadata for duration, channels, package size and verifier profile"
+    );
+    require(
+        r_peak->scenarios[0].duration_seconds > 0 &&
+            r_peak->scenarios[0].sampling_rate_hz == 500 &&
+            has_target(r_peak->scoreable_targets, r_peak->scenarios[0].scoreable_targets[0], true),
+        "catalog should expose per-case scoring metadata"
+    );
+
+    const syn_sig_ra::PackSummary* morphology =
+        find_pack(packs, "ecg_morphology_stress_v1");
+    require(
+        morphology != 0 &&
+            morphology->scoring_mode == "reference_only" &&
+            morphology->scoreable_targets.empty() &&
+            has_target(morphology->reference_only_targets, "morphology_assertions", false),
+        "reference-only packs should not look locally scoreable"
+    );
+    const syn_sig_ra::PackSummary* ppg_benchmark =
+        find_pack(packs, "ppg_benchmark_v1");
+    require(
+        ppg_benchmark != 0 &&
+            has_target(ppg_benchmark->scoreable_targets, "ppg_pulse_onset", true),
+        "catalog should expose non-R-peak scoreable targets from the curated release set"
+    );
 
     syn_sig_ra::PackSummary detail;
     require(
@@ -93,8 +148,14 @@ int main() {
         syn_sig_ra::pack_summary_json(detail).find("\"scenarios\"") !=
             std::string::npos &&
             syn_sig_ra::pack_summary_json(detail).find("\"changelog\"") !=
+                std::string::npos &&
+            syn_sig_ra::pack_summary_json(detail).find("\"scoreable_targets\"") !=
+                std::string::npos &&
+            syn_sig_ra::pack_summary_json(detail).find("\"reference_only_targets\"") !=
+                std::string::npos &&
+            syn_sig_ra::pack_summary_json(detail).find("\"recommended_profile\":\"stress\"") !=
                 std::string::npos,
-        "pack JSON should include scenario and release summaries"
+        "pack JSON should include scenario, release and rich discovery summaries"
     );
 
     require(
