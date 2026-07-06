@@ -495,3 +495,4 @@ The current deployment uses nginx as the public TLS edge and a custom Apache bac
 - [Developer reference](doc/DEVELOPER_REFERENCE.md)
 - [VPS deployment runbook](doc/VPS_DEPLOYMENT.md)
 - [SaaS product plan](doc/SAAS_PRODUCT_PLAN.md)
+- [Codex handoff after core release-set export](doc/SAAS_CODEX_HANDOFF_2026_07_06.md)
