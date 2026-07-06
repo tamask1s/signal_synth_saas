@@ -144,6 +144,7 @@ components:
         generator_build_identity: {type: string}
         manifest_url: {type: string}
         archive_url: {type: string}
+        detection_templates_url: {type: string}
         error:
           type: object
           properties:
@@ -348,6 +349,23 @@ paths:
       responses:
         '202': {description: New job queued}
         '409': {description: Invalid state}
+  /v1/jobs/{job_id}/detection-templates.zip:
+    get:
+      summary: Download detector-output templates for a completed curated job
+      description: Returns a ZIP containing README.md plus one template file per scoreable case/target. Reference-only targets are excluded.
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      parameters:
+        - {in: path, name: job_id, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Detection-template ZIP
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '404': {description: Job not found}
+        '409': {description: Job not succeeded, custom pack unsupported, or no scoreable targets}
   /v1/artifacts/{package_id}/{filename}:
     get:
       summary: Download immutable manifest or ZIP

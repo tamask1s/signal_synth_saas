@@ -63,9 +63,35 @@ curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
 unzip -t package.zip
 ```
 
+Download detector-output templates for the completed curated job:
+
+```sh
+curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
+  -o detection-templates.zip \
+  "$BASE/v1/jobs/job_REPLACE_ME/detection-templates.zip"
+unzip detection-templates.zip
+```
+
+The ZIP contains `README.md` plus one template file per locally scoreable
+case/target, for example `detections/clean_70_r_peak.csv`. Replace example
+rows with your algorithm output. Reference-only targets are intentionally not
+included.
+
+Run the local verifier:
+
+```sh
+python -m pip install ../signal_synth
+synsigra-verify package.zip detections/ verification-results/ \
+  --profile stress \
+  --force
+```
+
 The complete machine-readable reference is
-[`openapi.yaml`](openapi.yaml). A dependency-free Python implementation of
-the same flow is [`scripts/customer_smoke.py`](../scripts/customer_smoke.py).
+[`openapi.yaml`](openapi.yaml). The live app also serves a rendered API
+reference at `https://www.timeonion.com/syn_sig_ra/docs/api`, a one-page
+quickstart at `/docs/quickstart`, and troubleshooting at
+`/docs/troubleshooting`. A dependency-free Python implementation of the same
+flow is [`scripts/customer_smoke.py`](../scripts/customer_smoke.py).
 
 ## Stable error codes
 
@@ -76,6 +102,7 @@ the same flow is [`scripts/customer_smoke.py`](../scripts/customer_smoke.py).
 | 403 | `forbidden` | The role cannot perform the operation |
 | 404 | `project_not_found`, `pack_not_found`, `job_not_found`, `artifact_not_found` | Resource is absent or belongs to another tenant |
 | 409 | `job_cancel_invalid_state`, `job_retry_invalid_state` | Lifecycle action is invalid |
+| 409 | `job_templates_unavailable`, `custom_pack_templates_unavailable`, `pack_templates_unavailable` | Template ZIP cannot be generated for this job/pack state |
 | 409 | `pack_generator_incompatible` | Pack is not approved for this generator |
 | 415 | `unsupported_media_type` | JSON endpoint requires `application/json` |
 | 429 | `request_rate_limit`, `concurrent_job_limit`, `monthly_job_limit` | Retry after reducing request/job usage |
@@ -83,3 +110,14 @@ the same flow is [`scripts/customer_smoke.py`](../scripts/customer_smoke.py).
 
 Cross-tenant resources intentionally return 404. Clients must not infer
 resource existence from that response.
+
+## Troubleshooting verification
+
+- If the template ZIP is unavailable, wait for the job to reach `succeeded`
+  and use a curated pack with at least one scoreable target.
+- If `synsigra-verify` exits `1`, inspect detection filenames, required
+  columns, units, selected profile, and the generated per-case report.
+- If `synsigra-verify` exits `2`, start from the completed-job command in the
+  UI or the template ZIP `README.md`; this is a CLI usage error.
+- If artifacts expired, regenerate from the same pack version and archive the
+  new package locally.

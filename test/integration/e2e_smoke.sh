@@ -448,6 +448,12 @@ curl -fsS \
     "$BASE_URL/v1/artifacts/$PACKAGE_ID/package.zip" ||
     fail "package archive download failed"
 
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -o "$WORK_ROOT/detection-templates.zip" \
+    "$BASE_URL/v1/jobs/$JOB_ID/detection-templates.zip" ||
+    fail "detection template archive download failed"
+
 python3 - "$WORK_ROOT/manifest.json" "$WORK_ROOT/package.zip" <<'PY' ||
 import json
 import posixpath
@@ -480,6 +486,35 @@ for name in names:
         raise SystemExit("archive contains unsafe member path: " + name)
 PY
     fail "downloaded artifacts failed package layout validation"
+
+python3 - "$WORK_ROOT/detection-templates.zip" "$PACKAGE_ID" <<'PY' ||
+import sys
+import zipfile
+
+archive_path, package_id = sys.argv[1], sys.argv[2]
+expected = {
+    "README.md",
+    "detections/clean_70_r_peak.csv",
+    "detections/slow_45_r_peak.csv",
+    "detections/fast_120_r_peak.csv",
+    "detections/baseline_powerline_r_peak.csv",
+}
+with zipfile.ZipFile(archive_path) as archive:
+    bad_member = archive.testzip()
+    if bad_member is not None:
+        raise SystemExit("template zip member failed CRC: " + bad_member)
+    names = set(archive.namelist())
+    missing = expected - names
+    if missing:
+        raise SystemExit("template zip missing: " + ", ".join(sorted(missing)))
+    readme = archive.read("README.md").decode("utf-8")
+    if "synsigra-verify" not in readme or package_id not in readme:
+        raise SystemExit("template README does not match verifier workflow")
+    csv = archive.read("detections/clean_70_r_peak.csv").decode("utf-8")
+    if not csv.startswith("time_seconds,sample_index,channel,label,confidence\n"):
+        raise SystemExit("R-peak template CSV header is invalid")
+PY
+    fail "detection template archive failed validation"
 
 DELETE_HTTP=$(
     curl -sS \

@@ -1,221 +1,123 @@
 # SaaS product readiness plan
 
-This repo now has a working private SaaS core:
+Updated: 2026-07-06
 
-- Apache 2 module under `/syn_sig_ra/...`;
-- public health and pack catalog endpoints;
-- API-key protected job and artifact endpoints;
-- SQLite metadata store;
-- local worker loop around `signal-synth pack challenge`;
-- immutable local artifact storage;
-- end-to-end smoke test;
-- Apache 2.2 VPS deployment runbook.
+SynSigRa SaaS is now a working private-beta hosted workflow for synthetic
+biosignal algorithm QA. The product remains intentionally thin: generation,
+pack validation, challenge packaging, and local verifier semantics stay in the
+sibling `signal_synth` project. This repo owns browser access, projects,
+curated/custom pack selection, job orchestration, artifact access, usage
+limits, docs, and live operations.
 
-That is enough for controlled live smoke usage. It is not yet enough for real
-external users without close operator involvement.
+## Current implemented baseline
+
+- Apache module mounted under `/syn_sig_ra/...`, with nginx as the HTTPS edge.
+- Open registration with browser session cookies.
+- Personal API keys for scripts and CI; secrets are shown once and stored
+  hashed.
+- Organizations, projects, roles, and tenant isolation.
+- Public health/readiness endpoints.
+- Rich curated catalog for ten beta packs imported from
+  `signal_synth/examples/catalog/curated_pack_metadata_v1.json`.
+- Catalog UI/API exposes scoreable targets, reference-only targets, detector
+  schemas, verifier profiles, difficulty tags, duration, sampling rates,
+  channel counts, package-size estimates, and recommended-use guidance.
+- Scenario draft editor with validation.
+- Immutable custom pack composer from valid scenario drafts.
+- Job creation, pagination, cancel, retry, soft delete, worker execution, and
+  artifact downloads.
+- Completed-job recipe panel with copyable `synsigra-verify` commands.
+- Detector-output template ZIP for completed curated jobs.
+- Quotas, request rate limits, usage view, and admin metrics.
+- Retention cleanup, backup, restore drill, build/deploy/verify scripts, and
+  live deployment workflow.
+- User manual, rendered in-app quickstart/API/troubleshooting docs, raw
+  OpenAPI YAML, curl examples, and a Python smoke client.
+
+This is enough for trusted private beta usage and product iteration. It is not
+yet enough for unknown external users without completing the remaining release,
+security, account-lifecycle, and legal work.
 
 ## Product boundary
 
-The product should remain a B2B developer-tool platform for synthetic
-biosignal QA packages. It should not become a medical diagnostic workflow, a
-PHI intake system, or a generic ECG datastore.
+The user-facing promise is:
 
-The user-facing promise should be:
-
-1. choose a curated synthetic biosignal test pack;
+1. choose a curated or custom synthetic biosignal challenge pack;
 2. generate a deterministic package with explicit ground truth;
-3. download machine-readable and human-readable evidence;
+3. download package, manifest, and detector-output templates;
 4. run the customer algorithm locally;
-5. reproduce and audit the package later by pack, generator, and fingerprint.
+5. verify local outputs with `synsigra-verify`;
+6. archive package, manifest, detector build/configuration, detections, and
+   verification reports together.
 
-## Gap analysis
+The service must not become:
 
-### Security and exposure
+- clinical decision support;
+- patient monitoring;
+- PHI or clinical-note storage;
+- regulated medical-device validation;
+- server-side execution of customer detector code;
+- a generic ECG/PPG datastore.
 
-Current state:
+## Current beta limitations
 
-- HTTP is live and functional.
-- API keys are stored hashed, but onboarding is manual.
-- Apache route scope is constrained to `/syn_sig_ra/...`.
+- Registration is open, but e-mail ownership verification and password
+  recovery are not implemented.
+- No transactional e-mail provider is configured.
+- Legal/commercial terms are not ready for less-trusted users.
+- Security baseline needs a focused threat model, secret rotation review, and
+  audit export story before broader beta.
+- Release automation exists as scripts, but full CI/CD/release governance is
+  still pending.
+- API hardening work remains: idempotency keys, request IDs, richer artifact
+  metadata, HEAD support, and stable error examples.
+- Detector-output templates cover curated scoreable targets; custom-pack
+  template generation is deferred until custom scoring metadata is richer.
+- Template/form-assisted scenario authoring is not implemented yet.
+- Privacy-preserving activation telemetry is not implemented.
 
-Missing before real users:
+## Remaining roadmap issues
 
-- HTTPS and certificate renewal;
-- explicit HTTP redirect/deny policy;
-- key rotation/revocation workflow;
-- rate limiting and quotas;
-- security headers where applicable;
-- threat model and audit coverage review.
+Before broader external beta:
 
-### Product usability
-
-Current state:
-
-- A developer can use curl with a manually issued API key.
-- Pack metadata is available.
-- Jobs can be created and fetched by known ID.
-
-Missing before real users:
-
-- customer-facing API docs;
-- onboarding/offboarding process;
-- job list/status history;
-- cancellation/retry semantics;
-- minimal web UI for non-curl usage;
-- clear pack descriptions, versioning, changelog, and deprecation behavior.
-
-### Operations
-
-Current state:
-
-- A systemd worker can run jobs.
-- Apache and worker logs exist.
-- Local immutable storage works.
-
-Missing before real users:
-
-- structured logs and metrics;
-- queue depth/disk/worker alerts;
-- backup and restore drill;
-- retention/cleanup policy;
-- release artifact versioning;
-- repeatable deployment and rollback automation.
-
-### Commercial and legal readiness
-
-Current state:
-
-- README and `signal_synth` docs clearly state synthetic engineering-test
-  boundaries.
-
-Missing before real users:
-
-- beta terms and support expectations;
-- no-PHI/no-diagnostic-use policy shown to customers;
-- provenance/license notices in generated packages where needed;
-- billing or at least usage-plan placeholders.
-
-## Recommended phases
-
-### Phase 0: private live smoke
-
-Goal: keep validating the core API on the live VPS with trusted internal keys.
-
-Already mostly done:
-
-- `/syn_sig_ra/healthz` live;
-- pack catalog live;
-- job creation, worker completion, manifest/archive download live;
-- E2E test and deployment runbook in this repo.
-
-Exit criteria:
-
-- #9 and #10 closed;
-- no regressions to the existing `timeonion.com` site;
-- live worker and Apache checks documented.
-
-### Phase 1: private beta API
-
-Goal: a small number of known external technical users can use the API safely.
-
-Required issues:
-
-- [#12 Public HTTPS and HTTP hardening](https://github.com/tamask1s/signal_synth_saas/issues/12)
-- [#13 Customer onboarding and API-key lifecycle](https://github.com/tamask1s/signal_synth_saas/issues/13)
-- [#15 Job lifecycle API: list, cancel, retry, retention](https://github.com/tamask1s/signal_synth_saas/issues/15)
-- [#16 Quotas, rate limits, and usage metering](https://github.com/tamask1s/signal_synth_saas/issues/16)
-- [#17 Observability: structured logs, metrics, alerts](https://github.com/tamask1s/signal_synth_saas/issues/17)
-- [#18 Backup, restore, and artifact retention policy](https://github.com/tamask1s/signal_synth_saas/issues/18)
-- [#20 Customer API docs, examples, and SDK smoke clients](https://github.com/tamask1s/signal_synth_saas/issues/20)
+- [#22 Release, CI/CD, and deployment automation](https://github.com/tamask1s/signal_synth_saas/issues/22)
 - [#23 Security baseline: threat model, secret rotation, audit export](https://github.com/tamask1s/signal_synth_saas/issues/23)
 - [#24 Commercial and legal readiness for private beta](https://github.com/tamask1s/signal_synth_saas/issues/24)
+- [#30 Transactional email verification and password recovery](https://github.com/tamask1s/signal_synth_saas/issues/30)
 
-Phase 1 can remain API-only. A web UI is useful, but not required if beta users
-are developers and the docs/client examples are good.
+Product/API hardening after the default verification path:
 
-### Phase 2: usable hosted MVP
+- [#34 Add template/form-assisted scenario authoring with preview](https://github.com/tamask1s/signal_synth_saas/issues/34)
+- [#36 Add API usability hardening: idempotency, request IDs, artifact metadata](https://github.com/tamask1s/signal_synth_saas/issues/36)
+- [#38 Add privacy-preserving beta activation telemetry](https://github.com/tamask1s/signal_synth_saas/issues/38)
 
-Goal: users can self-serve common flows without direct shell/operator support.
-
-Required issues:
-
-- [#14 Organizations, projects, roles, and tenancy model](https://github.com/tamask1s/signal_synth_saas/issues/14)
-- [#19 Pack catalog productization and versioning](https://github.com/tamask1s/signal_synth_saas/issues/19)
-- [#21 Minimal web UI for packs, jobs, and downloads](https://github.com/tamask1s/signal_synth_saas/issues/21)
-- [#22 Release, CI/CD, and deployment automation](https://github.com/tamask1s/signal_synth_saas/issues/22)
-
-At this stage, the service should have:
-
-- stable customer-facing documentation;
-- at least one non-curl UI path;
-- a repeatable deployment process;
-- visible pack/version semantics;
-- quota and retention controls;
-- operational alerts.
-
-### Phase 3: enterprise-ready service
-
-Goal: support teams and regulated engineering organizations.
-
-Likely follow-up work after Phase 2:
-
-- SSO or enterprise identity provider integration;
-- role-based audit export;
-- per-organization export policy;
-- object storage or on-prem deployment option;
-- controlled release channels tied to `signal_synth` generator versions;
-- validation evidence bundle per release.
-
-These should not be implemented before the private beta proves which workflows
-customers actually need.
+Issues #31, #32, #33, #35, and #37 are the current documentation/onboarding
+and curated verification path closure set.
 
 ## Architecture direction
 
-For the next increment, keep the Apache module and local worker. The current
-VPS is already serving the domain, and the route prefix is isolated. Replacing
-the runtime stack now would create migration risk without improving the core
-product feedback loop.
+Keep the current Apache module and local worker while the product is still in
+trusted private beta. The VPS already serves the domain, the route prefix is
+isolated, and the live deploy loop is fast.
 
-The first major architecture pressure points will be:
+The first likely scaling pressure points are:
 
-- SQLite concurrency and backup limits;
-- local disk retention;
-- manual API-key operations;
-- lack of job search/listing;
-- lack of observability.
+- SQLite concurrency and backup windows;
+- local disk artifact retention;
+- manual account/support operations;
+- API request tracing and customer support diagnostics;
+- release governance tied to `signal_synth` versions.
 
-When those become painful, migrate deliberately:
+When those become real constraints, migrate deliberately:
 
 ```text
 Apache module API
   -> explicit service boundary
   -> PostgreSQL metadata
-  -> object storage for artifacts
+  -> object/object-storage artifact backend
   -> external queue/workers
   -> optional frontend/API gateway
 ```
 
-Do not move to a larger stack until quotas, retention, and customer workflows
-are better understood.
-
-## Task index
-
-Roadmap tracking:
-
-- [#11 SaaS readiness roadmap and backlog](https://github.com/tamask1s/signal_synth_saas/issues/11)
-
-Follow-up tasks:
-
-- [#12 Public HTTPS and HTTP hardening](https://github.com/tamask1s/signal_synth_saas/issues/12)
-- [#13 Customer onboarding and API-key lifecycle](https://github.com/tamask1s/signal_synth_saas/issues/13)
-- [#14 Organizations, projects, roles, and tenancy model](https://github.com/tamask1s/signal_synth_saas/issues/14)
-- [#15 Job lifecycle API: list, cancel, retry, retention](https://github.com/tamask1s/signal_synth_saas/issues/15)
-- [#16 Quotas, rate limits, and usage metering](https://github.com/tamask1s/signal_synth_saas/issues/16)
-- [#17 Observability: structured logs, metrics, alerts](https://github.com/tamask1s/signal_synth_saas/issues/17)
-- [#18 Backup, restore, and artifact retention policy](https://github.com/tamask1s/signal_synth_saas/issues/18)
-- [#19 Pack catalog productization and versioning](https://github.com/tamask1s/signal_synth_saas/issues/19)
-- [#20 Customer API docs, examples, and SDK smoke clients](https://github.com/tamask1s/signal_synth_saas/issues/20)
-- [#21 Minimal web UI for packs, jobs, and downloads](https://github.com/tamask1s/signal_synth_saas/issues/21)
-- [#22 Release, CI/CD, and deployment automation](https://github.com/tamask1s/signal_synth_saas/issues/22)
-- [#23 Security baseline: threat model, secret rotation, audit export](https://github.com/tamask1s/signal_synth_saas/issues/23)
-- [#24 Commercial and legal readiness for private beta](https://github.com/tamask1s/signal_synth_saas/issues/24)
+Do not move to a larger stack until quotas, retention, customer workflows, and
+support volume justify it.

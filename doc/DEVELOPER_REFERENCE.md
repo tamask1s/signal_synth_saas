@@ -174,8 +174,15 @@ entries are regular `.json` files below `SynSigRaPackRoot`; symlinks, absolute
 paths, traversal sequences, unsafe IDs, malformed packs, and filename/pack-ID
 mismatches are rejected. Pack metadata and fingerprints are parsed by the
 authoritative pack implementation compiled directly from the sibling
-`../signal_synth` checkout. Responses include pack version, targets, scenario
-count, and scenario IDs/targets, but never expose internal scenario file paths.
+`../signal_synth` checkout.
+
+Responses include rich release-set discovery metadata from
+`curated_pack_metadata_v1.catalog`: scoreable targets, reference-only targets,
+detector output schemas, recommended verifier profile, supported threshold
+profiles, recommended-for/not-recommended-for copy, duration, sampling rates,
+channel counts, package-size estimates, difficulty tags, and per-case
+scoreable/reference-only summaries. Internal scenario source paths are never
+exposed.
 
 ### Create challenge job
 

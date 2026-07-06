@@ -15,9 +15,12 @@
 
 #include <cctype>
 #include <cerrno>
+#include <cstdint>
 #include <cstdlib>
 #include <fstream>
+#include <map>
 #include <set>
+#include <sstream>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
@@ -118,6 +121,197 @@ std::string json_dump_line(json_t* value) {
     return output;
 }
 
+struct ZipEntry {
+    std::string path;
+    std::string content;
+};
+
+void append_u16(std::string& output, std::uint16_t value) {
+    output.push_back(static_cast<char>(value & 0xffu));
+    output.push_back(static_cast<char>((value >> 8) & 0xffu));
+}
+
+void append_u32(std::string& output, std::uint32_t value) {
+    output.push_back(static_cast<char>(value & 0xffu));
+    output.push_back(static_cast<char>((value >> 8) & 0xffu));
+    output.push_back(static_cast<char>((value >> 16) & 0xffu));
+    output.push_back(static_cast<char>((value >> 24) & 0xffu));
+}
+
+std::uint32_t crc32(const std::string& data) {
+    std::uint32_t crc = 0xffffffffu;
+    for (std::string::const_iterator it = data.begin(); it != data.end(); ++it) {
+        crc ^= static_cast<unsigned char>(*it);
+        for (int bit = 0; bit < 8; ++bit) {
+            const std::uint32_t mask = (crc & 1u) ? 0xedb88320u : 0u;
+            crc = (crc >> 1) ^ mask;
+        }
+    }
+    return crc ^ 0xffffffffu;
+}
+
+std::string zip_store_archive(const std::vector<ZipEntry>& entries) {
+    std::string output;
+    std::string central_directory;
+    for (std::vector<ZipEntry>::const_iterator it = entries.begin();
+         it != entries.end(); ++it) {
+        const std::uint32_t offset = static_cast<std::uint32_t>(output.size());
+        const std::uint32_t crc = crc32(it->content);
+        const std::uint32_t size = static_cast<std::uint32_t>(it->content.size());
+        append_u32(output, 0x04034b50u);
+        append_u16(output, 20);
+        append_u16(output, 0);
+        append_u16(output, 0);
+        append_u16(output, 0);
+        append_u16(output, 0);
+        append_u32(output, crc);
+        append_u32(output, size);
+        append_u32(output, size);
+        append_u16(output, static_cast<std::uint16_t>(it->path.size()));
+        append_u16(output, 0);
+        output += it->path;
+        output += it->content;
+
+        append_u32(central_directory, 0x02014b50u);
+        append_u16(central_directory, 20);
+        append_u16(central_directory, 20);
+        append_u16(central_directory, 0);
+        append_u16(central_directory, 0);
+        append_u16(central_directory, 0);
+        append_u16(central_directory, 0);
+        append_u32(central_directory, crc);
+        append_u32(central_directory, size);
+        append_u32(central_directory, size);
+        append_u16(central_directory, static_cast<std::uint16_t>(it->path.size()));
+        append_u16(central_directory, 0);
+        append_u16(central_directory, 0);
+        append_u16(central_directory, 0);
+        append_u16(central_directory, 0);
+        append_u32(central_directory, 0);
+        append_u32(central_directory, offset);
+        central_directory += it->path;
+    }
+    const std::uint32_t central_offset = static_cast<std::uint32_t>(output.size());
+    output += central_directory;
+    append_u32(output, 0x06054b50u);
+    append_u16(output, 0);
+    append_u16(output, 0);
+    append_u16(output, static_cast<std::uint16_t>(entries.size()));
+    append_u16(output, static_cast<std::uint16_t>(entries.size()));
+    append_u32(output, static_cast<std::uint32_t>(central_directory.size()));
+    append_u32(output, central_offset);
+    append_u16(output, 0);
+    return output;
+}
+
+std::string detection_template_extension(const syn_sig_ra::PackTargetSummary& target) {
+    for (std::vector<std::string>::const_iterator it =
+             target.accepted_formats.begin();
+         it != target.accepted_formats.end(); ++it) {
+        if (*it == "hrv_json_v1") {
+            return ".json";
+        }
+    }
+    return ".csv";
+}
+
+std::string detection_template_content(
+    const syn_sig_ra::PackTargetSummary& target,
+    const std::string& case_id
+) {
+    if (detection_template_extension(target) == ".json") {
+        std::ostringstream output;
+        output << "{\n"
+               << "  \"schema_version\": 1,\n"
+               << "  \"case_id\": \"" << case_id << "\",\n"
+               << "  \"target\": \"" << target.target << "\",\n"
+               << "  \"metrics\": {\n"
+               << "    \"sdnn_ms\": 0.0,\n"
+               << "    \"rmssd_ms\": 0.0,\n"
+               << "    \"mean_rr_ms\": 0.0,\n"
+               << "    \"lf_hf_ratio\": 0.0\n"
+               << "  }\n"
+               << "}\n";
+        return output.str();
+    }
+    if (target.target == "ecg_beat_classification") {
+        return "time_seconds,sample_index,label,confidence\n"
+               "0.000,0,N,1.0\n";
+    }
+    return "time_seconds,sample_index,channel,label,confidence\n"
+           "0.000,0,,event,1.0\n";
+}
+
+std::string detection_template_readme(
+    const syn_sig_ra::JobRecord& job,
+    const syn_sig_ra::PackSummary& pack,
+    const std::vector<ZipEntry>& template_entries
+) {
+    const std::string package_file = job.package_id + "-package.zip";
+    const std::string output_dir = "verification-" + job.package_id;
+    const std::string profile = pack.recommended_profile.empty()
+        ? "regression" : pack.recommended_profile;
+    std::ostringstream output;
+    output << "# Detection templates for " << job.job_id << "\n\n"
+           << "Pack: `" << pack.pack_id << "` " << pack.version << "\n\n"
+           << "Copy this `detections/` folder next to the downloaded package, "
+           << "replace example rows with your algorithm output, then run:\n\n"
+           << "```sh\n"
+           << "synsigra-verify \"" << package_file << "\" detections/ \""
+           << output_dir << "\" --profile " << profile << " --force\n"
+           << "```\n\n"
+           << "The verifier writes `verification_summary.json`, "
+           << "`verification_summary.csv`, and `verification_report.html` "
+           << "under `" << output_dir << "/`.\n\n"
+           << "Only locally scoreable targets are included. Reference-only "
+           << "targets are intentionally not detector-output requirements.\n\n"
+           << "## Files\n\n";
+    for (std::vector<ZipEntry>::const_iterator it = template_entries.begin();
+         it != template_entries.end(); ++it) {
+        output << "- `" << it->path << "`\n";
+    }
+    output << "\n## Column notes\n\n"
+           << "- Event-detection CSV required column: `time_seconds`, in seconds from case start.\n"
+           << "- Event-detection CSV optional columns: `sample_index`, `channel`, `label`, `confidence`.\n"
+           << "- Beat-classification CSV required columns: `time_seconds`, `label`.\n"
+           << "- HRV JSON templates provide a minimal `metrics` object; replace values with algorithm output.\n";
+    return output.str();
+}
+
+bool build_detection_template_zip(
+    const syn_sig_ra::JobRecord& job,
+    const syn_sig_ra::PackSummary& pack,
+    std::string& zip,
+    std::string& error
+) {
+    std::vector<ZipEntry> templates;
+    for (std::vector<syn_sig_ra::PackTargetSummary>::const_iterator target =
+             pack.scoreable_targets.begin();
+         target != pack.scoreable_targets.end(); ++target) {
+        const std::string extension = detection_template_extension(*target);
+        for (std::vector<std::string>::const_iterator case_id =
+                 target->case_ids.begin();
+             case_id != target->case_ids.end(); ++case_id) {
+            ZipEntry entry;
+            entry.path = "detections/" + *case_id + "_" + target->target + extension;
+            entry.content = detection_template_content(*target, *case_id);
+            templates.push_back(entry);
+        }
+    }
+    if (templates.empty()) {
+        error = "pack has no locally scoreable detector-output templates";
+        return false;
+    }
+    std::vector<ZipEntry> entries;
+    ZipEntry readme;
+    readme.path = "README.md";
+    readme.content = detection_template_readme(job, pack, templates);
+    entries.push_back(readme);
+    entries.insert(entries.end(), templates.begin(), templates.end());
+    zip = zip_store_archive(entries);
+    return true;
+}
+
 json_t* job_json_object(
     const syn_sig_ra::JobRecord& job,
     const std::string& public_base_path
@@ -197,6 +391,16 @@ json_t* job_json_object(
                 (
                     public_base_path + "/v1/artifacts/" + job.package_id +
                     "/package.zip"
+                ).c_str()
+            )
+        );
+        json_object_set_new(
+            root,
+            "detection_templates_url",
+            json_string(
+                (
+                    public_base_path + "/v1/jobs/" + job.job_id +
+                    "/detection-templates.zip"
                 ).c_str()
             )
         );
@@ -593,6 +797,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         <button id="new-scenario" class="secondary">New draft</button>
       </div>
       <p class="muted">Start from a working ECG example or edit raw JSON. Invalid drafts remain editable and show validation details.</p>
+      <p class="verify-note"><strong>No PHI:</strong> use synthetic engineering scenarios only. Do not enter patient identifiers, clinical notes, personal data, or diagnostic claims.</p>
       <label for="scenario-name">Name</label>
       <input id="scenario-name" type="text" maxlength="100" placeholder="Scenario name">
       <label for="scenario-json">Scenario JSON</label>
@@ -610,6 +815,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         <h2>Custom pack composer</h2>
         <button id="refresh-custom-packs" class="secondary">Refresh</button>
       </div>
+      <p class="verify-note"><strong>No PHI:</strong> pack names and descriptions must not contain patient data, personal identifiers, clinical notes, or diagnostic-use claims.</p>
       <label for="custom-pack-name">Pack name</label>
       <input id="custom-pack-name" type="text" maxlength="100" placeholder="My validation pack">
       <label for="custom-pack-description">Description</label>
@@ -631,12 +837,155 @@ const char kUiHtml[] = R"HTML(<!doctype html>
     </section>
     <section id="documentation" class="panel">
       <h2>Documentation</h2>
-      <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/README.md" target="_blank" rel="noopener">User manual</a></p>
-      <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/README.md#recommended-algorithm-developer-workflow" target="_blank" rel="noopener">Algorithm developer workflow</a></p>
-      <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/doc/openapi.yaml" target="_blank" rel="noopener">OpenAPI reference</a></p>
+      <p><a href="/syn_sig_ra/docs/quickstart">One-page quickstart</a></p>
+      <p><a href="/syn_sig_ra/docs/api">Rendered API reference</a></p>
+      <p><a href="/syn_sig_ra/docs/troubleshooting">Troubleshooting guide</a></p>
+      <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/README.md" target="_blank" rel="noopener">Full user manual</a></p>
+      <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/doc/openapi.yaml" target="_blank" rel="noopener">Raw OpenAPI YAML</a></p>
     </section>
   </main>
   <script src="/syn_sig_ra/ui/app.js"></script>
+</body>
+</html>
+)HTML";
+
+const char kQuickstartHtml[] = R"HTML(<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SynSigRa quickstart</title>
+  <link rel="stylesheet" href="/syn_sig_ra/ui/style.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="panel">
+      <p class="eyebrow">SynSigRa docs</p>
+      <h1>One-page quickstart</h1>
+      <p class="verify-note"><strong>Synthetic engineering data only.</strong> Do not enter patient data, personal identifiers, clinical notes, PHI, or diagnostic-use claims.</p>
+      <ol>
+        <li>Open <a href="/syn_sig_ra/">the web UI</a>, create an account, or sign in.</li>
+        <li>Use the default project or create a project if your role allows it.</li>
+        <li>Choose a curated pack. Check <strong>Scoreable locally</strong>, <strong>Reference-only</strong>, duration, sampling rate, channel count, and recommended verifier profile before creating the job.</li>
+        <li>Create a challenge job and wait for <code>succeeded</code>.</li>
+        <li>Download <code>manifest.json</code>, <code>package.zip</code>, and <code>detection-templates.zip</code>.</li>
+        <li>Unzip the detection templates and replace example rows under <code>detections/</code> with your algorithm output.</li>
+        <li>Install the local verifier: <code>python -m pip install ../signal_synth</code>.</li>
+        <li>Copy the exact <code>synsigra-verify</code> command from the completed job card and run it next to the downloaded package.</li>
+        <li>Inspect <code>verification_summary.json</code>, <code>verification_summary.csv</code>, and <code>verification_report.html</code>.</li>
+      </ol>
+      <pre class="output">synsigra-verify "pkg_123-package.zip" detections/ "verification-pkg_123" --profile stress --force</pre>
+      <p>Exit code <code>0</code> means pass, <code>1</code> means verification/input/scoring/threshold failure, and <code>2</code> means invalid CLI usage.</p>
+      <p><a href="/syn_sig_ra/docs/api">Rendered API reference</a> · <a href="/syn_sig_ra/docs/troubleshooting">Troubleshooting</a> · <a href="/syn_sig_ra/">Back to app</a></p>
+    </section>
+  </main>
+</body>
+</html>
+)HTML";
+
+const char kApiDocsHtml[] = R"HTML(<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SynSigRa API reference</title>
+  <link rel="stylesheet" href="/syn_sig_ra/ui/style.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="panel">
+      <p class="eyebrow">SynSigRa docs</p>
+      <h1>Rendered API reference</h1>
+      <p>Base URL: <code>https://www.timeonion.com/syn_sig_ra</code>. Browser calls use the secure session cookie. Scripts and CI use <code>Authorization: Bearer &lt;api-key&gt;</code>.</p>
+      <p class="verify-note"><strong>No PHI:</strong> API requests, project names, labels, scenario drafts, and custom-pack text must contain synthetic engineering data only.</p>
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Purpose</th><th>Auth</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/healthz</code></td><td>Liveness/build</td><td>Public</td></tr>
+          <tr><td>GET</td><td><code>/readyz</code></td><td>Readiness and disk</td><td>Public</td></tr>
+          <tr><td>GET</td><td><code>/v1/packs</code></td><td>Rich curated pack catalog</td><td>Public</td></tr>
+          <tr><td>GET</td><td><code>/v1/packs/{pack_id}</code></td><td>Pack detail including scoreable/reference-only targets</td><td>Public</td></tr>
+          <tr><td>POST</td><td><code>/v1/auth/register</code></td><td>Create account and session</td><td>Public</td></tr>
+          <tr><td>POST</td><td><code>/v1/auth/login</code></td><td>Start browser session</td><td>Public</td></tr>
+          <tr><td>GET</td><td><code>/v1/auth/me</code></td><td>Current account</td><td>Session</td></tr>
+          <tr><td>POST</td><td><code>/v1/auth/logout</code></td><td>End browser session</td><td>Session</td></tr>
+          <tr><td>GET/POST</td><td><code>/v1/projects</code></td><td>List/create projects</td><td>Authenticated</td></tr>
+          <tr><td>GET/POST/DELETE</td><td><code>/v1/api-keys</code></td><td>Manage personal API keys</td><td>Authenticated</td></tr>
+          <tr><td>GET/POST/PUT/DELETE</td><td><code>/v1/scenarios</code></td><td>Scenario draft lifecycle</td><td>Authenticated</td></tr>
+          <tr><td>GET/POST/DELETE</td><td><code>/v1/custom-packs</code></td><td>Compose/list/hide custom packs</td><td>Authenticated</td></tr>
+          <tr><td>GET/POST</td><td><code>/v1/jobs</code></td><td>List/create jobs</td><td>Authenticated</td></tr>
+          <tr><td>GET/DELETE</td><td><code>/v1/jobs/{job_id}</code></td><td>Read or soft-delete job</td><td>Organization</td></tr>
+          <tr><td>POST</td><td><code>/v1/jobs/{job_id}/cancel</code></td><td>Cancel queued job</td><td>Developer+</td></tr>
+          <tr><td>POST</td><td><code>/v1/jobs/{job_id}/retry</code></td><td>Retry failed/cancelled job</td><td>Developer+</td></tr>
+          <tr><td>GET</td><td><code>/v1/jobs/{job_id}/detection-templates.zip</code></td><td>Detector-output templates for completed curated jobs</td><td>Organization</td></tr>
+          <tr><td>GET</td><td><code>/v1/artifacts/{package_id}/manifest.json</code></td><td>Download manifest</td><td>Organization</td></tr>
+          <tr><td>GET</td><td><code>/v1/artifacts/{package_id}/package.zip</code></td><td>Download package ZIP</td><td>Organization</td></tr>
+          <tr><td>GET</td><td><code>/v1/usage</code></td><td>Caller usage and limits</td><td>Authenticated</td></tr>
+          <tr><td>GET</td><td><code>/v1/metrics</code></td><td>Operational metrics</td><td>Owner/admin</td></tr>
+        </tbody>
+      </table>
+      <h2>Minimal curl client</h2>
+      <pre class="output">read -r -s SYN_SIG_RA_API_KEY
+BASE=https://www.timeonion.com/syn_sig_ra
+curl -fsS "$BASE/v1/packs"
+curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" "$BASE/v1/projects"
+curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" -H "Content-Type: application/json" \
+  -d '{"project_id":"org_live_default","pack_id":"r_peak_stress_v1"}' "$BASE/v1/jobs"</pre>
+      <h2>Minimal Python client</h2>
+      <pre class="output">import json, os, urllib.request
+base = "https://www.timeonion.com/syn_sig_ra"
+key = os.environ["SYN_SIG_RA_API_KEY"]
+req = urllib.request.Request(base + "/v1/jobs", data=json.dumps({
+    "project_id": "org_live_default",
+    "pack_id": "r_peak_stress_v1",
+}).encode(), headers={
+    "Authorization": "Bearer " + key,
+    "Content-Type": "application/json",
+})
+print(urllib.request.urlopen(req).read().decode())</pre>
+      <p>Raw machine-readable contract: <a href="https://github.com/tamask1s/signal_synth_saas/blob/master/doc/openapi.yaml" target="_blank" rel="noopener">OpenAPI YAML</a>.</p>
+      <p><a href="/syn_sig_ra/docs/quickstart">Quickstart</a> · <a href="/syn_sig_ra/docs/troubleshooting">Troubleshooting</a> · <a href="/syn_sig_ra/">Back to app</a></p>
+    </section>
+  </main>
+</body>
+</html>
+)HTML";
+
+const char kTroubleshootingHtml[] = R"HTML(<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SynSigRa troubleshooting</title>
+  <link rel="stylesheet" href="/syn_sig_ra/ui/style.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="panel">
+      <p class="eyebrow">SynSigRa docs</p>
+      <h1>Troubleshooting</h1>
+      <table>
+        <thead><tr><th>Symptom / code</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td><code>401 unauthorized</code></td><td>Sign in again in the browser, or create/use a valid personal API key for scripts.</td></tr>
+          <tr><td><code>403 forbidden</code></td><td>Your role cannot perform the operation. Ask an owner/admin or use a developer/owner account.</td></tr>
+          <tr><td><code>404 *_not_found</code></td><td>Check the ID. Cross-organization resources intentionally return 404.</td></tr>
+          <tr><td><code>409 job_*_invalid_state</code></td><td>Cancel only queued jobs; retry only failed/cancelled jobs; delete only non-running jobs.</td></tr>
+          <tr><td><code>409 pack_generator_incompatible</code></td><td>Select a current curated pack. Deprecated/incompatible packs cannot be generated.</td></tr>
+          <tr><td><code>409 job_templates_unavailable</code></td><td>Wait until the job succeeds. Template ZIPs are only available for completed curated jobs with scoreable targets.</td></tr>
+          <tr><td><code>429 request_rate_limit</code></td><td>Slow the client down. The private-beta limit is 120 requests/minute per key.</td></tr>
+          <tr><td><code>429 concurrent_job_limit</code></td><td>Wait for queued/running jobs to finish. Current limit is 2 active jobs per organization.</td></tr>
+          <tr><td><code>429 monthly_job_limit</code></td><td>Monthly job quota is exhausted. Use existing packages or contact the operator.</td></tr>
+          <tr><td>Failed job</td><td>Open the job card and read the error. If it is a generator/catalog issue, keep the job ID and report it.</td></tr>
+          <tr><td>Expired artifact</td><td>Regenerate the job from the same pack version if the retained package is gone. Archive downloaded packages locally for audit evidence.</td></tr>
+          <tr><td>Verifier exit <code>1</code></td><td>Check package path, detection filenames, required columns, units, selected profile, and per-case report.</td></tr>
+          <tr><td>Verifier exit <code>2</code></td><td>Fix CLI arguments. Start from the command in the completed-job recipe panel.</td></tr>
+        </tbody>
+      </table>
+      <p class="verify-note"><strong>Boundary:</strong> SynSigRa is synthetic engineering QA tooling, not clinical validation, diagnosis, patient monitoring, or PHI storage.</p>
+      <p><a href="/syn_sig_ra/docs/quickstart">Quickstart</a> · <a href="/syn_sig_ra/docs/api">Rendered API reference</a> · <a href="/syn_sig_ra/">Back to app</a></p>
+    </section>
+  </main>
 </body>
 </html>
 )HTML";
@@ -807,6 +1156,22 @@ textarea {
   padding: 10px 12px;
   font: 13px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
   resize: vertical;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0 20px;
+}
+th, td {
+  border-bottom: 1px solid var(--border);
+  padding: 9px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .92em;
 }
 
 button {
@@ -1682,7 +2047,7 @@ const char kUiJs[] = R"JS((() => {
         <summary>First-run local verification recipe</summary>
         <p><strong>Scoreable targets:</strong> ${escapeHtml(scoreable.join(", "))}</p>
         <p><strong>Reference-only targets:</strong> ${escapeHtml(referenceOnly.join(", ") || "none")}</p>
-        <p>Install the verifier from the beta checkout or wheel, then put your detector outputs under <code>detections/</code>.</p>
+        <p>Download the detection-template ZIP, replace the example rows with your algorithm output, and keep the <code>detections/</code> filenames. Then install the verifier from the beta checkout or wheel.</p>
         <pre class="output">python -m pip install ../signal_synth</pre>
         <p>Accepted detection file shape:</p>
         <pre class="output">${escapeHtml(detectionShape(pack))}</pre>
@@ -1761,6 +2126,7 @@ const char kUiJs[] = R"JS((() => {
       const artifactActions = job.status === "succeeded" && job.package_id ? `
         <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="manifest.json">Manifest</button>
         <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="package.zip">Package ZIP</button>
+        ${job.detection_templates_url ? `<button class="secondary" data-download-templates="${escapeHtml(job.job_id)}">Detection templates ZIP</button>` : ""}
       ` : "";
       const artifactExpired = job.artifact_status === "expired"
         ? `<p class="muted">Artifacts expired; reproducibility metadata remains.</p>`
@@ -1854,6 +2220,30 @@ const char kUiJs[] = R"JS((() => {
       const link = document.createElement("a");
       link.href = url;
       link.download = `${packageId}-${file}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  async function downloadDetectionTemplates(jobId) {
+    try {
+      const response = await fetch(`${base}/v1/jobs/${encodeURIComponent(jobId)}/detection-templates.zip`, {
+        credentials: "same-origin",
+        headers: headers(false)
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || response.statusText);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${jobId}-detection-templates.zip`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -2067,6 +2457,8 @@ const char kUiJs[] = R"JS((() => {
     const packageId = target.getAttribute("data-download");
     const file = target.getAttribute("data-file");
     if (packageId && file) downloadArtifact(packageId, file);
+    const templateJobId = target.getAttribute("data-download-templates");
+    if (templateJobId) downloadDetectionTemplates(templateJobId);
     const copyValue = target.getAttribute("data-copy-text");
     if (copyValue) copyText(copyValue);
   });
@@ -3329,6 +3721,83 @@ RouteResponse route_request(
                 "\"message\":\"The job ID is invalid.\"}}\n"
                 );
         }
+        if (action == "detection-templates.zip") {
+            if (method != "GET") {
+                return json_response(
+                    405,
+                    "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Detection templates only accept GET.\"}}\n"
+                );
+            }
+            JobRecord job;
+            std::string error;
+            const RecordLookupStatus lookup = metadata_store->find_job(
+                job_id,
+                authenticated_identity,
+                job,
+                error
+            );
+            if (lookup == RecordLookupStatus::not_found) {
+                return json_response(
+                    404,
+                    "{\"error\":{\"code\":\"job_not_found\","
+                    "\"message\":\"The requested job does not exist.\"}}\n"
+                );
+            }
+            if (lookup == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503,
+                    "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Job storage is unavailable.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            if (job.status != "succeeded" || job.package_id.empty()) {
+                return json_response(
+                    409,
+                    "{\"error\":{\"code\":\"job_templates_unavailable\","
+                    "\"message\":\"Detection templates are available after a curated job succeeds.\"}}\n"
+                );
+            }
+            PackSummary pack;
+            const PackLookupStatus pack_status =
+                PackCatalog(pack_root).find(job.selected_pack_id, pack, error);
+            if (pack_status == PackLookupStatus::not_found) {
+                return json_response(
+                    409,
+                    "{\"error\":{\"code\":\"custom_pack_templates_unavailable\","
+                    "\"message\":\"Detection-template ZIP generation is currently available for curated packs.\"}}\n"
+                );
+            }
+            if (pack_status != PackLookupStatus::found) {
+                RouteResponse response = json_response(
+                    500,
+                    "{\"error\":{\"code\":\"pack_catalog_invalid\","
+                    "\"message\":\"The configured pack catalog is invalid.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            std::string zip;
+            if (!build_detection_template_zip(job, pack, zip, error)) {
+                return json_response(
+                    409,
+                    "{\"error\":{\"code\":\"pack_templates_unavailable\","
+                    "\"message\":\"This pack has no locally scoreable detector-output templates.\"}}\n"
+                );
+            }
+            RouteResponse response;
+            response.disposition = RouteDisposition::handled;
+            response.status = 200;
+            response.content_type = "application/zip";
+            response.body = zip;
+            response.content_disposition =
+                "attachment; filename=\"" + job.package_id +
+                "-detection-templates.zip\"";
+            response.cache_control = "no-store";
+            return response;
+        }
         if (!action.empty()) {
             if (method != "POST" || (action != "cancel" && action != "retry")) {
                 return json_response(
@@ -3565,6 +4034,30 @@ RouteResponse route_request(
         response.status = 200;
         response.content_type = "text/html; charset=utf-8";
         response.body = kUiHtml;
+        return response;
+    }
+
+    if (uri == public_base_path + "/docs/quickstart" ||
+        uri == public_base_path + "/docs/api" ||
+        uri == public_base_path + "/docs/troubleshooting") {
+        if (method != "GET") {
+            return json_response(
+                405,
+                "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Documentation pages only accept GET.\"}}\n"
+            );
+        }
+        RouteResponse response;
+        response.disposition = RouteDisposition::handled;
+        response.status = 200;
+        response.content_type = "text/html; charset=utf-8";
+        if (uri == public_base_path + "/docs/quickstart") {
+            response.body = kQuickstartHtml;
+        } else if (uri == public_base_path + "/docs/api") {
+            response.body = kApiDocsHtml;
+        } else {
+            response.body = kTroubleshootingHtml;
+        }
         return response;
     }
 

@@ -62,7 +62,7 @@ Non-goals:
 6. Create a job.
 7. Wait for `succeeded`.
 8. Download `manifest.json` and `package.zip`.
-9. Use the completed-job verification panel to copy the exact `synsigra-verify` command for that package.
+9. Download the detection-template ZIP, replace example rows with algorithm output, then copy the exact `synsigra-verify` command from the completed-job panel.
 
 ## Recommended verification workflow
 
@@ -92,6 +92,14 @@ Run the algorithm against whichever generated format it supports:
 - case-level scenario or annotation files, where appropriate.
 
 The UI and `/v1/packs` show which targets are locally scoreable and which are reference-only before you create a job. For a completed curated job, the job card shows a first-run recipe with the package filename, recommended threshold profile, output directory, and accepted detection folder shape.
+
+Click **Detection templates ZIP** on the completed job to download a `README.md` plus one template file per scoreable case/target. The same archive is available from:
+
+```http
+GET /v1/jobs/{job_id}/detection-templates.zip
+```
+
+Reference-only targets are deliberately not included as detector-output requirements.
 
 Detection files live under a local `detections/` directory. The verifier accepts recommended names from the package plus fallback names:
 
@@ -307,9 +315,9 @@ The UI supports:
 - queued-job cancellation;
 - retrying failed or cancelled jobs as new records;
 - soft-deleting non-running jobs;
-- downloading `manifest.json` and `package.zip`;
+- downloading `manifest.json`, `package.zip`, and curated-job detection-template ZIPs;
 - viewing project, lifecycle timestamps, generator identity, build identity, and package fingerprint;
-- linking from completed jobs to the local verification workflow;
+- showing completed-job local verification recipes with copyable commands;
 - displaying `queued`, `running`, `succeeded`, `failed`, `cancelled`, and artifact-expired states.
 
 Running jobs cannot currently be force-cancelled. The API returns `409` because terminating the external generator is not yet considered safe.
@@ -426,6 +434,7 @@ Authorization: Bearer <api-key>
 | `DELETE` | `/v1/jobs/{id}` | Soft-delete non-running job | Developer+ |
 | `POST` | `/v1/jobs/{id}/cancel` | Cancel queued job | Developer+ |
 | `POST` | `/v1/jobs/{id}/retry` | Retry failed/cancelled job | Developer+ |
+| `GET` | `/v1/jobs/{id}/detection-templates.zip` | Download detector-output templates | Organization |
 | `GET` | `/v1/artifacts/{package_id}/manifest.json` | Download manifest | Organization |
 | `GET` | `/v1/artifacts/{package_id}/package.zip` | Download ZIP | Organization |
 | `GET` | `/v1/usage` | Usage and limits | Authenticated |
@@ -512,8 +521,11 @@ The current deployment uses nginx as the public TLS edge and a custom Apache bac
 
 ## Further documentation
 
+- In-app [one-page quickstart](https://www.timeonion.com/syn_sig_ra/docs/quickstart)
+- In-app [rendered API reference](https://www.timeonion.com/syn_sig_ra/docs/api)
+- In-app [troubleshooting guide](https://www.timeonion.com/syn_sig_ra/docs/troubleshooting)
 - [Customer API guide](doc/API_GUIDE.md)
-- [OpenAPI reference](doc/openapi.yaml)
+- [Raw OpenAPI reference](doc/openapi.yaml)
 - [Scenario drafts](doc/SCENARIO_DRAFTS.md)
 - [Custom packs](doc/CUSTOM_PACKS.md)
 - [Pack catalog release policy](doc/PACK_CATALOG.md)

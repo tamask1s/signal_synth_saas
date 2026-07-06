@@ -67,8 +67,35 @@ int main() {
             ui.body.find("load-scenario-template") != std::string::npos &&
             ui.body.find("register-email") != std::string::npos &&
             ui.body.find("save-key") == std::string::npos &&
+            ui.body.find("/syn_sig_ra/docs/api") != std::string::npos &&
+            ui.body.find("No PHI") != std::string::npos &&
             ui.body.find("Recommended workflow") != std::string::npos,
         "web UI route should return HTML"
+    );
+    const syn_sig_ra::RouteResponse docs_api =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/docs/api");
+    require(
+        docs_api.status == 200 &&
+            docs_api.content_type.find("text/html") != std::string::npos &&
+            docs_api.body.find("Rendered API reference") != std::string::npos &&
+            docs_api.body.find("detection-templates.zip") != std::string::npos,
+        "rendered API docs should be served"
+    );
+    const syn_sig_ra::RouteResponse docs_quickstart =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/docs/quickstart");
+    require(
+        docs_quickstart.status == 200 &&
+            docs_quickstart.body.find("One-page quickstart") != std::string::npos &&
+            docs_quickstart.body.find("synsigra-verify") != std::string::npos,
+        "quickstart docs should be served"
+    );
+    const syn_sig_ra::RouteResponse docs_troubleshooting =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/docs/troubleshooting");
+    require(
+        docs_troubleshooting.status == 200 &&
+            docs_troubleshooting.body.find("401 unauthorized") != std::string::npos &&
+            docs_troubleshooting.body.find("Verifier exit") != std::string::npos,
+        "troubleshooting docs should be served"
     );
     const syn_sig_ra::RouteResponse ui_js =
         syn_sig_ra::route_request("GET", "/syn_sig_ra/ui/app.js");
@@ -79,6 +106,7 @@ int main() {
             ui_js.body.find("loadMetrics") != std::string::npos &&
             ui_js.body.find("jobsNextOffset") != std::string::npos &&
             ui_js.body.find("cleanEcgTemplate") != std::string::npos &&
+            ui_js.body.find("Detection templates ZIP") != std::string::npos &&
             ui_js.body.find("Reproducibility details") != std::string::npos,
         "web UI JavaScript asset should be served as an executable IIFE"
     );
