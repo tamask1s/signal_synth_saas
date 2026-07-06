@@ -328,10 +328,10 @@ The module serves a minimal browser UI directly from the Apache module:
 /syn_sig_ra/ui
 ```
 
-The UI is static HTML/CSS/JavaScript and has no server-side session. A beta
-user pastes an API key into the page; the key is kept in browser
-`sessionStorage` for the current tab session and sent as a Bearer token to the
-existing API. The UI supports service health, pack browsing, job creation,
+The UI is static HTML/CSS/JavaScript backed by secure server-side sessions.
+Users register or sign in with e-mail/password; Bearer API keys are reserved
+for scripts and CI and are managed from the account panel. The UI supports
+service health, pack browsing, job creation,
 recent job status, authenticated manifest/ZIP downloads, and job deletion.
 It polls the job list in the background, but only re-renders the list when the
 job payload actually changes.
@@ -490,11 +490,11 @@ For immutable custom packs assembled from scenario drafts, see
 ## Metadata and API keys
 
 The module initializes a versioned SQLite database at
-`<SynSigRaDataRoot>/db.sqlite3`. Schema version 7 contains organizations,
-memberships, projects, users, API-key hashes, jobs, packages, and audit
-events. API keys must be high-entropy secrets; only their lowercase SHA-256
-hashes are persisted. This pre-beta schema requires a clean database reset
-when its version changes.
+`<SynSigRaDataRoot>/db.sqlite3`. Schema version 8 contains accounts, salted
+password credentials, expiring sessions, organizations, memberships, projects,
+API-key hashes, jobs, packages, and audit events. API keys must be high-entropy
+secrets; only their lowercase SHA-256 hashes are persisted. This pre-beta
+schema requires a clean database reset when its version changes.
 
 API keys resolve to an organization membership with an `owner`, `admin`,
 `developer`, or `viewer` role. Jobs and packages are project-scoped. See

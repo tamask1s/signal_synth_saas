@@ -15,6 +15,16 @@ struct ApiKeyIdentity {
     std::string role;
 };
 
+struct AccountRecord {
+    std::string user_id;
+    std::string organization_id;
+    std::string email;
+    std::string display_name;
+    std::string password_salt;
+    std::string password_hash;
+    std::string role;
+};
+
 struct ProjectRecord {
     std::string project_id;
     std::string organization_id;
@@ -140,6 +150,12 @@ enum class ApiKeyLookupStatus {
     storage_error
 };
 
+enum class AccountCreateStatus {
+    created,
+    email_exists,
+    storage_error
+};
+
 enum class JobDeleteStatus {
     deleted,
     not_found,
@@ -163,6 +179,60 @@ public:
     MetadataStore& operator=(const MetadataStore&) = delete;
 
     bool initialize(std::string& error);
+
+    AccountCreateStatus create_account(
+        const std::string& email,
+        const std::string& display_name,
+        const std::string& password_salt,
+        const std::string& password_hash,
+        AccountRecord& account,
+        std::string& error
+    );
+
+    RecordLookupStatus find_account_by_email(
+        const std::string& email,
+        AccountRecord& account,
+        std::string& error
+    );
+
+    bool create_session(
+        const AccountRecord& account,
+        const std::string& session_id,
+        const std::string& token_hash,
+        std::string& error
+    );
+
+    RecordLookupStatus find_session(
+        const std::string& token_hash,
+        ApiKeyIdentity& identity,
+        AccountRecord& account,
+        std::string& error
+    );
+
+    bool delete_session(
+        const std::string& token_hash,
+        std::string& error
+    );
+
+    bool create_personal_api_key(
+        const ApiKeyIdentity& owner,
+        const std::string& api_key_id,
+        const std::string& key_hash,
+        const std::string& label,
+        std::string& error
+    );
+
+    bool list_personal_api_keys(
+        const ApiKeyIdentity& owner,
+        std::vector<ApiKeyRecord>& api_keys,
+        std::string& error
+    );
+
+    RecordLookupStatus revoke_personal_api_key(
+        const ApiKeyIdentity& owner,
+        const std::string& api_key_id,
+        std::string& error
+    );
 
     bool create_api_key(
         const ApiKeyIdentity& identity,

@@ -21,6 +21,8 @@ struct RouteResponse {
     std::string internal_error;
     std::string file_path;
     std::string content_disposition;
+    std::string set_cookie;
+    std::string cache_control;
 };
 
 RouteResponse route_request(const std::string& method, const std::string& uri);
@@ -40,7 +42,8 @@ RouteResponse route_request(
     const std::string& request_body = "",
     const std::string& data_root = "",
     const std::string& query_string = "",
-    const std::string& signal_synth_cli = ""
+    const std::string& signal_synth_cli = "",
+    const std::string& cookie_header = ""
 );
 
 bool route_requires_authentication(

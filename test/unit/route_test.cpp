@@ -65,6 +65,8 @@ int main() {
             ui.body.find("metrics-panel") != std::string::npos &&
             ui.body.find("load-more-jobs") != std::string::npos &&
             ui.body.find("load-scenario-template") != std::string::npos &&
+            ui.body.find("register-email") != std::string::npos &&
+            ui.body.find("save-key") == std::string::npos &&
             ui.body.find("Recommended workflow") != std::string::npos,
         "web UI route should return HTML"
     );
@@ -158,6 +160,70 @@ int main() {
     require(
         store.create_api_key(identity, key_hash, "route test", error),
         "route test API key creation should succeed: " + error
+    );
+
+    const syn_sig_ra::RouteResponse registered =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/auth/register",
+            "/syn_sig_ra",
+            "",
+            &store,
+            "",
+            "application/json",
+            "{\"email\":\"new@example.com\","
+            "\"password\":\"long-enough-password\","
+            "\"display_name\":\"New User\"}"
+        );
+    require(
+        registered.status == 200 &&
+            registered.body.find("\"email\":\"new@example.com\"") !=
+                std::string::npos &&
+            registered.set_cookie.find("Secure") != std::string::npos &&
+            registered.set_cookie.find("HttpOnly") != std::string::npos &&
+            registered.cache_control == "no-store",
+        "registration should create a secure browser session"
+    );
+    const syn_sig_ra::RouteResponse account =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/auth/me",
+            "/syn_sig_ra",
+            "",
+            &store,
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            registered.set_cookie
+        );
+    require(
+        account.status == 200 &&
+            account.body.find("\"display_name\":\"New User\"") !=
+                std::string::npos,
+        "session cookie should authorize account identity"
+    );
+    const syn_sig_ra::RouteResponse personal_key =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/api-keys",
+            "/syn_sig_ra",
+            "",
+            &store,
+            "",
+            "application/json",
+            "{\"label\":\"test CI\"}",
+            "",
+            "",
+            "",
+            registered.set_cookie
+        );
+    require(
+        personal_key.status == 201 &&
+            personal_key.body.find("\"api_key\":\"ssk_") != std::string::npos,
+        "signed-in account should create a one-time API key"
     );
 
     const syn_sig_ra::RouteResponse unauthorized =

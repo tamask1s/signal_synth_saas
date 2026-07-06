@@ -10,7 +10,20 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: syn_sig_ra_session
   schemas:
+    Account:
+      type: object
+      required: [user_id, organization_id, email, display_name, role]
+      properties:
+        user_id: {type: string}
+        organization_id: {type: string}
+        email: {type: string, format: email}
+        display_name: {type: string}
+        role: {type: string, enum: [owner, admin, developer, viewer]}
     Error:
       type: object
       required: [error]
@@ -72,6 +85,54 @@ paths:
         '200': {description: Curated pack detail}
         '400': {description: Invalid pack ID}
         '404': {description: Pack not found}
+  /v1/auth/register:
+    post:
+      summary: Create an account and browser session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, display_name]
+              properties:
+                email: {type: string, format: email}
+                password: {type: string, minLength: 12, maxLength: 128}
+                display_name: {type: string, minLength: 1, maxLength: 100}
+              additionalProperties: false
+      responses:
+        '200': {description: Account and secure session created, content: {application/json: {schema: {$ref: '#/components/schemas/Account'}}}}
+        '409': {description: Email already registered}
+  /v1/auth/login:
+    post:
+      summary: Start a browser session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: {type: string, format: email}
+                password: {type: string}
+              additionalProperties: false
+      responses:
+        '200': {description: Signed in, content: {application/json: {schema: {$ref: '#/components/schemas/Account'}}}}
+        '401': {description: Invalid email or password}
+  /v1/auth/me:
+    get:
+      summary: Current browser account
+      security: [{cookieAuth: []}]
+      responses:
+        '200': {description: Current account, content: {application/json: {schema: {$ref: '#/components/schemas/Account'}}}}
+        '401': {description: No valid browser session}
+  /v1/auth/logout:
+    post:
+      summary: End the browser session
+      security: [{cookieAuth: []}]
+      responses:
+        '200': {description: Signed out}
   /v1/projects:
     get:
       summary: List caller organization projects
@@ -94,6 +155,36 @@ paths:
       responses:
         '201': {description: Project created}
         '403': {description: Role forbidden}
+  /v1/api-keys:
+    get:
+      summary: List personal API keys without secrets
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      responses:
+        '200': {description: Personal API keys}
+    post:
+      summary: Create a personal API key; secret is returned once
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties:
+                label: {type: string, minLength: 1, maxLength: 100}
+              additionalProperties: false
+      responses:
+        '201': {description: API key metadata and one-time secret}
+  /v1/api-keys/{api_key_id}:
+    delete:
+      summary: Revoke an owned personal API key
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      parameters:
+        - {in: path, name: api_key_id, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Revoked}
+        '404': {description: Key not found}
   /v1/jobs:
     get:
       summary: List jobs

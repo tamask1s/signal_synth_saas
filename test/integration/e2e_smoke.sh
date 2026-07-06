@@ -288,6 +288,48 @@ fi
 curl -fsS "$BASE_URL/v1/packs" >"$WORK_ROOT/packs.json" ||
     fail "pack catalog request failed"
 
+REGISTER_HTTP=$(
+    curl -sS \
+        -D "$WORK_ROOT/register.headers" \
+        -o "$WORK_ROOT/register.json" \
+        -w '%{http_code}' \
+        -H "Content-Type: application/json" \
+        -d '{"email":"browser@example.com","password":"browser-test-password","display_name":"Browser User"}' \
+        "$BASE_URL/v1/auth/register"
+)
+if [ "$REGISTER_HTTP" != "200" ]; then
+    dump_file "$WORK_ROOT/register.json" "account registration response"
+    fail "account registration returned HTTP $REGISTER_HTTP"
+fi
+SESSION_COOKIE=$(sed -n 's/^[Ss]et-[Cc]ookie: \([^;]*\).*/\1/p' \
+    "$WORK_ROOT/register.headers" | tr -d '\r')
+if [ -z "$SESSION_COOKIE" ]; then
+    fail "account registration did not return a session cookie"
+fi
+curl -fsS -H "Cookie: $SESSION_COOKIE" \
+    "$BASE_URL/v1/auth/me" >"$WORK_ROOT/account.json" ||
+    fail "session account lookup failed"
+grep -q '"email":"browser@example.com"' "$WORK_ROOT/account.json" ||
+    fail "session account lookup returned the wrong account"
+curl -fsS -H "Cookie: $SESSION_COOKIE" \
+    -H "Content-Type: application/json" \
+    -d '{"label":"e2e automation"}' \
+    "$BASE_URL/v1/api-keys" >"$WORK_ROOT/personal-key.json" ||
+    fail "personal API key creation failed"
+PERSONAL_KEY=$(python3 - "$WORK_ROOT/personal-key.json" <<'PY'
+import json
+import sys
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    print(json.load(handle).get("api_key", ""))
+PY
+)
+if [ -z "$PERSONAL_KEY" ]; then
+    fail "personal API key secret was not returned once"
+fi
+curl -fsS -H "Authorization: Bearer $PERSONAL_KEY" \
+    "$BASE_URL/v1/projects" >"$WORK_ROOT/personal-key-projects.json" ||
+    fail "generated personal API key did not authenticate"
+
 CREATE_HTTP=$(
     curl -sS \
         -o "$WORK_ROOT/job-create.json" \

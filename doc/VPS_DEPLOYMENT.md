@@ -328,10 +328,10 @@ The same flow is available through the browser UI:
 https://www.timeonion.com/syn_sig_ra/
 ```
 
-Paste the beta API key into the page. The key is held only in browser
-`sessionStorage` for the current tab session. The UI can also delete jobs from
-the visible job list. Job deletion is a soft delete: API downloads stop working,
-but physical files remain until a later retention cleanup task removes them.
+Register or sign in with an e-mail address and password. The browser uses a
+secure server-side session and never needs an API key. The UI can also delete
+jobs from the visible job list. Job deletion is a soft delete: API downloads
+stop working, but physical files remain until retention cleanup removes them.
 
 Delete a job from the API:
 

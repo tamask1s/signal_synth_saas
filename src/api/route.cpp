@@ -5,7 +5,9 @@
 #include "syn_sig_ra/job_request.h"
 #include "syn_sig_ra/metadata_store.h"
 #include "syn_sig_ra/pack_catalog.h"
+#include "syn_sig_ra/password_auth.h"
 #include "syn_sig_ra/random_id.h"
+#include "syn_sig_ra/sha256.h"
 #include "ecg_pack.h"
 #include "synsigra_api.h"
 
@@ -64,6 +66,45 @@ bool is_json_content_type(const std::string& content_type) {
     }
     return content_type.size() == expected.size() ||
            content_type[expected.size()] == ';';
+}
+
+std::string json_dump_line(json_t* value);
+
+std::string account_json(const syn_sig_ra::AccountRecord& account) {
+    json_t* root = json_object();
+    json_object_set_new(root, "user_id", json_string(account.user_id.c_str()));
+    json_object_set_new(
+        root, "organization_id", json_string(account.organization_id.c_str()));
+    json_object_set_new(root, "email", json_string(account.email.c_str()));
+    json_object_set_new(
+        root, "display_name", json_string(account.display_name.c_str()));
+    json_object_set_new(root, "role", json_string(account.role.c_str()));
+    const std::string encoded = json_dump_line(root);
+    json_decref(root);
+    return encoded;
+}
+
+bool issue_browser_session(
+    syn_sig_ra::MetadataStore& store,
+    const syn_sig_ra::AccountRecord& account,
+    syn_sig_ra::RouteResponse& response,
+    std::string& error
+) {
+    std::string session_id;
+    std::string token;
+    std::string token_hash;
+    if (!syn_sig_ra::random_id("session_", session_id, error) ||
+        !syn_sig_ra::random_id("ss_", token, error) ||
+        !syn_sig_ra::sha256_hex(token, token_hash, error) ||
+        !store.create_session(account, session_id, token_hash, error)) {
+        return false;
+    }
+    response = json_response(200, account_json(account));
+    response.cache_control = "no-store";
+    response.set_cookie =
+        "syn_sig_ra_session=" + token +
+        "; Path=/syn_sig_ra; Max-Age=604800; Secure; HttpOnly; SameSite=Lax";
+    return true;
 }
 
 std::string json_dump_line(json_t* value) {
@@ -424,7 +465,8 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <a href="#jobs-section">Jobs</a>
       <a href="#scenario-workbench">Scenarios</a>
       <a href="#custom-pack-workbench">Custom packs</a>
-      <a href="#account">Usage</a>
+      <a href="#account">Account</a>
+      <a href="#usage-section">Usage</a>
       <a href="#documentation">Documentation</a>
     </nav>
 
@@ -436,15 +478,49 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <span>4. Run and verify your algorithm locally</span>
     </aside>
 
-    <section class="panel">
-      <h2>API key</h2>
-      <p class="muted">Paste a beta API key. It is kept only in this browser tab session.</p>
-      <div class="row">
-        <input id="api-key" type="password" autocomplete="off" placeholder="Bearer API key">
-        <button id="save-key">Use key</button>
-        <button id="clear-key" class="secondary">Clear</button>
+    <section id="account" class="panel">
+      <div id="signed-out-account">
+        <h2>Sign in or create an account</h2>
+        <p class="muted">Browser access uses a secure session cookie. API keys are only needed for scripts and CI.</p>
+        <div class="auth-grid">
+          <div>
+            <h3>Sign in</h3>
+            <label for="login-email">Email</label>
+            <input id="login-email" type="email" autocomplete="email">
+            <label for="login-password">Password</label>
+            <input id="login-password" type="password" autocomplete="current-password">
+            <button id="login" class="primary">Sign in</button>
+          </div>
+          <div>
+            <h3>Create account</h3>
+            <label for="register-name">Display name</label>
+            <input id="register-name" type="text" maxlength="100" autocomplete="name">
+            <label for="register-email">Email</label>
+            <input id="register-email" type="email" autocomplete="email">
+            <label for="register-password">Password (12+ characters)</label>
+            <input id="register-password" type="password" minlength="12" maxlength="128" autocomplete="new-password">
+            <button id="register" class="primary">Create account</button>
+          </div>
+        </div>
       </div>
-      <p id="key-status" class="muted"></p>
+      <div id="signed-in-account" hidden>
+        <div class="panel-heading">
+          <div>
+            <h2 id="account-name">Account</h2>
+            <p id="account-email" class="muted"></p>
+          </div>
+          <button id="logout" class="secondary">Sign out</button>
+        </div>
+        <h3>Personal API keys</h3>
+        <p class="muted">Create keys for scripts or CI. A new secret is shown once.</p>
+        <div class="row">
+          <input id="api-key-label" type="text" maxlength="100" placeholder="CI or workstation">
+          <button id="create-api-key" class="secondary">Create API key</button>
+        </div>
+        <pre id="api-key-secret" class="output"></pre>
+        <div id="api-keys" class="jobs"></div>
+      </div>
+      <p id="auth-output" class="muted" aria-live="polite"></p>
     </section>
 
     <section id="generate" class="grid">
@@ -486,12 +562,12 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <div id="jobs" class="jobs"></div>
       <button id="load-more-jobs" class="secondary" hidden>Load older jobs</button>
     </section>
-    <section id="account" class="panel">
+    <section id="usage-section" class="panel">
       <div class="panel-heading">
         <h2>Usage</h2>
         <button id="refresh-usage" class="secondary">Refresh</button>
       </div>
-      <div id="usage" class="muted">Paste an API key to inspect usage.</div>
+      <div id="usage" class="muted">Sign in to inspect usage.</div>
     </section>
     <section id="metrics-panel" class="panel" hidden>
       <div class="panel-heading">
@@ -677,6 +753,12 @@ h3 { font-size: 16px; margin-bottom: 8px; }
   margin: 20px 0;
 }
 
+.auth-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+
 .row, .panel-heading {
   display: flex;
   gap: 10px;
@@ -700,6 +782,7 @@ input, select {
   min-width: 0;
   width: 100%;
 }
+label { display: block; margin: 10px 0 5px; font-weight: 600; }
 textarea {
   width: 100%;
   border: 1px solid var(--border);
@@ -827,7 +910,7 @@ details.meta summary { cursor: pointer; font-weight: 700; }
 .ok { color: var(--ok); }
 
 @media (max-width: 820px) {
-  .hero, .grid { grid-template-columns: 1fr; }
+  .hero, .grid, .auth-grid { grid-template-columns: 1fr; }
   .row { align-items: stretch; flex-direction: column; }
   .meta-grid { grid-template-columns: 1fr; }
 }
@@ -836,7 +919,9 @@ details.meta summary { cursor: pointer; font-weight: 700; }
 const char kUiJs[] = R"JS((() => {
   const base = "/syn_sig_ra";
   const state = {
-    apiKey: sessionStorage.getItem("syn_sig_ra_api_key") || "",
+    authenticated: false,
+    account: null,
+    apiKeys: [],
     role: "",
     packs: [],
     projects: [],
@@ -915,13 +1000,13 @@ const char kUiJs[] = R"JS((() => {
   function headers(json) {
     const h = {};
     if (json) h["Content-Type"] = "application/json";
-    if (state.apiKey) h.Authorization = `Bearer ${state.apiKey}`;
     return h;
   }
 
   async function api(path, options = {}) {
     const response = await fetch(base + path, {
       ...options,
+      credentials: "same-origin",
       headers: { ...headers(options.json), ...(options.headers || {}) },
       body: options.json ? JSON.stringify(options.json) : options.body
     });
@@ -932,6 +1017,14 @@ const char kUiJs[] = R"JS((() => {
       const message = body && body.error ? `${body.error.code}: ${body.error.message}` : text || response.statusText;
       const error = new Error(message);
       error.body = body;
+      error.status = response.status;
+      if (response.status === 401 && !path.startsWith("/v1/auth/")) {
+        state.account = null;
+        state.authenticated = false;
+        state.role = "";
+        renderAuthState();
+        setText("auth-output", "Your session expired. Sign in again.", "error");
+      }
       throw error;
     }
     return body;
@@ -959,15 +1052,14 @@ const char kUiJs[] = R"JS((() => {
     }
   }
 
-  function renderKeyState() {
-    $("api-key").value = state.apiKey;
-    setText(
-      "key-status",
-      state.apiKey
-        ? `API key loaded for this tab session${state.role ? ` · role: ${state.role}` : ""}.`
-        : "No API key loaded.",
-      state.apiKey ? "muted ok" : "muted"
-    );
+  function renderAuthState() {
+    $("signed-out-account").hidden = state.authenticated;
+    $("signed-in-account").hidden = !state.authenticated;
+    if (state.authenticated && state.account) {
+      $("account-name").textContent = state.account.display_name;
+      $("account-email").textContent =
+        `${state.account.email} · role: ${state.account.role}`;
+    }
   }
 
   function renderPackOptions() {
@@ -1029,7 +1121,7 @@ const char kUiJs[] = R"JS((() => {
   async function loadProjects() {
     const select = $("project-select");
     select.innerHTML = "";
-    if (!state.apiKey) {
+    if (!state.authenticated) {
       state.role = "";
       state.projects = [];
       $("metrics-panel").hidden = true;
@@ -1043,11 +1135,6 @@ const char kUiJs[] = R"JS((() => {
       const body = await api("/v1/projects");
       state.projects = body.projects || [];
       state.role = body.role || "";
-      setText(
-        "key-status",
-        `API key loaded for this tab session · role: ${state.role || "unknown"}`,
-        "muted ok"
-      );
       $("create-project").disabled = !["owner", "admin"].includes(body.role);
       $("create-job").disabled = !canWrite();
       $("save-scenario").disabled = !canWrite();
@@ -1072,8 +1159,8 @@ const char kUiJs[] = R"JS((() => {
   }
 
   async function loadUsage() {
-    if (!state.apiKey) {
-      $("usage").textContent = "Paste an API key to inspect usage.";
+    if (!state.authenticated) {
+      $("usage").textContent = "Sign in to inspect usage.";
       return;
     }
     try {
@@ -1090,7 +1177,7 @@ const char kUiJs[] = R"JS((() => {
   }
 
   async function loadMetrics() {
-    if (!state.apiKey || !["owner", "admin"].includes(state.role)) {
+    if (!state.authenticated || !["owner", "admin"].includes(state.role)) {
       $("metrics-panel").hidden = true;
       return;
     }
@@ -1109,10 +1196,10 @@ const char kUiJs[] = R"JS((() => {
   }
 
   async function loadScenarios() {
-    if (!state.apiKey) {
+    if (!state.authenticated) {
       state.scenarios = [];
       renderPackScenarioOptions();
-      $("scenarios").innerHTML = "<p class=\"muted\">Paste an API key to list drafts.</p>";
+      $("scenarios").innerHTML = "<p class=\"muted\">Sign in to list drafts.</p>";
       return;
     }
     try {
@@ -1159,10 +1246,10 @@ const char kUiJs[] = R"JS((() => {
   }
 
   async function loadCustomPacks() {
-    if (!state.apiKey) {
+    if (!state.authenticated) {
       state.customPacks = [];
       renderPackOptions();
-      $("custom-packs").innerHTML = "<p class=\"muted\">Paste an API key to list custom packs.</p>";
+      $("custom-packs").innerHTML = "<p class=\"muted\">Sign in to list custom packs.</p>";
       return;
     }
     try {
@@ -1340,8 +1427,8 @@ const char kUiJs[] = R"JS((() => {
   }
 
   async function createJob() {
-    if (!state.apiKey) {
-      $("create-output").textContent = "Paste an API key first.";
+    if (!state.authenticated) {
+      $("create-output").textContent = "Sign in first.";
       return;
     }
     const packId = $("pack-select").value;
@@ -1383,14 +1470,14 @@ const char kUiJs[] = R"JS((() => {
 
   async function loadJobs(options = {}) {
     const container = $("jobs");
-    if (!state.apiKey) {
+    if (!state.authenticated) {
       state.jobs = [];
       state.jobsFingerprint = "";
       state.jobsLoaded = false;
       state.jobsNextOffset = null;
       $("load-more-jobs").hidden = true;
       setText("jobs-sync-status", "", "muted");
-      container.innerHTML = "<p class=\"muted\">Paste an API key to list jobs.</p>";
+      container.innerHTML = "<p class=\"muted\">Sign in to list jobs.</p>";
       return;
     }
     if (state.jobPollInFlight) return;
@@ -1552,6 +1639,134 @@ const char kUiJs[] = R"JS((() => {
     }
   }
 
+  async function loadSession() {
+    try {
+      state.account = await api("/v1/auth/me");
+      state.authenticated = true;
+      state.role = state.account.role || "";
+    } catch (error) {
+      state.account = null;
+      state.authenticated = false;
+      state.role = "";
+      if (error.status !== 401) {
+        setText("auth-output", error.message, "error");
+      }
+    }
+    renderAuthState();
+  }
+
+  async function refreshAuthenticatedData() {
+    await loadProjects();
+    await Promise.all([
+      loadUsage(),
+      loadScenarios(),
+      loadCustomPacks(),
+      loadJobs({ force: true }),
+      loadApiKeys()
+    ]);
+  }
+
+  async function submitAuth(kind) {
+    const registration = kind === "register";
+    const email = $(registration ? "register-email" : "login-email").value.trim();
+    const password = $(registration ? "register-password" : "login-password").value;
+    const payload = { email, password };
+    if (registration) payload.display_name = $("register-name").value.trim();
+    setText("auth-output", registration ? "Creating account…" : "Signing in…", "muted");
+    try {
+      const account = await api(`/v1/auth/${kind}`, {
+        method: "POST",
+        json: payload
+      });
+      state.account = account;
+      state.authenticated = true;
+      state.role = account.role || "";
+      $("login-password").value = "";
+      $("register-password").value = "";
+      setText("auth-output", "", "muted");
+      renderAuthState();
+      await refreshAuthenticatedData();
+    } catch (error) {
+      setText("auth-output", error.message, "error");
+    }
+  }
+
+  async function logout() {
+    try {
+      await api("/v1/auth/logout", { method: "POST" });
+    } catch (_) {}
+    state.account = null;
+    state.authenticated = false;
+    state.role = "";
+    state.apiKeys = [];
+    renderAuthState();
+    setText("auth-output", "Signed out.", "muted");
+    await refreshAuthenticatedData();
+  }
+
+  function renderApiKeys() {
+    $("api-keys").innerHTML = state.apiKeys.map((key) => `
+      <article class="job">
+        <div class="job-header">
+          <div>
+            <h3>${escapeHtml(key.label)}</h3>
+            <span class="fingerprint">${escapeHtml(key.api_key_id)}</span>
+          </div>
+          <span class="badge ${key.active ? "succeeded" : "failed"}">${key.active ? "active" : "revoked"}</span>
+        </div>
+        <p class="muted">Created ${escapeHtml(formatDate(key.created_at))}${key.last_used_at ? ` · last used ${escapeHtml(formatDate(key.last_used_at))}` : ""}</p>
+        ${key.active ? `<button class="danger" data-revoke-api-key="${escapeHtml(key.api_key_id)}">Revoke</button>` : ""}
+      </article>
+    `).join("") || "<p class=\"muted\">No personal API keys.</p>";
+  }
+
+  async function loadApiKeys() {
+    if (!state.authenticated) {
+      state.apiKeys = [];
+      renderApiKeys();
+      return;
+    }
+    try {
+      const body = await api("/v1/api-keys");
+      state.apiKeys = body.api_keys || [];
+      renderApiKeys();
+    } catch (error) {
+      $("api-keys").innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+    }
+  }
+
+  async function createApiKey() {
+    const label = $("api-key-label").value.trim();
+    if (!label) {
+      $("api-key-secret").textContent = "Enter a label.";
+      return;
+    }
+    try {
+      const created = await api("/v1/api-keys", {
+        method: "POST",
+        json: { label }
+      });
+      $("api-key-label").value = "";
+      $("api-key-secret").textContent =
+        `Copy this key now; it will not be shown again:\n${created.api_key}`;
+      await loadApiKeys();
+    } catch (error) {
+      $("api-key-secret").textContent = error.message;
+    }
+  }
+
+  async function revokeApiKey(keyId) {
+    if (!confirm("Revoke this API key? Existing integrations will stop working.")) return;
+    try {
+      await api(`/v1/api-keys/${encodeURIComponent(keyId)}`, {
+        method: "DELETE"
+      });
+      await loadApiKeys();
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
   function escapeHtml(value) {
     return String(value)
       .replace(/&/g, "&amp;")
@@ -1561,31 +1776,15 @@ const char kUiJs[] = R"JS((() => {
       .replace(/'/g, "&#39;");
   }
 
-  $("save-key").addEventListener("click", async () => {
-    state.apiKey = $("api-key").value.trim();
-    if (state.apiKey) sessionStorage.setItem("syn_sig_ra_api_key", state.apiKey);
-    else sessionStorage.removeItem("syn_sig_ra_api_key");
-    renderKeyState();
-    await loadProjects();
-    await Promise.all([
-      loadUsage(),
-      loadScenarios(),
-      loadCustomPacks(),
-      loadJobs({ force: true })
-    ]);
-  });
-
-  $("clear-key").addEventListener("click", async () => {
-    state.apiKey = "";
-    sessionStorage.removeItem("syn_sig_ra_api_key");
-    renderKeyState();
-    await loadProjects();
-    await Promise.all([
-      loadUsage(),
-      loadScenarios(),
-      loadCustomPacks(),
-      loadJobs({ force: true })
-    ]);
+  $("login").addEventListener("click", () => submitAuth("login"));
+  $("register").addEventListener("click", () => submitAuth("register"));
+  $("logout").addEventListener("click", logout);
+  $("create-api-key").addEventListener("click", createApiKey);
+  $("api-keys").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const keyId = target.getAttribute("data-revoke-api-key");
+    if (keyId) revokeApiKey(keyId);
   });
 
   $("refresh-packs").addEventListener("click", loadPacks);
@@ -1629,16 +1828,11 @@ const char kUiJs[] = R"JS((() => {
   });
 
   async function initialize() {
-    renderKeyState();
+    renderAuthState();
     checkHealth();
     loadPacks();
-    await loadProjects();
-    await Promise.all([
-      loadUsage(),
-      loadScenarios(),
-      loadCustomPacks(),
-      loadJobs({ force: true })
-    ]);
+    await loadSession();
+    await refreshAuthenticatedData();
   }
 
   initialize();
@@ -1678,6 +1872,7 @@ bool route_requires_authentication(
            path_at_or_below(uri, public_base_path + "/v1/projects") ||
            path_at_or_below(uri, public_base_path + "/v1/usage") ||
            path_at_or_below(uri, public_base_path + "/v1/metrics") ||
+           path_at_or_below(uri, public_base_path + "/v1/api-keys") ||
            path_at_or_below(uri, public_base_path + "/v1/scenarios") ||
            path_at_or_below(uri, public_base_path + "/v1/custom-packs");
 }
@@ -1693,7 +1888,8 @@ RouteResponse route_request(
     const std::string& request_body,
     const std::string& data_root,
     const std::string& query_string,
-    const std::string& signal_synth_cli
+    const std::string& signal_synth_cli,
+    const std::string& cookie_header
 ) {
     if (!owns_uri(uri, public_base_path)) {
         RouteResponse response;
@@ -1735,6 +1931,160 @@ RouteResponse route_request(
         return json_response(ready ? 200 : 503, encoded);
     }
 
+    const std::string auth_path = public_base_path + "/v1/auth";
+    if (path_at_or_below(uri, auth_path)) {
+        if (metadata_store == nullptr) {
+            return json_response(
+                503,
+                "{\"error\":{\"code\":\"metadata_unavailable\","
+                "\"message\":\"Account storage is unavailable.\"}}\n"
+            );
+        }
+        if (uri == auth_path + "/me") {
+            if (method != "GET") {
+                return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Account identity only accepts GET.\"}}\n");
+            }
+            AccountRecord account;
+            const AuthenticationResult session = authenticate_session(
+                cookie_header, *metadata_store, &account);
+            if (session.status != AuthenticationStatus::authenticated) {
+                return json_response(401, "{\"error\":{\"code\":\"unauthorized\","
+                    "\"message\":\"Sign in to continue.\"}}\n");
+            }
+            RouteResponse response = json_response(200, account_json(account));
+            response.cache_control = "no-store";
+            return response;
+        }
+        if (uri == auth_path + "/logout") {
+            if (method != "POST") {
+                return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Logout only accepts POST.\"}}\n");
+            }
+            std::string token;
+            std::string token_hash;
+            std::string error;
+            if (session_token_from_cookie(cookie_header, token) &&
+                sha256_hex(token, token_hash, error) &&
+                !metadata_store->delete_session(token_hash, error)) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Unable to end the session.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            RouteResponse response = json_response(200, "{\"status\":\"signed_out\"}\n");
+            response.cache_control = "no-store";
+            response.set_cookie =
+                "syn_sig_ra_session=; Path=/syn_sig_ra; Max-Age=0; "
+                "Secure; HttpOnly; SameSite=Lax";
+            return response;
+        }
+        const bool registration = uri == auth_path + "/register";
+        const bool login = uri == auth_path + "/login";
+        if ((!registration && !login) || method != "POST") {
+            return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Unknown account operation.\"}}\n");
+        }
+        if (!is_json_content_type(content_type)) {
+            return json_response(415, "{\"error\":{\"code\":\"unsupported_media_type\","
+                "\"message\":\"Content-Type must be application/json.\"}}\n");
+        }
+        json_error_t parse_error;
+        json_t* root = json_loadb(
+            request_body.data(), request_body.size(), JSON_REJECT_DUPLICATES,
+            &parse_error);
+        json_t* email_value = root == nullptr
+            ? nullptr : json_object_get(root, "email");
+        json_t* password_value = root == nullptr
+            ? nullptr : json_object_get(root, "password");
+        json_t* name_value = root == nullptr
+            ? nullptr : json_object_get(root, "display_name");
+        std::string email;
+        const bool valid_shape = json_is_object(root) &&
+            json_is_string(email_value) && json_is_string(password_value) &&
+            (!registration || json_is_string(name_value)) &&
+            json_object_size(root) == (registration ? 3u : 2u);
+        if (!valid_shape ||
+            !normalize_email(
+                json_is_string(email_value) ? json_string_value(email_value) : "",
+                email)) {
+            if (root != nullptr) json_decref(root);
+            return json_response(400, "{\"error\":{\"code\":\"invalid_account_request\","
+                "\"message\":\"Enter a valid email and password.\"}}\n");
+        }
+        const std::string password = json_string_value(password_value);
+        const std::string display_name = registration
+            ? json_string_value(name_value) : "";
+        json_decref(root);
+        if (password.size() > 128) {
+            return json_response(400, "{\"error\":{\"code\":\"invalid_password\","
+                "\"message\":\"Password must contain at most 128 characters.\"}}\n");
+        }
+        AccountRecord account;
+        std::string error;
+        if (registration) {
+            if (display_name.empty() || display_name.size() > 100) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_display_name\","
+                    "\"message\":\"Display name must contain 1-100 characters.\"}}\n");
+            }
+            std::string salt;
+            std::string password_hash;
+            if (!hash_password(password, salt, password_hash, error)) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_password\","
+                    "\"message\":\"Password must contain 12-128 characters.\"}}\n");
+            }
+            const AccountCreateStatus created = metadata_store->create_account(
+                email, display_name, salt, password_hash, account, error);
+            if (created == AccountCreateStatus::email_exists) {
+                return json_response(409, "{\"error\":{\"code\":\"email_exists\","
+                    "\"message\":\"An account already uses this email.\"}}\n");
+            }
+            if (created != AccountCreateStatus::created) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Unable to create the account.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+        } else {
+            bool matches = false;
+            const RecordLookupStatus found =
+                metadata_store->find_account_by_email(email, account, error);
+            if (found == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Unable to sign in.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            if (found == RecordLookupStatus::not_found) {
+                std::string dummy_salt;
+                std::string dummy_hash;
+                const std::string dummy_password = password.size() >= 12
+                    ? password : password + "000000000000";
+                hash_password(
+                    dummy_password, dummy_salt, dummy_hash, error);
+            }
+            if (found != RecordLookupStatus::found ||
+                !verify_password(
+                    password, account.password_salt, account.password_hash,
+                    matches, error) ||
+                !matches) {
+                return json_response(401, "{\"error\":{\"code\":\"invalid_login\","
+                    "\"message\":\"Email or password is incorrect.\"}}\n");
+            }
+        }
+        RouteResponse response;
+        if (!issue_browser_session(*metadata_store, account, response, error)) {
+            response = json_response(
+                503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                "\"message\":\"Unable to start the session.\"}}\n");
+            response.internal_error = error;
+        }
+        return response;
+    }
+
     ApiKeyIdentity authenticated_identity;
     bool authenticated = false;
     if (route_requires_authentication(uri, public_base_path)) {
@@ -1745,10 +2095,9 @@ RouteResponse route_request(
                 "\"message\":\"Authentication storage is unavailable.\"}}\n"
             );
         }
-        const AuthenticationResult authentication = authenticate_bearer(
-            authorization_header,
-            *metadata_store
-        );
+        const AuthenticationResult authentication = authorization_header.empty()
+            ? authenticate_session(cookie_header, *metadata_store)
+            : authenticate_bearer(authorization_header, *metadata_store);
         if (authentication.status == AuthenticationStatus::storage_error) {
             RouteResponse response = json_response(
                 503,
@@ -1762,7 +2111,7 @@ RouteResponse route_request(
             RouteResponse response = json_response(
                 401,
                 "{\"error\":{\"code\":\"unauthorized\","
-                "\"message\":\"A valid Bearer API key is required.\"}}\n"
+                "\"message\":\"Sign in or provide a valid Bearer API key.\"}}\n"
             );
             response.www_authenticate = "Bearer realm=\"syn_sig_ra\"";
             return response;
@@ -1790,6 +2139,113 @@ RouteResponse route_request(
                 "\"message\":\"Per-key request rate limit exceeded.\"}}\n"
             );
         }
+    }
+
+    const std::string api_keys_path = public_base_path + "/v1/api-keys";
+    if (path_at_or_below(uri, api_keys_path)) {
+        const bool collection = uri == api_keys_path;
+        if (collection && method == "GET") {
+            std::vector<ApiKeyRecord> keys;
+            std::string error;
+            if (!metadata_store->list_personal_api_keys(
+                    authenticated_identity, keys, error)) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"API key storage is unavailable.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            json_t* root = json_object();
+            json_t* items = json_array();
+            for (std::vector<ApiKeyRecord>::const_iterator it = keys.begin();
+                 it != keys.end(); ++it) {
+                json_t* item = json_object();
+                json_object_set_new(
+                    item, "api_key_id", json_string(it->api_key_id.c_str()));
+                json_object_set_new(
+                    item, "label", json_string(it->label.c_str()));
+                json_object_set_new(
+                    item, "active", json_boolean(it->active));
+                json_object_set_new(
+                    item, "created_at", json_string(it->created_at.c_str()));
+                if (!it->last_used_at.empty()) {
+                    json_object_set_new(
+                        item, "last_used_at",
+                        json_string(it->last_used_at.c_str()));
+                }
+                json_array_append_new(items, item);
+            }
+            json_object_set_new(root, "api_keys", items);
+            const std::string body = json_dump_line(root);
+            json_decref(root);
+            return json_response(200, body);
+        }
+        if (collection && method == "POST") {
+            if (!is_json_content_type(content_type)) {
+                return json_response(415, "{\"error\":{\"code\":\"unsupported_media_type\","
+                    "\"message\":\"Content-Type must be application/json.\"}}\n");
+            }
+            json_error_t parse_error;
+            json_t* root = json_loadb(
+                request_body.data(), request_body.size(),
+                JSON_REJECT_DUPLICATES, &parse_error);
+            json_t* label_value = root == nullptr
+                ? nullptr : json_object_get(root, "label");
+            const std::string label = json_is_string(label_value)
+                ? json_string_value(label_value) : "";
+            const bool valid_shape =
+                json_is_object(root) && json_object_size(root) == 1u;
+            if (root != nullptr) json_decref(root);
+            if (!valid_shape || label.empty() || label.size() > 100) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_label\","
+                    "\"message\":\"Label must contain 1-100 characters.\"}}\n");
+            }
+            std::string key_id;
+            std::string token;
+            std::string key_hash;
+            std::string error;
+            if (!random_id("key_", key_id, error) ||
+                !random_id("ssk_", token, error) ||
+                !sha256_hex(token, key_hash, error) ||
+                !metadata_store->create_personal_api_key(
+                    authenticated_identity, key_id, key_hash, label, error)) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Unable to create the API key.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            json_t* body = json_object();
+            json_object_set_new(
+                body, "api_key_id", json_string(key_id.c_str()));
+            json_object_set_new(body, "api_key", json_string(token.c_str()));
+            json_object_set_new(body, "label", json_string(label.c_str()));
+            const std::string encoded = json_dump_line(body);
+            json_decref(body);
+            RouteResponse response = json_response(201, encoded);
+            response.cache_control = "no-store";
+            return response;
+        }
+        if (!collection && method == "DELETE") {
+            const std::string key_id = uri.substr(api_keys_path.size() + 1);
+            std::string error;
+            const RecordLookupStatus status =
+                metadata_store->revoke_personal_api_key(
+                    authenticated_identity, key_id, error);
+            if (status == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Unable to revoke the API key.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            return status == RecordLookupStatus::found
+                ? json_response(200, "{\"status\":\"revoked\"}\n")
+                : json_response(404, "{\"error\":{\"code\":\"api_key_not_found\","
+                    "\"message\":\"API key not found.\"}}\n");
+        }
+        return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
+            "\"message\":\"Unsupported API key operation.\"}}\n");
     }
 
     const std::string usage_path = public_base_path + "/v1/usage";

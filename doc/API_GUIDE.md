@@ -8,6 +8,10 @@ https://www.timeonion.com/syn_sig_ra
 
 Plain HTTP redirects to HTTPS.
 
+Browser users register and sign in from the web UI; they do not paste API keys
+into the browser. Create a named personal API key from the account panel for
+the curl examples below. Its secret is shown once and can be revoked there.
+
 ## Data policy
 
 Submit synthetic engineering scenarios only. Do not include patient data,

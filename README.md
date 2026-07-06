@@ -16,8 +16,8 @@ clinical notes, PHI, or other personal data.
 
 ## Quick start in the browser
 
-1. Open the UI and paste the private-beta API key. It remains in the current
-   tab's `sessionStorage`; it is not placed in the URL.
+1. Open the UI and create an account with an e-mail address, display name, and
+   password of at least 12 characters. Registration signs the browser in.
 2. Check the Service card. `health` means Apache responds; `ready` means the
    database, generator, pack catalog, and artifact store are available.
 3. Select the Default project or create another project if your role permits.
@@ -62,14 +62,25 @@ The header shows:
 - artifact storage readiness;
 - free server disk space.
 
-### API key and roles
+### Accounts, browser sessions, and API keys
 
-Keys belong to a user in an organization. Supported roles are:
+The UI uses a seven-day `Secure`, `HttpOnly`, `SameSite=Lax` session cookie.
+It never asks for or stores an API key. Sign out invalidates the server-side
+session.
+
+The account panel can create named personal API keys for scripts and CI. The
+secret is displayed exactly once; only its SHA-256 hash is stored. Keys can be
+listed and revoked from the UI.
+
+Accounts and keys belong to a user in an organization. Supported roles are:
 
 - `owner`: read/write jobs and drafts, create projects, view metrics;
 - `admin`: the same product operations as owner;
 - `developer`: read/write jobs, scenarios, and custom packs;
 - `viewer`: read-only access to resources owned by that identity.
+
+Registration is currently open. E-mail addresses are login identifiers but
+are not yet verified because no transactional mail provider is configured.
 
 ### Projects
 
@@ -324,8 +335,15 @@ Authorization: Bearer <api-key>
 | GET | `/readyz` | Component readiness/disk | No |
 | GET | `/v1/packs` | Curated pack list | No |
 | GET | `/v1/packs/{pack_id}` | Curated pack detail | No |
+| POST | `/v1/auth/register` | Create account and browser session | No |
+| POST | `/v1/auth/login` | Start browser session | No |
+| GET | `/v1/auth/me` | Current account | Session |
+| POST | `/v1/auth/logout` | End browser session | Session |
 | GET | `/v1/projects` | Project list and caller role | Yes |
 | POST | `/v1/projects` | Create project | Owner/admin |
+| GET | `/v1/api-keys` | List personal API keys | Yes |
+| POST | `/v1/api-keys` | Create one-time API key secret | Yes |
+| DELETE | `/v1/api-keys/{id}` | Revoke personal API key | Yes |
 | GET | `/v1/scenarios` | List owned drafts | Yes |
 | POST | `/v1/scenarios` | Validate/create draft | Developer+ |
 | GET | `/v1/scenarios/{id}` | Draft detail | Owner identity |
@@ -372,7 +390,10 @@ contract.
 - HTTPS terminates at nginx; the Apache application backend listens only on
   localhost.
 - API keys are stored server-side only as SHA-256 hashes.
-- Browser keys live only in the current tab session.
+- Passwords use salted PBKDF2-HMAC-SHA256 with 310,000 iterations.
+- Browser authentication uses revocable, expiring server-side sessions.
+- E-mail ownership verification and password recovery require a transactional
+  mail provider and are not implemented yet.
 - This is synthetic engineering tooling, not clinical validation evidence.
 - Do not upload PHI or personal data.
 - The service does not execute customer detector code.

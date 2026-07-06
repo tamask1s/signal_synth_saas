@@ -26,6 +26,17 @@ AuthenticationResult authenticate_bearer(
     MetadataStore& store
 );
 
+AuthenticationResult authenticate_session(
+    const std::string& cookie_header,
+    MetadataStore& store,
+    AccountRecord* account = nullptr
+);
+
+bool session_token_from_cookie(
+    const std::string& cookie_header,
+    std::string& token
+);
+
 }  // namespace syn_sig_ra
 
 #endif

@@ -231,6 +231,10 @@ int syn_sig_ra_handler(request_rec* request) {
     const std::string authorization = authorization_value == nullptr
         ? std::string()
         : authorization_value;
+    const char* cookie_value = apr_table_get(request->headers_in, "Cookie");
+    const std::string cookie = cookie_value == nullptr
+        ? std::string()
+        : cookie_value;
     const char* content_type_value = apr_table_get(
         request->headers_in,
         "Content-Type"
@@ -260,9 +264,17 @@ int syn_sig_ra_handler(request_rec* request) {
         std::string(config->data_root) + "/db.sqlite3"
     );
     syn_sig_ra::MetadataStore* metadata_store_pointer = nullptr;
+    const std::string auth_path =
+        std::string(config->public_base_path) + "/v1/auth";
+    const bool account_route =
+        uri == auth_path ||
+        (uri.size() > auth_path.size() &&
+         uri.compare(0, auth_path.size(), auth_path) == 0 &&
+         uri[auth_path.size()] == '/');
     if (syn_sig_ra::route_requires_authentication(
             uri, config->public_base_path) ||
-        uri == std::string(config->public_base_path) + "/readyz") {
+        uri == std::string(config->public_base_path) + "/readyz" ||
+        account_route) {
         std::string storage_error;
         if (metadata_store.initialize(storage_error)) {
             metadata_store_pointer = &metadata_store;
@@ -288,7 +300,8 @@ int syn_sig_ra_handler(request_rec* request) {
         request_body,
         config->data_root,
         query_string,
-        config->signal_synth_cli
+        config->signal_synth_cli,
+        cookie
     );
 
     if (response.disposition == syn_sig_ra::RouteDisposition::declined) {
@@ -335,6 +348,20 @@ int syn_sig_ra_handler(request_rec* request) {
             request->headers_out,
             "Content-Disposition",
             response.content_disposition.c_str()
+        );
+    }
+    if (!response.set_cookie.empty()) {
+        apr_table_set(
+            request->headers_out,
+            "Set-Cookie",
+            response.set_cookie.c_str()
+        );
+    }
+    if (!response.cache_control.empty()) {
+        apr_table_set(
+            request->headers_out,
+            "Cache-Control",
+            response.cache_control.c_str()
         );
     }
     if (!response.file_path.empty()) {

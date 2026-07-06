@@ -1,5 +1,6 @@
 #include "syn_sig_ra/api_key_auth.h"
 #include "syn_sig_ra/metadata_store.h"
+#include "syn_sig_ra/password_auth.h"
 #include "syn_sig_ra/sha256.h"
 
 #include <sqlite3.h>
@@ -73,6 +74,76 @@ int main() {
         require(
             store.create_api_key(identity, key_hash, "unit test", error),
             "API key creation should succeed: " + error
+        );
+
+        std::string normalized_email;
+        require(
+            syn_sig_ra::normalize_email(" Account@Example.COM ", normalized_email) &&
+                normalized_email == "account@example.com",
+            "email should be normalized"
+        );
+        std::string password_salt;
+        std::string password_hash;
+        require(
+            syn_sig_ra::hash_password(
+                "correct horse battery staple",
+                password_salt,
+                password_hash,
+                error
+            ),
+            "password hashing should succeed: " + error
+        );
+        syn_sig_ra::AccountRecord account;
+        require(
+            store.create_account(
+                normalized_email,
+                "Account User",
+                password_salt,
+                password_hash,
+                account,
+                error
+            ) == syn_sig_ra::AccountCreateStatus::created,
+            "account creation should succeed: " + error
+        );
+        bool password_matches = false;
+        require(
+            syn_sig_ra::verify_password(
+                "correct horse battery staple",
+                password_salt,
+                password_hash,
+                password_matches,
+                error
+            ) && password_matches,
+            "stored password should verify"
+        );
+        std::string session_hash;
+        require(
+            syn_sig_ra::sha256_hex(
+                "session-secret", session_hash, error
+            ) &&
+                store.create_session(
+                    account, "session_test", session_hash, error
+                ),
+            "session creation should succeed: " + error
+        );
+        const syn_sig_ra::AuthenticationResult session =
+            syn_sig_ra::authenticate_session(
+                "other=value; syn_sig_ra_session=session-secret", store
+            );
+        require(
+            session.status == syn_sig_ra::AuthenticationStatus::authenticated &&
+                session.identity.user_id == account.user_id,
+            "session cookie should authenticate"
+        );
+        require(
+            store.delete_session(session_hash, error),
+            "session logout should succeed: " + error
+        );
+        require(
+            syn_sig_ra::authenticate_session(
+                "syn_sig_ra_session=session-secret", store
+            ).status == syn_sig_ra::AuthenticationStatus::invalid_credentials,
+            "deleted session should not authenticate"
         );
 
         const syn_sig_ra::AuthenticationResult missing =
@@ -189,8 +260,8 @@ int main() {
             "AND name IN ('organizations', 'users', 'organization_memberships', "
             "'projects', 'api_keys', 'jobs', 'packages', 'audit_events', "
             "'quota_decisions', 'worker_heartbeat', 'scenario_drafts', "
-            "'custom_packs');"
-        ) == 12,
+            "'custom_packs', 'sessions');"
+        ) == 13,
         "all metadata tables should exist"
     );
     require(
@@ -206,7 +277,7 @@ int main() {
         scalar_int(
             verification_database,
             "SELECT count(*) FROM audit_events;"
-        ) == 123,
+        ) == 124,
         "key lifecycle and request usage should be audited"
     );
     require(
@@ -218,7 +289,7 @@ int main() {
         "rate-limit decisions should be persisted"
     );
     require(
-        scalar_int(verification_database, "PRAGMA user_version;") == 7,
+        scalar_int(verification_database, "PRAGMA user_version;") == 8,
         "schema version should be deterministic"
     );
     sqlite3_close(verification_database);
@@ -227,7 +298,7 @@ int main() {
         sqlite3_open_v2(
             backup_path.c_str(), &backup_database, SQLITE_OPEN_READONLY, nullptr
         ) == SQLITE_OK &&
-            scalar_int(backup_database, "SELECT count(*) FROM api_keys;") == 1,
+            scalar_int(backup_database, "SELECT count(*) FROM api_keys;") == 2,
         "backup database should open with copied metadata"
     );
     sqlite3_close(backup_database);

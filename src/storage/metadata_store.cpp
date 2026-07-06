@@ -1,6 +1,7 @@
 #include "syn_sig_ra/metadata_store.h"
 
 #include "syn_sig_ra/random_id.h"
+#include "syn_sig_ra/sha256.h"
 
 #include <sqlite3.h>
 
@@ -10,7 +11,7 @@
 
 namespace {
 
-const int kSchemaVersion = 7;
+const int kSchemaVersion = 8;
 const int kRequestLimitPerMinute = 120;
 const int kConcurrentJobLimit = 2;
 const int kMonthlyJobLimit = 100;
@@ -26,7 +27,10 @@ CREATE TABLE IF NOT EXISTS organizations (
 
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
     display_name TEXT NOT NULL,
+    password_salt TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (
         strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     )
@@ -62,6 +66,8 @@ CREATE TABLE IF NOT EXISTS api_keys (
     key_hash TEXT NOT NULL UNIQUE
         CHECK (length(key_hash) = 64),
     label TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'personal'
+        CHECK (kind IN ('personal', 'browser')),
     active INTEGER NOT NULL DEFAULT 1
         CHECK (active IN (0, 1)),
     created_at TEXT NOT NULL DEFAULT (
@@ -70,6 +76,19 @@ CREATE TABLE IF NOT EXISTS api_keys (
     last_used_at TEXT,
     FOREIGN KEY (organization_id) REFERENCES organizations(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    token_hash TEXT NOT NULL UNIQUE CHECK (length(token_hash) = 64),
+    api_key_id TEXT NOT NULL,
+    expires_at TEXT NOT NULL DEFAULT (
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+7 days')
+    ),
+    created_at TEXT NOT NULL DEFAULT (
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    ),
+    FOREIGN KEY (api_key_id) REFERENCES api_keys(id)
 );
 
 CREATE TABLE IF NOT EXISTS jobs (
@@ -370,7 +389,7 @@ bool MetadataStore::initialize(std::string& error) {
     }
     bool succeeded = execute(kSchemaSql, error);
     if (succeeded) {
-        succeeded = execute("PRAGMA user_version = 7;", error);
+        succeeded = execute("PRAGMA user_version = 8;", error);
     }
     if (!succeeded || !execute("COMMIT;", error)) {
         std::string rollback_error;
@@ -379,6 +398,314 @@ bool MetadataStore::initialize(std::string& error) {
     }
     initialized_ = true;
     return true;
+}
+
+AccountCreateStatus MetadataStore::create_account(
+    const std::string& email,
+    const std::string& display_name,
+    const std::string& password_salt,
+    const std::string& password_hash,
+    AccountRecord& account,
+    std::string& error
+) {
+    std::string user_id;
+    std::string organization_id;
+    std::string browser_key_id;
+    std::string browser_secret;
+    std::string browser_hash;
+    if (!random_id("user_", user_id, error) ||
+        !random_id("org_", organization_id, error) ||
+        !random_id("key_browser_", browser_key_id, error) ||
+        !random_id("internal_", browser_secret, error) ||
+        !sha256_hex(browser_secret, browser_hash, error) ||
+        !initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
+        return AccountCreateStatus::storage_error;
+    }
+
+    const char* statements[] = {
+        "INSERT INTO organizations (id,display_name) VALUES (?1,?2);",
+        "INSERT INTO users "
+        "(id,email,display_name,password_salt,password_hash) "
+        "VALUES (?1,?2,?3,?4,?5);",
+        "INSERT INTO organization_memberships "
+        "(organization_id,user_id,role) VALUES (?1,?2,'owner');",
+        "INSERT INTO projects "
+        "(id,organization_id,display_name) VALUES (?1 || '_default',?1,'Default');",
+        "INSERT INTO api_keys "
+        "(id,organization_id,user_id,key_hash,label,kind) "
+        "VALUES (?1,?2,?3,?4,'Browser sessions','browser');"
+    };
+    bool succeeded = true;
+    bool duplicate_email = false;
+    for (int index = 0; index < 5 && succeeded; ++index) {
+        sqlite3_stmt* statement = nullptr;
+        succeeded = sqlite3_prepare_v2(
+            database_, statements[index], -1, &statement, nullptr
+        ) == SQLITE_OK;
+        if (succeeded && index == 0) {
+            succeeded = bind_text(statement, 1, organization_id) &&
+                bind_text(statement, 2, display_name + " workspace");
+        } else if (succeeded && index == 1) {
+            succeeded = bind_text(statement, 1, user_id) &&
+                bind_text(statement, 2, email) &&
+                bind_text(statement, 3, display_name) &&
+                bind_text(statement, 4, password_salt) &&
+                bind_text(statement, 5, password_hash);
+        } else if (succeeded && index == 2) {
+            succeeded = bind_text(statement, 1, organization_id) &&
+                bind_text(statement, 2, user_id);
+        } else if (succeeded && index == 3) {
+            succeeded = bind_text(statement, 1, organization_id);
+        } else if (succeeded) {
+            succeeded = bind_text(statement, 1, browser_key_id) &&
+                bind_text(statement, 2, organization_id) &&
+                bind_text(statement, 3, user_id) &&
+                bind_text(statement, 4, browser_hash);
+        }
+        if (succeeded) {
+            const int result = sqlite3_step(statement);
+            succeeded = result == SQLITE_DONE;
+            duplicate_email = index == 1 && result == SQLITE_CONSTRAINT;
+        }
+        sqlite3_finalize(statement);
+    }
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (!succeeded) error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return duplicate_email
+            ? AccountCreateStatus::email_exists
+            : AccountCreateStatus::storage_error;
+    }
+    account.user_id = user_id;
+    account.organization_id = organization_id;
+    account.email = email;
+    account.display_name = display_name;
+    account.password_salt = password_salt;
+    account.password_hash = password_hash;
+    account.role = "owner";
+    return AccountCreateStatus::created;
+}
+
+RecordLookupStatus MetadataStore::find_account_by_email(
+    const std::string& email,
+    AccountRecord& account,
+    std::string& error
+) {
+    if (!initialize(error)) return RecordLookupStatus::storage_error;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT u.id,m.organization_id,u.email,u.display_name,"
+        "u.password_salt,u.password_hash,m.role "
+        "FROM users u JOIN organization_memberships m ON m.user_id=u.id "
+        "WHERE u.email=?1 LIMIT 1;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, email)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    const int result = sqlite3_step(statement);
+    if (result == SQLITE_DONE) {
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::not_found;
+    }
+    if (result != SQLITE_ROW) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    account.user_id = column_text(statement, 0);
+    account.organization_id = column_text(statement, 1);
+    account.email = column_text(statement, 2);
+    account.display_name = column_text(statement, 3);
+    account.password_salt = column_text(statement, 4);
+    account.password_hash = column_text(statement, 5);
+    account.role = column_text(statement, 6);
+    sqlite3_finalize(statement);
+    return RecordLookupStatus::found;
+}
+
+bool MetadataStore::create_session(
+    const AccountRecord& account,
+    const std::string& session_id,
+    const std::string& token_hash,
+    std::string& error
+) {
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO sessions (id,token_hash,api_key_id) "
+        "SELECT ?1,?2,k.id FROM api_keys k "
+        "WHERE k.user_id=?3 AND k.organization_id=?4 "
+        "AND k.kind='browser' AND k.active=1;";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, session_id) &&
+        bind_text(statement, 2, token_hash) &&
+        bind_text(statement, 3, account.user_id) &&
+        bind_text(statement, 4, account.organization_id) &&
+        sqlite3_step(statement) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    if (!succeeded) error = sqlite3_errmsg(database_);
+    sqlite3_finalize(statement);
+    return succeeded;
+}
+
+RecordLookupStatus MetadataStore::find_session(
+    const std::string& token_hash,
+    ApiKeyIdentity& identity,
+    AccountRecord& account,
+    std::string& error
+) {
+    if (!initialize(error)) return RecordLookupStatus::storage_error;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT k.id,k.organization_id,k.user_id,m.role,u.email,u.display_name "
+        "FROM sessions s JOIN api_keys k ON k.id=s.api_key_id "
+        "JOIN organization_memberships m ON m.organization_id=k.organization_id "
+        "AND m.user_id=k.user_id JOIN users u ON u.id=k.user_id "
+        "WHERE s.token_hash=?1 AND s.expires_at > "
+        "strftime('%Y-%m-%dT%H:%M:%fZ','now') AND k.active=1;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, token_hash)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    const int result = sqlite3_step(statement);
+    if (result == SQLITE_DONE) {
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::not_found;
+    }
+    if (result != SQLITE_ROW) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    identity.api_key_id = column_text(statement, 0);
+    identity.organization_id = column_text(statement, 1);
+    identity.user_id = column_text(statement, 2);
+    identity.role = column_text(statement, 3);
+    account.organization_id = identity.organization_id;
+    account.user_id = identity.user_id;
+    account.role = identity.role;
+    account.email = column_text(statement, 4);
+    account.display_name = column_text(statement, 5);
+    sqlite3_finalize(statement);
+    return RecordLookupStatus::found;
+}
+
+bool MetadataStore::delete_session(
+    const std::string& token_hash,
+    std::string& error
+) {
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const bool succeeded = sqlite3_prepare_v2(
+            database_, "DELETE FROM sessions WHERE token_hash=?1;",
+            -1, &statement, nullptr
+        ) == SQLITE_OK &&
+        bind_text(statement, 1, token_hash) &&
+        sqlite3_step(statement) == SQLITE_DONE;
+    if (!succeeded) error = sqlite3_errmsg(database_);
+    sqlite3_finalize(statement);
+    return succeeded;
+}
+
+bool MetadataStore::create_personal_api_key(
+    const ApiKeyIdentity& owner,
+    const std::string& api_key_id,
+    const std::string& key_hash,
+    const std::string& label,
+    std::string& error
+) {
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO api_keys "
+        "(id,organization_id,user_id,key_hash,label,kind) "
+        "VALUES (?1,?2,?3,?4,?5,'personal');";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, api_key_id) &&
+        bind_text(statement, 2, owner.organization_id) &&
+        bind_text(statement, 3, owner.user_id) &&
+        bind_text(statement, 4, key_hash) &&
+        bind_text(statement, 5, label) &&
+        sqlite3_step(statement) == SQLITE_DONE;
+    if (!succeeded) error = sqlite3_errmsg(database_);
+    sqlite3_finalize(statement);
+    return succeeded;
+}
+
+bool MetadataStore::list_personal_api_keys(
+    const ApiKeyIdentity& owner,
+    std::vector<ApiKeyRecord>& api_keys,
+    std::string& error
+) {
+    api_keys.clear();
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT k.id,k.organization_id,k.user_id,m.role,k.label,k.active,"
+        "k.created_at,coalesce(k.last_used_at,'') FROM api_keys k "
+        "JOIN organization_memberships m ON m.organization_id=k.organization_id "
+        "AND m.user_id=k.user_id WHERE k.organization_id=?1 AND k.user_id=?2 "
+        "AND k.kind='personal' ORDER BY k.created_at DESC;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, owner.organization_id) ||
+        !bind_text(statement, 2, owner.user_id)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return false;
+    }
+    for (;;) {
+        const int result = sqlite3_step(statement);
+        if (result == SQLITE_DONE) {
+            sqlite3_finalize(statement);
+            return true;
+        }
+        if (result != SQLITE_ROW) {
+            error = sqlite3_errmsg(database_);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        ApiKeyRecord key;
+        key.api_key_id = column_text(statement, 0);
+        key.organization_id = column_text(statement, 1);
+        key.user_id = column_text(statement, 2);
+        key.role = column_text(statement, 3);
+        key.label = column_text(statement, 4);
+        key.active = sqlite3_column_int(statement, 5) == 1;
+        key.created_at = column_text(statement, 6);
+        key.last_used_at = column_text(statement, 7);
+        api_keys.push_back(key);
+    }
+}
+
+RecordLookupStatus MetadataStore::revoke_personal_api_key(
+    const ApiKeyIdentity& owner,
+    const std::string& api_key_id,
+    std::string& error
+) {
+    if (!initialize(error)) return RecordLookupStatus::storage_error;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE api_keys SET active=0 WHERE id=?1 AND organization_id=?2 "
+        "AND user_id=?3 AND kind='personal' AND active=1;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, api_key_id) ||
+        !bind_text(statement, 2, owner.organization_id) ||
+        !bind_text(statement, 3, owner.user_id) ||
+        sqlite3_step(statement) != SQLITE_DONE) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    const bool changed = sqlite3_changes(database_) == 1;
+    sqlite3_finalize(statement);
+    return changed ? RecordLookupStatus::found : RecordLookupStatus::not_found;
 }
 
 bool MetadataStore::create_api_key(
@@ -405,7 +732,8 @@ bool MetadataStore::create_api_key(
         "INSERT OR IGNORE INTO organizations "
         "(id, display_name) VALUES (?1, ?1);",
         "INSERT OR IGNORE INTO users "
-        "(id, display_name) VALUES (?1, ?1);",
+        "(id, email, display_name, password_salt, password_hash) "
+        "VALUES (?1, ?1 || '@legacy.invalid', ?1, '', '');",
         "INSERT OR REPLACE INTO organization_memberships "
         "(organization_id, user_id, role) VALUES (?1, ?2, ?3);",
         "INSERT OR IGNORE INTO projects "

@@ -99,6 +99,7 @@ set_target_properties(signal_synth PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(syn_sig_ra_core STATIC
     src/artifact/artifact_store.cpp
     src/auth/api_key_auth.cpp
+    src/auth/password_auth.cpp
     src/auth/sha256.cpp
     src/catalog/pack_catalog.cpp
     src/config/runtime_config.cpp
