@@ -125,14 +125,21 @@ Optional columns include:
 sample_index, channel, label, confidence
 ```
 
-JSON detection documents are also supported by the sibling `signal_synth` verifier.
+JSON detection documents are also supported by the SynSigRa local verifier.
 
 ### 3. Verify locally with the SynSigRa SDK
 
-Install the local verifier from the beta checkout or wheel. During local development next to this repo:
+Open the UI's **Verifier** panel and download either:
+
+- `synsigra-verifier.zip`: README, smoke script, and wheel;
+- `synsigra-wheel.whl`: wheel only.
+
+The downloadable artifacts contain only the Python verifier package and helper scripts. They do not contain the C++ generator, generator binary, or generator source.
+
+Install the wheel locally:
 
 ```sh
-python -m pip install ../signal_synth
+python -m pip install synsigra-wheel.whl
 ```
 
 If you downloaded `pkg_123-package.zip` from the UI and generated detections under `detections/`, run:
@@ -168,42 +175,6 @@ CI exit codes:
 
 Reference-only packs or targets intentionally do not have a local scoring policy. Use their artifacts for manual inspection, contract checks, or later template-based work.
 
-### 4. Fallback: direct authoritative CLI scoring
-
-Build the sibling generator CLI:
-
-```sh
-git clone https://github.com/tamask1s/signal_synth.git
-cmake -S signal_synth -B signal_synth/build \
-  -DSIGNAL_SYNTH_BUILD_CLI=ON \
-  -DSIGNAL_SYNTH_BUILD_TESTS=OFF
-cmake --build signal_synth/build
-
-export SIGNAL_SYNTH_CLI="$PWD/signal_synth/build/signal-synth"
-```
-
-Score a single case directly:
-
-```sh
-unzip package.zip -d challenge
-
-"$SIGNAL_SYNTH_CLI" compare rpeaks \
-  challenge/cases/clean_70/scenario.json \
-  detections/clean_70.csv \
-  --out verification-clean-70
-```
-
-Other supported scoring commands depend on the selected scenario/pack and may include:
-
-```text
-compare rpeaks
-compare ppg-peaks
-compare beat-classes
-hrv score
-```
-
-Signal-quality-only targets may provide generated reference artifacts without event-detector scoring.
-
 ## Browser UI capabilities
 
 ### Service status
@@ -234,6 +205,17 @@ Notes:
 - Cross-organization resources deliberately return `404`.
 - Sign out invalidates the server-side browser session.
 - API keys can be listed and revoked from the UI.
+
+### Verifier downloads
+
+The **Verifier** panel provides authenticated downloads for users who need to verify local detector output without cloning `signal_synth`.
+
+Available files:
+
+- `synsigra-verifier.zip`: README, `verify_smoke.sh`, and the wheel under `wheels/`;
+- `synsigra-wheel.whl`: direct pure-Python wheel download.
+
+The metadata endpoint also shows SHA-256 fingerprints and install commands. These files install `synsigra-verify`; they do not include the generator binary/source and cannot generate challenge packages.
 
 ### Projects
 
@@ -282,10 +264,14 @@ The scenario editor supports creating, validating, updating, listing, and deleti
 
 Key properties:
 
-- The clean ECG example provides a deterministic starting point.
+- Core-provided templates can create valid drafts without hand-writing JSON.
+- The form renderer uses core authoring metadata for labels, ranges, units, defaults, enum options, and visibility rules.
+- Curated scenarios can be cloned/forked into editable drafts.
+- Preview shows scoreable targets, reference-only targets, duration, sample count, channel count, estimated package size, estimated peak memory, detector schemas, and target compatibility messages before pack composition.
+- Raw JSON mode remains available for advanced edits.
 - Local JSON formatting catches syntax errors before submission.
 - Valid drafts are canonicalized and receive a SHA-256 document fingerprint.
-- Invalid drafts are saved as editable drafts and return actionable validation entries with code, JSON path, and message.
+- Invalid drafts are saved as editable drafts and return actionable validation entries with code, JSON path, and message. Validation paths are clickable in the UI to focus the JSON editor near the relevant field.
 - Drafts are scoped to the exact owner identity.
 - Viewer-role credentials cannot modify drafts.
 - The scenario contract is validated by the sibling `signal_synth` implementation.
@@ -419,6 +405,12 @@ Authorization: Bearer <api-key>
 | `GET` | `/v1/api-keys` | List personal API keys | Authenticated |
 | `POST` | `/v1/api-keys` | Create one-time API key secret | Authenticated |
 | `DELETE` | `/v1/api-keys/{id}` | Revoke personal API key | Authenticated |
+| `GET` | `/v1/downloads/verifier` | Verifier download metadata | Authenticated |
+| `GET` | `/v1/downloads/verifier/{filename}` | Download generator-free verifier bundle/wheel | Authenticated |
+| `GET` | `/v1/authoring/schema` | Core scenario-authoring schema metadata | Authenticated |
+| `GET` | `/v1/authoring/templates` | Core scenario templates | Authenticated |
+| `POST` | `/v1/authoring/preview` | Preview scenario package analysis | Authenticated |
+| `GET` | `/v1/authoring/curated-scenarios/{pack_id}/{case_id}` | Clone curated scenario JSON | Authenticated |
 | `GET` | `/v1/scenarios` | List owned drafts | Authenticated |
 | `POST` | `/v1/scenarios` | Validate/create draft | Developer+ |
 | `GET` | `/v1/scenarios/{id}` | Draft detail | Owner identity |

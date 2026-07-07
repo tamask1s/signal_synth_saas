@@ -22,12 +22,16 @@ limits, docs, and live operations.
 - Catalog UI/API exposes scoreable targets, reference-only targets, detector
   schemas, verifier profiles, difficulty tags, duration, sampling rates,
   channel counts, package-size estimates, and recommended-use guidance.
-- Scenario draft editor with validation.
+- Scenario draft editor with core template/form-assisted authoring, curated
+  scenario clone/fork, validation, clickable validation paths, and package
+  preview.
 - Immutable custom pack composer from valid scenario drafts.
 - Job creation, pagination, cancel, retry, soft delete, worker execution, and
   artifact downloads.
 - Completed-job recipe panel with copyable `synsigra-verify` commands.
 - Detector-output template ZIP for completed curated jobs.
+- Authenticated generator-free verifier bundle/wheel downloads for local
+  `synsigra-verify` installation without cloning the generator repository.
 - Quotas, request rate limits, usage view, and admin metrics.
 - Retention cleanup, backup, restore drill, build/deploy/verify scripts, and
   live deployment workflow.
@@ -73,7 +77,6 @@ The service must not become:
   metadata, HEAD support, and stable error examples.
 - Detector-output templates cover curated scoreable targets; custom-pack
   template generation is deferred until custom scoring metadata is richer.
-- Template/form-assisted scenario authoring is not implemented yet.
 - Privacy-preserving activation telemetry is not implemented.
 
 ## Remaining roadmap issues
@@ -87,7 +90,6 @@ Before broader external beta:
 
 Product/API hardening after the default verification path:
 
-- [#34 Add template/form-assisted scenario authoring with preview](https://github.com/tamask1s/signal_synth_saas/issues/34)
 - [#36 Add API usability hardening: idempotency, request IDs, artifact metadata](https://github.com/tamask1s/signal_synth_saas/issues/36)
 - [#38 Add privacy-preserving beta activation telemetry](https://github.com/tamask1s/signal_synth_saas/issues/38)
 

@@ -80,10 +80,44 @@ included.
 Run the local verifier:
 
 ```sh
-python -m pip install ../signal_synth
+curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
+  -o synsigra-wheel.whl \
+  "$BASE/v1/downloads/verifier/synsigra-wheel.whl"
+python -m pip install synsigra-wheel.whl
 synsigra-verify package.zip detections/ verification-results/ \
   --profile stress \
   --force
+```
+
+The verifier download contains only the Python package and helper scripts. It
+does not include the generator binary or source tree.
+
+## Scenario authoring helpers
+
+Authenticated clients can build form-assisted scenario editors from core-owned
+metadata:
+
+```sh
+curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
+  "$BASE/v1/authoring/schema"
+curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
+  "$BASE/v1/authoring/templates"
+```
+
+Preview a draft before saving or composing a custom pack:
+
+```sh
+curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"scenario":{...},"targets":["r_peak"]}' \
+  "$BASE/v1/authoring/preview"
+```
+
+Clone a curated case into a draft editor:
+
+```sh
+curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
+  "$BASE/v1/authoring/curated-scenarios/r_peak_stress_v1/clean_70"
 ```
 
 The complete machine-readable reference is

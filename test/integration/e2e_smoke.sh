@@ -516,6 +516,49 @@ with zipfile.ZipFile(archive_path) as archive:
 PY
     fail "detection template archive failed validation"
 
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -o "$WORK_ROOT/verifier-downloads.json" \
+    "$BASE_URL/v1/downloads/verifier" ||
+    fail "verifier download metadata failed"
+
+python3 - "$WORK_ROOT/verifier-downloads.json" <<'PY' ||
+import json
+import sys
+
+metadata = json.load(open(sys.argv[1], "r", encoding="utf-8"))
+if metadata.get("package") != "synsigra":
+    raise SystemExit("unexpected verifier package")
+if metadata.get("generator_included") is not False:
+    raise SystemExit("verifier download must not include generator")
+files = {item.get("filename") for item in metadata.get("files", [])}
+if "synsigra-verifier.zip" not in files or "synsigra-wheel.whl" not in files:
+    raise SystemExit("expected verifier bundle and wheel metadata")
+PY
+    fail "verifier download metadata validation failed"
+
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -o "$WORK_ROOT/synsigra-verifier.zip" \
+    "$BASE_URL/v1/downloads/verifier/synsigra-verifier.zip" ||
+    fail "verifier bundle download failed"
+
+python3 - "$WORK_ROOT/synsigra-verifier.zip" <<'PY' ||
+import sys
+import zipfile
+
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    bad = archive.testzip()
+    if bad:
+        raise SystemExit("bad verifier zip member: " + bad)
+    names = set(archive.namelist())
+    if "README.md" not in names or "verify_smoke.sh" not in names:
+        raise SystemExit("verifier bundle missing helper files")
+    if not any(name.startswith("wheels/synsigra-") and name.endswith(".whl") for name in names):
+        raise SystemExit("verifier bundle missing wheel")
+PY
+    fail "verifier bundle validation failed"
+
 DELETE_HTTP=$(
     curl -sS \
         -o "$WORK_ROOT/job-delete.json" \

@@ -4,6 +4,8 @@ set -eu
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 build_dir=${BUILD_DIR:-"$repo_dir/build/e2e"}
 
+"$repo_dir/scripts/build_verifier_downloads.sh" "$repo_dir/downloads/verifier"
+
 cmake -S "$repo_dir" -B "$build_dir" \
   -DSIGNAL_SYNTH_ROOT="$repo_dir/../signal_synth" \
   -DAPXS_EXECUTABLE=/usr/local/apache2/bin/apxs \

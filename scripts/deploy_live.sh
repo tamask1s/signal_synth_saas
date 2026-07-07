@@ -44,6 +44,10 @@ sudo install -m 0644 "$repo_dir"/packs/*.json "$repo_dir"/packs/*.product "$repo
 sudo cp -R "$repo_dir"/packs/scenarios /opt/signal_synth_saas/packs/
 sudo find /opt/signal_synth_saas/packs/scenarios -type d -exec chmod 0755 {} +
 sudo find /opt/signal_synth_saas/packs/scenarios -type f -exec chmod 0644 {} +
+sudo install -d -m 0755 /opt/signal_synth_saas/downloads/verifier
+sudo find /opt/signal_synth_saas/downloads/verifier -maxdepth 1 -type f -delete
+sudo install -m 0644 "$repo_dir"/downloads/verifier/* \
+  /opt/signal_synth_saas/downloads/verifier/
 sudo install -d -o apache -g nogroup -m 0750 \
   /var/lib/syn_sig_ra/custom_packs
 

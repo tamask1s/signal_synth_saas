@@ -8,8 +8,10 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <string>
+#include <sys/stat.h>
 
 namespace {
 
@@ -18,6 +20,12 @@ void require(bool condition, const std::string& message) {
         std::cerr << "FAIL: " << message << '\n';
         std::exit(EXIT_FAILURE);
     }
+}
+
+void write_file(const std::string& path, const std::string& content) {
+    std::ofstream output(path.c_str(), std::ios::binary | std::ios::trunc);
+    output << content;
+    require(static_cast<bool>(output), "test fixture should be writable: " + path);
 }
 
 }  // namespace
@@ -65,6 +73,8 @@ int main() {
             ui.body.find("metrics-panel") != std::string::npos &&
             ui.body.find("load-more-jobs") != std::string::npos &&
             ui.body.find("load-scenario-template") != std::string::npos &&
+            ui.body.find("verifier-downloads") != std::string::npos &&
+            ui.body.find("scenario-template-select") != std::string::npos &&
             ui.body.find("register-email") != std::string::npos &&
             ui.body.find("save-key") == std::string::npos &&
             ui.body.find("/syn_sig_ra/docs/api") != std::string::npos &&
@@ -78,6 +88,8 @@ int main() {
         docs_api.status == 200 &&
             docs_api.content_type.find("text/html") != std::string::npos &&
             docs_api.body.find("Rendered API reference") != std::string::npos &&
+            docs_api.body.find("/v1/downloads/verifier") != std::string::npos &&
+            docs_api.body.find("/v1/authoring/preview") != std::string::npos &&
             docs_api.body.find("detection-templates.zip") != std::string::npos,
         "rendered API docs should be served"
     );
@@ -104,6 +116,8 @@ int main() {
             ui_js.content_type.find("javascript") != std::string::npos &&
             ui_js.body.find("(() => {") == 0 &&
             ui_js.body.find("loadMetrics") != std::string::npos &&
+            ui_js.body.find("loadAuthoring") != std::string::npos &&
+            ui_js.body.find("loadVerifierDownloads") != std::string::npos &&
             ui_js.body.find("jobsNextOffset") != std::string::npos &&
             ui_js.body.find("cleanEcgTemplate") != std::string::npos &&
             ui_js.body.find("Detection templates ZIP") != std::string::npos &&
@@ -280,8 +294,130 @@ int main() {
         authorized.status == 404,
         "authenticated requests should pass auth and reach routing"
     );
-    std::remove(database_path.c_str());
 
+    const syn_sig_ra::RouteResponse authoring_schema =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/authoring/schema",
+            "/syn_sig_ra",
+            "Bearer route-test-key",
+            &store
+        );
+    require(
+        authoring_schema.status == 200 &&
+            authoring_schema.body.find("synsigra_authoring") != std::string::npos &&
+            authoring_schema.body.find("\"targets\"") != std::string::npos,
+        "authenticated caller should read core authoring schema"
+    );
+    const syn_sig_ra::RouteResponse authoring_templates =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/authoring/templates",
+            "/syn_sig_ra",
+            "Bearer route-test-key",
+            &store
+        );
+    require(
+        authoring_templates.status == 200 &&
+            authoring_templates.body.find("ecg_rpeak_clean") != std::string::npos,
+        "authenticated caller should read core authoring templates"
+    );
+    const std::string preview_request =
+        "{\"scenario\":{\"schema_version\":2,\"scenario_id\":\"preview_case\","
+        "\"name\":\"Preview\",\"description\":\"\",\"author\":\"Synsigra\","
+        "\"tags\":[\"preview\"],\"duration_seconds\":10,"
+        "\"sample_rate_hz\":500,\"seed\":12345,\"ecg\":{"
+        "\"heart_rate_bpm\":70,\"rr_variability_seconds\":0,"
+        "\"ectopic_every_n_beats\":0,"
+        "\"second_degree_av_pattern\":\"unspecified\","
+        "\"q_wave_territory\":\"unspecified\","
+        "\"episode_type\":\"none\",\"episode_start_seconds\":2,"
+        "\"episode_duration_seconds\":4,\"episode_rate_bpm\":170,"
+        "\"flutter_conduction_pattern\":\"fixed\","
+        "\"pacing_mode\":\"ventricular\","
+        "\"pacing_non_capture_every_n_beats\":0,"
+        "\"fidelity_policy\":\"allow_parameterized\","
+        "\"conditions\":[{\"code\":\"NORM\",\"severity\":1}]},"
+        "\"ppg\":{\"enabled\":false,\"pulse_delay_ms\":180,"
+        "\"rise_time_ms\":120,\"decay_time_ms\":300,"
+        "\"amplitude_au\":1,\"baseline_au\":0,"
+        "\"dicrotic_delay_ms\":180,\"dicrotic_width_ms\":80,"
+        "\"dicrotic_amplitude_ratio\":0.15}},"
+        "\"targets\":[\"r_peak\"]}";
+    const syn_sig_ra::RouteResponse preview =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/authoring/preview",
+            "/syn_sig_ra",
+            "Bearer route-test-key",
+            &store,
+            "",
+            "application/json",
+            preview_request
+        );
+    require(
+        preview.status == 200 &&
+            preview.body.find("\"success\":true") != std::string::npos &&
+            preview.body.find("\"estimated_package_bytes\"") != std::string::npos,
+        "scenario preview should use core pack analysis"
+    );
+
+    const std::string download_root =
+        "/tmp/syn_sig_ra_route_downloads_" + std::to_string(getpid());
+    const std::string download_pack_root = download_root + "/packs";
+    const std::string verifier_root = download_root + "/downloads/verifier";
+    mkdir(download_root.c_str(), 0750);
+    mkdir(download_pack_root.c_str(), 0750);
+    mkdir((download_root + "/downloads").c_str(), 0750);
+    mkdir(verifier_root.c_str(), 0750);
+    write_file(verifier_root + "/metadata.json",
+               "{\"schema_version\":1,\"package\":\"synsigra\"}\n");
+    write_file(verifier_root + "/synsigra-verifier.zip", "zip");
+    write_file(verifier_root + "/synsigra-wheel.whl", "wheel");
+    const syn_sig_ra::RouteResponse downloads =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/downloads/verifier",
+            "/syn_sig_ra",
+            "Bearer route-test-key",
+            &store,
+            download_pack_root
+        );
+    require(
+        downloads.status == 200 &&
+            downloads.content_type == "application/json" &&
+            downloads.file_path.find("metadata.json") != std::string::npos,
+        "verifier download metadata should resolve from pack-root sibling"
+    );
+    const syn_sig_ra::RouteResponse bundle =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/downloads/verifier/synsigra-verifier.zip",
+            "/syn_sig_ra",
+            "Bearer route-test-key",
+            &store,
+            download_pack_root
+        );
+    require(
+        bundle.status == 200 &&
+            bundle.content_type == "application/zip" &&
+            bundle.content_disposition.find("synsigra-verifier.zip") !=
+                std::string::npos,
+        "verifier bundle should be downloadable without exposing generator files"
+    );
+    const syn_sig_ra::RouteResponse bad_download =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/downloads/verifier/../secret",
+            "/syn_sig_ra",
+            "Bearer route-test-key",
+            &store,
+            download_pack_root
+        );
+    require(
+        bad_download.status == 400,
+        "download traversal attempts should return HTTP 400"
+    );
     const syn_sig_ra::RuntimeConfig runtime_config =
         syn_sig_ra::default_runtime_config();
     const syn_sig_ra::RouteResponse pack_list =
@@ -314,6 +450,22 @@ int main() {
         "known pack detail route should return HTTP 200"
     );
 
+    const syn_sig_ra::RouteResponse curated_clone =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/authoring/curated-scenarios/r_peak_stress_v1/clean_70",
+            "/syn_sig_ra",
+            "Bearer route-test-key",
+            &store,
+            runtime_config.pack_root
+        );
+    require(
+        curated_clone.status == 200 &&
+            curated_clone.body.find("\"scenario_id\":\"rpeak_clean_70\"") !=
+                std::string::npos,
+        "curated scenario clone should return source scenario JSON"
+    );
+
     const syn_sig_ra::RouteResponse traversal =
         syn_sig_ra::route_request(
             "GET",
@@ -327,6 +479,15 @@ int main() {
         traversal.status == 400,
         "pack traversal attempts should return HTTP 400"
     );
+
+    std::remove((verifier_root + "/metadata.json").c_str());
+    std::remove((verifier_root + "/synsigra-verifier.zip").c_str());
+    std::remove((verifier_root + "/synsigra-wheel.whl").c_str());
+    rmdir(verifier_root.c_str());
+    rmdir((download_root + "/downloads").c_str());
+    rmdir(download_pack_root.c_str());
+    rmdir(download_root.c_str());
+    std::remove(database_path.c_str());
 
     return EXIT_SUCCESS;
 }

@@ -150,6 +150,29 @@ components:
           properties:
             code: {type: string}
             message: {type: string}
+    VerifierDownloads:
+      type: object
+      required: [schema_version, package, version, console_script, generator_included, files]
+      properties:
+        schema_version: {type: integer}
+        package: {type: string, example: synsigra}
+        version: {type: string, example: 0.2.0}
+        console_script: {type: string, example: synsigra-verify}
+        generator_included: {type: boolean, example: false}
+        generated_at: {type: string, format: date-time}
+        files:
+          type: array
+          items:
+            type: object
+            properties:
+              label: {type: string}
+              filename: {type: string}
+              versioned_filename: {type: string}
+              content_type: {type: string}
+              sha256: {type: string}
+              description: {type: string}
+        install: {type: array, items: {type: string}}
+        verify_example: {type: string}
 paths:
   /healthz:
     get:
@@ -190,6 +213,77 @@ paths:
               schema: {$ref: '#/components/schemas/Pack'}
         '400': {description: Invalid pack ID}
         '404': {description: Pack not found}
+  /v1/downloads/verifier:
+    get:
+      summary: Read local verifier download metadata
+      description: Returns metadata for generator-free SynSigRa verifier downloads. The files install synsigra-verify only and do not include signal-synth or generator source.
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Verifier download metadata
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VerifierDownloads'}
+        '401': {description: Unauthorized}
+        '404': {description: Downloads not built or not deployed}
+  /v1/downloads/verifier/{filename}:
+    get:
+      summary: Download local verifier bundle or wheel
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      parameters:
+        - {in: path, name: filename, required: true, schema: {type: string, enum: [metadata.json, synsigra-verifier.zip, synsigra-wheel.whl]}}
+      responses:
+        '200':
+          description: Verifier file bytes
+          content:
+            application/zip:
+              schema: {type: string, format: binary}
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        '401': {description: Unauthorized}
+        '404': {description: File not available}
+  /v1/authoring/schema:
+    get:
+      summary: Read core scenario-authoring schema metadata
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      responses:
+        '200': {description: Core authoring schema metadata}
+        '401': {description: Unauthorized}
+  /v1/authoring/templates:
+    get:
+      summary: Read core scenario templates
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      responses:
+        '200': {description: Template catalog with complete valid scenario documents}
+        '401': {description: Unauthorized}
+  /v1/authoring/preview:
+    post:
+      summary: Preview a scenario and target set before saving or composing a custom pack
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scenario, targets]
+              properties:
+                scenario: {type: object}
+                targets: {type: array, minItems: 1, items: {type: string}}
+              additionalProperties: false
+      responses:
+        '200': {description: Core pack-analysis preview, including scoreable/reference-only targets and size estimates}
+        '422': {description: Scenario JSON failed core validation}
+  /v1/authoring/curated-scenarios/{pack_id}/{case_id}:
+    get:
+      summary: Clone a curated scenario into the draft editor
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      parameters:
+        - {in: path, name: pack_id, required: true, schema: {type: string}}
+        - {in: path, name: case_id, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Curated scenario JSON}
+        '404': {description: Pack/case not found}
   /v1/auth/register:
     post:
       summary: Create an account and browser session

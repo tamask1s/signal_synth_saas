@@ -20,6 +20,7 @@ Testing/
 /.env.*
 !/var.example/
 /var/
+/downloads/
 *.sqlite
 *.sqlite3
 

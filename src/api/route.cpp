@@ -9,6 +9,8 @@
 #include "syn_sig_ra/random_id.h"
 #include "syn_sig_ra/sha256.h"
 #include "ecg_pack.h"
+#include "ecg_scenario_json.h"
+#include "scenario_authoring.h"
 #include "synsigra_api.h"
 
 #include <jansson.h>
@@ -607,6 +609,293 @@ bool write_private_file(
     return true;
 }
 
+bool read_file_to_string(
+    const std::string& path,
+    std::string& content,
+    std::string& error
+) {
+    std::ifstream input(path.c_str(), std::ios::binary);
+    if (!input) {
+        error = "file is not readable";
+        return false;
+    }
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    content = buffer.str();
+    if (!input.good() && !input.eof()) {
+        error = "file could not be read";
+        return false;
+    }
+    return true;
+}
+
+bool starts_with(const std::string& value, const std::string& prefix) {
+    return value.size() >= prefix.size() &&
+           value.compare(0, prefix.size(), prefix) == 0;
+}
+
+bool ends_with(const std::string& value, const std::string& suffix) {
+    return value.size() >= suffix.size() &&
+           value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+std::string parent_directory(const std::string& path) {
+    if (path.empty()) return std::string();
+    const std::string::size_type separator = path.find_last_of('/');
+    if (separator == std::string::npos) return std::string();
+    if (separator == 0) return "/";
+    return path.substr(0, separator);
+}
+
+std::string verifier_download_root(const std::string& pack_root) {
+    const std::string parent = parent_directory(pack_root);
+    return parent.empty() ? std::string() : parent + "/downloads/verifier";
+}
+
+bool is_regular_file(const std::string& path) {
+    struct stat info;
+    return stat(path.c_str(), &info) == 0 && S_ISREG(info.st_mode);
+}
+
+bool safe_relative_path(const std::string& path) {
+    if (path.empty() || path[0] == '/' ||
+        path.find('\\') != std::string::npos ||
+        path.find("//") != std::string::npos) {
+        return false;
+    }
+    std::string::size_type start = 0;
+    while (start <= path.size()) {
+        const std::string::size_type end = path.find('/', start);
+        const std::string part = path.substr(
+            start,
+            end == std::string::npos ? std::string::npos : end - start
+        );
+        if (part.empty() || part == "." || part == "..") return false;
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+    return true;
+}
+
+bool safe_download_filename(const std::string& filename) {
+    if (filename.empty() || filename.size() > 128) return false;
+    for (std::string::const_iterator it = filename.begin();
+         it != filename.end(); ++it) {
+        const unsigned char ch = static_cast<unsigned char>(*it);
+        if (!std::isalnum(ch) && ch != '.' && ch != '_' && ch != '-') {
+            return false;
+        }
+    }
+    return filename == "metadata.json" ||
+           filename == "synsigra-verifier.zip" ||
+           filename == "synsigra-wheel.whl" ||
+           (starts_with(filename, "synsigra-verifier-") &&
+            ends_with(filename, ".zip")) ||
+           (starts_with(filename, "synsigra-") &&
+            ends_with(filename, "-py3-none-any.whl"));
+}
+
+syn_sig_ra::RouteResponse download_file_response(
+    const std::string& root,
+    const std::string& filename
+) {
+    if (root.empty() || !safe_download_filename(filename)) {
+        return json_response(
+            400,
+            "{\"error\":{\"code\":\"invalid_download_path\","
+            "\"message\":\"The download path is invalid.\"}}\n"
+        );
+    }
+    const std::string path = root + "/" + filename;
+    if (!is_regular_file(path)) {
+        return json_response(
+            404,
+            "{\"error\":{\"code\":\"download_not_available\","
+            "\"message\":\"The requested verifier download is not available.\"}}\n"
+        );
+    }
+    syn_sig_ra::RouteResponse response;
+    response.disposition = syn_sig_ra::RouteDisposition::handled;
+    response.status = 200;
+    response.file_path = path;
+    if (filename == "metadata.json") {
+        response.content_type = "application/json";
+        response.cache_control = "no-store";
+    } else {
+        response.content_type = ends_with(filename, ".zip")
+            ? "application/zip"
+            : "application/octet-stream";
+        response.content_disposition =
+            "attachment; filename=\"" + filename + "\"";
+        response.cache_control = "no-store";
+    }
+    return response;
+}
+
+json_t* scenario_json_messages(
+    const std::vector<signal_synth::ecg_scenario_json_message>& messages
+) {
+    json_t* array = json_array();
+    for (std::vector<signal_synth::ecg_scenario_json_message>::const_iterator it =
+             messages.begin();
+         it != messages.end(); ++it) {
+        json_t* item = json_object();
+        json_object_set_new(
+            item,
+            "code",
+            json_string(signal_synth::ecg_scenario_json_message_code_name(it->code))
+        );
+        json_object_set_new(item, "path", json_string(it->path.c_str()));
+        json_object_set_new(item, "message", json_string(it->message.c_str()));
+        json_array_append_new(array, item);
+    }
+    return array;
+}
+
+bool string_array_from_json(
+    json_t* array,
+    std::vector<std::string>& values
+) {
+    if (!json_is_array(array) || json_array_size(array) == 0) return false;
+    std::set<std::string> seen;
+    std::size_t index = 0;
+    json_t* item = nullptr;
+    json_array_foreach(array, index, item) {
+        if (!json_is_string(item)) return false;
+        const std::string value = json_string_value(item);
+        if (value.empty() || !seen.insert(value).second) return false;
+        values.push_back(value);
+    }
+    return true;
+}
+
+syn_sig_ra::RouteResponse authoring_preview_response(json_t* submitted) {
+    json_t* scenario = submitted == nullptr
+        ? nullptr : json_object_get(submitted, "scenario");
+    json_t* targets = submitted == nullptr
+        ? nullptr : json_object_get(submitted, "targets");
+    if (!json_is_object(submitted) || json_object_size(submitted) != 2 ||
+        !json_is_object(scenario)) {
+        return json_response(
+            400,
+            "{\"error\":{\"code\":\"invalid_preview_request\","
+            "\"message\":\"scenario object and targets array are required.\"}}\n"
+        );
+    }
+    std::vector<std::string> target_values;
+    if (!string_array_from_json(targets, target_values)) {
+        return json_response(
+            400,
+            "{\"error\":{\"code\":\"invalid_preview_targets\","
+            "\"message\":\"targets must contain unique target names.\"}}\n"
+        );
+    }
+    char* scenario_text = json_dumps(scenario, JSON_COMPACT | JSON_SORT_KEYS);
+    if (scenario_text == nullptr) {
+        return json_response(
+            400,
+            "{\"error\":{\"code\":\"invalid_preview_scenario\","
+            "\"message\":\"scenario could not be encoded.\"}}\n"
+        );
+    }
+    signal_synth::ecg_scenario_document document;
+    signal_synth::ecg_scenario_json_result validation;
+    const bool parsed = signal_synth::parse_ecg_scenario_json(
+        scenario_text,
+        document,
+        validation
+    );
+    free(scenario_text);
+    if (!parsed) {
+        json_t* root = json_object();
+        json_t* error = json_object();
+        json_object_set_new(error, "code", json_string("scenario_invalid"));
+        json_object_set_new(
+            error,
+            "message",
+            json_string("Fix scenario fields before previewing package output.")
+        );
+        json_object_set_new(root, "error", error);
+        json_object_set_new(
+            root,
+            "validation_errors",
+            scenario_json_messages(validation.messages)
+        );
+        const std::string body = json_dump_line(root);
+        json_decref(root);
+        return json_response(422, body);
+    }
+
+    signal_synth::ecg_pack_manifest pack;
+    pack.pack_id = "preview_pack";
+    pack.name = "Scenario preview";
+    pack.version = "preview";
+    pack.description = "SaaS authoring preview.";
+    pack.targets = target_values;
+    signal_synth::ecg_pack_scenario item;
+    item.id = document.scenario_id.empty() ? "preview_case" : document.scenario_id;
+    item.path = item.id + ".json";
+    item.targets = target_values;
+    pack.scenarios.push_back(item);
+    std::vector<signal_synth::ecg_scenario_document> scenarios;
+    scenarios.push_back(document);
+    signal_synth::scenario_pack_analysis analysis;
+    signal_synth::analyze_scenario_pack(pack, scenarios, analysis);
+    return json_response(
+        200,
+        signal_synth::scenario_pack_analysis_json(analysis) + "\n"
+    );
+}
+
+bool read_curated_scenario(
+    const std::string& pack_root,
+    const std::string& pack_id,
+    const std::string& case_id,
+    std::string& scenario_json,
+    std::string& error
+) {
+    if (pack_root.empty() || !syn_sig_ra::is_valid_pack_id(pack_id) ||
+        !syn_sig_ra::is_valid_pack_id(case_id)) {
+        error = "invalid curated scenario ID";
+        return false;
+    }
+    const std::string pack_path = pack_root + "/" + pack_id + ".json";
+    json_error_t parse_error;
+    json_t* pack = json_load_file(
+        pack_path.c_str(),
+        JSON_REJECT_DUPLICATES,
+        &parse_error
+    );
+    if (!json_is_object(pack)) {
+        if (pack != nullptr) json_decref(pack);
+        error = "curated pack JSON is unavailable";
+        return false;
+    }
+    json_t* scenarios = json_object_get(pack, "scenarios");
+    std::string relative_path;
+    std::size_t index = 0;
+    json_t* item = nullptr;
+    json_array_foreach(scenarios, index, item) {
+        json_t* id = json_object_get(item, "id");
+        json_t* path = json_object_get(item, "path");
+        if (json_is_string(id) && json_is_string(path) &&
+            case_id == json_string_value(id)) {
+            relative_path = json_string_value(path);
+            break;
+        }
+    }
+    json_decref(pack);
+    if (relative_path.empty() || !safe_relative_path(relative_path)) {
+        error = "curated scenario path is unavailable";
+        return false;
+    }
+    return read_file_to_string(
+        pack_root + "/" + relative_path,
+        scenario_json,
+        error
+    );
+}
+
 bool validate_scenario_document(
     json_t* scenario,
     std::string& status,
@@ -667,6 +956,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
     <nav class="quick-nav" aria-label="Page sections">
       <a href="#generate">Generate</a>
       <a href="#jobs-section">Jobs</a>
+      <a href="#verifier-downloads">Verifier</a>
       <a href="#scenario-workbench">Scenarios</a>
       <a href="#custom-pack-workbench">Custom packs</a>
       <a href="#account">Account</a>
@@ -777,6 +1067,17 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <div id="jobs" class="jobs"></div>
       <button id="load-more-jobs" class="secondary" hidden>Load older jobs</button>
     </section>
+    <section id="verifier-downloads" class="panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Local verifier downloads</h2>
+          <p class="muted compact">Install <code>synsigra-verify</code> without cloning the generator repository.</p>
+        </div>
+        <button id="refresh-verifier-downloads" class="secondary">Refresh</button>
+      </div>
+      <p class="verify-note"><strong>Boundary:</strong> these downloads contain only the Python verifier package and helper scripts. They do not include the C++ generator or generator source.</p>
+      <div id="verifier-downloads-content" class="jobs">Sign in to download the verifier.</div>
+    </section>
     <section id="usage-section" class="panel">
       <div class="panel-heading">
         <h2>Usage</h2>
@@ -794,10 +1095,32 @@ const char kUiHtml[] = R"HTML(<!doctype html>
     <section id="scenario-workbench" class="panel">
       <div class="panel-heading">
         <h2>Scenario drafts</h2>
-        <button id="new-scenario" class="secondary">New draft</button>
+        <div class="actions no-margin">
+          <button id="refresh-authoring" class="secondary">Refresh authoring</button>
+          <button id="new-scenario" class="secondary">New draft</button>
+        </div>
       </div>
-      <p class="muted">Start from a working ECG example or edit raw JSON. Invalid drafts remain editable and show validation details.</p>
+      <p class="muted">Start from a core template, clone a curated case, adjust supported fields, preview package impact, then save. Raw JSON remains available for advanced edits.</p>
       <p class="verify-note"><strong>No PHI:</strong> use synthetic engineering scenarios only. Do not enter patient identifiers, clinical notes, personal data, or diagnostic claims.</p>
+      <div class="authoring-grid">
+        <div>
+          <h3>Template-assisted authoring</h3>
+          <label for="scenario-template-select">Core template</label>
+          <select id="scenario-template-select"></select>
+          <button id="apply-scenario-template" class="secondary">Apply template</button>
+        </div>
+        <div>
+          <h3>Clone curated case</h3>
+          <label for="curated-clone-pack">Curated pack</label>
+          <select id="curated-clone-pack"></select>
+          <label for="curated-clone-case">Case</label>
+          <select id="curated-clone-case"></select>
+          <button id="clone-curated-scenario" class="secondary">Clone into draft</button>
+        </div>
+      </div>
+      <div id="scenario-targets" class="tag-list"></div>
+      <div id="scenario-form" class="form-grid"></div>
+      <div id="scenario-preview" class="selected-pack muted">Select a template or edit JSON to preview package output.</div>
       <label for="scenario-name">Name</label>
       <input id="scenario-name" type="text" maxlength="100" placeholder="Scenario name">
       <label for="scenario-json">Scenario JSON</label>
@@ -870,11 +1193,12 @@ const char kQuickstartHtml[] = R"HTML(<!doctype html>
         <li>Create a challenge job and wait for <code>succeeded</code>.</li>
         <li>Download <code>manifest.json</code>, <code>package.zip</code>, and <code>detection-templates.zip</code>.</li>
         <li>Unzip the detection templates and replace example rows under <code>detections/</code> with your algorithm output.</li>
-        <li>Install the local verifier: <code>python -m pip install ../signal_synth</code>.</li>
+        <li>Open the <strong>Verifier</strong> panel, download the verifier bundle or wheel, and install it locally without cloning the generator repository.</li>
         <li>Copy the exact <code>synsigra-verify</code> command from the completed job card and run it next to the downloaded package.</li>
         <li>Inspect <code>verification_summary.json</code>, <code>verification_summary.csv</code>, and <code>verification_report.html</code>.</li>
       </ol>
-      <pre class="output">synsigra-verify "pkg_123-package.zip" detections/ "verification-pkg_123" --profile stress --force</pre>
+      <pre class="output">python -m pip install synsigra-wheel.whl
+synsigra-verify "pkg_123-package.zip" detections/ "verification-pkg_123" --profile stress --force</pre>
       <p>Exit code <code>0</code> means pass, <code>1</code> means verification/input/scoring/threshold failure, and <code>2</code> means invalid CLI usage.</p>
       <p><a href="/syn_sig_ra/docs/api">Rendered API reference</a> · <a href="/syn_sig_ra/docs/troubleshooting">Troubleshooting</a> · <a href="/syn_sig_ra/">Back to app</a></p>
     </section>
@@ -911,6 +1235,12 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>POST</td><td><code>/v1/auth/logout</code></td><td>End browser session</td><td>Session</td></tr>
           <tr><td>GET/POST</td><td><code>/v1/projects</code></td><td>List/create projects</td><td>Authenticated</td></tr>
           <tr><td>GET/POST/DELETE</td><td><code>/v1/api-keys</code></td><td>Manage personal API keys</td><td>Authenticated</td></tr>
+          <tr><td>GET</td><td><code>/v1/downloads/verifier</code></td><td>Verifier download metadata</td><td>Authenticated</td></tr>
+          <tr><td>GET</td><td><code>/v1/downloads/verifier/{filename}</code></td><td>Download generator-free verifier bundle or wheel</td><td>Authenticated</td></tr>
+          <tr><td>GET</td><td><code>/v1/authoring/schema</code></td><td>Core scenario-authoring schema metadata</td><td>Authenticated</td></tr>
+          <tr><td>GET</td><td><code>/v1/authoring/templates</code></td><td>Core scenario templates</td><td>Authenticated</td></tr>
+          <tr><td>POST</td><td><code>/v1/authoring/preview</code></td><td>Preview scenario package analysis</td><td>Authenticated</td></tr>
+          <tr><td>GET</td><td><code>/v1/authoring/curated-scenarios/{pack_id}/{case_id}</code></td><td>Clone curated scenario JSON into a draft</td><td>Authenticated</td></tr>
           <tr><td>GET/POST/PUT/DELETE</td><td><code>/v1/scenarios</code></td><td>Scenario draft lifecycle</td><td>Authenticated</td></tr>
           <tr><td>GET/POST/DELETE</td><td><code>/v1/custom-packs</code></td><td>Compose/list/hide custom packs</td><td>Authenticated</td></tr>
           <tr><td>GET/POST</td><td><code>/v1/jobs</code></td><td>List/create jobs</td><td>Authenticated</td></tr>
@@ -1149,6 +1479,46 @@ label { display: block; margin: 10px 0 5px; font-weight: 600; }
   gap: 10px;
   margin-bottom: 12px;
 }
+.authoring-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+.form-field {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fbfcff;
+}
+.form-field textarea {
+  min-height: 88px;
+}
+.hint {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.validation-link {
+  border: 0;
+  background: transparent;
+  color: var(--danger);
+  padding: 0;
+  font-weight: 700;
+  text-align: left;
+  white-space: normal;
+}
+.validation-link:hover {
+  background: transparent;
+  text-decoration: underline;
+}
 textarea {
   width: 100%;
   border: 1px solid var(--border);
@@ -1260,6 +1630,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   font-size: 12px;
   font-weight: 700;
 }
+.tag input[type="checkbox"] { width: auto; margin-right: 6px; }
 .tag.scoreable { background: #dcfae6; color: var(--ok); }
 .tag.reference { background: #fff6ed; color: var(--warn); }
 .tag.mode { background: #eef2ff; color: var(--primary); }
@@ -1318,7 +1689,7 @@ details.meta summary { cursor: pointer; font-weight: 700; }
 .ok { color: var(--ok); }
 
 @media (max-width: 820px) {
-  .hero, .grid, .auth-grid, .filter-row { grid-template-columns: 1fr; }
+  .hero, .grid, .auth-grid, .filter-row, .authoring-grid { grid-template-columns: 1fr; }
   .row { align-items: stretch; flex-direction: column; }
   .meta-grid { grid-template-columns: 1fr; }
 }
@@ -1334,6 +1705,11 @@ const char kUiJs[] = R"JS((() => {
     packs: [],
     packTargetFilter: "",
     packDifficultyFilter: "",
+    verifierDownloads: null,
+    authoringSchema: null,
+    authoringTemplates: [],
+    scenarioTargets: [],
+    scenarioPreviewTimer: null,
     projects: [],
     scenarios: [],
     customPacks: [],
@@ -1505,6 +1881,48 @@ const char kUiJs[] = R"JS((() => {
       : "<span class=\"muted\">none</span>";
   }
 
+  function pathParts(path) {
+    return String(path || "").replace(/^\$\./, "").split(".").filter(Boolean);
+  }
+
+  function getPathValue(document, path) {
+    return pathParts(path).reduce((value, part) => (
+      value && Object.prototype.hasOwnProperty.call(value, part) ? value[part] : undefined
+    ), document);
+  }
+
+  function setPathValue(document, path, value) {
+    const parts = pathParts(path);
+    let cursor = document;
+    parts.slice(0, -1).forEach((part) => {
+      if (!cursor[part] || typeof cursor[part] !== "object" || Array.isArray(cursor[part])) {
+        cursor[part] = {};
+      }
+      cursor = cursor[part];
+    });
+    cursor[parts[parts.length - 1]] = value;
+  }
+
+  function readScenarioJson(silent = false) {
+    try {
+      return JSON.parse($("scenario-json").value || "{}");
+    } catch (error) {
+      if (!silent) $("scenario-output").textContent = `Invalid JSON: ${error.message}`;
+      return null;
+    }
+  }
+
+  function writeScenarioJson(scenario) {
+    $("scenario-json").value = JSON.stringify(scenario, null, 2);
+  }
+
+  function currentScenarioTargets() {
+    const selected = [...document.querySelectorAll("[data-scenario-target]:checked")]
+      .map((input) => input.value);
+    if (selected.length) return selected;
+    return state.scenarioTargets.length ? state.scenarioTargets : ["r_peak"];
+  }
+
   function formatSeconds(seconds) {
     const value = Number(seconds);
     if (!Number.isFinite(value) || value <= 0) return "n/a";
@@ -1635,6 +2053,7 @@ const char kUiJs[] = R"JS((() => {
       renderPackOptions();
       renderPackFilters();
       renderPacks();
+      renderCuratedCloneOptions();
     } catch (error) {
       $("packs").innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
     }
@@ -1698,6 +2117,81 @@ const char kUiJs[] = R"JS((() => {
     }
   }
 
+  async function loadVerifierDownloads() {
+    const container = $("verifier-downloads-content");
+    if (!state.authenticated) {
+      state.verifierDownloads = null;
+      container.innerHTML = "<p class=\"muted\">Sign in to download the local verifier.</p>";
+      return;
+    }
+    container.textContent = "Loading verifier downloads…";
+    try {
+      state.verifierDownloads = await api("/v1/downloads/verifier");
+      renderVerifierDownloads();
+    } catch (error) {
+      container.innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+    }
+  }
+
+  function renderVerifierDownloads() {
+    const metadata = state.verifierDownloads;
+    if (!metadata) return;
+    $("verifier-downloads-content").innerHTML = `
+      <article class="job">
+        <div class="job-header">
+          <div>
+            <h3>${escapeHtml(metadata.package)} ${escapeHtml(metadata.version)}</h3>
+            <p class="muted">Console script: <code>${escapeHtml(metadata.console_script)}</code> · generator included: ${metadata.generator_included ? "yes" : "no"}</p>
+          </div>
+          <span class="badge succeeded">verifier only</span>
+        </div>
+        <div class="actions">
+          ${(metadata.files || []).map((file) => `
+            <button class="secondary" data-download-verifier="${escapeHtml(file.filename)}">${escapeHtml(file.label)}</button>
+          `).join("")}
+        </div>
+        <details class="meta">
+          <summary>Install commands</summary>
+          <pre class="output">${escapeHtml((metadata.install || []).join("\n"))}</pre>
+          <p class="muted">${escapeHtml(metadata.verify_example || "")}</p>
+        </details>
+        <details class="meta">
+          <summary>File fingerprints</summary>
+          <dl class="meta-grid">
+            ${(metadata.files || []).map((file) => `
+              <dt>${escapeHtml(file.filename)}</dt>
+              <dd><span class="fingerprint">${escapeHtml(file.sha256)}</span><span class="hint">${escapeHtml(file.description || "")}</span></dd>
+            `).join("")}
+          </dl>
+        </details>
+      </article>
+    `;
+  }
+
+  async function downloadVerifierFile(filename) {
+    try {
+      const response = await fetch(`${base}/v1/downloads/verifier/${encodeURIComponent(filename)}`, {
+        credentials: "same-origin",
+        headers: headers(false)
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || response.statusText);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
   async function loadMetrics() {
     if (!state.authenticated || !["owner", "admin"].includes(state.role)) {
       $("metrics-panel").hidden = true;
@@ -1715,6 +2209,311 @@ const char kUiJs[] = R"JS((() => {
     } catch (error) {
       $("metrics").textContent = error.message;
     }
+  }
+
+  async function loadAuthoring() {
+    if (!state.authenticated) {
+      state.authoringSchema = null;
+      state.authoringTemplates = [];
+      $("scenario-template-select").innerHTML = "<option>Sign in first</option>";
+      $("scenario-form").innerHTML = "";
+      $("scenario-targets").innerHTML = "";
+      $("scenario-preview").textContent = "Sign in to use template-assisted authoring.";
+      return;
+    }
+    try {
+      const [schema, templates] = await Promise.all([
+        api("/v1/authoring/schema"),
+        api("/v1/authoring/templates")
+      ]);
+      state.authoringSchema = schema;
+      state.authoringTemplates = templates.templates || [];
+      renderAuthoringTemplates();
+      renderScenarioTargets();
+      renderCuratedCloneOptions();
+      renderScenarioForm();
+      scheduleScenarioPreview();
+    } catch (error) {
+      $("scenario-preview").innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+    }
+  }
+
+  function selectedTemplate() {
+    return state.authoringTemplates.find((item) => item.template_id === $("scenario-template-select").value);
+  }
+
+  function renderAuthoringTemplates() {
+    const select = $("scenario-template-select");
+    const options = state.authoringTemplates.map((template) => `
+      <option value="${escapeHtml(template.template_id)}">${escapeHtml(template.name)} · ${escapeHtml(template.difficulty)}</option>
+    `).join("");
+    select.innerHTML = state.authoringTemplates.length
+      ? `<option value="">Choose a core template…</option>${options}`
+      : "<option value=\"\">No templates available</option>";
+  }
+
+  function renderCuratedCloneOptions() {
+    const packSelect = $("curated-clone-pack");
+    const current = packSelect.value;
+    packSelect.innerHTML = state.packs.map((pack) => `
+      <option value="${escapeHtml(pack.pack_id)}">${escapeHtml(pack.display_name || pack.pack_id)}</option>
+    `).join("") || "<option>No curated packs</option>";
+    if (state.packs.some((pack) => pack.pack_id === current)) packSelect.value = current;
+    renderCuratedCaseOptions();
+  }
+
+  function renderCuratedCaseOptions() {
+    const pack = state.packs.find((item) => item.pack_id === $("curated-clone-pack").value);
+    const caseSelect = $("curated-clone-case");
+    caseSelect.innerHTML = ((pack && pack.scenarios) || []).map((scenario) => `
+      <option value="${escapeHtml(scenario.scenario_id)}">${escapeHtml(scenario.scenario_id)} · score ${escapeHtml((scenario.scoreable_targets || []).join(", ") || "none")} · ref ${escapeHtml((scenario.reference_only_targets || []).join(", ") || "none")}</option>
+    `).join("") || "<option>No cases</option>";
+  }
+
+  function renderScenarioTargets() {
+    const targets = (state.authoringSchema && state.authoringSchema.targets) || [];
+    const selected = new Set(state.scenarioTargets.length ? state.scenarioTargets : ["r_peak"]);
+    $("scenario-targets").innerHTML = targets.map((target) => `
+      <label class="tag ${target.support === "local_scoring" ? "scoreable" : "reference"}">
+        <input type="checkbox" data-scenario-target value="${escapeHtml(target.name)}" ${selected.has(target.name) ? "checked" : ""}>
+        ${escapeHtml(target.name)} · ${escapeHtml(target.support)}
+      </label>
+    `).join("") || "<span class=\"muted\">Targets load after sign-in.</span>";
+  }
+
+  function editableFieldPaths() {
+    const template = selectedTemplate();
+    const editable = template ? (template.editable_paths || []) : [];
+    if (!editable.length) {
+      return new Set([
+        "$.scenario_id", "$.name", "$.description", "$.tags",
+        "$.duration_seconds", "$.sample_rate_hz", "$.seed",
+        "$.ecg.conditions", "$.ecg.heart_rate_bpm",
+        "$.ecg.rr_variability_seconds", "$.ecg.ectopic_every_n_beats",
+        "$.ppg.enabled", "$.ppg.pulse_delay_ms",
+        "$.hrv.enabled", "$.artifacts", "$.output.compact"
+      ]);
+    }
+    const fields = (state.authoringSchema && state.authoringSchema.fields) || [];
+    return new Set(fields
+      .filter((field) => editable.some((path) => field.path === path || field.path.startsWith(path + ".")))
+      .map((field) => field.path));
+  }
+
+  function visibleField(field, scenario) {
+    const rule = field.visible_when;
+    if (!rule) return true;
+    if (rule.path) {
+      const value = getPathValue(scenario, rule.path);
+      if (Object.prototype.hasOwnProperty.call(rule, "equals") && value !== rule.equals) return false;
+      if (Object.prototype.hasOwnProperty.call(rule, "not_equals") && value === rule.not_equals) return false;
+      if (Object.prototype.hasOwnProperty.call(rule, "greater_than") && !(Number(value) > Number(rule.greater_than))) return false;
+    }
+    if (rule.condition_code) {
+      const conditions = getPathValue(scenario, "$.ecg.conditions") || [];
+      return conditions.some((item) => item && item.code === rule.condition_code);
+    }
+    return true;
+  }
+
+  function castFieldValue(field, raw, checked) {
+    if (field.value_type === "boolean") return Boolean(checked);
+    if (field.value_type === "integer") return Number.parseInt(raw, 10);
+    if (field.value_type === "number") return Number(raw);
+    if (field.value_type === "string_array") {
+      return raw.split(",").map((item) => item.trim()).filter(Boolean);
+    }
+    if (field.value_type && (field.value_type.includes("_array") || field.value_type === "condition_array")) {
+      return JSON.parse(raw || "[]");
+    }
+    if (field.value_type === "uint64_string") {
+      return /^\d+$/.test(raw) ? Number(raw) : raw;
+    }
+    return raw;
+  }
+
+  function fieldInputHtml(field, value) {
+    const id = `field-${field.path.replace(/[^a-z0-9]+/gi, "-")}`;
+    const hint = [
+      field.minimum !== undefined || field.maximum !== undefined
+        ? `range ${field.minimum !== undefined ? field.minimum : "-∞"}..${field.maximum !== undefined ? field.maximum : "∞"}`
+        : "",
+      field.step !== undefined ? `step ${field.step}` : "",
+      field.unit || "",
+      field.default !== undefined ? `default ${JSON.stringify(field.default)}` : ""
+    ].filter(Boolean).join(" · ");
+    const common = `id="${escapeHtml(id)}" data-authoring-field="${escapeHtml(field.path)}"`;
+    let control = "";
+    if (field.value_type === "boolean") {
+      control = `<input ${common} type="checkbox" ${value ? "checked" : ""}>`;
+    } else if (field.control === "select" || field.control === "segmented") {
+      const options = field.options || [];
+      control = `<select ${common}>${options.map((option) => `
+        <option value="${escapeHtml(option)}" ${String(value) === String(option) ? "selected" : ""}>${escapeHtml(option)}</option>
+      `).join("")}</select>`;
+    } else if (field.value_type === "number" || field.value_type === "integer") {
+      control = `<input ${common} type="number" value="${escapeHtml(value === undefined ? "" : value)}" ${field.minimum !== undefined ? `min="${escapeHtml(field.minimum)}"` : ""} ${field.maximum !== undefined ? `max="${escapeHtml(field.maximum)}"` : ""} ${field.step !== undefined ? `step="${escapeHtml(field.step)}"` : ""}>`;
+    } else if (field.value_type === "string_array") {
+      control = `<input ${common} type="text" value="${escapeHtml((value || []).join(", "))}">`;
+    } else if (field.value_type && (field.value_type.includes("_array") || field.value_type === "condition_array")) {
+      control = `<textarea ${common} rows="4" spellcheck="false">${escapeHtml(JSON.stringify(value === undefined ? [] : value, null, 2))}</textarea>`;
+    } else if (field.control === "textarea") {
+      control = `<textarea ${common} rows="3">${escapeHtml(value === undefined ? "" : value)}</textarea>`;
+    } else {
+      control = `<input ${common} type="text" value="${escapeHtml(value === undefined ? "" : value)}">`;
+    }
+    return `
+      <label class="form-field" for="${escapeHtml(id)}">
+        <strong>${escapeHtml(field.label)}</strong>
+        ${control}
+        <span class="hint">${escapeHtml(field.path)}${hint ? " · " + escapeHtml(hint) : ""}</span>
+      </label>
+    `;
+  }
+
+  function renderScenarioForm() {
+    const scenario = readScenarioJson(true);
+    const fields = (state.authoringSchema && state.authoringSchema.fields) || [];
+    if (!scenario || !Object.keys(scenario).length || !fields.length) {
+      $("scenario-form").innerHTML = "";
+      return;
+    }
+    const editable = editableFieldPaths();
+    const visible = fields.filter((field) => editable.has(field.path) && visibleField(field, scenario));
+    $("scenario-form").innerHTML = visible.map((field) => fieldInputHtml(field, getPathValue(scenario, field.path))).join("") ||
+      "<p class=\"muted\">This template exposes no form fields; use JSON mode.</p>";
+  }
+
+  function updateScenarioField(fieldPath, node) {
+    const scenario = readScenarioJson();
+    if (!scenario) return;
+    const field = ((state.authoringSchema && state.authoringSchema.fields) || [])
+      .find((item) => item.path === fieldPath);
+    if (!field) return;
+    try {
+      setPathValue(scenario, fieldPath, castFieldValue(field, node.value, node.checked));
+      writeScenarioJson(scenario);
+      renderScenarioForm();
+      scheduleScenarioPreview();
+    } catch (error) {
+      $("scenario-output").textContent = `Invalid ${field.label}: ${error.message}`;
+    }
+  }
+
+  function applyScenarioTemplate() {
+    const template = selectedTemplate();
+    if (!template) return;
+    const scenario = JSON.parse(JSON.stringify(template.scenario));
+    const suffix = Date.now().toString(36).slice(-6);
+    scenario.scenario_id = `${template.template_id}_${suffix}`;
+    scenario.name = template.name;
+    state.selectedScenarioId = "";
+    state.scenarioTargets = [...(template.targets || ["r_peak"])];
+    $("scenario-name").value = template.name;
+    writeScenarioJson(scenario);
+    renderScenarioTargets();
+    renderScenarioForm();
+    scheduleScenarioPreview();
+    $("scenario-output").textContent = "Template loaded. Review preview, then save.";
+  }
+
+  async function cloneCuratedScenario() {
+    const packId = $("curated-clone-pack").value;
+    const caseId = $("curated-clone-case").value;
+    if (!packId || !caseId) return;
+    try {
+      const body = await api(`/v1/authoring/curated-scenarios/${encodeURIComponent(packId)}/${encodeURIComponent(caseId)}`);
+      const scenario = body.scenario;
+      const suffix = Date.now().toString(36).slice(-6);
+      scenario.scenario_id = `${scenario.scenario_id || caseId}_${suffix}`;
+      scenario.name = `${scenario.name || caseId} clone`;
+      const pack = state.packs.find((item) => item.pack_id === packId);
+      const packCase = ((pack && pack.scenarios) || []).find((item) => item.scenario_id === caseId);
+      state.selectedScenarioId = "";
+      $("scenario-template-select").value = "";
+      state.scenarioTargets = [...new Set([...(packCase ? packCase.scoreable_targets || [] : []), ...(packCase ? packCase.reference_only_targets || [] : [])])];
+      if (!state.scenarioTargets.length && packCase) state.scenarioTargets = [...(packCase.targets || [])];
+      if (!state.scenarioTargets.length) state.scenarioTargets = ["r_peak"];
+      $("scenario-name").value = scenario.name;
+      writeScenarioJson(scenario);
+      renderScenarioTargets();
+      renderScenarioForm();
+      scheduleScenarioPreview();
+      $("scenario-output").textContent = `Cloned ${caseId} from ${packId}.`;
+    } catch (error) {
+      $("scenario-output").textContent = error.message;
+    }
+  }
+
+  function scheduleScenarioPreview() {
+    clearTimeout(state.scenarioPreviewTimer);
+    state.scenarioPreviewTimer = setTimeout(refreshScenarioPreview, 350);
+  }
+
+  async function refreshScenarioPreview() {
+    if (!state.authenticated) return;
+    const scenario = readScenarioJson(true);
+    if (!scenario) {
+      $("scenario-preview").innerHTML = "<p class=\"error\">JSON is not parseable yet.</p>";
+      return;
+    }
+    if (!Object.keys(scenario).length) {
+      $("scenario-preview").textContent = "Select a template, clone a curated case, or paste scenario JSON to preview package output.";
+      return;
+    }
+    try {
+      const preview = await api("/v1/authoring/preview", {
+        method: "POST",
+        json: { scenario, targets: currentScenarioTargets() }
+      });
+      renderScenarioPreview(preview);
+    } catch (error) {
+      if (error.body && error.body.validation_errors) {
+        $("scenario-preview").innerHTML = `
+          <p class="error">Scenario validation failed.</p>
+          <ul>${error.body.validation_errors.map((item) => `
+            <li><button class="validation-link" data-validation-path="${escapeHtml(item.path)}">${escapeHtml(item.path || "$")}</button>: ${escapeHtml(item.message)}</li>
+          `).join("")}</ul>
+        `;
+      } else {
+        $("scenario-preview").innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+      }
+    }
+  }
+
+  function renderScenarioPreview(preview) {
+    const summary = preview.summary || {};
+    const cases = preview.cases || [];
+    const messages = preview.messages || [];
+    $("scenario-preview").innerHTML = `
+      <h3>Preview ${preview.success ? "<span class=\"ok\">valid</span>" : "<span class=\"error\">needs attention</span>"}</h3>
+      <p class="muted">${escapeHtml(preview.scoring_mode || "unknown")} · profile ${escapeHtml(preview.recommended_verifier_profile || "n/a")} · ${escapeHtml(formatBytes(summary.estimated_package_bytes || 0))} estimated package</p>
+      <p><strong>Scoreable</strong>${targetTags(preview.scoreable_targets || [], "scoreable")}</p>
+      <p><strong>Reference-only</strong>${targetTags(preview.reference_only_targets || [], "reference")}</p>
+      <div class="meta-grid">
+        <dt>Duration</dt><dd>${escapeHtml(formatSeconds(summary.total_duration_seconds || 0))}</dd>
+        <dt>Samples</dt><dd>${escapeHtml(summary.total_sample_count || 0)}</dd>
+        <dt>Peak memory</dt><dd>${escapeHtml(formatBytes(summary.estimated_peak_memory_bytes || 0))}</dd>
+        <dt>Channels</dt><dd>${escapeHtml((cases[0] && cases[0].channel_count) || "n/a")}</dd>
+      </div>
+      ${messages.length ? `
+        <details class="meta" open>
+          <summary>${escapeHtml(messages.length)} preview message(s)</summary>
+          <ul>${messages.map((item) => `
+            <li class="${item.severity === "error" ? "error" : "muted"}"><button class="validation-link" data-validation-path="${escapeHtml(item.path)}">${escapeHtml(item.code)}</button>: ${escapeHtml(item.message)}</li>
+          `).join("")}</ul>
+        </details>
+      ` : ""}
+    `;
+  }
+
+  function focusJsonPath(path) {
+    const textarea = $("scenario-json");
+    textarea.focus();
+    const key = String(path || "").split(".").pop().replace(/\]$/, "");
+    const needle = key && key !== "$" ? `"${key.replace(/^\$/, "")}"` : "";
+    const index = needle ? textarea.value.indexOf(needle) : -1;
+    if (index >= 0) textarea.setSelectionRange(index, index + needle.length);
   }
 
   async function loadScenarios() {
@@ -1740,7 +2539,7 @@ const char kUiJs[] = R"JS((() => {
             <details class="meta">
               <summary class="error">${escapeHtml(draft.validation_errors.length)} validation issue(s)</summary>
               <ul>
-                ${draft.validation_errors.map((item) => `<li class="error"><strong>${escapeHtml(item.code)}</strong> ${escapeHtml(item.path)}: ${escapeHtml(item.message)}</li>`).join("")}
+                ${draft.validation_errors.map((item) => `<li class="error"><button class="validation-link" data-validation-path="${escapeHtml(item.path)}">${escapeHtml(item.code)}</button> ${escapeHtml(item.path)}: ${escapeHtml(item.message)}</li>`).join("")}
               </ul>
             </details>
           ` : ""}
@@ -1854,16 +2653,26 @@ const char kUiJs[] = R"JS((() => {
 
   function newScenario() {
     state.selectedScenarioId = "";
+    state.scenarioTargets = ["r_peak"];
+    $("scenario-template-select").value = "";
     $("scenario-name").value = "";
     $("scenario-json").value = "{}";
     $("scenario-output").textContent = "";
+    renderScenarioTargets();
+    renderScenarioForm();
+    scheduleScenarioPreview();
   }
 
   function loadScenarioTemplate() {
     state.selectedScenarioId = "";
+    state.scenarioTargets = ["r_peak"];
+    $("scenario-template-select").value = "";
     $("scenario-name").value = "Clean ECG";
     $("scenario-json").value = JSON.stringify(cleanEcgTemplate, null, 2);
     $("scenario-output").textContent = "Example loaded. Review it, then validate and save.";
+    renderScenarioTargets();
+    renderScenarioForm();
+    scheduleScenarioPreview();
   }
 
   function formatScenarioJson() {
@@ -1871,6 +2680,8 @@ const char kUiJs[] = R"JS((() => {
       const scenario = JSON.parse($("scenario-json").value);
       $("scenario-json").value = JSON.stringify(scenario, null, 2);
       $("scenario-output").textContent = "JSON formatted.";
+      renderScenarioForm();
+      scheduleScenarioPreview();
     } catch (error) {
       $("scenario-output").textContent = `Invalid JSON: ${error.message}`;
     }
@@ -1880,9 +2691,12 @@ const char kUiJs[] = R"JS((() => {
     const draft = state.scenarios.find((item) => item.scenario_id === id);
     if (!draft) return;
     state.selectedScenarioId = id;
+    $("scenario-template-select").value = "";
     $("scenario-name").value = draft.name;
     $("scenario-json").value = JSON.stringify(draft.scenario, null, 2);
     $("scenario-output").textContent = draft.status;
+    renderScenarioForm();
+    scheduleScenarioPreview();
   }
 
   async function saveScenario() {
@@ -2047,8 +2861,8 @@ const char kUiJs[] = R"JS((() => {
         <summary>First-run local verification recipe</summary>
         <p><strong>Scoreable targets:</strong> ${escapeHtml(scoreable.join(", "))}</p>
         <p><strong>Reference-only targets:</strong> ${escapeHtml(referenceOnly.join(", ") || "none")}</p>
-        <p>Download the detection-template ZIP, replace the example rows with your algorithm output, and keep the <code>detections/</code> filenames. Then install the verifier from the beta checkout or wheel.</p>
-        <pre class="output">python -m pip install ../signal_synth</pre>
+        <p>Download the detection-template ZIP, replace the example rows with your algorithm output, and keep the <code>detections/</code> filenames. Then install the verifier from the UI's <strong>Verifier</strong> panel.</p>
+        <pre class="output">python -m pip install synsigra-wheel.whl</pre>
         <p>Accepted detection file shape:</p>
         <pre class="output">${escapeHtml(detectionShape(pack))}</pre>
         <p>Run all scoreable targets with the recommended profile:</p>
@@ -2293,6 +3107,8 @@ const char kUiJs[] = R"JS((() => {
     await loadProjects();
     await Promise.all([
       loadUsage(),
+      loadVerifierDownloads(),
+      loadAuthoring(),
       loadScenarios(),
       loadCustomPacks(),
       loadJobs({ force: true }),
@@ -2432,10 +3248,29 @@ const char kUiJs[] = R"JS((() => {
   });
   $("pack-select").addEventListener("change", renderSelectedPackSummary);
   $("refresh-jobs").addEventListener("click", () => loadJobs({ force: true }));
+  $("refresh-verifier-downloads").addEventListener("click", loadVerifierDownloads);
   $("refresh-usage").addEventListener("click", loadUsage);
   $("refresh-metrics").addEventListener("click", loadMetrics);
   $("load-more-jobs").addEventListener("click", () => loadJobs({ more: true }));
   $("new-scenario").addEventListener("click", newScenario);
+  $("refresh-authoring").addEventListener("click", loadAuthoring);
+  $("apply-scenario-template").addEventListener("click", applyScenarioTemplate);
+  $("curated-clone-pack").addEventListener("change", renderCuratedCaseOptions);
+  $("clone-curated-scenario").addEventListener("click", cloneCuratedScenario);
+  $("scenario-targets").addEventListener("change", () => {
+    state.scenarioTargets = currentScenarioTargets();
+    scheduleScenarioPreview();
+  });
+  $("scenario-form").addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const field = target.getAttribute("data-authoring-field");
+    if (field) updateScenarioField(field, target);
+  });
+  $("scenario-json").addEventListener("input", () => {
+    renderScenarioForm();
+    scheduleScenarioPreview();
+  });
   $("load-scenario-template").addEventListener("click", loadScenarioTemplate);
   $("format-scenario-json").addEventListener("click", formatScenarioJson);
   $("save-scenario").addEventListener("click", saveScenario);
@@ -2447,11 +3282,25 @@ const char kUiJs[] = R"JS((() => {
     const packId = target.getAttribute("data-delete-custom-pack");
     if (packId) deleteCustomPack(packId);
   });
+  $("verifier-downloads-content").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const filename = target.getAttribute("data-download-verifier");
+    if (filename) downloadVerifierFile(filename);
+  });
+  $("scenario-preview").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const path = target.getAttribute("data-validation-path");
+    if (path) focusJsonPath(path);
+  });
   $("scenarios").addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const editId = target.getAttribute("data-edit-scenario");
     const deleteId = target.getAttribute("data-delete-scenario");
+    const validationPath = target.getAttribute("data-validation-path");
+    if (validationPath) focusJsonPath(validationPath);
     if (editId) editScenario(editId);
     if (deleteId) deleteScenario(deleteId);
   });
@@ -2520,6 +3369,8 @@ bool route_requires_authentication(
            path_at_or_below(uri, public_base_path + "/v1/usage") ||
            path_at_or_below(uri, public_base_path + "/v1/metrics") ||
            path_at_or_below(uri, public_base_path + "/v1/api-keys") ||
+           path_at_or_below(uri, public_base_path + "/v1/downloads") ||
+           path_at_or_below(uri, public_base_path + "/v1/authoring") ||
            path_at_or_below(uri, public_base_path + "/v1/scenarios") ||
            path_at_or_below(uri, public_base_path + "/v1/custom-packs");
 }
@@ -2893,6 +3744,159 @@ RouteResponse route_request(
         }
         return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
             "\"message\":\"Unsupported API key operation.\"}}\n");
+    }
+
+    const std::string downloads_path = public_base_path + "/v1/downloads";
+    if (path_at_or_below(uri, downloads_path)) {
+        if (method != "GET") {
+            return json_response(
+                405,
+                "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Download endpoints only accept GET.\"}}\n"
+            );
+        }
+        const std::string verifier_path = downloads_path + "/verifier";
+        if (uri == verifier_path || uri == verifier_path + "/metadata.json") {
+            return download_file_response(
+                verifier_download_root(pack_root),
+                "metadata.json"
+            );
+        }
+        if (!path_at_or_below(uri, verifier_path)) {
+            return json_response(
+                404,
+                "{\"error\":{\"code\":\"download_not_found\","
+                "\"message\":\"The requested download collection does not exist.\"}}\n"
+            );
+        }
+        const std::string filename = uri.substr(verifier_path.size() + 1);
+        if (filename.find('/') != std::string::npos) {
+            return json_response(
+                400,
+                "{\"error\":{\"code\":\"invalid_download_path\","
+                "\"message\":\"The download path is invalid.\"}}\n"
+            );
+        }
+        return download_file_response(verifier_download_root(pack_root), filename);
+    }
+
+    const std::string authoring_path = public_base_path + "/v1/authoring";
+    if (path_at_or_below(uri, authoring_path)) {
+        if (uri == authoring_path + "/schema") {
+            if (method != "GET") {
+                return json_response(
+                    405,
+                    "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Authoring schema only accepts GET.\"}}\n"
+                );
+            }
+            return json_response(
+                200,
+                signal_synth::scenario_authoring_metadata_json() + "\n"
+            );
+        }
+        if (uri == authoring_path + "/templates") {
+            if (method != "GET") {
+                return json_response(
+                    405,
+                    "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Authoring templates only accept GET.\"}}\n"
+                );
+            }
+            return json_response(
+                200,
+                signal_synth::scenario_template_catalog_json() + "\n"
+            );
+        }
+        if (uri == authoring_path + "/preview") {
+            if (method != "POST") {
+                return json_response(
+                    405,
+                    "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Scenario preview only accepts POST.\"}}\n"
+                );
+            }
+            if (!is_json_content_type(content_type)) {
+                return json_response(
+                    415,
+                    "{\"error\":{\"code\":\"unsupported_media_type\","
+                    "\"message\":\"Content-Type must be application/json.\"}}\n"
+                );
+            }
+            json_error_t parse_error;
+            json_t* submitted = json_loadb(
+                request_body.data(),
+                request_body.size(),
+                JSON_REJECT_DUPLICATES,
+                &parse_error
+            );
+            syn_sig_ra::RouteResponse response =
+                authoring_preview_response(submitted);
+            if (submitted != nullptr) json_decref(submitted);
+            return response;
+        }
+        const std::string curated_path =
+            authoring_path + "/curated-scenarios";
+        if (path_at_or_below(uri, curated_path)) {
+            if (method != "GET") {
+                return json_response(
+                    405,
+                    "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Curated scenario clone only accepts GET.\"}}\n"
+                );
+            }
+            const std::string relative =
+                uri.size() > curated_path.size()
+                    ? uri.substr(curated_path.size() + 1)
+                    : std::string();
+            const std::string::size_type separator = relative.find('/');
+            if (separator == std::string::npos ||
+                relative.find('/', separator + 1) != std::string::npos) {
+                return json_response(
+                    400,
+                    "{\"error\":{\"code\":\"invalid_curated_scenario_path\","
+                    "\"message\":\"Use /curated-scenarios/{pack_id}/{case_id}.\"}}\n"
+                );
+            }
+            const std::string pack_id = relative.substr(0, separator);
+            const std::string case_id = relative.substr(separator + 1);
+            std::string scenario_json;
+            std::string error;
+            if (!read_curated_scenario(
+                    pack_root, pack_id, case_id, scenario_json, error)) {
+                return json_response(
+                    404,
+                    "{\"error\":{\"code\":\"curated_scenario_not_found\","
+                    "\"message\":\"The curated scenario could not be cloned.\"}}\n"
+                );
+            }
+            json_error_t parse_error;
+            json_t* scenario = json_loads(
+                scenario_json.c_str(),
+                JSON_REJECT_DUPLICATES,
+                &parse_error
+            );
+            if (!json_is_object(scenario)) {
+                if (scenario != nullptr) json_decref(scenario);
+                return json_response(
+                    500,
+                    "{\"error\":{\"code\":\"curated_scenario_invalid\","
+                    "\"message\":\"The curated scenario JSON is invalid.\"}}\n"
+                );
+            }
+            json_t* root = json_object();
+            json_object_set_new(root, "pack_id", json_string(pack_id.c_str()));
+            json_object_set_new(root, "case_id", json_string(case_id.c_str()));
+            json_object_set_new(root, "scenario", scenario);
+            const std::string body = json_dump_line(root);
+            json_decref(root);
+            return json_response(200, body);
+        }
+        return json_response(
+            404,
+            "{\"error\":{\"code\":\"authoring_route_not_found\","
+            "\"message\":\"The requested authoring endpoint does not exist.\"}}\n"
+        );
     }
 
     const std::string usage_path = public_base_path + "/v1/usage";

@@ -12,6 +12,8 @@ curl -fsS -H "Authorization: Bearer $key" "$base/v1/projects"
 printf '\n'
 curl -fsS -H "Authorization: Bearer $key" "$base/v1/usage"
 printf '\n'
+curl -fsS -H "Authorization: Bearer $key" "$base/v1/downloads/verifier"
+printf '\n'
 curl -fsS -H "Authorization: Bearer $key" "$base/v1/metrics"
 printf '\n'
 sudo systemctl is-active apache22
