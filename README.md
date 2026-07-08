@@ -54,15 +54,15 @@ Non-goals:
 
 1. Open `https://www.timeonion.com/syn_sig_ra/`.
 2. Create an account with an e-mail address, display name, and a password of at least 12 characters, or sign in with an existing account.
-3. Check the service status card:
+3. Start on the guided workspace. It answers the next action: sign in, choose a pack, watch a running job, or verify a completed package.
+4. Check the service status card:
    - `health` means the Apache application responds;
    - `ready` means the database, generator, pack catalog, and artifact store are available.
-4. Select the `Default` project, or create another project if your role permits.
-5. Select a curated pack or a caller-owned custom pack.
-6. Create a job.
-7. Wait for `succeeded`.
-8. Download `manifest.json` and `package.zip`.
-9. Download the detection-template ZIP, replace example rows with algorithm output, then copy the exact `synsigra-verify` command from the completed-job panel.
+5. Open **Choose pack** (`/syn_sig_ra/packs`) and filter by detector target, workflow intent, scoring mode, and difficulty. Use the recommendation or comparison table if you do not know pack IDs.
+6. Open **Generate job** (`/syn_sig_ra/generate`), select the `Default` project or create another project if your role permits, confirm the pack, and create a job.
+7. Open **Jobs** (`/syn_sig_ra/jobs`) and wait for `succeeded`.
+8. Open **Verify locally** (`/syn_sig_ra/verify`) from the completed job's **Open verification runbook** action.
+9. Download the verification kit, install the generator-free verifier, replace detection-template rows with algorithm output, copy the exact `synsigra-verify` command, then archive the evidence bundle.
 
 ## Recommended verification workflow
 
@@ -97,7 +97,7 @@ Run the algorithm against whichever generated format it supports:
 - EDF/BDF files;
 - case-level scenario or annotation files, where appropriate.
 
-The UI and `/v1/packs` show which targets are locally scoreable and which are reference-only before you create a job. For a completed curated job, the job card shows a first-run recipe with the package filename, recommended threshold profile, output directory, and accepted detection folder shape.
+The **Choose pack** page and `/v1/packs` show which targets are locally scoreable and which are reference-only before you create a job. For a completed curated job, the **Verify locally** runbook shows exact filenames, recommended threshold profile, output directory, accepted detection folder shape, copyable commands, and archive guidance.
 
 Click **Verification kit ZIP** on the completed job for a single starter bundle,
 or use **Detection templates ZIP** if you only need a `README.md` plus one
@@ -192,6 +192,24 @@ Reference-only packs or targets intentionally do not have a local scoring policy
 
 ## Browser UI capabilities
 
+### Guided pages
+
+The default browser UI is a multi-page guided workspace:
+
+| Route | Purpose |
+|---|---|
+| `/syn_sig_ra/workspace` | Start page and next-action prompt. |
+| `/syn_sig_ra/packs` | Goal-based pack chooser and comparison table. |
+| `/syn_sig_ra/generate` | Project/pack confirmation and job creation. |
+| `/syn_sig_ra/jobs` | Job status, polling, lifecycle actions, downloads, and runbook entry points. |
+| `/syn_sig_ra/verify` | Completed-job verification runbook plus verifier downloads. |
+| `/syn_sig_ra/scenarios` | Scenario draft authoring and preview. |
+| `/syn_sig_ra/custom-packs` | Custom pack composition from valid drafts. |
+| `/syn_sig_ra/account` | Account, API keys, usage, and owner/admin metrics. |
+| `/syn_sig_ra/advanced` | Documentation and API references. |
+
+The app keeps stable URLs and browser back/forward behavior. Existing `/syn_sig_ra/` and `/syn_sig_ra/ui` URLs continue to open the workspace.
+
 ### Service status
 
 The UI reports:
@@ -221,9 +239,9 @@ Notes:
 - Sign out invalidates the server-side browser session.
 - API keys can be listed and revoked from the UI.
 
-### Verifier downloads
+### Verifier downloads and runbooks
 
-The **Verifier** panel provides authenticated downloads for users who need to verify local detector output without cloning `signal_synth`.
+The **Verify locally** page provides authenticated downloads for users who need to verify local detector output without cloning `signal_synth`, and a pack-aware runbook for completed jobs.
 
 Available files:
 
@@ -232,13 +250,33 @@ Available files:
 
 The metadata endpoint also shows SHA-256 fingerprints and install commands. These files install `synsigra-verify`; they do not include the generator binary/source and cannot generate challenge packages.
 
+For scoreable packs, the runbook shows:
+
+- preferred `verification-kit.zip` download;
+- individual `manifest.json`, `package.zip`, and `detection-templates.zip` downloads;
+- exact expected local filenames;
+- accepted detection file shape;
+- copyable verifier install command;
+- copyable `synsigra-verify` command;
+- output report paths and exit-code meaning;
+- evidence archive checklist including `provenance.json` and `ENGINEERING_CLAIM_BOUNDARY.txt`.
+
+For reference-only packs, the runbook replaces scoring instructions with manual QA guidance.
+
 ### Projects
 
 Jobs belong to projects. The UI lists available projects and lets owners/admins create additional projects.
 
-### Curated packs
+### Goal-based curated pack chooser
 
-The curated catalog shows:
+The **Choose pack** page lets users start from an algorithm-development goal instead of a pack ID:
+
+- detector target;
+- workflow intent: smoke, regression, stress, benchmark, or reference inspection;
+- scoring mode;
+- difficulty/stress tags.
+
+The page shows a recommended pack, a comparison table, and detailed cards. The curated catalog fields include:
 
 - stable pack ID;
 - semantic version;
@@ -283,10 +321,12 @@ Key properties:
 - The form renderer uses core authoring metadata for labels, ranges, units, defaults, enum options, and visibility rules.
 - Curated scenarios can be cloned/forked into editable drafts.
 - Preview shows scoreable targets, reference-only targets, duration, sample count, channel count, estimated package size, estimated peak memory, detector schemas, and target compatibility messages before pack composition.
-- Raw JSON mode remains available for advanced edits.
+- The preflight panel explicitly shows whether the draft is safe to save and safe to compose into a pack.
+- Validation errors are grouped by scenario section where possible, and validation paths are clickable in the UI to focus the JSON editor near the relevant field.
+- Raw JSON mode is hidden under **Advanced JSON editor** for normal use, but remains available for fields that are not yet represented by form controls.
 - Local JSON formatting catches syntax errors before submission.
 - Valid drafts are canonicalized and receive a SHA-256 document fingerprint.
-- Invalid drafts are saved as editable drafts and return actionable validation entries with code, JSON path, and message. Validation paths are clickable in the UI to focus the JSON editor near the relevant field.
+- Invalid drafts are saved as editable drafts and return actionable validation entries with code, JSON path, and message.
 - Drafts are scoped to the exact owner identity.
 - Viewer-role credentials cannot modify drafts.
 - The scenario contract is validated by the sibling `signal_synth` implementation.
@@ -304,6 +344,8 @@ The composer accepts:
 - target list;
 - selected valid scenario drafts.
 
+Before creation, the UI shows a review panel with selected scenario count, requested targets, snapshot semantics, and a scenario-by-target coverage/preflight matrix. It warns about common mismatches such as PPG targets without enabled PPG generation or HRV targets on short scenarios.
+
 Composition copies canonical scenario documents into a snapshot. Later edits or deletion of source drafts do not change the pack. Deleting a custom pack hides it from new-job selection, while retained job/package snapshots remain reproducible.
 
 ### Jobs
@@ -317,6 +359,7 @@ The UI supports:
 - retrying failed or cancelled jobs as new records;
 - soft-deleting non-running jobs;
 - downloading `manifest.json`, `package.zip`, and curated-job detection-template ZIPs;
+- opening the completed-job verification runbook as the primary success action;
 - viewing project, lifecycle timestamps, generator identity, build identity, and package fingerprint;
 - showing completed-job local verification recipes with copyable commands;
 - displaying `queued`, `running`, `succeeded`, `failed`, `cancelled`, and artifact-expired states.

@@ -68,19 +68,41 @@ int main() {
     require(ui.status == 200, "base route should serve the web UI");
     require(
         ui.content_type.find("text/html") != std::string::npos &&
-            ui.body.find("Challenge package generator") != std::string::npos &&
+            ui.body.find("Algorithm QA workspace") != std::string::npos &&
+            ui.body.find("Guided workflow") != std::string::npos &&
+            ui.body.find("What do you want to do next?") != std::string::npos &&
+            ui.body.find("pack-intent-filter") != std::string::npos &&
+            ui.body.find("pack-comparison") != std::string::npos &&
+            ui.body.find("verification-runbook") != std::string::npos &&
+            ui.body.find("runbook-job-select") != std::string::npos &&
             ui.body.find("readiness-status") != std::string::npos &&
             ui.body.find("metrics-panel") != std::string::npos &&
             ui.body.find("load-more-jobs") != std::string::npos &&
             ui.body.find("load-scenario-template") != std::string::npos &&
             ui.body.find("verifier-downloads") != std::string::npos &&
             ui.body.find("scenario-template-select") != std::string::npos &&
+            ui.body.find("Advanced JSON editor") != std::string::npos &&
+            ui.body.find("custom-pack-review") != std::string::npos &&
             ui.body.find("register-email") != std::string::npos &&
             ui.body.find("save-key") == std::string::npos &&
             ui.body.find("/syn_sig_ra/docs/api") != std::string::npos &&
             ui.body.find("No PHI") != std::string::npos &&
-            ui.body.find("Recommended workflow") != std::string::npos,
+            ui.body.find("Evidence path") != std::string::npos,
         "web UI route should return HTML"
+    );
+    const syn_sig_ra::RouteResponse packs_page =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/packs");
+    require(
+        packs_page.status == 200 &&
+            packs_page.body.find("Choose a challenge pack") != std::string::npos,
+        "pack chooser route should serve the web UI"
+    );
+    const syn_sig_ra::RouteResponse verify_page =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/verify");
+    require(
+        verify_page.status == 200 &&
+            verify_page.body.find("Verification runbook") != std::string::npos,
+        "verification route should serve the web UI"
     );
     const syn_sig_ra::RouteResponse docs_api =
         syn_sig_ra::route_request("GET", "/syn_sig_ra/docs/api");
@@ -123,7 +145,11 @@ int main() {
             ui_js.body.find("cleanEcgTemplate") != std::string::npos &&
             ui_js.body.find("Verification kit ZIP") != std::string::npos &&
             ui_js.body.find("Detection templates ZIP") != std::string::npos &&
-            ui_js.body.find("Reproducibility details") != std::string::npos,
+            ui_js.body.find("Reproducibility details") != std::string::npos &&
+            ui_js.body.find("renderVerificationRunbook") != std::string::npos &&
+            ui_js.body.find("selectPackForGeneration") != std::string::npos &&
+            ui_js.body.find("renderCustomPackReview") != std::string::npos &&
+            ui_js.body.find("groupValidationErrors") != std::string::npos,
         "web UI JavaScript asset should be served as an executable IIFE"
     );
     const syn_sig_ra::RouteResponse ui_trailing_slash =

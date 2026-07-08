@@ -45,6 +45,30 @@ bool path_at_or_below(const std::string& uri, const std::string& path) {
             uri[path.size()] == '/');
 }
 
+bool is_ui_page_route(const std::string& uri, const std::string& public_base_path) {
+    static const char* kPages[] = {
+        "",
+        "/",
+        "/ui",
+        "/ui/",
+        "/workspace",
+        "/packs",
+        "/generate",
+        "/jobs",
+        "/verify",
+        "/scenarios",
+        "/custom-packs",
+        "/account",
+        "/advanced"
+    };
+    for (const char* page : kPages) {
+        if (uri == public_base_path + page) {
+            return true;
+        }
+    }
+    return false;
+}
+
 syn_sig_ra::RouteResponse json_response(
     int status,
     const std::string& body
@@ -1069,39 +1093,77 @@ const char kUiHtml[] = R"HTML(<!doctype html>
 </head>
 <body>
   <main class="shell">
-    <section id="overview" class="hero">
+    <header class="app-header">
       <div>
         <p class="eyebrow">SynSigRa private beta</p>
-        <h1>Challenge package generator</h1>
-        <p class="lede">Generate deterministic synthetic biosignal QA packages from curated packs, then download the manifest and archive.</p>
+        <h1>Algorithm QA workspace</h1>
+        <p class="lede">Choose a synthetic biosignal challenge, generate a deterministic package, verify your detector locally, and archive the evidence.</p>
       </div>
       <div class="status-card">
         <div class="label">Service</div>
         <div id="health-status" class="status">checking…</div>
         <div id="readiness-status" class="muted">checking components…</div>
       </div>
-    </section>
+    </header>
 
-    <nav class="quick-nav" aria-label="Page sections">
-      <a href="#generate">Generate</a>
-      <a href="#jobs-section">Jobs</a>
-      <a href="#verifier-downloads">Verifier</a>
-      <a href="#scenario-workbench">Scenarios</a>
-      <a href="#custom-pack-workbench">Custom packs</a>
-      <a href="#account">Account</a>
-      <a href="#usage-section">Usage</a>
-      <a href="#documentation">Documentation</a>
-    </nav>
+    <div class="app-layout">
+      <aside class="side-nav" aria-label="Workspace navigation">
+        <div class="side-nav-title">Guided workflow</div>
+        <a href="/syn_sig_ra/workspace" data-nav-page="workspace">Start</a>
+        <a href="/syn_sig_ra/packs" data-nav-page="packs">1. Choose pack</a>
+        <a href="/syn_sig_ra/generate" data-nav-page="generate">2. Generate job</a>
+        <a href="/syn_sig_ra/jobs" data-nav-page="jobs">3. Jobs</a>
+        <a href="/syn_sig_ra/verify" data-nav-page="verify">4. Verify locally</a>
+        <hr>
+        <a href="/syn_sig_ra/scenarios" data-nav-page="scenarios">Scenario editor</a>
+        <a href="/syn_sig_ra/custom-packs" data-nav-page="custom-packs">Custom packs</a>
+        <a href="/syn_sig_ra/account" data-nav-page="account">Account & API keys</a>
+        <a href="/syn_sig_ra/advanced" data-nav-page="advanced">Advanced / API</a>
+      </aside>
 
-    <aside class="workflow" aria-label="Recommended workflow">
-      <strong>Workflow</strong>
-      <span>1. Choose or draft scenarios</span>
-      <span>2. Choose or compose a pack</span>
-      <span>3. Generate and download</span>
-      <span>4. Run and verify your algorithm locally</span>
-    </aside>
+      <div class="content-stack">
+        <section id="workspace" class="page active" data-page="workspace">
+          <section id="overview" class="hero">
+            <div>
+              <h2>What do you want to do next?</h2>
+              <p class="muted">For most detector development, start with a curated pack. Use scenario editing only when you need a custom edge case.</p>
+            </div>
+            <div id="workspace-next-action" class="selected-pack">Loading your next action…</div>
+          </section>
+          <div class="step-cards">
+            <a class="step-card primary-step" href="/syn_sig_ra/packs">
+              <span class="step-number">1</span>
+              <strong>Use a curated challenge</strong>
+              <span>Pick by detector target, difficulty, scoring mode, and recommended use.</span>
+            </a>
+            <a class="step-card" href="/syn_sig_ra/scenarios">
+              <span class="step-number">2</span>
+              <strong>Edit or clone a scenario</strong>
+              <span>Start from a template or curated case, then validate before composing a pack.</span>
+            </a>
+            <a class="step-card" href="/syn_sig_ra/custom-packs">
+              <span class="step-number">3</span>
+              <strong>Compose a custom pack</strong>
+              <span>Snapshot valid scenario drafts into an immutable challenge pack.</span>
+            </a>
+            <a class="step-card" href="/syn_sig_ra/verify">
+              <span class="step-number">4</span>
+              <strong>Verify an existing package</strong>
+              <span>Open a completed job runbook, download the verifier, and copy exact commands.</span>
+            </a>
+          </div>
+          <aside class="workflow" aria-label="Evidence workflow">
+            <strong>Evidence path</strong>
+            <span>Choose pack</span>
+            <span>Generate job</span>
+            <span>Download verification kit</span>
+            <span>Run detector locally</span>
+            <span>Run verifier</span>
+            <span>Archive package + provenance</span>
+          </aside>
+        </section>
 
-    <section id="account" class="panel">
+    <section id="account" class="panel page" data-page="account">
       <div id="signed-out-account">
         <h2>Sign in or create an account</h2>
         <p class="muted">Browser access uses a secure session cookie. API keys are only needed for scripts and CI.</p>
@@ -1146,28 +1208,54 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <p id="auth-output" class="muted" aria-live="polite"></p>
     </section>
 
-    <section id="generate" class="grid">
+    <section id="pack-chooser-page" class="page" data-page="packs">
       <div class="panel">
         <div class="panel-heading">
-          <h2>Packs</h2>
+          <div>
+            <h2>Choose a challenge pack</h2>
+            <p class="muted compact">Start from the detector goal. You do not need to know pack IDs.</p>
+          </div>
           <button id="refresh-packs" class="secondary">Refresh</button>
         </div>
         <div class="filter-row">
           <label>
-            Scoreable target
+            Detector target
             <select id="pack-target-filter"></select>
+          </label>
+          <label>
+            Workflow intent
+            <select id="pack-intent-filter">
+              <option value="">Any intent</option>
+              <option value="smoke">First smoke test</option>
+              <option value="regression">Regression suite</option>
+              <option value="stress">Stress / robustness</option>
+              <option value="benchmark">Benchmark comparison</option>
+              <option value="reference">Reference-only inspection</option>
+            </select>
+          </label>
+          <label>
+            Scoring mode
+            <select id="pack-scoring-filter"></select>
           </label>
           <label>
             Difficulty
             <select id="pack-difficulty-filter"></select>
           </label>
         </div>
+        <div id="pack-recommendation" class="selected-pack">Loading recommendation…</div>
+        <div id="pack-comparison" class="table-wrap"></div>
         <div id="packs" class="cards"></div>
       </div>
+    </section>
 
+    <section id="generate" class="page" data-page="generate">
       <div class="panel">
         <div class="panel-heading">
-          <h2>Create job</h2>
+          <div>
+            <h2>Generate challenge package</h2>
+            <p class="muted compact">Confirm project and pack, then create a job. The next step is the Jobs page.</p>
+          </div>
+          <a class="button-link secondary" href="/syn_sig_ra/packs">Change pack</a>
         </div>
         <label for="project-select">Project</label>
         <select id="project-select"></select>
@@ -1184,9 +1272,12 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       </div>
     </section>
 
-    <section id="jobs-section" class="panel">
+    <section id="jobs-section" class="panel page" data-page="jobs">
       <div class="panel-heading">
-        <h2>Jobs</h2>
+        <div>
+          <h2>Jobs</h2>
+          <p class="muted compact">Watch progress, then open the verification runbook for completed jobs.</p>
+        </div>
         <div class="actions no-margin">
           <span id="jobs-sync-status" class="muted" aria-live="polite"></span>
           <button id="refresh-jobs" class="secondary">Refresh</button>
@@ -1196,7 +1287,20 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <div id="jobs" class="jobs"></div>
       <button id="load-more-jobs" class="secondary" hidden>Load older jobs</button>
     </section>
-    <section id="verifier-downloads" class="panel">
+    <section id="verification-runbook-panel" class="panel page" data-page="verify">
+      <div class="panel-heading">
+        <div>
+          <h2>Verification runbook</h2>
+          <p class="muted compact">A completed-job checklist with exact downloads, filenames, commands, and archive guidance.</p>
+        </div>
+        <label class="inline-label" for="runbook-job-select">
+          Completed job
+          <select id="runbook-job-select"></select>
+        </label>
+      </div>
+      <div id="verification-runbook" class="jobs">Sign in and complete a job to open a runbook.</div>
+    </section>
+    <section id="verifier-downloads" class="panel page" data-page="verify">
       <div class="panel-heading">
         <div>
           <h2>Local verifier downloads</h2>
@@ -1207,23 +1311,26 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <p class="verify-note"><strong>Boundary:</strong> these downloads contain only the Python verifier package and helper scripts. They do not include the C++ generator or generator source.</p>
       <div id="verifier-downloads-content" class="jobs">Sign in to download the verifier.</div>
     </section>
-    <section id="usage-section" class="panel">
+    <section id="usage-section" class="panel page" data-page="account">
       <div class="panel-heading">
         <h2>Usage</h2>
         <button id="refresh-usage" class="secondary">Refresh</button>
       </div>
       <div id="usage" class="muted">Sign in to inspect usage.</div>
     </section>
-    <section id="metrics-panel" class="panel" hidden>
+    <section id="metrics-panel" class="panel page" data-page="account" hidden>
       <div class="panel-heading">
         <h2>Operational metrics</h2>
         <button id="refresh-metrics" class="secondary">Refresh</button>
       </div>
       <div id="metrics" class="muted"></div>
     </section>
-    <section id="scenario-workbench" class="panel">
+    <section id="scenario-workbench" class="panel page" data-page="scenarios">
       <div class="panel-heading">
-        <h2>Scenario drafts</h2>
+        <div>
+          <h2>Scenario drafts</h2>
+          <p class="muted compact">Template-assisted authoring remains form-first, with raw JSON available for advanced edits.</p>
+        </div>
         <div class="actions no-margin">
           <button id="refresh-authoring" class="secondary">Refresh authoring</button>
           <button id="new-scenario" class="secondary">New draft</button>
@@ -1252,8 +1359,12 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <div id="scenario-preview" class="selected-pack muted">Select a template or edit JSON to preview package output.</div>
       <label for="scenario-name">Name</label>
       <input id="scenario-name" type="text" maxlength="100" placeholder="Scenario name">
-      <label for="scenario-json">Scenario JSON</label>
-      <textarea id="scenario-json" rows="16" spellcheck="false">{}</textarea>
+      <details id="scenario-json-details" class="meta">
+        <summary>Advanced JSON editor</summary>
+        <p class="muted compact">Use raw JSON for fields that are not yet represented by form controls. Form edits round-trip through this document.</p>
+        <label for="scenario-json">Scenario JSON</label>
+        <textarea id="scenario-json" rows="16" spellcheck="false">{}</textarea>
+      </details>
       <div class="actions">
         <button id="load-scenario-template" class="secondary">Load clean ECG example</button>
         <button id="format-scenario-json" class="secondary">Format JSON</button>
@@ -1262,9 +1373,12 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <pre id="scenario-output" class="output"></pre>
       <div id="scenarios" class="jobs"></div>
     </section>
-    <section id="custom-pack-workbench" class="panel">
+    <section id="custom-pack-workbench" class="panel page" data-page="custom-packs">
       <div class="panel-heading">
-        <h2>Custom pack composer</h2>
+        <div>
+          <h2>Custom pack composer</h2>
+          <p class="muted compact">Select valid scenario drafts, review targets, then snapshot them into an immutable pack.</p>
+        </div>
         <button id="refresh-custom-packs" class="secondary">Refresh</button>
       </div>
       <p class="verify-note"><strong>No PHI:</strong> pack names and descriptions must not contain patient data, personal identifiers, clinical notes, or diagnostic-use claims.</p>
@@ -1283,18 +1397,22 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       </datalist>
       <p class="muted compact">Select at least one valid draft. The resulting pack snapshots its scenarios; later draft edits do not alter it.</p>
       <div id="pack-scenario-options" class="cards"></div>
+      <div id="custom-pack-review" class="selected-pack">Select scenarios and targets to preview coverage.</div>
       <button id="create-custom-pack" class="primary" disabled>Create immutable custom pack</button>
       <pre id="custom-pack-output" class="output"></pre>
       <div id="custom-packs" class="jobs"></div>
     </section>
-    <section id="documentation" class="panel">
+    <section id="documentation" class="panel page" data-page="advanced">
       <h2>Documentation</h2>
+      <p class="muted">Expert/API reference, raw contracts, troubleshooting, and manual workflows.</p>
       <p><a href="/syn_sig_ra/docs/quickstart">One-page quickstart</a></p>
       <p><a href="/syn_sig_ra/docs/api">Rendered API reference</a></p>
       <p><a href="/syn_sig_ra/docs/troubleshooting">Troubleshooting guide</a></p>
       <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/README.md" target="_blank" rel="noopener">Full user manual</a></p>
       <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/doc/openapi.yaml" target="_blank" rel="noopener">Raw OpenAPI YAML</a></p>
     </section>
+      </div>
+    </div>
   </main>
   <script src="/syn_sig_ra/ui/app.js"></script>
 </body>
@@ -1316,14 +1434,14 @@ const char kQuickstartHtml[] = R"HTML(<!doctype html>
       <h1>One-page quickstart</h1>
       <p class="verify-note"><strong>Synthetic engineering data only.</strong> Do not enter patient data, personal identifiers, clinical notes, PHI, or diagnostic-use claims.</p>
       <ol>
-        <li>Open <a href="/syn_sig_ra/">the web UI</a>, create an account, or sign in.</li>
-        <li>Use the default project or create a project if your role allows it.</li>
-        <li>Choose a curated pack. Check <strong>Scoreable locally</strong>, <strong>Reference-only</strong>, duration, sampling rate, channel count, and recommended verifier profile before creating the job.</li>
-        <li>Create a challenge job and wait for <code>succeeded</code>.</li>
-        <li>Download <code>verification-kit.zip</code>, or download <code>manifest.json</code>, <code>package.zip</code>, and <code>detection-templates.zip</code> separately.</li>
+        <li>Open <a href="/syn_sig_ra/workspace">the guided workspace</a>, create an account, or sign in.</li>
+        <li>Open <a href="/syn_sig_ra/packs">Choose pack</a>. Filter by target, workflow intent, scoring mode, and difficulty; use the recommended pack or comparison table.</li>
+        <li>Open <a href="/syn_sig_ra/generate">Generate job</a>. Use the default project or create a project if your role allows it, then create the challenge job.</li>
+        <li>Open <a href="/syn_sig_ra/jobs">Jobs</a> and wait for <code>succeeded</code>.</li>
+        <li>Open the completed job's <a href="/syn_sig_ra/verify">verification runbook</a>. Download <code>verification-kit.zip</code>, or download <code>manifest.json</code>, <code>package.zip</code>, and <code>detection-templates.zip</code> separately.</li>
         <li>Unzip the verification kit, then replace example rows under <code>detections/</code> with your algorithm output. Keep <code>provenance.json</code> and <code>ENGINEERING_CLAIM_BOUNDARY.txt</code> from the package with your evidence archive.</li>
-        <li>Open the <strong>Verifier</strong> panel, download the verifier bundle or wheel, and install it locally without cloning the generator repository.</li>
-        <li>Copy the exact <code>synsigra-verify</code> command from the completed job card and run it next to the downloaded package.</li>
+        <li>Download the verifier bundle or wheel from the runbook page and install it locally without cloning the generator repository.</li>
+        <li>Copy the exact <code>synsigra-verify</code> command from the runbook and run it next to the downloaded package.</li>
         <li>Inspect <code>verification_summary.json</code>, <code>verification_summary.csv</code>, and <code>verification_report.html</code>.</li>
       </ol>
       <pre class="output">python -m pip install synsigra-wheel.whl
@@ -1473,17 +1591,77 @@ body {
 }
 
 .shell {
-  max-width: 1180px;
+  max-width: 1320px;
   margin: 0 auto;
   padding: 32px 20px 64px;
 }
 
-.hero {
+.app-header {
   display: grid;
   grid-template-columns: 1fr minmax(220px, 280px);
   gap: 24px;
   align-items: stretch;
   margin-bottom: 24px;
+}
+
+.app-layout {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.content-stack {
+  display: grid;
+  gap: 20px;
+}
+
+.page { display: none; }
+.page.active { display: block; }
+
+.side-nav {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  background: rgba(255, 255, 255, .94);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, .06);
+}
+
+.side-nav-title {
+  margin: 2px 4px 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.side-nav a {
+  border-radius: 12px;
+  color: var(--text);
+  padding: 9px 10px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.side-nav a:hover { background: #f2f4f7; }
+.side-nav a.active { background: #eef4ff; color: var(--primary); }
+.side-nav hr {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 20px;
+  align-items: stretch;
+  margin-bottom: 20px;
 }
 
 .quick-nav {
@@ -1520,6 +1698,48 @@ body {
   border: 1px solid #c7d7fe;
   border-radius: 14px;
   color: #344054;
+}
+
+.step-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.step-card {
+  display: grid;
+  gap: 8px;
+  min-height: 150px;
+  padding: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  color: var(--text);
+  text-decoration: none;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, .06);
+}
+
+.step-card:hover {
+  border-color: #b2c4ff;
+  box-shadow: 0 12px 30px rgba(34, 88, 232, .12);
+}
+
+.step-card.primary-step {
+  background: #eef4ff;
+  border-color: #c7d7fe;
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 800;
 }
 
 .eyebrow {
@@ -1605,7 +1825,7 @@ input, select {
 label { display: block; margin: 10px 0 5px; font-weight: 600; }
 .filter-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 10px;
   margin-bottom: 12px;
 }
@@ -1669,6 +1889,13 @@ th, td {
   vertical-align: top;
 }
 th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.table-wrap {
+  overflow-x: auto;
+  margin: 12px 0;
+}
+.table-wrap table {
+  min-width: 760px;
+}
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: .92em;
@@ -1691,6 +1918,7 @@ button.secondary {
 }
 button.secondary:hover { background: #eef2ff; }
 button.primary { width: 100%; margin-top: 12px; }
+.job-header button.primary { width: auto; margin-top: 0; }
 button.danger {
   background: #fff;
   border-color: #fda29b;
@@ -1698,6 +1926,33 @@ button.danger {
 }
 button.danger:hover { background: #fee4e2; }
 button:disabled { opacity: .55; cursor: not-allowed; }
+
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  padding: 11px 12px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.button-link:hover { background: var(--primary-dark); }
+.button-link.secondary {
+  background: #fff;
+  border-color: var(--border);
+  color: var(--text);
+}
+.button-link.secondary:hover { background: #eef2ff; }
+
+.inline-label {
+  min-width: 240px;
+  margin: 0;
+}
 
 .cards {
   display: grid;
@@ -1819,7 +2074,8 @@ details.meta summary { cursor: pointer; font-weight: 700; }
 .ok { color: var(--ok); }
 
 @media (max-width: 820px) {
-  .hero, .grid, .auth-grid, .filter-row, .authoring-grid { grid-template-columns: 1fr; }
+  .app-header, .app-layout, .hero, .grid, .auth-grid, .filter-row, .authoring-grid { grid-template-columns: 1fr; }
+  .side-nav { position: static; }
   .row { align-items: stretch; flex-direction: column; }
   .meta-grid { grid-template-columns: 1fr; }
 }
@@ -1828,13 +2084,17 @@ details.meta summary { cursor: pointer; font-weight: 700; }
 const char kUiJs[] = R"JS((() => {
   const base = "/syn_sig_ra";
   const state = {
+    currentPage: "workspace",
     authenticated: false,
     account: null,
     apiKeys: [],
     role: "",
     packs: [],
     packTargetFilter: "",
+    packIntentFilter: "",
+    packScoringFilter: "",
     packDifficultyFilter: "",
+    runbookJobId: "",
     verifierDownloads: null,
     authoringSchema: null,
     authoringTemplates: [],
@@ -1876,6 +2136,54 @@ const char kUiJs[] = R"JS((() => {
       conditions: [{ code: "NORM", severity: 1 }]
     }
   };
+
+  const pageTitles = {
+    workspace: "Start",
+    packs: "Choose pack",
+    generate: "Generate job",
+    jobs: "Jobs",
+    verify: "Verify locally",
+    scenarios: "Scenario editor",
+    "custom-packs": "Custom packs",
+    account: "Account",
+    advanced: "Advanced / API"
+  };
+
+  function pageFromLocation() {
+    const path = window.location.pathname.replace(/\/+$/, "");
+    const suffix = path.startsWith(base) ? path.slice(base.length).replace(/^\/+/, "") : "";
+    if (!suffix || suffix === "ui") return "workspace";
+    return Object.prototype.hasOwnProperty.call(pageTitles, suffix)
+      ? suffix
+      : "workspace";
+  }
+
+  function queryParam(name) {
+    return new URLSearchParams(window.location.search).get(name) || "";
+  }
+
+  function renderCurrentPage() {
+    state.currentPage = pageFromLocation();
+    document.querySelectorAll("[data-page]").forEach((node) => {
+      node.classList.toggle("active", node.getAttribute("data-page") === state.currentPage);
+    });
+    document.querySelectorAll("[data-nav-page]").forEach((node) => {
+      node.classList.toggle("active", node.getAttribute("data-nav-page") === state.currentPage);
+    });
+    document.title = `SynSigRa · ${pageTitles[state.currentPage]}`;
+    if (state.currentPage === "verify") {
+      state.runbookJobId = queryParam("job_id") || state.runbookJobId;
+      renderVerificationRunbook();
+    }
+  }
+
+  function navigateTo(page, params = {}) {
+    const query = new URLSearchParams(params);
+    const suffix = page === "workspace" ? "workspace" : page;
+    const url = `${base}/${suffix}${query.toString() ? "?" + query.toString() : ""}`;
+    window.history.pushState({}, "", url);
+    renderCurrentPage();
+  }
 
   function setText(id, text, className) {
     const node = $(id);
@@ -1976,6 +2284,43 @@ const char kUiJs[] = R"JS((() => {
       $("account-email").textContent =
         `${state.account.email} · role: ${state.account.role}`;
     }
+    renderWorkspaceNextAction();
+  }
+
+  function renderWorkspaceNextAction() {
+    const node = $("workspace-next-action");
+    if (!node) return;
+    if (!state.authenticated) {
+      node.innerHTML = `
+        <strong>Start by creating an account or signing in.</strong>
+        <p class="muted compact">The browser UI uses a session cookie; API keys are only for scripts and CI.</p>
+        <a class="button-link" href="/syn_sig_ra/account">Sign in / register</a>
+      `;
+      return;
+    }
+    const running = state.jobs.find((job) => ["queued", "running"].includes(job.status));
+    if (running) {
+      node.innerHTML = `
+        <strong>Continue: job ${escapeHtml(running.status)}</strong>
+        <p class="muted compact">${escapeHtml(running.pack_id)} · ${escapeHtml(running.job_id)}</p>
+        <a class="button-link" href="/syn_sig_ra/jobs">Open jobs</a>
+      `;
+      return;
+    }
+    const succeeded = state.jobs.find((job) => job.status === "succeeded" && job.package_id);
+    if (succeeded) {
+      node.innerHTML = `
+        <strong>Next: verify your latest completed package.</strong>
+        <p class="muted compact">${escapeHtml(succeeded.pack_id)} · ${escapeHtml(succeeded.job_id)}</p>
+        <a class="button-link" href="/syn_sig_ra/verify?job_id=${encodeURIComponent(succeeded.job_id)}">Open runbook</a>
+      `;
+      return;
+    }
+    node.innerHTML = `
+      <strong>Recommended: choose a curated pack.</strong>
+      <p class="muted compact">Pick by target and intent, then generate your first challenge job.</p>
+      <a class="button-link" href="/syn_sig_ra/packs">Choose pack</a>
+    `;
   }
 
   function renderPackOptions() {
@@ -2037,7 +2382,10 @@ const char kUiJs[] = R"JS((() => {
     try {
       return JSON.parse($("scenario-json").value || "{}");
     } catch (error) {
-      if (!silent) $("scenario-output").textContent = `Invalid JSON: ${error.message}`;
+      if (!silent) {
+        $("scenario-json-details").open = true;
+        $("scenario-output").textContent = `Invalid JSON: ${error.message}`;
+      }
       return null;
     }
   }
@@ -2071,26 +2419,144 @@ const char kUiJs[] = R"JS((() => {
 
   function renderPackFilters() {
     const targetSelect = $("pack-target-filter");
+    const intentSelect = $("pack-intent-filter");
+    const scoringSelect = $("pack-scoring-filter");
     const difficultySelect = $("pack-difficulty-filter");
     const selectedTarget = state.packTargetFilter;
+    const selectedIntent = state.packIntentFilter;
+    const selectedScoring = state.packScoringFilter;
     const selectedDifficulty = state.packDifficultyFilter;
-    const targets = uniqueSorted(state.packs.flatMap((pack) => targetNames(pack.scoreable_targets)));
+    const targets = uniqueSorted(state.packs.flatMap((pack) => [
+      ...targetNames(pack.scoreable_targets),
+      ...targetNames(pack.reference_only_targets)
+    ]));
+    const scoringModes = uniqueSorted(state.packs.map((pack) => pack.scoring_mode || ""));
     const difficulties = uniqueSorted(state.packs.flatMap((pack) => pack.difficulty || []));
-    targetSelect.innerHTML = `<option value="">All scoreable targets</option>` +
+    targetSelect.innerHTML = `<option value="">Any target</option>` +
       targets.map((target) => `<option value="${escapeHtml(target)}">${escapeHtml(target)}</option>`).join("");
+    scoringSelect.innerHTML = `<option value="">Any scoring mode</option>` +
+      scoringModes.map((mode) => `<option value="${escapeHtml(mode)}">${escapeHtml(mode)}</option>`).join("");
     difficultySelect.innerHTML = `<option value="">All difficulties</option>` +
       difficulties.map((difficulty) => `<option value="${escapeHtml(difficulty)}">${escapeHtml(difficulty)}</option>`).join("");
     if (targets.includes(selectedTarget)) targetSelect.value = selectedTarget;
+    if (["", "smoke", "regression", "stress", "benchmark", "reference"].includes(selectedIntent)) intentSelect.value = selectedIntent;
+    if (scoringModes.includes(selectedScoring)) scoringSelect.value = selectedScoring;
     if (difficulties.includes(selectedDifficulty)) difficultySelect.value = selectedDifficulty;
+  }
+
+  function packMatchesIntent(pack, intent) {
+    if (!intent) return true;
+    const text = [
+      pack.scoring_mode || "",
+      ...(pack.difficulty || []),
+      ...(pack.recommended_for || []),
+      ...(pack.not_recommended_for || []),
+      pack.description || ""
+    ].join(" ").toLowerCase();
+    if (intent === "reference") return targetNames(pack.scoreable_targets).length === 0 || targetNames(pack.reference_only_targets).length > 0;
+    if (intent === "smoke") return text.includes("smoke") || text.includes("first") || text.includes("quick") || (pack.scenario_count || 0) <= 4;
+    if (intent === "regression") return text.includes("regression") || text.includes("baseline");
+    if (intent === "stress") return text.includes("stress") || text.includes("robust") || text.includes("artifact") || text.includes("hard");
+    if (intent === "benchmark") return text.includes("benchmark") || text.includes("comparison") || text.includes("suite");
+    return true;
   }
 
   function packMatchesFilters(pack) {
     const target = state.packTargetFilter;
+    const scoring = state.packScoringFilter;
     const difficulty = state.packDifficultyFilter;
-    const scoreable = targetNames(pack.scoreable_targets);
-    if (target && !scoreable.includes(target)) return false;
+    const targets = [
+      ...targetNames(pack.scoreable_targets),
+      ...targetNames(pack.reference_only_targets)
+    ];
+    if (target && !targets.includes(target)) return false;
+    if (scoring && pack.scoring_mode !== scoring) return false;
     if (difficulty && !(pack.difficulty || []).includes(difficulty)) return false;
+    if (!packMatchesIntent(pack, state.packIntentFilter)) return false;
     return true;
+  }
+
+  function recommendedPack(packs) {
+    if (!packs.length) return null;
+    const target = state.packTargetFilter;
+    const intent = state.packIntentFilter;
+    return [...packs].sort((a, b) => {
+      const score = (pack) => {
+        let value = 0;
+        const scoreable = targetNames(pack.scoreable_targets);
+        const reference = targetNames(pack.reference_only_targets);
+        if (target && scoreable.includes(target)) value += 30;
+        if (target && reference.includes(target)) value += 10;
+        if (scoreable.length) value += 8;
+        if ((pack.release_status || "") === "stable") value += 5;
+        if ((pack.release_status || "") === "beta") value += 3;
+        if (intent === "smoke" && (pack.scenario_count || 0) <= 4) value += 8;
+        if (intent === "stress" && (pack.difficulty || []).some((item) => /stress|hard/i.test(item))) value += 8;
+        if (intent === "reference" && reference.length) value += 8;
+        value -= Math.max(0, (pack.scenario_count || 0) - 8);
+        return value;
+      };
+      return score(b) - score(a);
+    })[0];
+  }
+
+  function renderPackRecommendation(visible) {
+    const node = $("pack-recommendation");
+    const pack = recommendedPack(visible);
+    if (!pack) {
+      node.innerHTML = "<p class=\"muted compact\">No matching pack. Loosen the filters or switch to custom pack authoring.</p>";
+      return;
+    }
+    const scoreable = targetNames(pack.scoreable_targets);
+    const referenceOnly = targetNames(pack.reference_only_targets);
+    node.innerHTML = `
+      <div class="job-header">
+        <div>
+          <strong>Recommended next pack: ${escapeHtml(pack.display_name || pack.pack_id)}</strong>
+          <p class="muted compact">${packFacts(pack)}</p>
+        </div>
+        <button class="primary" data-select-pack="${escapeHtml(pack.pack_id)}">Use this pack</button>
+      </div>
+      <p class="compact">${scoreable.length ? "Scoreable locally: " + escapeHtml(scoreable.join(", ")) : "Reference-only / no local scoring command."}</p>
+      ${referenceOnly.length ? `<p class="muted compact">Reference-only targets: ${escapeHtml(referenceOnly.join(", "))}</p>` : ""}
+    `;
+  }
+
+  function renderPackComparison(visible) {
+    if (!visible.length) {
+      $("pack-comparison").innerHTML = "";
+      return;
+    }
+    $("pack-comparison").innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Pack</th>
+            <th>Targets</th>
+            <th>Use case</th>
+            <th>Size / duration</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${visible.map((pack) => `
+            <tr>
+              <td>
+                <strong>${escapeHtml(pack.display_name || pack.pack_id)}</strong><br>
+                <span class="muted">${escapeHtml(pack.version || "")} · ${escapeHtml(pack.release_status || "unknown")} · ${escapeHtml(pack.scoring_mode || "unknown")}</span>
+              </td>
+              <td>
+                <div><strong>Scoreable</strong>${targetTags(pack.scoreable_targets, "scoreable")}</div>
+                <div><strong>Reference</strong>${targetTags(pack.reference_only_targets, "reference")}</div>
+              </td>
+              <td>${escapeHtml((pack.recommended_for || []).slice(0, 2).join("; ") || pack.description || "n/a")}</td>
+              <td>${packFacts(pack)}</td>
+              <td><button class="secondary" data-select-pack="${escapeHtml(pack.pack_id)}">Use</button></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
   }
 
   function packFacts(pack) {
@@ -2107,6 +2573,8 @@ const char kUiJs[] = R"JS((() => {
 
   function renderPacks() {
     const visible = state.packs.filter(packMatchesFilters);
+    renderPackRecommendation(visible);
+    renderPackComparison(visible);
     $("packs").innerHTML = visible.map((pack) => `
       <article class="card">
         <h3>${escapeHtml(pack.display_name || pack.pack_id)}</h3>
@@ -2121,6 +2589,7 @@ const char kUiJs[] = R"JS((() => {
         <p><strong>Reference-only</strong>${targetTags(pack.reference_only_targets, "reference")}</p>
         <p class="muted">Verifier profile: ${escapeHtml(pack.recommended_profile || "none")} · schemas: ${escapeHtml((pack.detector_output_schemas || []).join(", ") || "n/a")}</p>
         <p class="tag-list">${(pack.difficulty || []).map((item) => `<span class="tag">${escapeHtml(item)}</span>`).join("")}</p>
+        <button class="primary" data-select-pack="${escapeHtml(pack.pack_id)}">Use this pack</button>
         <details>
           <summary>Recommended use</summary>
           <p><strong>Use for:</strong> ${escapeHtml((pack.recommended_for || []).join("; ") || "n/a")}</p>
@@ -2175,6 +2644,17 @@ const char kUiJs[] = R"JS((() => {
     `;
   }
 
+  function selectPackForGeneration(packId) {
+    const select = $("pack-select");
+    if ([...select.options].some((option) => option.value === packId)) {
+      select.value = packId;
+      renderSelectedPackSummary();
+    }
+    navigateTo("generate");
+    $("create-output").textContent = "";
+    $("create-job").focus();
+  }
+
   async function loadPacks() {
     $("packs").textContent = "Loading packs…";
     try {
@@ -2209,7 +2689,6 @@ const char kUiJs[] = R"JS((() => {
       $("create-project").disabled = !["owner", "admin"].includes(body.role);
       $("create-job").disabled = !canWrite();
       $("save-scenario").disabled = !canWrite();
-      $("create-custom-pack").disabled = !canWrite();
       $("metrics-panel").hidden = !["owner", "admin"].includes(body.role);
       state.projects.forEach((project) => {
         const option = document.createElement("option");
@@ -2217,6 +2696,7 @@ const char kUiJs[] = R"JS((() => {
         option.textContent = project.display_name;
         select.appendChild(option);
       });
+      renderCustomPackReview();
       if (!($("metrics-panel").hidden)) loadMetrics();
     } catch (error) {
       state.role = "";
@@ -2296,6 +2776,7 @@ const char kUiJs[] = R"JS((() => {
         </details>
       </article>
     `;
+    renderVerificationRunbook();
   }
 
   async function downloadVerifierFile(filename) {
@@ -2599,11 +3080,18 @@ const char kUiJs[] = R"JS((() => {
       renderScenarioPreview(preview);
     } catch (error) {
       if (error.body && error.body.validation_errors) {
+        const groups = groupValidationErrors(error.body.validation_errors);
         $("scenario-preview").innerHTML = `
-          <p class="error">Scenario validation failed.</p>
-          <ul>${error.body.validation_errors.map((item) => `
-            <li><button class="validation-link" data-validation-path="${escapeHtml(item.path)}">${escapeHtml(item.path || "$")}</button>: ${escapeHtml(item.message)}</li>
-          `).join("")}</ul>
+          <h3><span class="error">Not safe to save yet</span></h3>
+          <p class="muted">Fix the grouped validation issues below. Click a path to focus the raw JSON near the affected field.</p>
+          ${Object.entries(groups).map(([section, items]) => `
+            <details class="meta" open>
+              <summary>${escapeHtml(section)} · ${escapeHtml(items.length)} issue(s)</summary>
+              <ul>${items.map((item) => `
+                <li><button class="validation-link" data-validation-path="${escapeHtml(item.path)}">${escapeHtml(item.path || "$")}</button>: ${escapeHtml(userValidationMessage(item))}</li>
+              `).join("")}</ul>
+            </details>
+          `).join("")}
         `;
       } else {
         $("scenario-preview").innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
@@ -2611,15 +3099,52 @@ const char kUiJs[] = R"JS((() => {
     }
   }
 
+  function validationSection(path) {
+    const value = String(path || "$");
+    if (value.startsWith("$.ecg")) return "ECG";
+    if (value.startsWith("$.ppg")) return "PPG";
+    if (value.startsWith("$.hrv")) return "HRV";
+    if (value.startsWith("$.physiology")) return "Physiology";
+    if (value.startsWith("$.randomization")) return "Randomization";
+    if (value.startsWith("$.artifacts")) return "Artifacts";
+    if (value.startsWith("$.output")) return "Output";
+    return "Scenario identity";
+  }
+
+  function groupValidationErrors(errors) {
+    return (errors || []).reduce((groups, item) => {
+      const section = validationSection(item.path);
+      if (!groups[section]) groups[section] = [];
+      groups[section].push(item);
+      return groups;
+    }, {});
+  }
+
+  function userValidationMessage(item) {
+    const message = item.message || "";
+    const path = item.path || "";
+    if (path.includes("hrv") && /duration/i.test(message)) {
+      return `${message} HRV scoring needs enough signal duration for stable windowed metrics.`;
+    }
+    if (path.includes("ppg") && /enabled|required|missing/i.test(message)) {
+      return `${message} PPG targets require PPG generation to be enabled and compatible with the selected target.`;
+    }
+    return message;
+  }
+
   function renderScenarioPreview(preview) {
     const summary = preview.summary || {};
     const cases = preview.cases || [];
     const messages = preview.messages || [];
+    const scoreable = preview.scoreable_targets || [];
+    const referenceOnly = preview.reference_only_targets || [];
     $("scenario-preview").innerHTML = `
-      <h3>Preview ${preview.success ? "<span class=\"ok\">valid</span>" : "<span class=\"error\">needs attention</span>"}</h3>
+      <h3>Preflight ${preview.success ? "<span class=\"ok\">safe to save</span>" : "<span class=\"error\">needs attention</span>"}</h3>
+      <p>${preview.success ? "<span class=\"badge succeeded\">safe to compose pack</span>" : "<span class=\"badge failed\">not ready for pack composition</span>"}</p>
       <p class="muted">${escapeHtml(preview.scoring_mode || "unknown")} · profile ${escapeHtml(preview.recommended_verifier_profile || "n/a")} · ${escapeHtml(formatBytes(summary.estimated_package_bytes || 0))} estimated package</p>
-      <p><strong>Scoreable</strong>${targetTags(preview.scoreable_targets || [], "scoreable")}</p>
-      <p><strong>Reference-only</strong>${targetTags(preview.reference_only_targets || [], "reference")}</p>
+      <p><strong>Scoreable</strong>${targetTags(scoreable, "scoreable")}</p>
+      <p><strong>Reference-only</strong>${targetTags(referenceOnly, "reference")}</p>
+      ${!scoreable.length && referenceOnly.length ? `<p class="muted compact">This scenario can still be useful for manual/reference QA, but it will not produce a local scoring command for those targets.</p>` : ""}
       <div class="meta-grid">
         <dt>Duration</dt><dd>${escapeHtml(formatSeconds(summary.total_duration_seconds || 0))}</dd>
         <dt>Samples</dt><dd>${escapeHtml(summary.total_sample_count || 0)}</dd>
@@ -2638,6 +3163,7 @@ const char kUiJs[] = R"JS((() => {
   }
 
   function focusJsonPath(path) {
+    $("scenario-json-details").open = true;
     const textarea = $("scenario-json");
     textarea.focus();
     const key = String(path || "").split(".").pop().replace(/\]$/, "");
@@ -2694,6 +3220,87 @@ const char kUiJs[] = R"JS((() => {
         <span class="fingerprint">${escapeHtml(draft.document_fingerprint || "")}</span>
       </label>
     `).join("") || "<p class=\"muted\">Create at least one valid scenario draft first.</p>";
+    renderCustomPackReview();
+  }
+
+  function selectedCustomPackScenarioIds() {
+    return [...document.querySelectorAll("[data-pack-scenario]:checked")]
+      .map((input) => input.getAttribute("data-pack-scenario"))
+      .filter(Boolean);
+  }
+
+  function requestedCustomPackTargets() {
+    return $("custom-pack-targets").value.split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+
+  function draftTargetCompatibility(draft, target) {
+    const scenario = draft.scenario || {};
+    if (draft.status !== "valid") return { state: "error", label: "invalid draft" };
+    if (/^ppg_/.test(target)) {
+      return scenario.ppg && scenario.ppg.enabled
+        ? { state: "ok", label: "PPG enabled" }
+        : { state: "warn", label: "enable PPG first" };
+    }
+    if (target === "hrv") {
+      const duration = Number(scenario.duration_seconds || 0);
+      return duration >= 60
+        ? { state: "ok", label: `${formatSeconds(duration)} duration` }
+        : { state: "warn", label: "short for HRV" };
+    }
+    if (target === "r_peak" || target === "beat_classification") {
+      return scenario.ecg
+        ? { state: "ok", label: "ECG present" }
+        : { state: "warn", label: "ECG missing" };
+    }
+    return { state: "ok", label: "included" };
+  }
+
+  function renderCustomPackReview() {
+    const review = $("custom-pack-review");
+    if (!review) return;
+    const scenarioIds = selectedCustomPackScenarioIds();
+    const targets = [...new Set(requestedCustomPackTargets())];
+    const selectedDrafts = scenarioIds
+      .map((id) => state.scenarios.find((draft) => draft.scenario_id === id))
+      .filter(Boolean);
+    const name = $("custom-pack-name").value.trim();
+    const description = $("custom-pack-description").value.trim();
+    const canCreate = canWrite() && name && description && targets.length && selectedDrafts.length;
+    $("create-custom-pack").disabled = !canCreate;
+    if (!selectedDrafts.length || !targets.length) {
+      review.innerHTML = "Select at least one valid scenario and one target to preview pack coverage.";
+      return;
+    }
+    const warnings = [];
+    const rows = selectedDrafts.map((draft) => {
+      const cells = targets.map((target) => {
+        const compatibility = draftTargetCompatibility(draft, target);
+        if (compatibility.state === "warn") {
+          warnings.push(`${draft.name}: ${target} — ${compatibility.label}`);
+        }
+        return `<td><span class="${compatibility.state === "ok" ? "ok" : "error"}">${escapeHtml(compatibility.label)}</span></td>`;
+      }).join("");
+      return `
+        <tr>
+          <td><strong>${escapeHtml(draft.name)}</strong><br><span class="fingerprint">${escapeHtml(draft.document_fingerprint || "")}</span></td>
+          ${cells}
+        </tr>
+      `;
+    }).join("");
+    review.innerHTML = `
+      <h3>Pack review</h3>
+      <p class="muted compact">${escapeHtml(selectedDrafts.length)} scenario snapshot(s) · targets: ${escapeHtml(targets.join(", "))}</p>
+      ${warnings.length ? `<p class="error">Review warnings before creating: ${escapeHtml(warnings.join("; "))}</p>` : `<p class="ok">Coverage preflight looks consistent for the selected targets.</p>`}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Scenario</th>${targets.map((target) => `<th>${escapeHtml(target)}</th>`).join("")}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <p class="muted compact">Snapshot semantics: after creation, later scenario draft edits do not change this pack.</p>
+    `;
   }
 
   async function loadCustomPacks() {
@@ -2726,10 +3333,8 @@ const char kUiJs[] = R"JS((() => {
   }
 
   async function createCustomPack() {
-    const scenarioIds = [...document.querySelectorAll("[data-pack-scenario]:checked")]
-      .map((input) => input.getAttribute("data-pack-scenario"));
-    const targets = $("custom-pack-targets").value.split(",")
-      .map((value) => value.trim()).filter(Boolean);
+    const scenarioIds = selectedCustomPackScenarioIds();
+    const targets = requestedCustomPackTargets();
     const name = $("custom-pack-name").value.trim();
     const description = $("custom-pack-description").value.trim();
     const uniqueTargets = [...new Set(targets)];
@@ -2765,7 +3370,9 @@ const char kUiJs[] = R"JS((() => {
       document.querySelectorAll("[data-pack-scenario]:checked")
         .forEach((input) => { input.checked = false; });
       await loadCustomPacks();
+      renderCustomPackReview();
       $("pack-select").value = pack.pack_id;
+      navigateTo("generate");
     } catch (error) {
       $("custom-pack-output").textContent = error.message;
     }
@@ -2946,6 +3553,14 @@ const char kUiJs[] = R"JS((() => {
     return (pack && pack.scoreable_targets && pack.scoreable_targets[0]) || null;
   }
 
+  function scoreableTargets(pack) {
+    return targetNames((pack && pack.scoreable_targets) || []);
+  }
+
+  function referenceTargets(pack) {
+    return targetNames((pack && pack.reference_only_targets) || []);
+  }
+
   function detectionShape(pack) {
     const target = firstScoreableTarget(pack);
     if (!target) return "detections/";
@@ -2959,11 +3574,39 @@ const char kUiJs[] = R"JS((() => {
     ].join("\n");
   }
 
-  function verifierRecipe(job) {
-    if (job.status !== "succeeded" || !job.package_id) return "";
+  function verificationContext(job) {
     const pack = packById(job.pack_id);
     const packageFile = `${job.package_id}-package.zip`;
+    const manifestFile = `${job.package_id}-manifest.json`;
+    const kitFile = `${job.job_id}-verification-kit.zip`;
+    const templatesFile = `${job.job_id}-detection-templates.zip`;
     const outputDir = `verification-${job.package_id}`;
+    const scoreable = scoreableTargets(pack);
+    const referenceOnly = referenceTargets(pack);
+    const profile = (pack && pack.recommended_profile) || "regression";
+    const command = `synsigra-verify ${shellQuote(packageFile)} detections/ ${shellQuote(outputDir)} --profile ${profile} --force`;
+    const filtered = scoreable.length
+      ? `synsigra-verify ${shellQuote(packageFile)} detections/ ${shellQuote(outputDir)} --profile ${profile} --target ${scoreable[0]} --force`
+      : "";
+    return {
+      pack,
+      packageFile,
+      manifestFile,
+      kitFile,
+      templatesFile,
+      outputDir,
+      scoreable,
+      referenceOnly,
+      profile,
+      command,
+      filtered
+    };
+  }
+
+  function verifierRecipe(job) {
+    if (job.status !== "succeeded" || !job.package_id) return "";
+    const context = verificationContext(job);
+    const pack = context.pack;
     if (!pack || pack.source === "custom") {
       return `
         <details class="verify-note">
@@ -2972,8 +3615,8 @@ const char kUiJs[] = R"JS((() => {
         </details>
       `;
     }
-    const scoreable = targetNames(pack.scoreable_targets);
-    const referenceOnly = targetNames(pack.reference_only_targets);
+    const scoreable = context.scoreable;
+    const referenceOnly = context.referenceOnly;
     if (!scoreable.length) {
       return `
         <details class="verify-note">
@@ -2983,9 +3626,6 @@ const char kUiJs[] = R"JS((() => {
         </details>
       `;
     }
-    const profile = pack.recommended_profile || "regression";
-    const command = `synsigra-verify ${shellQuote(packageFile)} detections/ ${shellQuote(outputDir)} --profile ${profile} --force`;
-    const filtered = `synsigra-verify ${shellQuote(packageFile)} detections/ ${shellQuote(outputDir)} --profile ${profile} --target ${scoreable[0]} --force`;
     return `
       <details class="verify-note" open>
         <summary>First-run local verification recipe</summary>
@@ -2996,13 +3636,134 @@ const char kUiJs[] = R"JS((() => {
         <p>Accepted detection file shape:</p>
         <pre class="output">${escapeHtml(detectionShape(pack))}</pre>
         <p>Run all scoreable targets with the recommended profile:</p>
-        <pre class="output">${escapeHtml(command)}</pre>
-        <button class="secondary" data-copy-text="${escapeHtml(command)}">Copy verify command</button>
+        <pre class="output">${escapeHtml(context.command)}</pre>
+        <button class="secondary" data-copy-text="${escapeHtml(context.command)}">Copy verify command</button>
         <p class="muted compact">Optional single-target smoke run:</p>
-        <pre class="output">${escapeHtml(filtered)}</pre>
-        <p>Machine-readable summaries are written to <code>${escapeHtml(outputDir)}/verification_summary.json</code> and <code>${escapeHtml(outputDir)}/verification_summary.csv</code>; the HTML report is <code>${escapeHtml(outputDir)}/verification_report.html</code>.</p>
+        <pre class="output">${escapeHtml(context.filtered)}</pre>
+        <p>Machine-readable summaries are written to <code>${escapeHtml(context.outputDir)}/verification_summary.json</code> and <code>${escapeHtml(context.outputDir)}/verification_summary.csv</code>; the HTML report is <code>${escapeHtml(context.outputDir)}/verification_report.html</code>.</p>
         <p class="muted compact">CI semantics: exit 0 = pass, exit 1 = verification/input/scoring/threshold failure, exit 2 = invalid CLI usage.</p>
       </details>
+    `;
+  }
+
+  function completedJobs() {
+    return state.jobs.filter((job) => job.status === "succeeded" && job.package_id);
+  }
+
+  function renderRunbookJobOptions() {
+    const select = $("runbook-job-select");
+    if (!select) return;
+    const jobs = completedJobs();
+    const preferred = state.runbookJobId || queryParam("job_id") || (jobs[0] && jobs[0].job_id) || "";
+    select.innerHTML = jobs.map((job) => `
+      <option value="${escapeHtml(job.job_id)}">${escapeHtml(job.pack_id)} · ${escapeHtml(formatDate(job.created_at))}</option>
+    `).join("") || "<option value=\"\">No completed jobs</option>";
+    if (jobs.some((job) => job.job_id === preferred)) {
+      select.value = preferred;
+      state.runbookJobId = preferred;
+    } else {
+      state.runbookJobId = (jobs[0] && jobs[0].job_id) || "";
+      select.value = state.runbookJobId;
+    }
+  }
+
+  function renderVerificationRunbook() {
+    const container = $("verification-runbook");
+    if (!container) return;
+    renderRunbookJobOptions();
+    if (!state.authenticated) {
+      container.innerHTML = `
+        <article class="job">
+          <h3>Sign in to open a job runbook</h3>
+          <p class="muted">Runbooks are generated from your completed jobs and package IDs.</p>
+          <a class="button-link" href="/syn_sig_ra/account">Sign in / register</a>
+        </article>
+      `;
+      return;
+    }
+    const jobs = completedJobs();
+    if (!jobs.length) {
+      container.innerHTML = `
+        <article class="job">
+          <h3>No completed jobs yet</h3>
+          <p class="muted">Choose a pack, generate a job, then return here for exact download and verifier instructions.</p>
+          <div class="actions">
+            <a class="button-link" href="/syn_sig_ra/packs">Choose pack</a>
+            <a class="button-link secondary" href="/syn_sig_ra/jobs">Open jobs</a>
+          </div>
+        </article>
+      `;
+      return;
+    }
+    const job = jobs.find((item) => item.job_id === state.runbookJobId) || jobs[0];
+    state.runbookJobId = job.job_id;
+    const context = verificationContext(job);
+    const pack = context.pack;
+    const expired = job.artifact_status === "expired";
+    const scoreable = context.scoreable;
+    const referenceOnly = context.referenceOnly;
+    const installCommands = state.verifierDownloads && state.verifierDownloads.install
+      ? state.verifierDownloads.install.join("\n")
+      : "python -m pip install synsigra-wheel.whl\nsynsigra-verify --help";
+    const scoreableSteps = scoreable.length ? `
+      <li>
+        <strong>Replace detector templates.</strong>
+        <p>Unzip <code>${escapeHtml(context.kitFile)}</code>, edit files under <code>detections/</code>, and keep the expected filenames.</p>
+        <pre class="output">${escapeHtml(detectionShape(pack))}</pre>
+      </li>
+      <li>
+        <strong>Run the verifier locally.</strong>
+        <pre class="output">${escapeHtml(context.command)}</pre>
+        <button class="secondary" data-copy-text="${escapeHtml(context.command)}">Copy verify command</button>
+        <p class="muted compact">Optional smoke target:</p>
+        <pre class="output">${escapeHtml(context.filtered)}</pre>
+      </li>
+      <li>
+        <strong>Interpret outputs.</strong>
+        <p>Read <code>${escapeHtml(context.outputDir)}/verification_report.html</code>, <code>verification_summary.json</code>, and <code>verification_summary.csv</code>. CI exit code <code>0</code> means pass, <code>1</code> means verification/input/scoring/threshold failure, <code>2</code> means invalid CLI usage.</p>
+      </li>
+    ` : `
+      <li>
+        <strong>Reference/manual QA workflow.</strong>
+        <p>This pack has no local scoring command. Inspect the package, manifest, provenance, summary files, and reports manually against your algorithm's own QA checklist.</p>
+      </li>
+    `;
+    container.innerHTML = `
+      <article class="job">
+        <div class="job-header">
+          <div>
+            <h3>${escapeHtml(job.pack_id)}</h3>
+            <span class="fingerprint">${escapeHtml(job.job_id)}</span>
+          </div>
+          <span class="badge succeeded">succeeded</span>
+        </div>
+        ${expired ? `<p class="error">Artifacts have expired. Regenerate the job before following this runbook.</p>` : ""}
+        <p class="muted">Package <span class="fingerprint">${escapeHtml(job.package_id)}</span></p>
+        <p><strong>Scoreable locally</strong>${targetTags(scoreable, "scoreable")}</p>
+        <p><strong>Reference-only</strong>${targetTags(referenceOnly, "reference")}</p>
+        <div class="actions">
+          <button class="primary" data-download-kit="${escapeHtml(job.job_id)}" ${expired ? "disabled" : ""}>Download verification kit</button>
+          <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="manifest.json" ${expired ? "disabled" : ""}>Manifest</button>
+          <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="package.zip" ${expired ? "disabled" : ""}>Package ZIP</button>
+          ${hasDetectionTemplates(job) ? `<button class="secondary" data-download-templates="${escapeHtml(job.job_id)}" ${expired ? "disabled" : ""}>Detection templates ZIP</button>` : ""}
+        </div>
+        <ol>
+          <li>
+            <strong>Download files.</strong>
+            <p>Preferred: <code>${escapeHtml(context.kitFile)}</code>. Individual files: <code>${escapeHtml(context.manifestFile)}</code>, <code>${escapeHtml(context.packageFile)}</code>${hasDetectionTemplates(job) ? `, <code>${escapeHtml(context.templatesFile)}</code>` : ""}.</p>
+          </li>
+          <li>
+            <strong>Install the generator-free verifier.</strong>
+            <pre class="output">${escapeHtml(installCommands)}</pre>
+            <button class="secondary" data-copy-text="${escapeHtml(installCommands)}">Copy install commands</button>
+          </li>
+          ${scoreableSteps}
+          <li>
+            <strong>Archive evidence.</strong>
+            <p>Keep <code>package.zip</code>, <code>manifest.json</code>, nested <code>provenance.json</code>, <code>ENGINEERING_CLAIM_BOUNDARY.txt</code>, detector build/config, detections, verifier reports, and this job ID.</p>
+          </li>
+        </ol>
+      </article>
     `;
   }
 
@@ -3055,6 +3816,8 @@ const char kUiJs[] = R"JS((() => {
         state.jobsFingerprint = fingerprint;
         state.jobsLoaded = true;
         renderJobs();
+        renderWorkspaceNextAction();
+        renderVerificationRunbook();
         setText(
           "jobs-sync-status",
           `Updated ${new Intl.DateTimeFormat(undefined, { timeStyle: "medium" }).format(new Date())}`,
@@ -3075,10 +3838,12 @@ const char kUiJs[] = R"JS((() => {
     const container = $("jobs");
     if (!state.jobs.length) {
       container.innerHTML = "<p class=\"muted\">No jobs yet.</p>";
+      renderVerificationRunbook();
       return;
     }
     container.innerHTML = state.jobs.map((job) => {
       const artifactActions = job.status === "succeeded" && job.package_id ? `
+        <button class="primary" data-open-runbook="${escapeHtml(job.job_id)}">Open verification runbook</button>
         <button class="secondary" data-download-kit="${escapeHtml(job.job_id)}">Verification kit ZIP</button>
         <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="manifest.json">Manifest</button>
         <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="package.zip">Package ZIP</button>
@@ -3132,6 +3897,7 @@ const char kUiJs[] = R"JS((() => {
         </article>
       `;
     }).join("");
+    renderVerificationRunbook();
   }
 
   async function deleteJob(jobId) {
@@ -3372,6 +4138,42 @@ const char kUiJs[] = R"JS((() => {
     }
   }
 
+  function openRunbook(jobId) {
+    state.runbookJobId = jobId;
+    navigateTo("verify", { job_id: jobId });
+    renderVerificationRunbook();
+  }
+
+  function handleJobArtifactAction(target) {
+    const runbookJobId = target.getAttribute("data-open-runbook");
+    if (runbookJobId) {
+      openRunbook(runbookJobId);
+      return true;
+    }
+    const packageId = target.getAttribute("data-download");
+    const file = target.getAttribute("data-file");
+    if (packageId && file) {
+      downloadArtifact(packageId, file);
+      return true;
+    }
+    const kitJobId = target.getAttribute("data-download-kit");
+    if (kitJobId) {
+      downloadVerificationKit(kitJobId);
+      return true;
+    }
+    const templateJobId = target.getAttribute("data-download-templates");
+    if (templateJobId) {
+      downloadDetectionTemplates(templateJobId);
+      return true;
+    }
+    const copyValue = target.getAttribute("data-copy-text");
+    if (copyValue) {
+      copyText(copyValue);
+      return true;
+    }
+    return false;
+  }
+
   function escapeHtml(value) {
     return String(value)
       .replace(/&/g, "&amp;")
@@ -3397,11 +4199,41 @@ const char kUiJs[] = R"JS((() => {
     state.packTargetFilter = $("pack-target-filter").value;
     renderPacks();
   });
+  $("pack-intent-filter").addEventListener("change", () => {
+    state.packIntentFilter = $("pack-intent-filter").value;
+    renderPacks();
+  });
+  $("pack-scoring-filter").addEventListener("change", () => {
+    state.packScoringFilter = $("pack-scoring-filter").value;
+    renderPacks();
+  });
   $("pack-difficulty-filter").addEventListener("change", () => {
     state.packDifficultyFilter = $("pack-difficulty-filter").value;
     renderPacks();
   });
+  $("packs").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const packId = target.getAttribute("data-select-pack");
+    if (packId) selectPackForGeneration(packId);
+  });
+  $("pack-comparison").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const packId = target.getAttribute("data-select-pack");
+    if (packId) selectPackForGeneration(packId);
+  });
+  $("pack-recommendation").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const packId = target.getAttribute("data-select-pack");
+    if (packId) selectPackForGeneration(packId);
+  });
   $("pack-select").addEventListener("change", renderSelectedPackSummary);
+  $("runbook-job-select").addEventListener("change", () => {
+    const jobId = $("runbook-job-select").value;
+    if (jobId) openRunbook(jobId);
+  });
   $("refresh-jobs").addEventListener("click", () => loadJobs({ force: true }));
   $("refresh-verifier-downloads").addEventListener("click", loadVerifierDownloads);
   $("refresh-usage").addEventListener("click", loadUsage);
@@ -3431,6 +4263,10 @@ const char kUiJs[] = R"JS((() => {
   $("save-scenario").addEventListener("click", saveScenario);
   $("create-custom-pack").addEventListener("click", createCustomPack);
   $("refresh-custom-packs").addEventListener("click", loadCustomPacks);
+  $("pack-scenario-options").addEventListener("change", renderCustomPackReview);
+  $("custom-pack-name").addEventListener("input", renderCustomPackReview);
+  $("custom-pack-description").addEventListener("input", renderCustomPackReview);
+  $("custom-pack-targets").addEventListener("input", renderCustomPackReview);
   $("custom-packs").addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -3464,23 +4300,36 @@ const char kUiJs[] = R"JS((() => {
   $("jobs").addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+    if (handleJobArtifactAction(target)) return;
     const deleteJobId = target.getAttribute("data-delete-job");
     if (deleteJobId) deleteJob(deleteJobId);
     const jobAction = target.getAttribute("data-job-action");
     const actionJobId = target.getAttribute("data-job-id");
     if (jobAction && actionJobId) runJobAction(actionJobId, jobAction);
-    const packageId = target.getAttribute("data-download");
-    const file = target.getAttribute("data-file");
-    if (packageId && file) downloadArtifact(packageId, file);
-    const kitJobId = target.getAttribute("data-download-kit");
-    if (kitJobId) downloadVerificationKit(kitJobId);
-    const templateJobId = target.getAttribute("data-download-templates");
-    if (templateJobId) downloadDetectionTemplates(templateJobId);
-    const copyValue = target.getAttribute("data-copy-text");
-    if (copyValue) copyText(copyValue);
+  });
+  $("verification-runbook").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    handleJobArtifactAction(target);
+  });
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const link = target.closest("a[href]");
+    if (!(link instanceof HTMLAnchorElement) || link.target) return;
+    const url = new URL(link.href);
+    if (url.origin !== window.location.origin) return;
+    const suffix = url.pathname.startsWith(base)
+      ? url.pathname.slice(base.length).replace(/^\/+|\/+$/g, "")
+      : "";
+    if (!Object.prototype.hasOwnProperty.call(pageTitles, suffix || "workspace")) return;
+    event.preventDefault();
+    window.history.pushState({}, "", url.pathname + url.search);
+    renderCurrentPage();
   });
 
   async function initialize() {
+    renderCurrentPage();
     renderAuthState();
     checkHealth();
     loadPacks();
@@ -3489,6 +4338,7 @@ const char kUiJs[] = R"JS((() => {
   }
 
   initialize();
+  window.addEventListener("popstate", renderCurrentPage);
   setInterval(() => loadJobs({ silent: true }), 5000);
 })();
 )JS";
@@ -5307,10 +6157,7 @@ RouteResponse route_request(
         return response;
     }
 
-    if (uri == public_base_path ||
-        uri == public_base_path + "/" ||
-        uri == public_base_path + "/ui" ||
-        uri == public_base_path + "/ui/") {
+    if (is_ui_page_route(uri, public_base_path)) {
         if (method != "GET") {
             return json_response(
                 405,

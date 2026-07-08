@@ -267,20 +267,35 @@ grep -q '"status":"ready"' "$WORK_ROOT/ready.json" ||
 
 curl -fsS "$BASE_URL" >"$WORK_ROOT/ui.html" ||
     fail "web UI HTML request failed"
-if ! grep -q 'Challenge package generator' "$WORK_ROOT/ui.html"; then
+if ! grep -q 'Algorithm QA workspace' "$WORK_ROOT/ui.html" ||
+    ! grep -q 'Guided workflow' "$WORK_ROOT/ui.html" ||
+    ! grep -q 'verification-runbook' "$WORK_ROOT/ui.html" ||
+    ! grep -q 'custom-pack-review' "$WORK_ROOT/ui.html" ||
+    ! grep -q 'Advanced JSON editor' "$WORK_ROOT/ui.html"; then
     dump_file "$WORK_ROOT/ui.html" "web UI HTML"
     fail "web UI HTML did not contain the expected title"
 fi
 curl -fsS "$BASE_URL/" >"$WORK_ROOT/ui-trailing-slash.html" ||
     fail "web UI trailing-slash HTML request failed"
-if ! grep -q 'Challenge package generator' "$WORK_ROOT/ui-trailing-slash.html"; then
+if ! grep -q 'Algorithm QA workspace' "$WORK_ROOT/ui-trailing-slash.html"; then
     dump_file "$WORK_ROOT/ui-trailing-slash.html" "web UI trailing-slash HTML"
     fail "web UI trailing-slash HTML did not contain the expected title"
 fi
+curl -fsS "$BASE_URL/packs" >"$WORK_ROOT/ui-packs.html" ||
+    fail "pack chooser route request failed"
+grep -q 'Choose a challenge pack' "$WORK_ROOT/ui-packs.html" ||
+    fail "pack chooser route did not serve the guided UI"
+curl -fsS "$BASE_URL/verify" >"$WORK_ROOT/ui-verify.html" ||
+    fail "verification route request failed"
+grep -q 'Verification runbook' "$WORK_ROOT/ui-verify.html" ||
+    fail "verification route did not serve the guided UI"
 curl -fsS "$BASE_URL/ui/app.js" >"$WORK_ROOT/app.js" ||
     fail "web UI JavaScript request failed"
 if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
-    ! grep -q '/v1/jobs' "$WORK_ROOT/app.js"; then
+    ! grep -q '/v1/jobs' "$WORK_ROOT/app.js" ||
+    ! grep -q 'renderVerificationRunbook' "$WORK_ROOT/app.js" ||
+    ! grep -q 'selectPackForGeneration' "$WORK_ROOT/app.js" ||
+    ! grep -q 'renderCustomPackReview' "$WORK_ROOT/app.js"; then
     dump_file "$WORK_ROOT/app.js" "web UI JavaScript"
     fail "web UI JavaScript was not executable or did not contain API wiring"
 fi
