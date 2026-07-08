@@ -1,0 +1,75 @@
+{
+  "schema_version": 4,
+  "scenario_id": "ppg_arrhythmia_pulse_loss_v4",
+  "name": "Arrhythmia-linked PPG pulse loss",
+  "description": "Periodic PVC ECG beats with deterministic missing PPG pulses for engineering QA of pulse detectors and exclusion-window handling.",
+  "author": "Synsigra",
+  "tags": ["arrhythmia", "missing_pulse", "ppg", "pvc", "stress"],
+  "duration_seconds": 40,
+  "sample_rate_hz": 250,
+  "seed": 6706701,
+  "ecg": {
+    "heart_rate_bpm": 72,
+    "rr_variability_seconds": 0.01,
+    "ectopic_every_n_beats": 5,
+    "second_degree_av_pattern": "unspecified",
+    "q_wave_territory": "unspecified",
+    "episode_type": "none",
+    "episode_start_seconds": 2,
+    "episode_duration_seconds": 4,
+    "episode_rate_bpm": 170,
+    "flutter_conduction_pattern": "fixed",
+    "pacing_mode": "ventricular",
+    "pacing_non_capture_every_n_beats": 0,
+    "fidelity_policy": "allow_parameterized",
+    "conditions": [
+      {"code": "PVC", "severity": 0.8}
+    ]
+  },
+  "ppg": {
+    "enabled": true,
+    "pulse_delay_ms": 185,
+    "rise_time_ms": 120,
+    "decay_time_ms": 300,
+    "amplitude_au": 1,
+    "baseline_au": 0,
+    "dicrotic_delay_ms": 180,
+    "dicrotic_width_ms": 80,
+    "dicrotic_amplitude_ratio": 0.15,
+    "pulse_delay_variation_ms": 8,
+    "pulse_delay_variation_hz": 0.08,
+    "missing_pulse_every_n_beats": 0,
+    "clock_drift_ppm": 0,
+    "seed": 67067011,
+    "pulse_delay_jitter_ms": 4,
+    "low_frequency_amplitude_modulation_ratio": 0.05,
+    "low_frequency_amplitude_modulation_hz": 0.05,
+    "rise_time_variation_ratio": 0.05,
+    "decay_time_variation_ratio": 0.05,
+    "pac_pulse_amplitude_scale": 1,
+    "pvc_pulse_amplitude_scale": 0,
+    "paced_pulse_amplitude_scale": 1,
+    "perfusion_episodes": []
+  },
+  "randomization": {
+    "enabled": false,
+    "seed": 67067012,
+    "envelopes": []
+  },
+  "physiology": {
+    "respiration_frequency_hz": 0.22,
+    "respiratory_rr_amplitude_seconds": 0.015,
+    "ecg_baseline_amplitude_mv": 0.02,
+    "ppg_amplitude_modulation_ratio": 0.05,
+    "activity_start_seconds": 0,
+    "activity_duration_seconds": 0,
+    "activity_intensity": 0,
+    "seed": 67067013
+  },
+  "output": {
+    "compact": false,
+    "retain_source_channels": true,
+    "include_waveform_csv": true,
+    "include_edf_bdf": true
+  }
+}

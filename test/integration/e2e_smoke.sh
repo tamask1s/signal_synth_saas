@@ -487,6 +487,10 @@ with zipfile.ZipFile(archive_path) as archive:
 
 if "manifest.json" not in names:
     raise SystemExit("archive does not contain root manifest.json")
+if "provenance.json" not in names:
+    raise SystemExit("archive does not contain root provenance.json")
+if "ENGINEERING_CLAIM_BOUNDARY.txt" not in names:
+    raise SystemExit("archive does not contain engineering claim boundary")
 if not any(name.startswith("cases/") and name.endswith("/scenario.json") for name in names):
     raise SystemExit("archive does not contain case scenario.json files")
 for name in names:
@@ -560,6 +564,10 @@ with zipfile.ZipFile(__import__("io").BytesIO(nested_package)) as package_zip:
         raise SystemExit("nested package zip member failed CRC: " + bad_member)
     if "manifest.json" not in set(package_zip.namelist()):
         raise SystemExit("nested package zip does not contain manifest.json")
+    if "provenance.json" not in set(package_zip.namelist()):
+        raise SystemExit("nested package zip does not contain provenance.json")
+    if "ENGINEERING_CLAIM_BOUNDARY.txt" not in set(package_zip.namelist()):
+        raise SystemExit("nested package zip does not contain claim boundary")
 PY
     fail "verification kit archive failed validation"
 

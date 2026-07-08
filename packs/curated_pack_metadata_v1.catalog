@@ -1,6 +1,6 @@
 {
   "catalog_id": "synsigra_verification_packs",
-  "catalog_version": "1.3",
+  "catalog_version": "1.4",
   "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
   "metadata_type": "synsigra_curated_pack_catalog",
   "metadata_version": "synsigra_curated_pack_metadata_export_v1",
@@ -215,6 +215,14 @@
         {
           "required": true,
           "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "provenance_json"
+        },
+        {
+          "required": true,
+          "role": "engineering_claim_boundary_txt"
         },
         {
           "required": true,
@@ -652,6 +660,14 @@
         },
         {
           "required": true,
+          "role": "provenance_json"
+        },
+        {
+          "required": true,
+          "role": "engineering_claim_boundary_txt"
+        },
+        {
+          "required": true,
           "role": "case_summary_json"
         },
         {
@@ -996,6 +1012,14 @@
         {
           "required": true,
           "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "provenance_json"
+        },
+        {
+          "required": true,
+          "role": "engineering_claim_boundary_txt"
         },
         {
           "required": true,
@@ -1401,6 +1425,14 @@
         },
         {
           "required": true,
+          "role": "provenance_json"
+        },
+        {
+          "required": true,
+          "role": "engineering_claim_boundary_txt"
+        },
+        {
+          "required": true,
           "role": "case_summary_json"
         },
         {
@@ -1753,6 +1785,14 @@
         },
         {
           "required": true,
+          "role": "provenance_json"
+        },
+        {
+          "required": true,
+          "role": "engineering_claim_boundary_txt"
+        },
+        {
+          "required": true,
           "role": "case_summary_json"
         },
         {
@@ -2095,6 +2135,14 @@
         },
         {
           "required": true,
+          "role": "provenance_json"
+        },
+        {
+          "required": true,
+          "role": "engineering_claim_boundary_txt"
+        },
+        {
+          "required": true,
           "role": "case_summary_json"
         },
         {
@@ -2429,6 +2477,14 @@
         {
           "required": true,
           "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "provenance_json"
+        },
+        {
+          "required": true,
+          "role": "engineering_claim_boundary_txt"
         },
         {
           "required": true,
@@ -2807,6 +2863,14 @@
         },
         {
           "required": true,
+          "role": "provenance_json"
+        },
+        {
+          "required": true,
+          "role": "engineering_claim_boundary_txt"
+        },
+        {
+          "required": true,
           "role": "case_summary_json"
         },
         {
@@ -3180,6 +3244,14 @@
         },
         {
           "required": true,
+          "role": "provenance_json"
+        },
+        {
+          "required": true,
+          "role": "engineering_claim_boundary_txt"
+        },
+        {
+          "required": true,
           "role": "case_summary_json"
         },
         {
@@ -3345,7 +3417,7 @@
       "version": "1.0"
     },
     {
-      "case_count": 8,
+      "case_count": 9,
       "case_ids": [
         "clean_delay",
         "variable_ptt",
@@ -3354,6 +3426,7 @@
         "motion_and_saturation",
         "dropout",
         "weak_and_missing",
+        "arrhythmia_pulse_loss",
         "combined_wearable"
       ],
       "cases": [
@@ -3505,6 +3578,27 @@
           ]
         },
         {
+          "case_id": "arrhythmia_pulse_loss",
+          "channel_count": 13,
+          "duration_seconds": 40,
+          "estimated_binary_signal_bytes": 910000,
+          "estimated_package_bytes": 4576400,
+          "estimated_peak_memory_bytes": 6008576,
+          "estimated_waveform_csv_bytes": 2520256,
+          "reference_only_targets": [],
+          "sample_count": 10000,
+          "sampling_rate_hz": 250,
+          "scenario_id": "ppg_arrhythmia_pulse_loss_v4",
+          "scoreable_targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ],
+          "targets": [
+            "ppg_systolic_peak",
+            "ppg_pulse_onset"
+          ]
+        },
+        {
           "case_id": "combined_wearable",
           "channel_count": 13,
           "duration_seconds": 60,
@@ -3534,6 +3628,13 @@
           ],
           "date": "2026-07-06",
           "version": "1.0"
+        },
+        {
+          "changes": [
+            "Arrhythmia-linked pulse-loss cases are deterministic engineering QA scenarios and are not clinical physiology validation claims."
+          ],
+          "date": "2026-07-08",
+          "version": "1.1"
         }
       ],
       "channels": {
@@ -3591,10 +3692,10 @@
       "duration": {
         "maximum_case_seconds": 60,
         "minimum_case_seconds": 20,
-        "total_seconds": 440
+        "total_seconds": 480
       },
       "estimated_package": {
-        "bytes": 51864200,
+        "bytes": 56440600,
         "peak_memory_bytes": 8488576,
         "size_class": "medium"
       },
@@ -3610,7 +3711,8 @@
         "dropout",
         "saturation",
         "weak_pulse",
-        "missing_pulse"
+        "missing_pulse",
+        "arrhythmia_linked_pulse_loss"
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v1",
@@ -3665,6 +3767,14 @@
         },
         {
           "required": true,
+          "role": "provenance_json"
+        },
+        {
+          "required": true,
+          "role": "engineering_claim_boundary_txt"
+        },
+        {
+          "required": true,
           "role": "case_summary_json"
         },
         {
@@ -3706,7 +3816,7 @@
             "detection_json_v1",
             "detection_csv_v2"
           ],
-          "case_count": 8,
+          "case_count": 9,
           "case_ids": [
             "clean_delay",
             "variable_ptt",
@@ -3715,6 +3825,7 @@
             "motion_and_saturation",
             "dropout",
             "weak_and_missing",
+            "arrhythmia_pulse_loss",
             "combined_wearable"
           ],
           "default_tolerance_seconds": 0.08,
@@ -3730,7 +3841,7 @@
             "detection_json_v1",
             "detection_csv_v2"
           ],
-          "case_count": 8,
+          "case_count": 9,
           "case_ids": [
             "clean_delay",
             "variable_ptt",
@@ -3739,6 +3850,7 @@
             "motion_and_saturation",
             "dropout",
             "weak_and_missing",
+            "arrhythmia_pulse_loss",
             "combined_wearable"
           ],
           "default_tolerance_seconds": 0.05,
@@ -3753,9 +3865,9 @@
       "scoring_mode": "local",
       "source": {
         "catalog_path": "examples/catalog/verification_packs_v1.json",
-        "pack_fingerprint": "sha256:0703431749c5355350d69dc89345e1043341d0b0b112354eb17566883bb68bba",
+        "pack_fingerprint": "sha256:ac37729c07a7d11e47ecbb927e83c6e7dc3d6026069fbaa68c32844355119d4a",
         "pack_path": "../packs/ppg_benchmark_v1.json",
-        "source_content_sha256": "sha256:5e72b2cfded54ed78d1558e224fa757aa064ba6fba1beeaa8670572531ab5dbd"
+        "source_content_sha256": "sha256:eaded38d30d4682a2c9aaafea00b72b7d9c05b17f0280bc97171ac7780b4a36b"
       },
       "supported_threshold_profiles": [
         "smoke",
@@ -3788,12 +3900,12 @@
         "reference_only_before_job": false,
         "scoreable_before_job": true
       },
-      "version": "1.0"
+      "version": "1.1"
     }
   ],
   "product": "Synsigra Testbench",
   "release_set_id": "synsigra_curated_release_2026_07_06",
   "release_set_status": "beta",
   "schema_version": 1,
-  "source_catalog_sha256": "sha256:c42dd1950bbd60df378b63026708b868391fee235bcb40ab0f5895bc308a1847"
+  "source_catalog_sha256": "sha256:61584b4a4e06c6e003f7a607a27068924b7a03c6ed327ee8661d8c41e144431d"
 }

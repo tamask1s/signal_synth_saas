@@ -353,7 +353,11 @@ std::string verification_kit_readme(
            << "does not contain the C++ generator or generator source.\n\n"
            << "## Included files\n\n"
            << "- `package.zip`: downloaded challenge package.\n"
-           << "- `manifest.json`: package identity and file contract.\n";
+           << "- `manifest.json`: package identity and file contract.\n"
+           << "- The nested `package.zip` contains `provenance.json` and "
+           << "`ENGINEERING_CLAIM_BOUNDARY.txt` for generator identity, "
+           << "contract identity, fingerprints and the engineering QA claim "
+           << "boundary.\n";
     if (has_detection_templates) {
         output << "- `detections/`: starter detector-output templates. Replace "
                << "example rows with your algorithm output while keeping the "
@@ -382,7 +386,8 @@ std::string verification_kit_readme(
                << "scoring/threshold failure, and `2` means invalid CLI usage.\n";
     } else {
         output << "## Reference/manual QA workflow\n\n"
-               << "Inspect `package.zip` and `manifest.json` locally. If the "
+               << "Inspect `package.zip`, `manifest.json`, `provenance.json` "
+               << "and `ENGINEERING_CLAIM_BOUNDARY.txt` locally. If the "
                << "package manifest declares scoreable targets, follow that "
                << "manifest contract to create detector outputs and run "
                << "`synsigra-verify` with your own detections directory.\n";
@@ -1173,7 +1178,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         <label for="pack-select">Pack</label>
         <select id="pack-select"></select>
         <div id="selected-pack-summary" class="selected-pack muted"></div>
-        <p class="muted compact">Generation produces the complete challenge export set. Format options are not configurable per job.</p>
+        <p class="muted compact">Generation produces the complete challenge export set, including provenance and engineering claim-boundary artifacts. Format options are not configurable per job.</p>
         <button id="create-job" class="primary" disabled>Create challenge job</button>
         <pre id="create-output" class="output"></pre>
       </div>
@@ -1316,7 +1321,7 @@ const char kQuickstartHtml[] = R"HTML(<!doctype html>
         <li>Choose a curated pack. Check <strong>Scoreable locally</strong>, <strong>Reference-only</strong>, duration, sampling rate, channel count, and recommended verifier profile before creating the job.</li>
         <li>Create a challenge job and wait for <code>succeeded</code>.</li>
         <li>Download <code>verification-kit.zip</code>, or download <code>manifest.json</code>, <code>package.zip</code>, and <code>detection-templates.zip</code> separately.</li>
-        <li>Unzip the verification kit, then replace example rows under <code>detections/</code> with your algorithm output.</li>
+        <li>Unzip the verification kit, then replace example rows under <code>detections/</code> with your algorithm output. Keep <code>provenance.json</code> and <code>ENGINEERING_CLAIM_BOUNDARY.txt</code> from the package with your evidence archive.</li>
         <li>Open the <strong>Verifier</strong> panel, download the verifier bundle or wheel, and install it locally without cloning the generator repository.</li>
         <li>Copy the exact <code>synsigra-verify</code> command from the completed job card and run it next to the downloaded package.</li>
         <li>Inspect <code>verification_summary.json</code>, <code>verification_summary.csv</code>, and <code>verification_report.html</code>.</li>

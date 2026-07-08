@@ -281,7 +281,14 @@ def run() -> int:
                     archive_bytes = client.download(
                         f"/v1/artifacts/{package_id}/package.zip", archive_path
                     )
-                    validate_zip(archive_path, ["manifest.json"])
+                    validate_zip(
+                        archive_path,
+                        [
+                            "manifest.json",
+                            "provenance.json",
+                            "ENGINEERING_CLAIM_BOUNDARY.txt",
+                        ],
+                    )
                     print(f"    package.zip ok ({archive_bytes} bytes)", flush=True)
 
                 if has_scoreable_targets:

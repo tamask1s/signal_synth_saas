@@ -4,6 +4,11 @@
       "date": "2026-07-06",
       "summary": "Initial beta PPG benchmark pack with systolic-peak and pulse-onset scoring cases.",
       "version": "1.0"
+    },
+    {
+      "date": "2026-07-08",
+      "summary": "Arrhythmia-linked pulse-loss cases are deterministic engineering QA scenarios and are not clinical physiology validation claims.",
+      "version": "1.1"
     }
   ],
   "compatible_generator_versions": [
@@ -11,11 +16,11 @@
     "signal_synth-cli"
   ],
   "deprecation_message": "",
-  "expected_pack_fingerprint": "sha256:88823eb78826dd4809fd2c88c4c42bcd0210a3af9c4751060ea2b21fff18fcf2",
+  "expected_pack_fingerprint": "sha256:6baf74b49d0c0b0e34b4ef5713ad45becab5de9effed91299f99beee453b725d",
   "generator_contract": "signal-synth-cli/pack-challenge-v1",
   "pack_id": "ppg_benchmark_v1",
   "release_status": "beta",
   "released_at": "2026-07-06",
   "schema_version": 1,
-  "version": "1.0"
+  "version": "1.1"
 }

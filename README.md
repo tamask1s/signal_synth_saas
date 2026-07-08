@@ -37,7 +37,7 @@ SynSigRa SaaS is for offline-first algorithm verification:
 3. Download `manifest.json` and `package.zip`.
 4. Run your algorithm locally against the package files.
 5. Verify local detector outputs against packaged ground truth using the SynSigRa local verifier.
-6. Archive the package, manifest, detector build/configuration, detections, and verification reports together.
+6. Archive the package, manifest, provenance bundle, detector build/configuration, detections, and verification reports together.
 
 The SaaS does **not** execute customer detector code and does **not** receive proprietary algorithm output unless the user explicitly sends it elsewhere outside this product workflow.
 
@@ -78,6 +78,8 @@ For each experiment, preserve at least:
 - generator version;
 - generator build identity;
 - `manifest.json`;
+- `provenance.json`;
+- `ENGINEERING_CLAIM_BOUNDARY.txt`;
 - `package.zip`.
 
 The fastest path is the completed job's **Verification kit ZIP**. It contains
@@ -375,6 +377,8 @@ Default artifact retention is 90 days. A soft-deleted job becomes immediately el
 | Path | Purpose |
 |---|---|
 | `manifest.json` | Package identity, file roles, case IDs, hashes, scenario identities, generator identities. |
+| `provenance.json` | Generator, verifier, contract, scenario, render, fingerprint, and claim-boundary identity. |
+| `ENGINEERING_CLAIM_BOUNDARY.txt` | Plain-text boundary that states this is synthetic engineering QA evidence, not clinical validation. |
 | `pack.json` | Pack metadata and case ordering. |
 | `summary.json` / `summary.csv` | Pack-level generation summary. |
 | `index.html` | Human-readable package overview. |
@@ -385,7 +389,7 @@ Default artifact retention is 90 days. A soft-deleted job becomes immediately el
 | `cases/<case-id>/report.html` | Case report. |
 | WFDB / EDF / BDF files | Interchange formats for compatible tools. |
 
-Treat `manifest.json`, document fingerprints, package fingerprint, and generator build identity as the evidence chain.
+Treat `manifest.json`, `provenance.json`, `ENGINEERING_CLAIM_BOUNDARY.txt`, document fingerprints, package fingerprint, and generator build identity as the evidence chain.
 
 Challenge jobs always produce the service's complete export/report set. The job API intentionally has no per-request format switches.
 
