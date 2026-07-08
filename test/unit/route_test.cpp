@@ -90,7 +90,8 @@ int main() {
             docs_api.body.find("Rendered API reference") != std::string::npos &&
             docs_api.body.find("/v1/downloads/verifier") != std::string::npos &&
             docs_api.body.find("/v1/authoring/preview") != std::string::npos &&
-            docs_api.body.find("detection-templates.zip") != std::string::npos,
+            docs_api.body.find("detection-templates.zip") != std::string::npos &&
+            docs_api.body.find("verification-kit.zip") != std::string::npos,
         "rendered API docs should be served"
     );
     const syn_sig_ra::RouteResponse docs_quickstart =
@@ -120,6 +121,7 @@ int main() {
             ui_js.body.find("loadVerifierDownloads") != std::string::npos &&
             ui_js.body.find("jobsNextOffset") != std::string::npos &&
             ui_js.body.find("cleanEcgTemplate") != std::string::npos &&
+            ui_js.body.find("Verification kit ZIP") != std::string::npos &&
             ui_js.body.find("Detection templates ZIP") != std::string::npos &&
             ui_js.body.find("Reproducibility details") != std::string::npos,
         "web UI JavaScript asset should be served as an executable IIFE"

@@ -74,6 +74,11 @@ bool is_json_content_type(const std::string& content_type) {
 }
 
 std::string json_dump_line(json_t* value);
+bool read_file_to_string(
+    const std::string& path,
+    std::string& content,
+    std::string& error
+);
 
 std::string account_json(const syn_sig_ra::AccountRecord& account) {
     json_t* root = json_object();
@@ -244,6 +249,32 @@ std::string detection_template_content(
            "0.000,0,,event,1.0\n";
 }
 
+bool build_detection_template_entries(
+    const syn_sig_ra::PackSummary& pack,
+    std::vector<ZipEntry>& templates,
+    std::string& error
+) {
+    templates.clear();
+    for (std::vector<syn_sig_ra::PackTargetSummary>::const_iterator target =
+             pack.scoreable_targets.begin();
+         target != pack.scoreable_targets.end(); ++target) {
+        const std::string extension = detection_template_extension(*target);
+        for (std::vector<std::string>::const_iterator case_id =
+                 target->case_ids.begin();
+             case_id != target->case_ids.end(); ++case_id) {
+            ZipEntry entry;
+            entry.path = "detections/" + *case_id + "_" + target->target + extension;
+            entry.content = detection_template_content(*target, *case_id);
+            templates.push_back(entry);
+        }
+    }
+    if (templates.empty()) {
+        error = "pack has no locally scoreable detector-output templates";
+        return false;
+    }
+    return true;
+}
+
 std::string detection_template_readme(
     const syn_sig_ra::JobRecord& job,
     const syn_sig_ra::PackSummary& pack,
@@ -287,21 +318,7 @@ bool build_detection_template_zip(
     std::string& error
 ) {
     std::vector<ZipEntry> templates;
-    for (std::vector<syn_sig_ra::PackTargetSummary>::const_iterator target =
-             pack.scoreable_targets.begin();
-         target != pack.scoreable_targets.end(); ++target) {
-        const std::string extension = detection_template_extension(*target);
-        for (std::vector<std::string>::const_iterator case_id =
-                 target->case_ids.begin();
-             case_id != target->case_ids.end(); ++case_id) {
-            ZipEntry entry;
-            entry.path = "detections/" + *case_id + "_" + target->target + extension;
-            entry.content = detection_template_content(*target, *case_id);
-            templates.push_back(entry);
-        }
-    }
-    if (templates.empty()) {
-        error = "pack has no locally scoreable detector-output templates";
+    if (!build_detection_template_entries(pack, templates, error)) {
         return false;
     }
     std::vector<ZipEntry> entries;
@@ -309,6 +326,103 @@ bool build_detection_template_zip(
     readme.path = "README.md";
     readme.content = detection_template_readme(job, pack, templates);
     entries.push_back(readme);
+    entries.insert(entries.end(), templates.begin(), templates.end());
+    zip = zip_store_archive(entries);
+    return true;
+}
+
+std::string verification_kit_readme(
+    const syn_sig_ra::JobRecord& job,
+    const syn_sig_ra::PackSummary* pack,
+    bool has_detection_templates
+) {
+    const std::string profile =
+        pack != nullptr && !pack->recommended_profile.empty()
+            ? pack->recommended_profile
+            : "regression";
+    std::ostringstream output;
+    output << "# SynSigRa verification kit\n\n"
+           << "Job: `" << job.job_id << "`\n\n"
+           << "Pack: `" << job.selected_pack_id << "`";
+    if (pack != nullptr && !pack->version.empty()) {
+        output << " " << pack->version;
+    }
+    output << "\n\n"
+           << "Package ID: `" << job.package_id << "`\n\n"
+           << "This ZIP is a convenience bundle for local algorithm QA. It "
+           << "does not contain the C++ generator or generator source.\n\n"
+           << "## Included files\n\n"
+           << "- `package.zip`: downloaded challenge package.\n"
+           << "- `manifest.json`: package identity and file contract.\n";
+    if (has_detection_templates) {
+        output << "- `detections/`: starter detector-output templates. Replace "
+               << "example rows with your algorithm output while keeping the "
+               << "filenames.\n";
+    } else {
+        output << "- No `detections/` templates are included because this job "
+               << "is either a custom pack or has no local scoring policy.\n";
+    }
+    output << "\n## Install the local verifier\n\n"
+           << "Download the generator-free verifier wheel or bundle from the "
+           << "SynSigRa UI Verifier panel, then install it locally:\n\n"
+           << "```sh\n"
+           << "python -m pip install synsigra-wheel.whl\n"
+           << "```\n\n";
+    if (has_detection_templates) {
+        output << "## Run verification\n\n"
+               << "```sh\n"
+               << "synsigra-verify package.zip detections/ verification-results "
+               << "--profile " << profile << " --force\n"
+               << "```\n\n"
+               << "Outputs are written to `verification-results/`, including "
+               << "`verification_summary.json`, `verification_summary.csv`, "
+               << "`verification_report.html`, and per-case evidence under "
+               << "`verification/`.\n\n"
+               << "Exit code `0` means pass, `1` means verification/input/"
+               << "scoring/threshold failure, and `2` means invalid CLI usage.\n";
+    } else {
+        output << "## Reference/manual QA workflow\n\n"
+               << "Inspect `package.zip` and `manifest.json` locally. If the "
+               << "package manifest declares scoreable targets, follow that "
+               << "manifest contract to create detector outputs and run "
+               << "`synsigra-verify` with your own detections directory.\n";
+    }
+    return output.str();
+}
+
+bool build_verification_kit_zip(
+    const syn_sig_ra::JobRecord& job,
+    const std::string& package_directory,
+    const syn_sig_ra::PackSummary* pack,
+    std::string& zip,
+    std::string& error
+) {
+    std::string manifest;
+    std::string package;
+    if (!read_file_to_string(package_directory + "/manifest.json", manifest, error) ||
+        !read_file_to_string(package_directory + "/package.zip", package, error)) {
+        return false;
+    }
+    std::vector<ZipEntry> templates;
+    bool has_templates = false;
+    if (pack != nullptr) {
+        std::string template_error;
+        has_templates =
+            build_detection_template_entries(*pack, templates, template_error);
+    }
+    std::vector<ZipEntry> entries;
+    ZipEntry readme;
+    readme.path = "README.md";
+    readme.content = verification_kit_readme(job, pack, has_templates);
+    entries.push_back(readme);
+    ZipEntry manifest_entry;
+    manifest_entry.path = "manifest.json";
+    manifest_entry.content = manifest;
+    entries.push_back(manifest_entry);
+    ZipEntry package_entry;
+    package_entry.path = "package.zip";
+    package_entry.content = package;
+    entries.push_back(package_entry);
     entries.insert(entries.end(), templates.begin(), templates.end());
     zip = zip_store_archive(entries);
     return true;
@@ -403,6 +517,16 @@ json_t* job_json_object(
                 (
                     public_base_path + "/v1/jobs/" + job.job_id +
                     "/detection-templates.zip"
+                ).c_str()
+            )
+        );
+        json_object_set_new(
+            root,
+            "verification_kit_url",
+            json_string(
+                (
+                    public_base_path + "/v1/jobs/" + job.job_id +
+                    "/verification-kit.zip"
                 ).c_str()
             )
         );
@@ -1191,8 +1315,8 @@ const char kQuickstartHtml[] = R"HTML(<!doctype html>
         <li>Use the default project or create a project if your role allows it.</li>
         <li>Choose a curated pack. Check <strong>Scoreable locally</strong>, <strong>Reference-only</strong>, duration, sampling rate, channel count, and recommended verifier profile before creating the job.</li>
         <li>Create a challenge job and wait for <code>succeeded</code>.</li>
-        <li>Download <code>manifest.json</code>, <code>package.zip</code>, and <code>detection-templates.zip</code>.</li>
-        <li>Unzip the detection templates and replace example rows under <code>detections/</code> with your algorithm output.</li>
+        <li>Download <code>verification-kit.zip</code>, or download <code>manifest.json</code>, <code>package.zip</code>, and <code>detection-templates.zip</code> separately.</li>
+        <li>Unzip the verification kit, then replace example rows under <code>detections/</code> with your algorithm output.</li>
         <li>Open the <strong>Verifier</strong> panel, download the verifier bundle or wheel, and install it locally without cloning the generator repository.</li>
         <li>Copy the exact <code>synsigra-verify</code> command from the completed job card and run it next to the downloaded package.</li>
         <li>Inspect <code>verification_summary.json</code>, <code>verification_summary.csv</code>, and <code>verification_report.html</code>.</li>
@@ -1248,6 +1372,7 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>POST</td><td><code>/v1/jobs/{job_id}/cancel</code></td><td>Cancel queued job</td><td>Developer+</td></tr>
           <tr><td>POST</td><td><code>/v1/jobs/{job_id}/retry</code></td><td>Retry failed/cancelled job</td><td>Developer+</td></tr>
           <tr><td>GET</td><td><code>/v1/jobs/{job_id}/detection-templates.zip</code></td><td>Detector-output templates for completed curated jobs</td><td>Organization</td></tr>
+          <tr><td>GET</td><td><code>/v1/jobs/{job_id}/verification-kit.zip</code></td><td>README, manifest, package ZIP, and templates</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/artifacts/{package_id}/manifest.json</code></td><td>Download manifest</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/artifacts/{package_id}/package.zip</code></td><td>Download package ZIP</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/usage</code></td><td>Caller usage and limits</td><td>Authenticated</td></tr>
@@ -2949,6 +3074,7 @@ const char kUiJs[] = R"JS((() => {
     }
     container.innerHTML = state.jobs.map((job) => {
       const artifactActions = job.status === "succeeded" && job.package_id ? `
+        <button class="secondary" data-download-kit="${escapeHtml(job.job_id)}">Verification kit ZIP</button>
         <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="manifest.json">Manifest</button>
         <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="package.zip">Package ZIP</button>
         ${hasDetectionTemplates(job) ? `<button class="secondary" data-download-templates="${escapeHtml(job.job_id)}">Detection templates ZIP</button>` : ""}
@@ -3069,6 +3195,30 @@ const char kUiJs[] = R"JS((() => {
       const link = document.createElement("a");
       link.href = url;
       link.download = `${jobId}-detection-templates.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  async function downloadVerificationKit(jobId) {
+    try {
+      const response = await fetch(`${base}/v1/jobs/${encodeURIComponent(jobId)}/verification-kit.zip`, {
+        credentials: "same-origin",
+        headers: headers(false)
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || response.statusText);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${jobId}-verification-kit.zip`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -3317,6 +3467,8 @@ const char kUiJs[] = R"JS((() => {
     const packageId = target.getAttribute("data-download");
     const file = target.getAttribute("data-file");
     if (packageId && file) downloadArtifact(packageId, file);
+    const kitJobId = target.getAttribute("data-download-kit");
+    if (kitJobId) downloadVerificationKit(kitJobId);
     const templateJobId = target.getAttribute("data-download-templates");
     if (templateJobId) downloadDetectionTemplates(templateJobId);
     const copyValue = target.getAttribute("data-copy-text");
@@ -4810,6 +4962,123 @@ RouteResponse route_request(
             response.content_disposition =
                 "attachment; filename=\"" + job.package_id +
                 "-detection-templates.zip\"";
+            response.cache_control = "no-store";
+            return response;
+        }
+        if (action == "verification-kit.zip") {
+            if (method != "GET") {
+                return json_response(
+                    405,
+                    "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Verification kits only accept GET.\"}}\n"
+                );
+            }
+            JobRecord job;
+            std::string error;
+            const RecordLookupStatus lookup = metadata_store->find_job(
+                job_id,
+                authenticated_identity,
+                job,
+                error
+            );
+            if (lookup == RecordLookupStatus::not_found) {
+                return json_response(
+                    404,
+                    "{\"error\":{\"code\":\"job_not_found\","
+                    "\"message\":\"The requested job does not exist.\"}}\n"
+                );
+            }
+            if (lookup == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503,
+                    "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Job storage is unavailable.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            if (job.status != "succeeded" || job.package_id.empty()) {
+                return json_response(
+                    409,
+                    "{\"error\":{\"code\":\"job_kit_unavailable\","
+                    "\"message\":\"Verification kits are available after a job succeeds and while artifacts are retained.\"}}\n"
+                );
+            }
+            PackageRecord package;
+            const RecordLookupStatus package_lookup = metadata_store->find_package(
+                job.package_id,
+                authenticated_identity,
+                package,
+                error
+            );
+            if (package_lookup == RecordLookupStatus::not_found) {
+                return json_response(
+                    404,
+                    "{\"error\":{\"code\":\"artifact_not_found\","
+                    "\"message\":\"The requested artifact does not exist.\"}}\n"
+                );
+            }
+            if (package_lookup == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503,
+                    "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Artifact metadata is unavailable.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            const std::string expected_storage =
+                data_root + "/packages/" + job.package_id;
+            if (data_root.empty() ||
+                package.artifact_storage_key != expected_storage) {
+                RouteResponse response = json_response(
+                    500,
+                    "{\"error\":{\"code\":\"artifact_storage_invalid\","
+                    "\"message\":\"Artifact storage is unavailable.\"}}\n"
+                );
+                response.internal_error =
+                    "artifact storage key does not match configured data root";
+                return response;
+            }
+            PackSummary pack;
+            const PackSummary* pack_pointer = nullptr;
+            const PackLookupStatus pack_status =
+                PackCatalog(pack_root).find(job.selected_pack_id, pack, error);
+            if (pack_status == PackLookupStatus::found) {
+                pack_pointer = &pack;
+            } else if (pack_status != PackLookupStatus::not_found) {
+                RouteResponse response = json_response(
+                    500,
+                    "{\"error\":{\"code\":\"pack_catalog_invalid\","
+                    "\"message\":\"The configured pack catalog is invalid.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            std::string zip;
+            if (!build_verification_kit_zip(
+                    job,
+                    expected_storage,
+                    pack_pointer,
+                    zip,
+                    error
+                )) {
+                RouteResponse response = json_response(
+                    404,
+                    "{\"error\":{\"code\":\"verification_kit_unavailable\","
+                    "\"message\":\"The verification kit files are not available.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            RouteResponse response;
+            response.disposition = RouteDisposition::handled;
+            response.status = 200;
+            response.content_type = "application/zip";
+            response.body = zip;
+            response.content_disposition =
+                "attachment; filename=\"" + job.package_id +
+                "-verification-kit.zip\"";
             response.cache_control = "no-store";
             return response;
         }

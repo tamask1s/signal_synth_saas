@@ -145,6 +145,7 @@ components:
         manifest_url: {type: string}
         archive_url: {type: string}
         detection_templates_url: {type: string}
+        verification_kit_url: {type: string}
         error:
           type: object
           properties:
@@ -460,6 +461,23 @@ paths:
                 format: binary
         '404': {description: Job not found}
         '409': {description: Job not succeeded, custom pack unsupported, or no scoreable targets}
+  /v1/jobs/{job_id}/verification-kit.zip:
+    get:
+      summary: Download a job-local verification starter kit
+      description: Returns README.md, manifest.json, package.zip, and curated detector-output templates when available. The kit does not include the generator or verifier wheel.
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      parameters:
+        - {in: path, name: job_id, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Verification kit ZIP
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '404': {description: Job or artifact not found}
+        '409': {description: Job not succeeded or artifacts expired}
   /v1/artifacts/{package_id}/{filename}:
     get:
       summary: Download immutable manifest or ZIP

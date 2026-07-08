@@ -421,6 +421,9 @@ for key in ("manifest_url", "archive_url"):
     value = body.get(key, "")
     if not value.startswith("/syn_sig_ra/v1/artifacts/" + package_id + "/"):
         raise SystemExit("invalid " + key)
+verification_kit_url = body.get("verification_kit_url", "")
+if verification_kit_url != "/syn_sig_ra/v1/jobs/" + body.get("job_id", "") + "/verification-kit.zip":
+    raise SystemExit("invalid verification_kit_url")
 print(package_id)
 PY
 ) || fail "job status response was not a valid succeeded job"
@@ -453,6 +456,12 @@ curl -fsS \
     -o "$WORK_ROOT/detection-templates.zip" \
     "$BASE_URL/v1/jobs/$JOB_ID/detection-templates.zip" ||
     fail "detection template archive download failed"
+
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -o "$WORK_ROOT/verification-kit.zip" \
+    "$BASE_URL/v1/jobs/$JOB_ID/verification-kit.zip" ||
+    fail "verification kit archive download failed"
 
 python3 - "$WORK_ROOT/manifest.json" "$WORK_ROOT/package.zip" <<'PY' ||
 import json
@@ -515,6 +524,44 @@ with zipfile.ZipFile(archive_path) as archive:
         raise SystemExit("R-peak template CSV header is invalid")
 PY
     fail "detection template archive failed validation"
+
+python3 - "$WORK_ROOT/verification-kit.zip" "$WORK_ROOT/package.zip" <<'PY' ||
+import sys
+import zipfile
+
+kit_path, package_path = sys.argv[1], sys.argv[2]
+expected = {
+    "README.md",
+    "manifest.json",
+    "package.zip",
+    "detections/clean_70_r_peak.csv",
+    "detections/slow_45_r_peak.csv",
+    "detections/fast_120_r_peak.csv",
+    "detections/baseline_powerline_r_peak.csv",
+}
+with zipfile.ZipFile(kit_path) as archive:
+    bad_member = archive.testzip()
+    if bad_member is not None:
+        raise SystemExit("verification kit member failed CRC: " + bad_member)
+    names = set(archive.namelist())
+    missing = expected - names
+    if missing:
+        raise SystemExit("verification kit missing: " + ", ".join(sorted(missing)))
+    readme = archive.read("README.md").decode("utf-8")
+    if "synsigra-verify package.zip detections/" not in readme:
+        raise SystemExit("verification kit README lacks first-run command")
+    nested_package = archive.read("package.zip")
+with open(package_path, "rb") as handle:
+    if nested_package != handle.read():
+        raise SystemExit("verification kit package.zip differs from artifact download")
+with zipfile.ZipFile(__import__("io").BytesIO(nested_package)) as package_zip:
+    bad_member = package_zip.testzip()
+    if bad_member is not None:
+        raise SystemExit("nested package zip member failed CRC: " + bad_member)
+    if "manifest.json" not in set(package_zip.namelist()):
+        raise SystemExit("nested package zip does not contain manifest.json")
+PY
+    fail "verification kit archive failed validation"
 
 curl -fsS \
     -H "Authorization: Bearer $API_KEY" \

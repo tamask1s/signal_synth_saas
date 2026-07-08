@@ -80,6 +80,10 @@ For each experiment, preserve at least:
 - `manifest.json`;
 - `package.zip`.
 
+The fastest path is the completed job's **Verification kit ZIP**. It contains
+`README.md`, `manifest.json`, `package.zip`, and detector-output templates when
+the pack has locally scoreable targets.
+
 A fingerprint change means the test input changed. Do not compare results as though they came from the same fixture.
 
 ### 2. Run your detector locally
@@ -93,10 +97,19 @@ Run the algorithm against whichever generated format it supports:
 
 The UI and `/v1/packs` show which targets are locally scoreable and which are reference-only before you create a job. For a completed curated job, the job card shows a first-run recipe with the package filename, recommended threshold profile, output directory, and accepted detection folder shape.
 
-Click **Detection templates ZIP** on the completed job to download a `README.md` plus one template file per scoreable case/target. The same archive is available from:
+Click **Verification kit ZIP** on the completed job for a single starter bundle,
+or use **Detection templates ZIP** if you only need a `README.md` plus one
+template file per scoreable case/target. The same template-only archive is
+available from:
 
 ```http
 GET /v1/jobs/{job_id}/detection-templates.zip
+```
+
+The full job-local kit is available from:
+
+```http
+GET /v1/jobs/{job_id}/verification-kit.zip
 ```
 
 Reference-only targets are deliberately not included as detector-output requirements.
@@ -427,6 +440,7 @@ Authorization: Bearer <api-key>
 | `POST` | `/v1/jobs/{id}/cancel` | Cancel queued job | Developer+ |
 | `POST` | `/v1/jobs/{id}/retry` | Retry failed/cancelled job | Developer+ |
 | `GET` | `/v1/jobs/{id}/detection-templates.zip` | Download detector-output templates | Organization |
+| `GET` | `/v1/jobs/{id}/verification-kit.zip` | Download README, manifest, package ZIP, and templates | Organization |
 | `GET` | `/v1/artifacts/{package_id}/manifest.json` | Download manifest | Organization |
 | `GET` | `/v1/artifacts/{package_id}/package.zip` | Download ZIP | Organization |
 | `GET` | `/v1/usage` | Usage and limits | Authenticated |
