@@ -2789,15 +2789,7 @@ const char kUiJs[] = R"JS((() => {
         const text = await response.text();
         throw new Error(text || response.statusText);
       }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      await saveResponseAsFile(response, filename);
     } catch (error) {
       alert(error.message);
     }
@@ -3931,21 +3923,14 @@ const char kUiJs[] = R"JS((() => {
   async function downloadArtifact(packageId, file) {
     try {
       const response = await fetch(`${base}/v1/artifacts/${encodeURIComponent(packageId)}/${file}`, {
+        credentials: "same-origin",
         headers: headers(false)
       });
       if (!response.ok) {
         const text = await response.text();
         throw new Error(text || response.statusText);
       }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${packageId}-${file}`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      await saveResponseAsFile(response, `${packageId}-${file}`);
     } catch (error) {
       alert(error.message);
     }
@@ -3961,15 +3946,7 @@ const char kUiJs[] = R"JS((() => {
         const text = await response.text();
         throw new Error(text || response.statusText);
       }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${jobId}-detection-templates.zip`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      await saveResponseAsFile(response, `${jobId}-detection-templates.zip`);
     } catch (error) {
       alert(error.message);
     }
@@ -3985,18 +3962,23 @@ const char kUiJs[] = R"JS((() => {
         const text = await response.text();
         throw new Error(text || response.statusText);
       }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${jobId}-verification-kit.zip`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      await saveResponseAsFile(response, `${jobId}-verification-kit.zip`);
     } catch (error) {
       alert(error.message);
     }
+  }
+
+  async function saveResponseAsFile(response, filename) {
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.setAttribute("data-no-spa", "true");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
 
   async function copyText(text) {
@@ -4313,16 +4295,25 @@ const char kUiJs[] = R"JS((() => {
     handleJobArtifactAction(target);
   });
   document.addEventListener("click", (event) => {
+    if (event.defaultPrevented || event.button !== 0 ||
+        event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const link = target.closest("a[href]");
     if (!(link instanceof HTMLAnchorElement) || link.target) return;
+    if (link.hasAttribute("download") || link.hasAttribute("data-no-spa")) return;
     const url = new URL(link.href);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return;
     if (url.origin !== window.location.origin) return;
-    const suffix = url.pathname.startsWith(base)
-      ? url.pathname.slice(base.length).replace(/^\/+|\/+$/g, "")
-      : "";
-    if (!Object.prototype.hasOwnProperty.call(pageTitles, suffix || "workspace")) return;
+    const appPath = url.pathname === base || url.pathname === `${base}/` ||
+      url.pathname.startsWith(`${base}/`);
+    if (!appPath) return;
+    const suffix = url.pathname === base || url.pathname === `${base}/`
+      ? "workspace"
+      : url.pathname.slice(base.length).replace(/^\/+|\/+$/g, "");
+    if (!Object.prototype.hasOwnProperty.call(pageTitles, suffix)) return;
     event.preventDefault();
     window.history.pushState({}, "", url.pathname + url.search);
     renderCurrentPage();

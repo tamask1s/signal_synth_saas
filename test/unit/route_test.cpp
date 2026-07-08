@@ -149,7 +149,13 @@ int main() {
             ui_js.body.find("renderVerificationRunbook") != std::string::npos &&
             ui_js.body.find("selectPackForGeneration") != std::string::npos &&
             ui_js.body.find("renderCustomPackReview") != std::string::npos &&
-            ui_js.body.find("groupValidationErrors") != std::string::npos,
+            ui_js.body.find("groupValidationErrors") != std::string::npos &&
+            ui_js.body.find("saveResponseAsFile") != std::string::npos &&
+            ui_js.body.find("data-no-spa") != std::string::npos &&
+            ui_js.body.find("link.hasAttribute(\"download\")") !=
+                std::string::npos &&
+            ui_js.body.find("url.protocol !== \"http:\"") !=
+                std::string::npos,
         "web UI JavaScript asset should be served as an executable IIFE"
     );
     const syn_sig_ra::RouteResponse ui_trailing_slash =

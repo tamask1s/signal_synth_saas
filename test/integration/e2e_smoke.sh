@@ -295,7 +295,10 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q '/v1/jobs' "$WORK_ROOT/app.js" ||
     ! grep -q 'renderVerificationRunbook' "$WORK_ROOT/app.js" ||
     ! grep -q 'selectPackForGeneration' "$WORK_ROOT/app.js" ||
-    ! grep -q 'renderCustomPackReview' "$WORK_ROOT/app.js"; then
+    ! grep -q 'renderCustomPackReview' "$WORK_ROOT/app.js" ||
+    ! grep -q 'saveResponseAsFile' "$WORK_ROOT/app.js" ||
+    ! grep -q 'data-no-spa' "$WORK_ROOT/app.js" ||
+    ! grep -q 'link.hasAttribute("download")' "$WORK_ROOT/app.js"; then
     dump_file "$WORK_ROOT/app.js" "web UI JavaScript"
     fail "web UI JavaScript was not executable or did not contain API wiring"
 fi
