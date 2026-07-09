@@ -33,13 +33,18 @@ fingerprint. Invalid documents are still saved as editable drafts and return
 HTTP 422 with `code`, JSON `path`, and `message` validation entries plus the
 new or updated draft ID.
 
-The authoring helper routes expose core-owned metadata for the browser form:
-field labels, groups, ranges, units, defaults, enum options, target support,
-and complete valid templates. The preview route runs core pack analysis for a
+The authoring helper routes expose core-owned metadata for the grouped browser
+form: field labels, ranges, units, defaults, enum options, visibility rules,
+condition and artifact catalogs, repeatable-item schemas, target support, and
+complete valid templates. Conditions, artifacts, PPG perfusion episodes,
+randomization envelopes, and tags can all be edited without writing JSON.
+The preview route runs core pack analysis for a
 single draft plus selected targets and returns scoreable/reference-only
 targets, channel count, sample count, estimated package size, peak memory, and
-compatibility messages. The curated-scenario route returns source scenario JSON
-for clone/fork into an editable draft.
+compatibility messages. Validation paths focus the corresponding form control
+where possible. Advanced JSON remains synchronized for expert use. The
+curated-scenario route returns source scenario JSON for clone/fork into an
+editable draft.
 
 Drafts are scoped to the exact organization/user identity. Another user,
 including one in the same organization, receives 404. Viewer-role keys can

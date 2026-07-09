@@ -318,12 +318,13 @@ The scenario editor supports creating, validating, updating, listing, and deleti
 Key properties:
 
 - Core-provided templates can create valid drafts without hand-writing JSON.
-- The form renderer uses core authoring metadata for labels, ranges, units, defaults, enum options, and visibility rules.
+- The grouped form renderer uses core authoring metadata for labels, ranges, units, defaults, enum options, visibility rules, and item-editor schemas.
+- Conditions use a searchable core catalog with severity controls. Artifacts expose type, timing, severity, seed, and channel selection. PPG perfusion episodes and controlled-randomization envelopes have repeatable form editors, and tags use a chip editor.
 - Curated scenarios can be cloned/forked into editable drafts.
 - Preview shows scoreable targets, reference-only targets, duration, sample count, channel count, estimated package size, estimated peak memory, detector schemas, and target compatibility messages before pack composition.
 - The preflight panel explicitly shows whether the draft is safe to save and safe to compose into a pack.
-- Validation errors are grouped by scenario section where possible, and validation paths are clickable in the UI to focus the JSON editor near the relevant field.
-- Raw JSON mode is hidden under **Advanced JSON editor** for normal use, but remains available for fields that are not yet represented by form controls.
+- Validation errors are grouped by scenario section, and validation paths are clickable in the UI to open and focus the relevant form control where possible.
+- Raw JSON mode is hidden under **Advanced JSON editor** for expert use and remains synchronized with every form edit.
 - Local JSON formatting catches syntax errors before submission.
 - Valid drafts are canonicalized and receive a SHA-256 document fingerprint.
 - Invalid drafts are saved as editable drafts and return actionable validation entries with code, JSON path, and message.
@@ -344,7 +345,9 @@ The composer accepts:
 - target list;
 - selected valid scenario drafts.
 
-Before creation, the UI shows a review panel with selected scenario count, requested targets, snapshot semantics, and a scenario-by-target coverage/preflight matrix. It warns about common mismatches such as PPG targets without enabled PPG generation or HRV targets on short scenarios.
+The UI provides target cards, searchable valid/invalid draft selection, and a scenario-by-target coverage matrix. Before enabling creation it calls the authoritative core preview for every selected scenario, then summarizes scoreable and reference-only targets, total duration, samples, estimated package size, peak memory, and compatibility messages.
+
+The API repeats authoritative pack analysis before writing a snapshot. It returns HTTP 422 for incompatible scenario-target combinations, so bypassing the browser cannot create a pack that the core has rejected.
 
 Composition copies canonical scenario documents into a snapshot. Later edits or deletion of source drafts do not change the pack. Deleting a custom pack hides it from new-job selection, while retained job/package snapshots remain reproducible.
 

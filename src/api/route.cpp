@@ -1354,8 +1354,9 @@ const char kUiHtml[] = R"HTML(<!doctype html>
           <button id="clone-curated-scenario" class="secondary">Clone into draft</button>
         </div>
       </div>
-      <div id="scenario-targets" class="tag-list"></div>
-      <div id="scenario-form" class="form-grid"></div>
+      <h3>Package targets</h3>
+      <div id="scenario-targets" class="target-selector"></div>
+      <div id="scenario-form" class="scenario-groups"></div>
       <div id="scenario-preview" class="selected-pack muted">Select a template or edit JSON to preview package output.</div>
       <label for="scenario-name">Name</label>
       <input id="scenario-name" type="text" maxlength="100" placeholder="Scenario name">
@@ -1386,17 +1387,14 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <input id="custom-pack-name" type="text" maxlength="100" placeholder="My validation pack">
       <label for="custom-pack-description">Description</label>
       <input id="custom-pack-description" type="text" placeholder="What this pack tests">
-      <label for="custom-pack-targets">Targets (comma-separated)</label>
-      <input id="custom-pack-targets" type="text" value="r_peak" list="target-suggestions">
-      <datalist id="target-suggestions">
-        <option value="r_peak">
-        <option value="ppg_systolic_peak">
-        <option value="beat_classification">
-        <option value="signal_quality">
-        <option value="hrv">
-      </datalist>
+      <h3>1. Choose package targets</h3>
+      <div id="custom-pack-targets" class="target-selector"></div>
+      <h3>2. Choose scenario drafts</h3>
+      <label for="custom-pack-scenario-search">Search scenarios</label>
+      <input id="custom-pack-scenario-search" type="search" placeholder="Filter by draft name, scenario ID, or tag">
       <p class="muted compact">Select at least one valid draft. The resulting pack snapshots its scenarios; later draft edits do not alter it.</p>
       <div id="pack-scenario-options" class="cards"></div>
+      <h3>3. Review and create</h3>
       <div id="custom-pack-review" class="selected-pack">Select scenarios and targets to preview coverage.</div>
       <button id="create-custom-pack" class="primary" disabled>Create immutable custom pack</button>
       <pre id="custom-pack-output" class="output"></pre>
@@ -1850,6 +1848,139 @@ label { display: block; margin: 10px 0 5px; font-weight: 600; }
 .form-field textarea {
   min-height: 88px;
 }
+.scenario-groups {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+.scenario-group {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+}
+.scenario-group > summary {
+  cursor: pointer;
+  padding: 13px 15px;
+  font-weight: 800;
+}
+.scenario-group > .form-grid {
+  margin: 0;
+  padding: 0 12px 12px;
+}
+.array-editor {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: #fbfcff;
+}
+.array-item {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  background: #fff;
+}
+.array-item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px 12px;
+}
+.array-item-grid label { margin-top: 4px; }
+.array-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.array-item-header button { padding: 7px 10px; }
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+.segmented label {
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+}
+.segmented input { width: auto; margin-right: 4px; }
+.slider-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+.slider-row output {
+  min-width: 48px;
+  color: var(--muted);
+  text-align: right;
+}
+.tag-editor-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+.tag-editor-list button {
+  padding: 4px 8px;
+  border-color: #c7d7fe;
+  background: #eef4ff;
+  color: var(--primary);
+  font-size: 12px;
+}
+.channel-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.channel-picker label {
+  margin: 0;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.channel-picker input { width: auto; margin-right: 4px; }
+.target-selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+.target-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+}
+.target-option input { width: auto; margin-top: 3px; }
+.target-option small { display: block; margin-top: 3px; color: var(--muted); font-weight: 400; }
+.preflight-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+.preflight-stat {
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+}
+.preflight-stat strong { display: block; margin-top: 3px; }
+.field-invalid {
+  border-color: #fda29b;
+  box-shadow: 0 0 0 2px #fee4e2;
+}
 .hint {
   display: block;
   margin-top: 4px;
@@ -2100,9 +2231,13 @@ const char kUiJs[] = R"JS((() => {
     authoringTemplates: [],
     scenarioTargets: [],
     scenarioPreviewTimer: null,
+    scenarioPreview: null,
     projects: [],
     scenarios: [],
     customPacks: [],
+    customPackAnalysis: {},
+    customPackAnalysisToken: 0,
+    customPackPreviewTimer: null,
     selectedScenarioId: "",
     jobs: [],
     jobsFingerprint: "",
@@ -2833,6 +2968,7 @@ const char kUiJs[] = R"JS((() => {
       state.authoringTemplates = templates.templates || [];
       renderAuthoringTemplates();
       renderScenarioTargets();
+      renderCustomPackTargets();
       renderCuratedCloneOptions();
       renderScenarioForm();
       scheduleScenarioPreview();
@@ -2877,25 +3013,48 @@ const char kUiJs[] = R"JS((() => {
     const targets = (state.authoringSchema && state.authoringSchema.targets) || [];
     const selected = new Set(state.scenarioTargets.length ? state.scenarioTargets : ["r_peak"]);
     $("scenario-targets").innerHTML = targets.map((target) => `
-      <label class="tag ${target.support === "local_scoring" ? "scoreable" : "reference"}">
+      <label class="target-option">
         <input type="checkbox" data-scenario-target value="${escapeHtml(target.name)}" ${selected.has(target.name) ? "checked" : ""}>
-        ${escapeHtml(target.name)} · ${escapeHtml(target.support)}
+        <span>
+          <strong>${escapeHtml(target.name)}</strong>
+          <small>${escapeHtml(target.support === "local_scoring" ? "Local automated scoring" : "Reference ground truth only")}</small>
+          <small>${escapeHtml(targetRequirementText(target))}</small>
+        </span>
       </label>
     `).join("") || "<span class=\"muted\">Targets load after sign-in.</span>";
+  }
+
+  function targetRequirementText(target) {
+    const requirements = (target && target.requires) || [];
+    if (!requirements.length) return "No additional scenario requirement";
+    return requirements.map((requirement) => {
+      if (requirement === "ppg.enabled") return "Requires an enabled PPG channel";
+      if (requirement === "hrv.enabled") return "Requires HRV modulation";
+      if (requirement === "duration_seconds>=300") return "Requires at least 5 minutes";
+      if (requirement === "artifacts.length>0") return "Requires at least one artifact interval";
+      if (requirement === "ecg.conditions") return "Requires an ECG condition";
+      return `Requires ${requirement}`;
+    }).join(" · ");
+  }
+
+  function requirementSatisfied(requirement, scenario) {
+    if (requirement === "ppg.enabled") return Boolean(getPathValue(scenario, "$.ppg.enabled"));
+    if (requirement === "hrv.enabled") return Boolean(getPathValue(scenario, "$.hrv.enabled"));
+    if (requirement === "duration_seconds>=300") return Number(scenario.duration_seconds || 0) >= 300;
+    if (requirement === "artifacts.length>0") return Array.isArray(scenario.artifacts) && scenario.artifacts.length > 0;
+    if (requirement === "ecg.conditions") {
+      return Array.isArray(getPathValue(scenario, "$.ecg.conditions")) &&
+        getPathValue(scenario, "$.ecg.conditions").length > 0;
+    }
+    return true;
   }
 
   function editableFieldPaths() {
     const template = selectedTemplate();
     const editable = template ? (template.editable_paths || []) : [];
     if (!editable.length) {
-      return new Set([
-        "$.scenario_id", "$.name", "$.description", "$.tags",
-        "$.duration_seconds", "$.sample_rate_hz", "$.seed",
-        "$.ecg.conditions", "$.ecg.heart_rate_bpm",
-        "$.ecg.rr_variability_seconds", "$.ecg.ectopic_every_n_beats",
-        "$.ppg.enabled", "$.ppg.pulse_delay_ms",
-        "$.hrv.enabled", "$.artifacts", "$.output.compact"
-      ]);
+      return new Set(((state.authoringSchema && state.authoringSchema.fields) || [])
+        .map((field) => field.path));
     }
     const fields = (state.authoringSchema && state.authoringSchema.fields) || [];
     return new Set(fields
@@ -2935,6 +3094,147 @@ const char kUiJs[] = R"JS((() => {
     return raw;
   }
 
+  function scalarControlHtml(field, value, attributes) {
+    const attrs = attributes || "";
+    const actual = value === undefined || value === null
+      ? (field.default === undefined ? "" : field.default)
+      : value;
+    if (field.value_type === "boolean") {
+      return `<input ${attrs} type="checkbox" ${actual ? "checked" : ""}>`;
+    }
+    if (field.control === "select" || field.control === "condition_select") {
+      return `<select ${attrs}>${(field.options || []).map((option) => `
+        <option value="${escapeHtml(option)}" ${String(actual) === String(option) ? "selected" : ""}>${escapeHtml(option)}</option>
+      `).join("")}</select>`;
+    }
+    if (field.control === "slider") {
+      return `<span class="slider-row">
+        <input ${attrs} type="range" value="${escapeHtml(actual)}" ${field.minimum !== undefined ? `min="${escapeHtml(field.minimum)}"` : ""} ${field.maximum !== undefined ? `max="${escapeHtml(field.maximum)}"` : ""} ${field.step !== undefined ? `step="${escapeHtml(field.step)}"` : ""}>
+        <output>${escapeHtml(actual)}</output>
+      </span>`;
+    }
+    if (field.value_type === "number" || field.value_type === "integer") {
+      return `<input ${attrs} type="number" value="${escapeHtml(actual)}" ${field.minimum !== undefined ? `min="${escapeHtml(field.minimum)}"` : ""} ${field.exclusive_minimum !== undefined ? `min="${escapeHtml(Number(field.exclusive_minimum) + (field.step || 0.000001))}"` : ""} ${field.maximum !== undefined ? `max="${escapeHtml(field.maximum)}"` : ""} ${field.step !== undefined ? `step="${escapeHtml(field.step)}"` : "step=\"any\""}>`;
+    }
+    return `<input ${attrs} type="text" value="${escapeHtml(actual)}">`;
+  }
+
+  function tagEditorHtml(field, value) {
+    const tags = Array.isArray(value) ? value : [];
+    return `
+      <div class="form-field" data-authoring-container="${escapeHtml(field.path)}">
+        <strong>${escapeHtml(field.label)}</strong>
+        <div class="tag-editor-list">
+          ${tags.map((tag, index) => `<button type="button" data-remove-tag="${escapeHtml(index)}" title="Remove ${escapeHtml(tag)}">${escapeHtml(tag)} ×</button>`).join("") || "<span class=\"muted\">No tags</span>"}
+        </div>
+        <div class="row">
+          <input type="text" data-tag-input placeholder="Add a tag" aria-label="New scenario tag">
+          <button type="button" class="secondary" data-add-tag>Add</button>
+        </div>
+        <span class="hint">${escapeHtml(field.path)} · up to ${escapeHtml(field.maximum || 64)} tags</span>
+      </div>
+    `;
+  }
+
+  function conditionEditorHtml(field, values) {
+    const conditions = (state.authoringSchema && state.authoringSchema.conditions) || [];
+    const byCode = Object.fromEntries(conditions.map((item) => [item.code, item]));
+    return `
+      <div class="array-editor" data-authoring-container="${escapeHtml(field.path)}">
+        <div class="array-item-header"><div><strong>${escapeHtml(field.label)}</strong><span class="hint">Search the core condition catalog and set severity where supported.</span></div><button type="button" class="secondary" data-add-array="${escapeHtml(field.path)}">Add condition</button></div>
+        <datalist id="condition-catalog">${conditions.map((item) => `<option value="${escapeHtml(item.code)}">${escapeHtml(item.name)} · ${escapeHtml(item.category)}</option>`).join("")}</datalist>
+        ${(values || []).map((item, index) => {
+          const metadata = byCode[item.code] || {};
+          return `<div class="array-item">
+            <div class="array-item-header"><strong>Condition ${escapeHtml(index + 1)}</strong><button type="button" class="danger" data-remove-array="${escapeHtml(field.path)}" data-array-index="${escapeHtml(index)}">Remove</button></div>
+            <div class="array-item-grid">
+              <label>Condition
+                <input type="text" list="condition-catalog" value="${escapeHtml(item.code || "")}" data-array-path="${escapeHtml(field.path)}" data-array-index="${escapeHtml(index)}" data-array-name="code">
+                <span class="hint">${escapeHtml(metadata.name || "Choose a known condition code")} · ${escapeHtml(metadata.support || "unknown support")}</span>
+              </label>
+              <label>Severity
+                <span class="slider-row">
+                  <input type="range" min="0.000001" max="1" step="0.01" value="${escapeHtml(item.severity === undefined ? 1 : item.severity)}" data-array-path="${escapeHtml(field.path)}" data-array-index="${escapeHtml(index)}" data-array-name="severity" data-array-type="number" ${metadata.variable_severity === false ? "disabled" : ""}>
+                  <output>${escapeHtml(item.severity === undefined ? 1 : item.severity)}</output>
+                </span>
+                <span class="hint">${metadata.variable_severity === false ? "Fixed-severity condition" : "0–1 condition intensity"}</span>
+              </label>
+            </div>
+          </div>`;
+        }).join("") || "<p class=\"muted compact\">No ECG conditions. Add one to describe morphology or rhythm.</p>"}
+      </div>
+    `;
+  }
+
+  function genericArrayEditorHtml(field, values, itemFields, itemLabel) {
+    return `
+      <div class="array-editor" data-authoring-container="${escapeHtml(field.path)}">
+        <div class="array-item-header"><div><strong>${escapeHtml(field.label)}</strong><span class="hint">${escapeHtml(field.path)}</span></div><button type="button" class="secondary" data-add-array="${escapeHtml(field.path)}">Add ${escapeHtml(itemLabel)}</button></div>
+        ${(values || []).map((item, index) => `
+          <div class="array-item">
+            <div class="array-item-header"><strong>${escapeHtml(itemLabel)} ${escapeHtml(index + 1)}</strong><button type="button" class="danger" data-remove-array="${escapeHtml(field.path)}" data-array-index="${escapeHtml(index)}">Remove</button></div>
+            <div class="array-item-grid">
+              ${(itemFields || []).map((itemField) => `
+                <label>${escapeHtml(itemField.name.replaceAll("_", " "))}
+                  ${scalarControlHtml(itemField, item[itemField.name], `data-array-path="${escapeHtml(field.path)}" data-array-index="${escapeHtml(index)}" data-array-name="${escapeHtml(itemField.name)}" data-array-type="${escapeHtml(itemField.value_type || "string")}"`)}
+                  <span class="hint">${escapeHtml(itemField.unit || "")}</span>
+                </label>
+              `).join("")}
+            </div>
+          </div>
+        `).join("") || `<p class="muted compact">No ${escapeHtml(itemLabel)} entries.</p>`}
+      </div>
+    `;
+  }
+
+  function artifactEditorHtml(field, values) {
+    const artifacts = (state.authoringSchema && state.authoringSchema.artifacts) || [];
+    const byType = Object.fromEntries(artifacts.map((item) => [item.type, item]));
+    return `
+      <div class="array-editor" data-authoring-container="${escapeHtml(field.path)}">
+        <div class="array-item-header"><div><strong>${escapeHtml(field.label)}</strong><span class="hint">Add bounded deterministic noise intervals and affected channels.</span></div><button type="button" class="secondary" data-add-array="${escapeHtml(field.path)}">Add artifact</button></div>
+        ${(values || []).map((item, index) => {
+          const metadata = byType[item.type] || artifacts[0] || { item_fields: [] };
+          return `<div class="array-item">
+            <div class="array-item-header"><strong>Artifact ${escapeHtml(index + 1)}</strong><button type="button" class="danger" data-remove-array="${escapeHtml(field.path)}" data-array-index="${escapeHtml(index)}">Remove</button></div>
+            <div class="array-item-grid">
+              <label>Artifact type
+                <select data-array-path="${escapeHtml(field.path)}" data-array-index="${escapeHtml(index)}" data-array-name="type">
+                  ${artifacts.map((artifact) => `<option value="${escapeHtml(artifact.type)}" ${artifact.type === item.type ? "selected" : ""}>${escapeHtml(artifact.type)} · ${escapeHtml(artifact.channel_family)}</option>`).join("")}
+                </select>
+              </label>
+              ${(metadata.item_fields || []).filter((itemField) => itemField.name !== "channels").map((itemField) => `
+                <label>${escapeHtml(itemField.name.replaceAll("_", " "))}
+                  ${scalarControlHtml(itemField, item[itemField.name], `data-array-path="${escapeHtml(field.path)}" data-array-index="${escapeHtml(index)}" data-array-name="${escapeHtml(itemField.name)}" data-array-type="${escapeHtml(itemField.value_type || "string")}"`)}
+                  <span class="hint">${escapeHtml(itemField.unit || "")}</span>
+                </label>
+              `).join("")}
+            </div>
+            ${(metadata.item_fields || []).filter((itemField) => itemField.name === "channels").map((itemField) => `
+              <label>Channels</label>
+              <div class="channel-picker">${(itemField.options || []).map((channel) => `
+                <label><input type="checkbox" value="${escapeHtml(channel)}" data-array-channel="${escapeHtml(field.path)}" data-array-index="${escapeHtml(index)}" ${(item.channels || []).includes(channel) ? "checked" : ""}>${escapeHtml(channel)}</label>
+              `).join("")}</div>
+            `).join("")}
+          </div>`;
+        }).join("") || "<p class=\"muted compact\">No artifacts. Add one when testing signal-quality handling.</p>"}
+      </div>
+    `;
+  }
+
+  function arrayEditorHtml(field, value) {
+    const values = Array.isArray(value) ? value : [];
+    if (field.control === "condition_picker") return conditionEditorHtml(field, values);
+    if (field.control === "artifact_editor") return artifactEditorHtml(field, values);
+    if (field.control === "episode_editor") {
+      return genericArrayEditorHtml(field, values, state.authoringSchema.ppg_perfusion_episode_item_fields, "perfusion episode");
+    }
+    if (field.control === "envelope_editor") {
+      return genericArrayEditorHtml(field, values, state.authoringSchema.randomization_envelope_item_fields, "envelope");
+    }
+    return genericArrayEditorHtml(field, values, [], "item");
+  }
+
   function fieldInputHtml(field, value) {
     const id = `field-${field.path.replace(/[^a-z0-9]+/gi, "-")}`;
     const hint = [
@@ -2946,31 +3246,39 @@ const char kUiJs[] = R"JS((() => {
       field.default !== undefined ? `default ${JSON.stringify(field.default)}` : ""
     ].filter(Boolean).join(" · ");
     const common = `id="${escapeHtml(id)}" data-authoring-field="${escapeHtml(field.path)}"`;
+    if (field.control === "tag_editor") return tagEditorHtml(field, value);
+    if (field.value_type && (field.value_type.includes("_array") || field.value_type === "condition_array")) {
+      return arrayEditorHtml(field, value);
+    }
     let control = "";
     if (field.value_type === "boolean") {
       control = `<input ${common} type="checkbox" ${value ? "checked" : ""}>`;
-    } else if (field.control === "select" || field.control === "segmented") {
+    } else if (field.control === "segmented") {
+      control = `<span class="segmented">${(field.options || []).map((option) => `
+        <label><input data-authoring-field="${escapeHtml(field.path)}" type="radio" name="${escapeHtml(id)}" value="${escapeHtml(option)}" ${String(value) === String(option) ? "checked" : ""}>${escapeHtml(option)}</label>
+      `).join("")}</span>`;
+    } else if (field.control === "select") {
       const options = field.options || [];
       control = `<select ${common}>${options.map((option) => `
         <option value="${escapeHtml(option)}" ${String(value) === String(option) ? "selected" : ""}>${escapeHtml(option)}</option>
       `).join("")}</select>`;
+    } else if (field.control === "slider") {
+      control = scalarControlHtml(field, value, common);
     } else if (field.value_type === "number" || field.value_type === "integer") {
       control = `<input ${common} type="number" value="${escapeHtml(value === undefined ? "" : value)}" ${field.minimum !== undefined ? `min="${escapeHtml(field.minimum)}"` : ""} ${field.maximum !== undefined ? `max="${escapeHtml(field.maximum)}"` : ""} ${field.step !== undefined ? `step="${escapeHtml(field.step)}"` : ""}>`;
     } else if (field.value_type === "string_array") {
       control = `<input ${common} type="text" value="${escapeHtml((value || []).join(", "))}">`;
-    } else if (field.value_type && (field.value_type.includes("_array") || field.value_type === "condition_array")) {
-      control = `<textarea ${common} rows="4" spellcheck="false">${escapeHtml(JSON.stringify(value === undefined ? [] : value, null, 2))}</textarea>`;
     } else if (field.control === "textarea") {
       control = `<textarea ${common} rows="3">${escapeHtml(value === undefined ? "" : value)}</textarea>`;
     } else {
       control = `<input ${common} type="text" value="${escapeHtml(value === undefined ? "" : value)}">`;
     }
     return `
-      <label class="form-field" for="${escapeHtml(id)}">
-        <strong>${escapeHtml(field.label)}</strong>
+      <div class="form-field" data-authoring-container="${escapeHtml(field.path)}">
+        <label for="${escapeHtml(id)}"><strong>${escapeHtml(field.label)}</strong></label>
         ${control}
         <span class="hint">${escapeHtml(field.path)}${hint ? " · " + escapeHtml(hint) : ""}</span>
-      </label>
+      </div>
     `;
   }
 
@@ -2983,8 +3291,18 @@ const char kUiJs[] = R"JS((() => {
     }
     const editable = editableFieldPaths();
     const visible = fields.filter((field) => editable.has(field.path) && visibleField(field, scenario));
-    $("scenario-form").innerHTML = visible.map((field) => fieldInputHtml(field, getPathValue(scenario, field.path))).join("") ||
-      "<p class=\"muted\">This template exposes no form fields; use JSON mode.</p>";
+    const previousOpen = new Set([...$("scenario-form").querySelectorAll(".scenario-group[open]")]
+      .map((node) => node.getAttribute("data-group")));
+    const groups = (state.authoringSchema.groups || []).filter((group) =>
+      visible.some((field) => field.group === group.id));
+    $("scenario-form").innerHTML = groups.map((group, index) => {
+      const groupFields = visible.filter((field) => field.group === group.id);
+      const open = previousOpen.has(group.id) || (!previousOpen.size && index < 2);
+      return `<details class="scenario-group" data-group="${escapeHtml(group.id)}" ${open ? "open" : ""}>
+        <summary>${escapeHtml(group.label)} · ${escapeHtml(groupFields.length)} control(s)</summary>
+        <div class="form-grid">${groupFields.map((field) => fieldInputHtml(field, getPathValue(scenario, field.path))).join("")}</div>
+      </details>`;
+    }).join("") || "<p class=\"muted\">This template exposes no form fields; use JSON mode.</p>";
   }
 
   function updateScenarioField(fieldPath, node) {
@@ -3001,6 +3319,124 @@ const char kUiJs[] = R"JS((() => {
     } catch (error) {
       $("scenario-output").textContent = `Invalid ${field.label}: ${error.message}`;
     }
+  }
+
+  function arrayFieldValue(node) {
+    const type = node.getAttribute("data-array-type") || "string";
+    if (type === "number") return Number(node.value);
+    if (type === "integer") return Number.parseInt(node.value, 10);
+    if (type === "uint64_string") return /^\d+$/.test(node.value) ? Number(node.value) : node.value;
+    return node.value;
+  }
+
+  function updateScenarioArrayItem(node) {
+    const path = node.getAttribute("data-array-path");
+    const index = Number.parseInt(node.getAttribute("data-array-index"), 10);
+    const name = node.getAttribute("data-array-name");
+    const scenario = readScenarioJson();
+    const values = scenario && getPathValue(scenario, path);
+    if (!Array.isArray(values) || !values[index] || !name) return;
+    values[index][name] = arrayFieldValue(node);
+    if (path === "$.ecg.conditions" && name === "code") {
+      const condition = ((state.authoringSchema && state.authoringSchema.conditions) || [])
+        .find((item) => item.code === node.value);
+      if (condition && !condition.variable_severity) values[index].severity = 1;
+    }
+    writeScenarioJson(scenario);
+    renderScenarioForm();
+    scheduleScenarioPreview();
+  }
+
+  function updateScenarioArrayChannels(node) {
+    const path = node.getAttribute("data-array-channel");
+    const index = Number.parseInt(node.getAttribute("data-array-index"), 10);
+    const scenario = readScenarioJson();
+    const values = scenario && getPathValue(scenario, path);
+    if (!Array.isArray(values) || !values[index]) return;
+    values[index].channels = [...document.querySelectorAll(
+      `[data-array-channel="${CSS.escape(path)}"][data-array-index="${index}"]:checked`
+    )].map((input) => input.value);
+    writeScenarioJson(scenario);
+    scheduleScenarioPreview();
+  }
+
+  function defaultArrayItem(path, scenario) {
+    if (path === "$.ecg.conditions") return { code: "NORM", severity: 1 };
+    if (path === "$.artifacts") {
+      const artifact = ((state.authoringSchema && state.authoringSchema.artifacts) || [])[0];
+      const type = artifact ? artifact.type : "ecg_baseline_wander";
+      const channel = artifact && artifact.item_fields
+        ? artifact.item_fields.find((field) => field.name === "channels")
+        : null;
+      return {
+        type,
+        start_seconds: 0,
+        duration_seconds: Math.min(5, Number(scenario.duration_seconds || 5)),
+        severity: 0.5,
+        seed: Number(scenario.seed || 1),
+        channels: channel && channel.options ? [channel.options[0]] : ["all_ecg"]
+      };
+    }
+    if (path === "$.ppg.perfusion_episodes") {
+      return {
+        start_seconds: 0,
+        duration_seconds: Math.min(10, Number(scenario.duration_seconds || 10)),
+        amplitude_scale: 0.5,
+        rise_time_scale: 1,
+        decay_time_scale: 1,
+        weak_pulse_every_n_beats: 0,
+        weak_pulse_amplitude_scale: 0.5,
+        missing_pulse_every_n_beats: 0
+      };
+    }
+    if (path === "$.randomization.envelopes") {
+      return { parameter: "ecg.heart_rate_bpm", minimum: 60, maximum: 80 };
+    }
+    return {};
+  }
+
+  function addScenarioArrayItem(path) {
+    const scenario = readScenarioJson();
+    if (!scenario) return;
+    const values = getPathValue(scenario, path);
+    const next = Array.isArray(values) ? values : [];
+    next.push(defaultArrayItem(path, scenario));
+    setPathValue(scenario, path, next);
+    writeScenarioJson(scenario);
+    renderScenarioForm();
+    scheduleScenarioPreview();
+  }
+
+  function removeScenarioArrayItem(path, index) {
+    const scenario = readScenarioJson();
+    const values = scenario && getPathValue(scenario, path);
+    if (!Array.isArray(values)) return;
+    values.splice(index, 1);
+    writeScenarioJson(scenario);
+    renderScenarioForm();
+    scheduleScenarioPreview();
+  }
+
+  function addScenarioTag() {
+    const input = $("scenario-form").querySelector("[data-tag-input]");
+    const value = input ? input.value.trim() : "";
+    const scenario = readScenarioJson();
+    if (!scenario || !value) return;
+    const tags = Array.isArray(scenario.tags) ? scenario.tags : [];
+    if (!tags.includes(value)) tags.push(value);
+    scenario.tags = tags;
+    writeScenarioJson(scenario);
+    renderScenarioForm();
+    scheduleScenarioPreview();
+  }
+
+  function removeScenarioTag(index) {
+    const scenario = readScenarioJson();
+    if (!scenario || !Array.isArray(scenario.tags)) return;
+    scenario.tags.splice(index, 1);
+    writeScenarioJson(scenario);
+    renderScenarioForm();
+    scheduleScenarioPreview();
   }
 
   function applyScenarioTemplate() {
@@ -3057,6 +3493,7 @@ const char kUiJs[] = R"JS((() => {
     if (!state.authenticated) return;
     const scenario = readScenarioJson(true);
     if (!scenario) {
+      state.scenarioPreview = null;
       $("scenario-preview").innerHTML = "<p class=\"error\">JSON is not parseable yet.</p>";
       return;
     }
@@ -3069,13 +3506,15 @@ const char kUiJs[] = R"JS((() => {
         method: "POST",
         json: { scenario, targets: currentScenarioTargets() }
       });
+      state.scenarioPreview = preview;
       renderScenarioPreview(preview);
     } catch (error) {
+      state.scenarioPreview = null;
       if (error.body && error.body.validation_errors) {
         const groups = groupValidationErrors(error.body.validation_errors);
         $("scenario-preview").innerHTML = `
           <h3><span class="error">Not safe to save yet</span></h3>
-          <p class="muted">Fix the grouped validation issues below. Click a path to focus the raw JSON near the affected field.</p>
+          <p class="muted">Fix the grouped validation issues below. Click a path to open and focus the affected form control.</p>
           ${Object.entries(groups).map(([section, items]) => `
             <details class="meta" open>
               <summary>${escapeHtml(section)} · ${escapeHtml(items.length)} issue(s)</summary>
@@ -3125,11 +3564,19 @@ const char kUiJs[] = R"JS((() => {
   }
 
   function renderScenarioPreview(preview) {
+    const scenario = readScenarioJson(true) || {};
     const summary = preview.summary || {};
     const cases = preview.cases || [];
     const messages = preview.messages || [];
     const scoreable = preview.scoreable_targets || [];
     const referenceOnly = preview.reference_only_targets || [];
+    const selectedTargets = currentScenarioTargets();
+    const targetMetadata = (state.authoringSchema && state.authoringSchema.targets) || [];
+    const requirements = selectedTargets.map((name) => {
+      const target = targetMetadata.find((item) => item.name === name) || { name, requires: [] };
+      const missing = (target.requires || []).filter((item) => !requirementSatisfied(item, scenario));
+      return `<li class="${missing.length ? "error" : "ok"}"><strong>${escapeHtml(name)}</strong> — ${missing.length ? `missing: ${escapeHtml(missing.map((item) => targetRequirementText({ requires: [item] })).join(", "))}` : "requirements satisfied"} · ${escapeHtml(target.support === "reference_only" ? "reference-only output" : "locally scoreable")}</li>`;
+    }).join("");
     $("scenario-preview").innerHTML = `
       <h3>Preflight ${preview.success ? "<span class=\"ok\">safe to save</span>" : "<span class=\"error\">needs attention</span>"}</h3>
       <p>${preview.success ? "<span class=\"badge succeeded\">safe to compose pack</span>" : "<span class=\"badge failed\">not ready for pack composition</span>"}</p>
@@ -3137,17 +3584,19 @@ const char kUiJs[] = R"JS((() => {
       <p><strong>Scoreable</strong>${targetTags(scoreable, "scoreable")}</p>
       <p><strong>Reference-only</strong>${targetTags(referenceOnly, "reference")}</p>
       ${!scoreable.length && referenceOnly.length ? `<p class="muted compact">This scenario can still be useful for manual/reference QA, but it will not produce a local scoring command for those targets.</p>` : ""}
-      <div class="meta-grid">
-        <dt>Duration</dt><dd>${escapeHtml(formatSeconds(summary.total_duration_seconds || 0))}</dd>
-        <dt>Samples</dt><dd>${escapeHtml(summary.total_sample_count || 0)}</dd>
-        <dt>Peak memory</dt><dd>${escapeHtml(formatBytes(summary.estimated_peak_memory_bytes || 0))}</dd>
-        <dt>Channels</dt><dd>${escapeHtml((cases[0] && cases[0].channel_count) || "n/a")}</dd>
+      <div class="preflight-stats">
+        <div class="preflight-stat">Duration<strong>${escapeHtml(formatSeconds(summary.total_duration_seconds || 0))}</strong></div>
+        <div class="preflight-stat">Samples<strong>${escapeHtml(summary.total_sample_count || 0)}</strong></div>
+        <div class="preflight-stat">Estimated package<strong>${escapeHtml(formatBytes(summary.estimated_package_bytes || 0))}</strong></div>
+        <div class="preflight-stat">Peak memory<strong>${escapeHtml(formatBytes(summary.estimated_peak_memory_bytes || 0))}</strong></div>
+        <div class="preflight-stat">Channels<strong>${escapeHtml((cases[0] && cases[0].channel_count) || "n/a")}</strong></div>
       </div>
+      <details class="meta" open><summary>Target compatibility</summary><ul>${requirements}</ul></details>
       ${messages.length ? `
         <details class="meta" open>
           <summary>${escapeHtml(messages.length)} preview message(s)</summary>
           <ul>${messages.map((item) => `
-            <li class="${item.severity === "error" ? "error" : "muted"}"><button class="validation-link" data-validation-path="${escapeHtml(item.path)}">${escapeHtml(item.code)}</button>: ${escapeHtml(item.message)}</li>
+            <li class="${item.severity === "error" ? "error" : "muted"}"><button class="validation-link" data-validation-path="${escapeHtml(item.path)}">${escapeHtml(item.code)}</button>: ${escapeHtml(userValidationMessage(item))}</li>
           `).join("")}</ul>
         </details>
       ` : ""}
@@ -3162,6 +3611,27 @@ const char kUiJs[] = R"JS((() => {
     const needle = key && key !== "$" ? `"${key.replace(/^\$/, "")}"` : "";
     const index = needle ? textarea.value.indexOf(needle) : -1;
     if (index >= 0) textarea.setSelectionRange(index, index + needle.length);
+  }
+
+  function focusScenarioPath(path) {
+    const normalized = String(path || "").replace(/\[\d+\]/g, "");
+    const candidates = [...$("scenario-form").querySelectorAll("[data-authoring-container]")];
+    const container = candidates.find((node) => {
+      const fieldPath = node.getAttribute("data-authoring-container");
+      return normalized === fieldPath || normalized.startsWith(fieldPath + ".");
+    });
+    $("scenario-form").querySelectorAll(".field-invalid").forEach((node) =>
+      node.classList.remove("field-invalid"));
+    if (!container) {
+      focusJsonPath(path);
+      return;
+    }
+    const group = container.closest("details");
+    if (group) group.open = true;
+    container.classList.add("field-invalid");
+    container.scrollIntoView({ behavior: "smooth", block: "center" });
+    const control = container.querySelector("input:not([disabled]), select, textarea, button");
+    if (control) window.setTimeout(() => control.focus(), 250);
   }
 
   async function loadScenarios() {
@@ -3202,17 +3672,50 @@ const char kUiJs[] = R"JS((() => {
     }
   }
 
+  function renderCustomPackTargets() {
+    const selected = new Set(requestedCustomPackTargets());
+    if (!selected.size) selected.add("r_peak");
+    const targets = (state.authoringSchema && state.authoringSchema.targets) || [];
+    $("custom-pack-targets").innerHTML = targets.map((target) => `
+      <label class="target-option">
+        <input type="checkbox" data-custom-pack-target value="${escapeHtml(target.name)}" ${selected.has(target.name) ? "checked" : ""}>
+        <span>
+          <strong>${escapeHtml(target.name)}</strong>
+          <small>${escapeHtml(target.support === "local_scoring" ? "Automated local scoring" : "Reference ground truth; no local score")}</small>
+          <small>${escapeHtml(targetRequirementText(target))}</small>
+        </span>
+      </label>
+    `).join("") || "<p class=\"muted\">Target catalog loads after sign-in.</p>";
+    state.customPackAnalysis = {};
+    renderCustomPackReview();
+  }
+
   function renderPackScenarioOptions() {
-    const valid = state.scenarios.filter((draft) => draft.status === "valid");
-    $("pack-scenario-options").innerHTML = valid.map((draft) => `
-      <label class="card">
-        <input type="checkbox" data-pack-scenario="${escapeHtml(draft.scenario_id)}">
+    const selected = new Set(selectedCustomPackScenarioIds());
+    $("pack-scenario-options").innerHTML = state.scenarios.map((draft) => `
+      <label class="card" data-scenario-option data-search-text="${escapeHtml([
+        draft.name,
+        draft.scenario_id,
+        draft.scenario && draft.scenario.scenario_id,
+        ...((draft.scenario && draft.scenario.tags) || [])
+      ].filter(Boolean).join(" ").toLowerCase())}">
+        <input type="checkbox" data-pack-scenario="${escapeHtml(draft.scenario_id)}" ${selected.has(draft.scenario_id) ? "checked" : ""} ${draft.status !== "valid" ? "disabled" : ""}>
         <strong>${escapeHtml(draft.name)}</strong>
         <span class="muted">${escapeHtml(draft.scenario && draft.scenario.scenario_id ? draft.scenario.scenario_id : "scenario")}</span>
+        <span class="badge ${draft.status === "valid" ? "succeeded" : "failed"}">${escapeHtml(draft.status)}</span>
         <span class="fingerprint">${escapeHtml(draft.document_fingerprint || "")}</span>
+        ${draft.status !== "valid" ? `<span class="error">Fix this draft in the scenario editor before adding it to a pack.</span>` : ""}
       </label>
     `).join("") || "<p class=\"muted\">Create at least one valid scenario draft first.</p>";
+    filterPackScenarioOptions();
     renderCustomPackReview();
+  }
+
+  function filterPackScenarioOptions() {
+    const query = $("custom-pack-scenario-search").value.trim().toLowerCase();
+    $("pack-scenario-options").querySelectorAll("[data-scenario-option]").forEach((node) => {
+      node.hidden = Boolean(query) && !node.getAttribute("data-search-text").includes(query);
+    });
   }
 
   function selectedCustomPackScenarioIds() {
@@ -3222,31 +3725,9 @@ const char kUiJs[] = R"JS((() => {
   }
 
   function requestedCustomPackTargets() {
-    return $("custom-pack-targets").value.split(",")
-      .map((value) => value.trim())
+    return [...document.querySelectorAll("[data-custom-pack-target]:checked")]
+      .map((input) => input.value)
       .filter(Boolean);
-  }
-
-  function draftTargetCompatibility(draft, target) {
-    const scenario = draft.scenario || {};
-    if (draft.status !== "valid") return { state: "error", label: "invalid draft" };
-    if (/^ppg_/.test(target)) {
-      return scenario.ppg && scenario.ppg.enabled
-        ? { state: "ok", label: "PPG enabled" }
-        : { state: "warn", label: "enable PPG first" };
-    }
-    if (target === "hrv") {
-      const duration = Number(scenario.duration_seconds || 0);
-      return duration >= 60
-        ? { state: "ok", label: `${formatSeconds(duration)} duration` }
-        : { state: "warn", label: "short for HRV" };
-    }
-    if (target === "r_peak" || target === "beat_classification") {
-      return scenario.ecg
-        ? { state: "ok", label: "ECG present" }
-        : { state: "warn", label: "ECG missing" };
-    }
-    return { state: "ok", label: "included" };
   }
 
   function renderCustomPackReview() {
@@ -3259,39 +3740,109 @@ const char kUiJs[] = R"JS((() => {
       .filter(Boolean);
     const name = $("custom-pack-name").value.trim();
     const description = $("custom-pack-description").value.trim();
-    const canCreate = canWrite() && name && description && targets.length && selectedDrafts.length;
-    $("create-custom-pack").disabled = !canCreate;
+    $("create-custom-pack").disabled = true;
     if (!selectedDrafts.length || !targets.length) {
       review.innerHTML = "Select at least one valid scenario and one target to preview pack coverage.";
       return;
     }
-    const warnings = [];
+    const key = JSON.stringify({
+      scenarios: selectedDrafts.map((draft) => [draft.scenario_id, draft.document_fingerprint]),
+      targets
+    });
+    if (state.customPackAnalysis.key !== key) {
+      scheduleCustomPackAnalysis(key, selectedDrafts, targets);
+    }
+    if (state.customPackAnalysis.key !== key || state.customPackAnalysis.loading) {
+      review.innerHTML = `<h3>Core preflight running…</h3><p class="muted">Checking ${escapeHtml(selectedDrafts.length)} scenario(s) against ${escapeHtml(targets.length)} target(s).</p>`;
+      return;
+    }
+    if (state.customPackAnalysis.error) {
+      review.innerHTML = `<h3 class="error">Preflight unavailable</h3><p>${escapeHtml(state.customPackAnalysis.error)}</p>`;
+      return;
+    }
+    renderCustomPackAnalysis(selectedDrafts, targets, name, description);
+  }
+
+  function scheduleCustomPackAnalysis(key, drafts, targets) {
+    clearTimeout(state.customPackPreviewTimer);
+    const token = ++state.customPackAnalysisToken;
+    state.customPackAnalysis = { key, loading: true, results: [] };
+    state.customPackPreviewTimer = setTimeout(async () => {
+      try {
+        const results = await Promise.all(drafts.map(async (draft) => ({
+          draft,
+          preview: await api("/v1/authoring/preview", {
+            method: "POST",
+            json: { scenario: draft.scenario, targets }
+          })
+        })));
+        if (token !== state.customPackAnalysisToken) return;
+        state.customPackAnalysis = { key, loading: false, results };
+      } catch (error) {
+        if (token !== state.customPackAnalysisToken) return;
+        state.customPackAnalysis = { key, loading: false, error: error.message, results: [] };
+      }
+      renderCustomPackReview();
+    }, 250);
+  }
+
+  function renderCustomPackAnalysis(selectedDrafts, targets, name, description) {
+    const review = $("custom-pack-review");
+    const results = state.customPackAnalysis.results || [];
+    const metadata = (state.authoringSchema && state.authoringSchema.targets) || [];
+    const ready = results.length === selectedDrafts.length &&
+      results.every((result) => result.preview && result.preview.success);
+    const summary = results.reduce((total, result) => {
+      const current = result.preview.summary || {};
+      total.duration += Number(current.total_duration_seconds || 0);
+      total.samples += Number(current.total_sample_count || 0);
+      total.bytes += Number(current.estimated_package_bytes || 0);
+      total.memory = Math.max(total.memory, Number(current.estimated_peak_memory_bytes || 0));
+      return total;
+    }, { duration: 0, samples: 0, bytes: 0, memory: 0 });
+    const scoreable = uniqueSorted(results.flatMap((result) =>
+      targetNames(result.preview.scoreable_targets || [])));
+    const referenceOnly = uniqueSorted(results.flatMap((result) =>
+      targetNames(result.preview.reference_only_targets || [])));
+    const messages = results.flatMap((result) => (result.preview.messages || [])
+      .map((message) => ({ ...message, draftName: result.draft.name })));
     const rows = selectedDrafts.map((draft) => {
-      const cells = targets.map((target) => {
-        const compatibility = draftTargetCompatibility(draft, target);
-        if (compatibility.state === "warn") {
-          warnings.push(`${draft.name}: ${target} — ${compatibility.label}`);
+      const result = results.find((item) => item.draft.scenario_id === draft.scenario_id);
+      const cells = targets.map((targetName) => {
+        const target = metadata.find((item) => item.name === targetName) ||
+          { name: targetName, support: "unsupported", requires: [] };
+        const missing = (target.requires || []).filter((requirement) =>
+          !requirementSatisfied(requirement, draft.scenario || {}));
+        if (missing.length) {
+          return `<td><span class="error">Blocked</span><br><small>${escapeHtml(missing.map((item) => targetRequirementText({ requires: [item] })).join("; "))}</small></td>`;
         }
-        return `<td><span class="${compatibility.state === "ok" ? "ok" : "error"}">${escapeHtml(compatibility.label)}</span></td>`;
+        if (!result || !result.preview.success) {
+          return "<td><span class=\"error\">Core rejected</span></td>";
+        }
+        return `<td><span class="ok">Compatible</span><br><small>${escapeHtml(target.support === "reference_only" ? "reference-only" : "local scoring")}</small></td>`;
       }).join("");
-      return `
-        <tr>
-          <td><strong>${escapeHtml(draft.name)}</strong><br><span class="fingerprint">${escapeHtml(draft.document_fingerprint || "")}</span></td>
-          ${cells}
-        </tr>
-      `;
+      return `<tr><td><strong>${escapeHtml(draft.name)}</strong><br><span class="fingerprint">${escapeHtml(draft.document_fingerprint || "")}</span></td>${cells}</tr>`;
     }).join("");
+    $("create-custom-pack").disabled = !(ready && canWrite() && name && description);
     review.innerHTML = `
-      <h3>Pack review</h3>
-      <p class="muted compact">${escapeHtml(selectedDrafts.length)} scenario snapshot(s) · targets: ${escapeHtml(targets.join(", "))}</p>
-      ${warnings.length ? `<p class="error">Review warnings before creating: ${escapeHtml(warnings.join("; "))}</p>` : `<p class="ok">Coverage preflight looks consistent for the selected targets.</p>`}
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Scenario</th>${targets.map((target) => `<th>${escapeHtml(target)}</th>`).join("")}</tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+      <h3>Core-backed pack review ${ready ? "<span class=\"badge succeeded\">ready</span>" : "<span class=\"badge failed\">blocked</span>"}</h3>
+      <p class="muted compact">${escapeHtml(selectedDrafts.length)} immutable scenario snapshot(s) · ${escapeHtml(targets.length)} target(s)</p>
+      <div class="preflight-stats">
+        <div class="preflight-stat">Cases<strong>${escapeHtml(selectedDrafts.length)}</strong></div>
+        <div class="preflight-stat">Total duration<strong>${escapeHtml(formatSeconds(summary.duration))}</strong></div>
+        <div class="preflight-stat">Total samples<strong>${escapeHtml(summary.samples)}</strong></div>
+        <div class="preflight-stat">Estimated package<strong>${escapeHtml(formatBytes(summary.bytes))}</strong></div>
+        <div class="preflight-stat">Peak memory<strong>${escapeHtml(formatBytes(summary.memory))}</strong></div>
       </div>
-      <p class="muted compact">Snapshot semantics: after creation, later scenario draft edits do not change this pack.</p>
+      <p><strong>Locally scoreable</strong>${targetTags(scoreable, "scoreable")}</p>
+      <p><strong>Reference-only</strong>${targetTags(referenceOnly, "reference")}</p>
+      ${messages.length ? `<details class="meta" open><summary>${escapeHtml(messages.length)} core message(s)</summary><ul>${messages.map((item) => `<li class="${item.severity === "error" ? "error" : "muted"}"><strong>${escapeHtml(item.draftName)}</strong>: ${escapeHtml(userValidationMessage(item))}</li>`).join("")}</ul></details>` : `<p class="ok">All selected scenario–target combinations passed core analysis.</p>`}
+      <div class="table-wrap"><table>
+        <thead><tr><th>Scenario snapshot</th>${targets.map((target) => `<th>${escapeHtml(target)}</th>`).join("")}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      ${!name || !description ? "<p class=\"muted\">Enter a pack name and description to enable creation.</p>" : ""}
+      <p class="muted compact"><strong>Snapshot semantics:</strong> creation copies these exact validated drafts. Later draft edits or deletion do not change the pack or its jobs.</p>
     `;
   }
 
@@ -4233,8 +4784,40 @@ const char kUiJs[] = R"JS((() => {
   $("scenario-form").addEventListener("change", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+    if (target.hasAttribute("data-array-channel")) {
+      updateScenarioArrayChannels(target);
+      return;
+    }
+    if (target.hasAttribute("data-array-path")) {
+      updateScenarioArrayItem(target);
+      return;
+    }
     const field = target.getAttribute("data-authoring-field");
     if (field) updateScenarioField(field, target);
+  });
+  $("scenario-form").addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || target.type !== "range") return;
+    const output = target.closest(".slider-row");
+    if (output && output.querySelector("output")) output.querySelector("output").textContent = target.value;
+  });
+  $("scenario-form").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const addPath = target.getAttribute("data-add-array");
+    const removePath = target.getAttribute("data-remove-array");
+    const removeTag = target.getAttribute("data-remove-tag");
+    if (addPath) addScenarioArrayItem(addPath);
+    if (removePath) removeScenarioArrayItem(
+      removePath, Number.parseInt(target.getAttribute("data-array-index"), 10));
+    if (target.hasAttribute("data-add-tag")) addScenarioTag();
+    if (removeTag !== null) removeScenarioTag(Number.parseInt(removeTag, 10));
+  });
+  $("scenario-form").addEventListener("keydown", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || !target.hasAttribute("data-tag-input") || event.key !== "Enter") return;
+    event.preventDefault();
+    addScenarioTag();
   });
   $("scenario-json").addEventListener("input", () => {
     renderScenarioForm();
@@ -4246,9 +4829,13 @@ const char kUiJs[] = R"JS((() => {
   $("create-custom-pack").addEventListener("click", createCustomPack);
   $("refresh-custom-packs").addEventListener("click", loadCustomPacks);
   $("pack-scenario-options").addEventListener("change", renderCustomPackReview);
+  $("custom-pack-scenario-search").addEventListener("input", filterPackScenarioOptions);
   $("custom-pack-name").addEventListener("input", renderCustomPackReview);
   $("custom-pack-description").addEventListener("input", renderCustomPackReview);
-  $("custom-pack-targets").addEventListener("input", renderCustomPackReview);
+  $("custom-pack-targets").addEventListener("change", () => {
+    state.customPackAnalysis = {};
+    renderCustomPackReview();
+  });
   $("custom-packs").addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -4265,7 +4852,7 @@ const char kUiJs[] = R"JS((() => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const path = target.getAttribute("data-validation-path");
-    if (path) focusJsonPath(path);
+    if (path) focusScenarioPath(path);
   });
   $("scenarios").addEventListener("click", (event) => {
     const target = event.target;
@@ -4273,7 +4860,7 @@ const char kUiJs[] = R"JS((() => {
     const editId = target.getAttribute("data-edit-scenario");
     const deleteId = target.getAttribute("data-delete-scenario");
     const validationPath = target.getAttribute("data-validation-path");
-    if (validationPath) focusJsonPath(validationPath);
+    if (validationPath) focusScenarioPath(validationPath);
     if (editId) editScenario(editId);
     if (deleteId) deleteScenario(deleteId);
   });
@@ -5073,6 +5660,47 @@ RouteResponse route_request(
             return json_response(
                 400, "{\"error\":{\"code\":\"invalid_custom_pack_request\","
                 "\"message\":\"Targets must be unique and every scenario must be a valid owned draft.\"}}\n");
+        }
+        signal_synth::ecg_pack_manifest analysis_manifest;
+        analysis_manifest.pack_id = "custom_pack_preflight";
+        analysis_manifest.name = json_string_value(name);
+        analysis_manifest.version = "preview";
+        analysis_manifest.description = json_string_value(description);
+        analysis_manifest.targets = target_values;
+        std::vector<signal_synth::ecg_scenario_document> analyzed_scenarios;
+        std::set<std::string> analyzed_ids;
+        for (std::vector<ScenarioDraftRecord>::const_iterator it = drafts.begin();
+             it != drafts.end(); ++it) {
+            signal_synth::ecg_scenario_document document;
+            signal_synth::ecg_scenario_json_result validation;
+            if (!signal_synth::parse_ecg_scenario_json(
+                    it->document_json, document, validation) ||
+                document.scenario_id.empty() ||
+                !analyzed_ids.insert(document.scenario_id).second) {
+                json_decref(submitted);
+                return json_response(
+                    400, "{\"error\":{\"code\":\"duplicate_or_invalid_scenario_id\","
+                    "\"message\":\"Selected drafts must contain valid, unique scenario document IDs.\"}}\n");
+            }
+            signal_synth::ecg_pack_scenario scenario_item;
+            scenario_item.id = document.scenario_id;
+            scenario_item.path = document.scenario_id + ".json";
+            scenario_item.targets = target_values;
+            analysis_manifest.scenarios.push_back(scenario_item);
+            analyzed_scenarios.push_back(document);
+        }
+        signal_synth::scenario_pack_analysis pack_analysis;
+        if (!signal_synth::analyze_scenario_pack(
+                analysis_manifest, analyzed_scenarios, pack_analysis)) {
+            const std::string analysis =
+                signal_synth::scenario_pack_analysis_json(pack_analysis);
+            json_decref(submitted);
+            return json_response(
+                422,
+                "{\"error\":{\"code\":\"custom_pack_incompatible\","
+                "\"message\":\"Selected scenarios do not satisfy every requested target.\"},"
+                "\"analysis\":" + analysis + "}\n"
+            );
         }
         std::string pack_id;
         if (!random_id("custom_pack_", pack_id, error)) {

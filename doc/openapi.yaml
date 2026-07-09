@@ -570,6 +570,7 @@ paths:
       responses:
         '201': {description: Immutable custom pack created}
         '400': {description: Invalid, duplicate, non-owned, or invalid-status draft}
+        '422': {description: Core pack analysis rejected one or more scenario-target combinations}
   /v1/custom-packs/{pack_id}:
     parameters:
       - {in: path, name: pack_id, required: true, schema: {type: string}}

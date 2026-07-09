@@ -271,6 +271,8 @@ if ! grep -q 'Algorithm QA workspace' "$WORK_ROOT/ui.html" ||
     ! grep -q 'Guided workflow' "$WORK_ROOT/ui.html" ||
     ! grep -q 'verification-runbook' "$WORK_ROOT/ui.html" ||
     ! grep -q 'custom-pack-review' "$WORK_ROOT/ui.html" ||
+    ! grep -q 'custom-pack-scenario-search' "$WORK_ROOT/ui.html" ||
+    ! grep -q 'scenario-groups' "$WORK_ROOT/ui.html" ||
     ! grep -q 'Advanced JSON editor' "$WORK_ROOT/ui.html"; then
     dump_file "$WORK_ROOT/ui.html" "web UI HTML"
     fail "web UI HTML did not contain the expected title"
@@ -296,6 +298,9 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q 'renderVerificationRunbook' "$WORK_ROOT/app.js" ||
     ! grep -q 'selectPackForGeneration' "$WORK_ROOT/app.js" ||
     ! grep -q 'renderCustomPackReview' "$WORK_ROOT/app.js" ||
+    ! grep -q 'conditionEditorHtml' "$WORK_ROOT/app.js" ||
+    ! grep -q 'artifactEditorHtml' "$WORK_ROOT/app.js" ||
+    ! grep -q 'renderCustomPackAnalysis' "$WORK_ROOT/app.js" ||
     ! grep -q 'saveResponseAsFile' "$WORK_ROOT/app.js" ||
     ! grep -q 'data-no-spa' "$WORK_ROOT/app.js" ||
     ! grep -q 'link.hasAttribute("download")' "$WORK_ROOT/app.js"; then
@@ -705,6 +710,33 @@ import sys
 print(json.load(open(sys.argv[1], encoding="utf-8"))["scenario_id"])
 PY
 )
+python3 - "$SCENARIO_ID" >"$WORK_ROOT/custom-pack-incompatible-request.json" <<'PY'
+import json
+import sys
+json.dump({
+    "name": "E2E incompatible pack",
+    "description": "Must be rejected before snapshot creation",
+    "targets": ["ppg_systolic_peak"],
+    "scenario_ids": [sys.argv[1]],
+}, sys.stdout)
+PY
+INCOMPATIBLE_PACK_HTTP=$(
+    curl -sS \
+        -H "Authorization: Bearer $API_KEY" \
+        -H "Content-Type: application/json" \
+        --data-binary "@$WORK_ROOT/custom-pack-incompatible-request.json" \
+        -o "$WORK_ROOT/custom-pack-incompatible-response.json" \
+        -w '%{http_code}' \
+        "$BASE_URL/v1/custom-packs"
+)
+if [ "$INCOMPATIBLE_PACK_HTTP" != "422" ]; then
+    dump_file "$WORK_ROOT/custom-pack-incompatible-response.json" \
+        "incompatible custom pack response"
+    fail "incompatible custom pack returned HTTP $INCOMPATIBLE_PACK_HTTP, expected 422"
+fi
+grep -q '"custom_pack_incompatible"' \
+    "$WORK_ROOT/custom-pack-incompatible-response.json" ||
+    fail "incompatible custom pack response did not include the expected code"
 python3 - "$SCENARIO_ID" >"$WORK_ROOT/custom-pack-request.json" <<'PY'
 import json
 import sys

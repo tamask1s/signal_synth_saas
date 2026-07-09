@@ -83,6 +83,8 @@ int main() {
             ui.body.find("scenario-template-select") != std::string::npos &&
             ui.body.find("Advanced JSON editor") != std::string::npos &&
             ui.body.find("custom-pack-review") != std::string::npos &&
+            ui.body.find("custom-pack-scenario-search") != std::string::npos &&
+            ui.body.find("scenario-groups") != std::string::npos &&
             ui.body.find("register-email") != std::string::npos &&
             ui.body.find("save-key") == std::string::npos &&
             ui.body.find("/syn_sig_ra/docs/api") != std::string::npos &&
