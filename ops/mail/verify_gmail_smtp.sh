@@ -19,18 +19,15 @@ grep -Fqx "SynSigRaEmailSmtpUrl smtp://smtp.gmail.com:587" "$email_conf"
 grep -Fqx "SynSigRaEmailSmtpTls required" "$email_conf"
 "$httpd" -t >/dev/null
 
-smtp_banner=$(timeout 15 openssl s_client \
-    -quiet \
+if ! timeout 15 openssl s_client \
     -starttls smtp \
     -connect smtp.gmail.com:587 \
-    -servername smtp.gmail.com </dev/null 2>/dev/null | head -n 1 || true)
-case "$smtp_banner" in
-    250*|220*) ;;
-    *)
-        echo "Gmail STARTTLS connectivity check failed" >&2
-        exit 1
-        ;;
-esac
+    -servername smtp.gmail.com \
+    -verify_return_error </dev/null 2>&1 | \
+    grep -Fq 'Verify return code: 0 (ok)'; then
+    echo "Gmail STARTTLS certificate check failed" >&2
+    exit 1
+fi
 
 response=$(curl -fsS \
     -H 'Content-Type: application/json' \

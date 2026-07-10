@@ -25,6 +25,7 @@ httpd=${SYN_SIG_RA_HTTPD:-/usr/local/apache2/bin/httpd}
 apachectl=${SYN_SIG_RA_APACHECTL:-/usr/local/apache2/bin/apachectl}
 secret_dir=${SYN_SIG_RA_SECRET_DIR:-/etc/syn_sig_ra}
 secret_file=${SYN_SIG_RA_GMAIL_SECRET_FILE:-$secret_dir/gmail-app-password}
+source_file=${SYN_SIG_RA_GMAIL_SOURCE_FILE:-}
 apache_group=${SYN_SIG_RA_APACHE_GROUP:-nogroup}
 
 for path in "$apache_conf" "$httpd" "$apachectl"; do
@@ -36,7 +37,15 @@ done
 
 install -d -m 0750 -o root -g "$apache_group" "$secret_dir"
 
-if [ ! -s "$secret_file" ] || [ "${ROTATE_SECRET:-0}" = "1" ]; then
+if [ -n "$source_file" ]; then
+    if [ ! -f "$source_file" ] || [ ! -r "$source_file" ]; then
+        echo "Google App Password source file is not readable" >&2
+        exit 2
+    fi
+    # Normalize a Google App Password without printing it or passing it as an
+    # argument. The file content is never logged by this script.
+    app_password=$(tr -d '[:space:]' <"$source_file")
+elif [ ! -s "$secret_file" ] || [ "${ROTATE_SECRET:-0}" = "1" ]; then
     printf 'Google App Password for %s: ' "$sender" >&2
     old_stty=$(stty -g 2>/dev/null || true)
     if [ -n "$old_stty" ]; then
@@ -47,7 +56,11 @@ if [ ! -s "$secret_file" ] || [ "${ROTATE_SECRET:-0}" = "1" ]; then
         stty "$old_stty"
         printf '\n' >&2
     fi
-    app_password=$(printf '%s' "$app_password" | tr -d '[:space:]')
+else
+    app_password=""
+fi
+
+if [ -n "$app_password" ]; then
     if [ "${#app_password}" -ne 16 ]; then
         echo "Google App Password must contain 16 characters" >&2
         exit 2

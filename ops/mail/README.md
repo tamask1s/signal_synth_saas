@@ -35,7 +35,7 @@ Verify the TLS connection and submit a real password-reset email through the
 live SaaS:
 
 ```sh
-ops/mail/verify_gmail_smtp.sh your-address@gmail.com
+scripts/task3_mail_dolgok.py gmail-verify your-address@gmail.com
 ```
 
 The final delivery check is the arrival of that message in Gmail Inbox or
