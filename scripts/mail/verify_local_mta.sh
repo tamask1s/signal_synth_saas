@@ -32,7 +32,7 @@ fi ||
   echo "mail verify: warning: DKIM DNS record is not published or not propagated" >&2
 if [ -n "$RECIPIENT" ]; then
   token="synsigra-mail-test-$(date +%s)"
-  printf 'From: noreply@%s\nTo: %s\nSubject: SynSigRa local MTA test %s\n\n%s\n' \
+  printf 'From: noreply@%s\nTo: %s\nSubject: Synsigra local MTA test %s\n\n%s\n' \
     "$DOMAIN" "$RECIPIENT" "$token" "$token" | sendmail -t
   echo "Submitted test message: $token"
 fi

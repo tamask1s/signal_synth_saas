@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise all live SynSigRa packs end-to-end.
+"""Exercise all live Synsigra packs end-to-end.
 
 The script is intentionally dependency-free so it can run on the VPS without
 creating a Python environment. It queues each pack as a live job, waits for a

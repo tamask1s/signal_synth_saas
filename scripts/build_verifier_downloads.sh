@@ -104,14 +104,14 @@ wheel_file=$(basename "$wheel")
 
 cp "$wheel" "$work_dir/bundle/wheels/$wheel_file"
 cat >"$work_dir/bundle/README.md" <<EOF
-# SynSigRa local verifier bundle
+# Synsigra local verifier bundle
 
-This bundle contains the generator-free SynSigRa Python verifier package.
+This bundle contains the generator-free Synsigra Python verifier package.
 
 It does not contain the C++ signal generator, generator source code, or any
 tool that can create new challenge packages. It only installs the local
 \`synsigra-verify\` command used to score your own detector outputs against a
-downloaded SynSigRa challenge package.
+downloaded Synsigra challenge package.
 
 ## Install
 
@@ -122,7 +122,7 @@ synsigra-verify --help
 
 ## Verify a downloaded package
 
-1. Download \`package.zip\` and the detector-template ZIP from the SynSigRa UI.
+1. Download \`package.zip\` and the detector-template ZIP from the Synsigra UI.
 2. Unzip the detector templates and replace rows under \`detections/\` with
    your algorithm output.
 3. Run:

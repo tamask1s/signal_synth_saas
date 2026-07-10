@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: SynSigRa SaaS API
+  title: Synsigra SaaS API
   version: 0.1.0
   description: Private-beta API for deterministic synthetic signal QA packages. Synthetic engineering data only; do not submit PHI.
 servers:
@@ -219,7 +219,7 @@ paths:
   /v1/downloads/verifier:
     get:
       summary: Read local verifier download metadata
-      description: Returns metadata for generator-free SynSigRa verifier downloads. The files install synsigra-verify only and do not include signal-synth or generator source.
+      description: Returns metadata for generator-free Synsigra verifier downloads. The files install synsigra-verify only and do not include signal-synth or generator source.
       security: [{cookieAuth: []}, {bearerAuth: []}]
       responses:
         '200':

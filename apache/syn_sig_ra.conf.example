@@ -14,7 +14,7 @@ SynSigRaPublicBasePath /syn_sig_ra
 # SynSigRaEmailTransport smtp
 # SynSigRaEmailPublicOrigin https://www.timeonion.com
 # SynSigRaEmailFrom noreply@timeonion.com
-# SynSigRaEmailFromName "SynSigRa"
+# SynSigRaEmailFromName "Synsigra"
 # SynSigRaEmailSmtpUrl smtps://smtp.provider.example:465
 # SynSigRaEmailSmtpTls required
 # SynSigRaEmailSmtpUsername smtp-user

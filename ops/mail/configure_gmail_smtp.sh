@@ -86,7 +86,7 @@ cat >"$temporary_config" <<EOF
 SynSigRaEmailTransport smtp
 SynSigRaEmailPublicOrigin https://www.timeonion.com
 SynSigRaEmailFrom $sender
-SynSigRaEmailFromName "SynSigRa"
+SynSigRaEmailFromName "Synsigra"
 SynSigRaEmailSmtpUrl smtp://smtp.gmail.com:587
 SynSigRaEmailSmtpTls required
 SynSigRaEmailSmtpUsername $sender

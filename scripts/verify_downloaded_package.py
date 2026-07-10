@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Score user detector output against a downloaded SynSigRa package."""
+"""Score user detector output against a downloaded Synsigra package."""
 
 import argparse
 import json

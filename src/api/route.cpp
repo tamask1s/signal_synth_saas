@@ -186,12 +186,12 @@ AccountEmailDeliveryStatus deliver_account_email(
     const std::string link = config.public_origin + public_base_path +
         "/account?" + action + "=" + token;
     const std::string subject = verification
-        ? "Verify your SynSigRa email"
-        : "Reset your SynSigRa password";
+        ? "Verify your Synsigra email"
+        : "Reset your Synsigra password";
     std::ostringstream body;
     body << (verification
-        ? "Verify your email to activate your SynSigRa account."
-        : "Use this link to choose a new SynSigRa password.")
+        ? "Verify your email to activate your Synsigra account."
+        : "Use this link to choose a new Synsigra password.")
          << "\n\n" << link << "\n\n"
          << (verification
             ? "This link expires in 24 hours."
@@ -508,7 +508,7 @@ std::string verification_kit_readme(
             ? pack->recommended_profile
             : "regression";
     std::ostringstream output;
-    output << "# SynSigRa verification kit\n\n"
+    output << "# Synsigra verification kit\n\n"
            << "Job: `" << job.job_id << "`\n\n"
            << "Pack: `" << job.selected_pack_id << "`";
     if (pack != nullptr && !pack->version.empty()) {
@@ -535,7 +535,7 @@ std::string verification_kit_readme(
     }
     output << "\n## Install the local verifier\n\n"
            << "Download the generator-free verifier wheel or bundle from the "
-           << "SynSigRa UI Verifier panel, then install it locally:\n\n"
+           << "Synsigra UI Verifier panel, then install it locally:\n\n"
            << "```sh\n"
            << "python -m pip install synsigra-wheel.whl\n"
            << "```\n\n";
@@ -1231,37 +1231,57 @@ const char kUiHtml[] = R"HTML(<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SynSigRa SaaS</title>
+  <title>Synsigra · Algorithm QA</title>
   <link rel="stylesheet" href="/syn_sig_ra/ui/style.css">
 </head>
 <body>
+  <header class="product-bar">
+    <a class="app-brand" href="/" data-no-spa>
+      <span class="app-mark" aria-hidden="true">S</span>
+      <span><strong>Synsigra</strong><small>Algorithm QA</small></span>
+    </a>
+    <nav class="primary-nav" aria-label="Primary navigation">
+      <a href="/syn_sig_ra/workspace" data-nav-page="workspace">Workspace</a>
+      <a href="/syn_sig_ra/packs" data-nav-page="packs">Packs</a>
+      <a href="/syn_sig_ra/generate" data-nav-page="generate">Generate</a>
+      <a href="/syn_sig_ra/jobs" data-nav-page="jobs">Jobs</a>
+      <a href="/syn_sig_ra/verify" data-nav-page="verify">Verify</a>
+    </nav>
+    <a id="header-account-link" class="profile-link" href="/syn_sig_ra/account" data-nav-page="account">
+      <span id="header-account-avatar" class="profile-avatar" aria-hidden="true">?</span>
+      <span id="header-account-label">Sign in</span>
+    </a>
+  </header>
   <main class="shell">
     <header class="app-header">
       <div>
-        <p class="eyebrow">SynSigRa private beta</p>
-        <h1>Algorithm QA workspace</h1>
-        <p class="lede">Choose a synthetic biosignal challenge, generate a deterministic package, verify your detector locally, and archive the evidence.</p>
+        <p class="eyebrow">Developer workspace</p>
+        <h1 id="page-heading">Algorithm QA workspace</h1>
+        <p id="page-description" class="lede">Choose a synthetic biosignal challenge, generate a deterministic package, verify your detector locally, and archive the evidence.</p>
       </div>
       <div class="status-card">
-        <div class="label">Service</div>
+        <div class="label"><span class="status-dot" aria-hidden="true"></span> Service status</div>
         <div id="health-status" class="status">checking…</div>
         <div id="readiness-status" class="muted">checking components…</div>
       </div>
     </header>
 
+    <div id="app-toast" class="app-toast" role="status" aria-live="polite" hidden></div>
+
     <div class="app-layout">
       <aside class="side-nav" aria-label="Workspace navigation">
-        <div class="side-nav-title">Guided workflow</div>
+        <div class="side-nav-title">Workflow</div>
         <a href="/syn_sig_ra/workspace" data-nav-page="workspace">Start</a>
-        <a href="/syn_sig_ra/packs" data-nav-page="packs">1. Choose pack</a>
-        <a href="/syn_sig_ra/generate" data-nav-page="generate">2. Generate job</a>
-        <a href="/syn_sig_ra/jobs" data-nav-page="jobs">3. Jobs</a>
-        <a href="/syn_sig_ra/verify" data-nav-page="verify">4. Verify locally</a>
-        <hr>
+        <a href="/syn_sig_ra/packs" data-nav-page="packs">Choose pack</a>
+        <a href="/syn_sig_ra/generate" data-nav-page="generate">Generate job</a>
+        <a href="/syn_sig_ra/jobs" data-nav-page="jobs">Jobs</a>
+        <a href="/syn_sig_ra/verify" data-nav-page="verify">Verify locally</a>
+        <div class="side-nav-title section-title">Build custom tests</div>
         <a href="/syn_sig_ra/scenarios" data-nav-page="scenarios">Scenario editor</a>
         <a href="/syn_sig_ra/custom-packs" data-nav-page="custom-packs">Custom packs</a>
-        <a href="/syn_sig_ra/account" data-nav-page="account">Account & API keys</a>
-        <a href="/syn_sig_ra/advanced" data-nav-page="advanced">Advanced / API</a>
+        <div class="side-nav-title section-title">Settings</div>
+        <a href="/syn_sig_ra/account" data-nav-page="account">Account</a>
+        <a href="/syn_sig_ra/advanced" data-nav-page="advanced">Developer / API</a>
       </aside>
 
       <div class="content-stack">
@@ -1579,13 +1599,13 @@ const char kQuickstartHtml[] = R"HTML(<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SynSigRa quickstart</title>
+  <title>Synsigra quickstart</title>
   <link rel="stylesheet" href="/syn_sig_ra/ui/style.css">
 </head>
 <body>
   <main class="shell">
     <section class="panel">
-      <p class="eyebrow">SynSigRa docs</p>
+      <p class="eyebrow">Synsigra docs</p>
       <h1>One-page quickstart</h1>
       <p class="verify-note"><strong>Synthetic engineering data only.</strong> Do not enter patient data, personal identifiers, clinical notes, PHI, or diagnostic-use claims.</p>
       <ol>
@@ -1614,13 +1634,13 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SynSigRa API reference</title>
+  <title>Synsigra API reference</title>
   <link rel="stylesheet" href="/syn_sig_ra/ui/style.css">
 </head>
 <body>
   <main class="shell">
     <section class="panel">
-      <p class="eyebrow">SynSigRa docs</p>
+      <p class="eyebrow">Synsigra docs</p>
       <h1>Rendered API reference</h1>
       <p>Base URL: <code>https://www.timeonion.com/syn_sig_ra</code>. Browser calls use the secure session cookie. Scripts and CI use <code>Authorization: Bearer &lt;api-key&gt;</code>.</p>
       <p class="verify-note"><strong>No PHI:</strong> API requests, project names, labels, scenario drafts, and custom-pack text must contain synthetic engineering data only.</p>
@@ -1693,13 +1713,13 @@ const char kTroubleshootingHtml[] = R"HTML(<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SynSigRa troubleshooting</title>
+  <title>Synsigra troubleshooting</title>
   <link rel="stylesheet" href="/syn_sig_ra/ui/style.css">
 </head>
 <body>
   <main class="shell">
     <section class="panel">
-      <p class="eyebrow">SynSigRa docs</p>
+      <p class="eyebrow">Synsigra docs</p>
       <h1>Troubleshooting</h1>
       <table>
         <thead><tr><th>Symptom / code</th><th>Action</th></tr></thead>
@@ -1719,7 +1739,7 @@ const char kTroubleshootingHtml[] = R"HTML(<!doctype html>
           <tr><td>Verifier exit <code>2</code></td><td>Fix CLI arguments. Start from the command in the completed-job recipe panel.</td></tr>
         </tbody>
       </table>
-      <p class="verify-note"><strong>Boundary:</strong> SynSigRa is synthetic engineering QA tooling, not clinical validation, diagnosis, patient monitoring, or PHI storage.</p>
+      <p class="verify-note"><strong>Boundary:</strong> Synsigra is synthetic engineering QA tooling, not clinical validation, diagnosis, patient monitoring, or PHI storage.</p>
       <p><a href="/syn_sig_ra/docs/quickstart">Quickstart</a> · <a href="/syn_sig_ra/docs/api">Rendered API reference</a> · <a href="/syn_sig_ra/">Back to app</a></p>
     </section>
   </main>
@@ -2371,6 +2391,264 @@ details.meta summary { cursor: pointer; font-weight: 700; }
   .row { align-items: stretch; flex-direction: column; }
   .meta-grid { grid-template-columns: 1fr; }
 }
+
+/* Synsigra landing-aligned application shell */
+:root {
+  color-scheme: dark;
+  --bg: #07111f;
+  --panel: rgba(15, 29, 49, .82);
+  --panel-solid: #0f1d31;
+  --text: #e7edf8;
+  --muted: #a7b3c9;
+  --border: rgba(167, 179, 201, .18);
+  --primary: #6f7cff;
+  --primary-dark: #5967ed;
+  --accent: #38d9ff;
+  --danger: #ff8c91;
+  --ok: #52e0a4;
+  --warn: #ffc66d;
+}
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 8% -10%, rgba(111, 124, 255, .26), transparent 34rem),
+    radial-gradient(circle at 92% 4%, rgba(56, 217, 255, .13), transparent 30rem),
+    var(--bg);
+}
+a { color: #9da7ff; }
+.product-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) auto minmax(190px, 1fr);
+  align-items: center;
+  gap: 24px;
+  min-height: 72px;
+  padding: 10px max(20px, calc((100vw - 1280px) / 2));
+  border-bottom: 1px solid var(--border);
+  background: rgba(7, 17, 31, .82);
+  backdrop-filter: blur(18px);
+}
+.app-brand, .profile-link, .primary-nav a {
+  color: var(--text);
+  text-decoration: none;
+}
+.app-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  width: max-content;
+}
+.app-brand > span:last-child { display: grid; line-height: 1.05; }
+.app-brand strong { font-size: 18px; letter-spacing: -.02em; }
+.app-brand small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.app-mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(157, 167, 255, .5);
+  border-radius: 13px;
+  background: linear-gradient(135deg, #6f7cff, #9a5cff 58%, #38d9ff);
+  box-shadow: 0 8px 24px rgba(111, 124, 255, .28);
+  color: white;
+  font-weight: 900;
+}
+.primary-nav { display: flex; gap: 5px; }
+.primary-nav a, .profile-link {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+.primary-nav a:hover, .primary-nav a.active, .profile-link:hover, .profile-link.active {
+  border-color: var(--border);
+  background: rgba(255, 255, 255, .06);
+  color: var(--text);
+}
+.profile-link {
+  display: inline-flex;
+  justify-self: end;
+  align-items: center;
+  gap: 8px;
+}
+.profile-avatar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(111,124,255,.5), rgba(56,217,255,.28));
+  color: white;
+}
+.shell { max-width: 1320px; padding-top: 30px; }
+.app-header {
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 300px);
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background: linear-gradient(135deg, rgba(111,124,255,.12), rgba(15,29,49,.7) 52%, rgba(56,217,255,.07));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .22);
+}
+.app-header h1 {
+  max-width: 820px;
+  font-size: clamp(30px, 4vw, 50px);
+  letter-spacing: -.04em;
+}
+.lede { margin-bottom: 0; }
+.status-card {
+  align-self: center;
+  padding: 15px 17px;
+  border-radius: 17px;
+  background: rgba(7, 17, 31, .55);
+  box-shadow: none;
+}
+.status-card .status { margin-top: 4px; font-size: 15px; }
+.status-card #readiness-status { font-size: 11px; line-height: 1.4; }
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 4px rgba(82, 224, 164, .12);
+}
+.side-nav, .panel, .step-card, .card, .job, .scenario-group {
+  border-color: var(--border);
+  background: var(--panel);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .16);
+  backdrop-filter: blur(12px);
+}
+.side-nav { top: 92px; border-radius: 20px; }
+.side-nav-title.section-title {
+  margin-top: 13px;
+  padding-top: 13px;
+  border-top: 1px solid var(--border);
+}
+.side-nav a:hover { background: rgba(255, 255, 255, .06); }
+.side-nav a.active {
+  background: linear-gradient(90deg, rgba(111,124,255,.22), rgba(56,217,255,.07));
+  color: #c7ceff;
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+.hero { align-items: start; }
+.step-card:hover, .job.focused {
+  border-color: rgba(111, 124, 255, .72);
+  box-shadow: 0 18px 45px rgba(37, 48, 132, .3);
+  transform: translateY(-1px);
+}
+.step-card.primary-step {
+  border-color: rgba(111, 124, 255, .4);
+  background: linear-gradient(145deg, rgba(111,124,255,.18), rgba(15,29,49,.88));
+}
+.workflow, .selected-pack, .verify-note {
+  border-color: var(--border);
+  background: rgba(111, 124, 255, .09);
+  color: var(--text);
+}
+.verify-note { background: rgba(82, 224, 164, .08); }
+.form-field, .array-editor, .array-item, .segmented label, .target-option,
+.preflight-stat, .scenario-group > .form-grid, input, select, textarea {
+  border-color: var(--border);
+  background: rgba(7, 17, 31, .72);
+  color: var(--text);
+}
+input::placeholder, textarea::placeholder { color: #72809a; }
+select { color-scheme: dark; }
+button.secondary, .button-link.secondary, button.danger {
+  border-color: var(--border);
+  background: rgba(255, 255, 255, .045);
+  color: var(--text);
+}
+button.secondary:hover, .button-link.secondary:hover { background: rgba(111,124,255,.14); }
+button.danger { color: var(--danger); }
+button.danger:hover { background: rgba(255, 140, 145, .1); }
+button, .button-link {
+  background: linear-gradient(135deg, var(--primary), #8b63ed);
+  box-shadow: 0 8px 20px rgba(75, 83, 201, .2);
+}
+button:hover, .button-link:hover {
+  background: linear-gradient(135deg, var(--primary-dark), #7751d8);
+}
+.tag { background: rgba(255,255,255,.07); color: var(--text); }
+.tag.scoreable, .badge.succeeded { background: rgba(82,224,164,.14); color: var(--ok); }
+.tag.reference, .badge.running { background: rgba(255,198,109,.13); color: var(--warn); }
+.tag.mode, .badge { background: rgba(111,124,255,.15); color: #b5bdff; }
+.badge.failed { background: rgba(255,140,145,.13); color: var(--danger); }
+.output { border: 1px solid var(--border); background: rgba(2, 8, 18, .84); }
+th, td { border-color: var(--border); }
+.app-toast {
+  position: fixed;
+  top: 88px;
+  right: 22px;
+  z-index: 80;
+  max-width: min(420px, calc(100vw - 44px));
+  padding: 13px 16px;
+  border: 1px solid rgba(82,224,164,.38);
+  border-radius: 14px;
+  background: rgba(12, 32, 37, .96);
+  box-shadow: 0 18px 50px rgba(0,0,0,.35);
+  color: var(--text);
+  font-weight: 700;
+}
+.app-toast.notice {
+  border-color: rgba(56,217,255,.35);
+  background: rgba(10,31,47,.96);
+}
+.app-toast.error {
+  border-color: rgba(255,140,145,.4);
+  background: rgba(48,18,28,.96);
+  color: #ffd3d5;
+}
+:focus-visible { outline: 3px solid rgba(56, 217, 255, .65); outline-offset: 3px; }
+@media (max-width: 980px) {
+  .product-bar { grid-template-columns: 1fr auto; gap: 8px 14px; }
+  .primary-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 3px;
+  }
+}
+@media (max-width: 820px) {
+  .product-bar { position: static; }
+  .shell { padding-top: 20px; }
+  .app-header { padding: 21px; }
+  .side-nav {
+    display: flex;
+    overflow-x: auto;
+    gap: 4px;
+    padding: 9px;
+  }
+  .side-nav-title { display: none; }
+  .side-nav a { flex: 0 0 auto; white-space: nowrap; }
+  .panel-heading { align-items: flex-start; flex-direction: column; }
+  .inline-label { width: 100%; min-width: 0; }
+}
+@media (max-width: 520px) {
+  .product-bar { padding-inline: 14px; }
+  .profile-link { padding-inline: 7px; }
+  #header-account-label { display: none; }
+  .shell { padding-inline: 12px; }
+  .app-header, .panel { border-radius: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
 )CSS";
 
 const char kUiJs[] = R"JS((() => {
@@ -2405,7 +2683,10 @@ const char kUiJs[] = R"JS((() => {
     jobsFingerprint: "",
     jobsLoaded: false,
     jobPollInFlight: false,
-    jobsNextOffset: null
+    jobsNextOffset: null,
+    focusJobId: "",
+    focusJobHandled: false,
+    toastTimer: null
   };
 
   const $ = (id) => document.getElementById(id);
@@ -2434,17 +2715,47 @@ const char kUiJs[] = R"JS((() => {
     }
   };
 
-  const pageTitles = {
-    workspace: "Start",
-    packs: "Choose pack",
-    generate: "Generate job",
-    jobs: "Jobs",
-    verify: "Verify locally",
-    scenarios: "Scenario editor",
-    "custom-packs": "Custom packs",
-    account: "Account",
-    advanced: "Advanced / API"
+  const pageDetails = {
+    workspace: {
+      title: "Algorithm QA workspace",
+      description: "Choose a synthetic biosignal challenge, generate a deterministic package, verify your detector locally, and archive the evidence."
+    },
+    packs: {
+      title: "Choose a challenge pack",
+      description: "Start with your detector goal, then compare scoreable targets, difficulty and intended workflow."
+    },
+    generate: {
+      title: "Generate a challenge package",
+      description: "Confirm the project and selected pack. Synsigra will open the new job as soon as it is accepted."
+    },
+    jobs: {
+      title: "Generation jobs",
+      description: "Follow package generation in place, download completed evidence, or continue into the verification runbook."
+    },
+    verify: {
+      title: "Verify your algorithm locally",
+      description: "Download the generator-free verifier and follow the exact runbook for a completed package."
+    },
+    scenarios: {
+      title: "Scenario workbench",
+      description: "Author synthetic edge cases with guided controls, validation and an advanced JSON escape hatch."
+    },
+    "custom-packs": {
+      title: "Custom pack composer",
+      description: "Combine validated scenario drafts into an immutable, reproducible challenge pack."
+    },
+    account: {
+      title: "Account and developer access",
+      description: "Manage your browser session, profile, usage and personal API keys."
+    },
+    advanced: {
+      title: "Developer documentation",
+      description: "Open the API contract, quickstart, troubleshooting and expert integration guidance."
+    }
   };
+  const pageTitles = Object.fromEntries(
+    Object.entries(pageDetails).map(([page, details]) => [page, details.title])
+  );
 
   function pageFromLocation() {
     const path = window.location.pathname.replace(/\/+$/, "");
@@ -2459,27 +2770,70 @@ const char kUiJs[] = R"JS((() => {
     return new URLSearchParams(window.location.search).get(name) || "";
   }
 
+  function safeNextPage(value) {
+    return Object.prototype.hasOwnProperty.call(pageTitles, value) && value !== "account"
+      ? value
+      : "";
+  }
+
   function renderCurrentPage() {
     state.currentPage = pageFromLocation();
+    const details = pageDetails[state.currentPage];
     document.querySelectorAll("[data-page]").forEach((node) => {
       node.classList.toggle("active", node.getAttribute("data-page") === state.currentPage);
     });
     document.querySelectorAll("[data-nav-page]").forEach((node) => {
       node.classList.toggle("active", node.getAttribute("data-nav-page") === state.currentPage);
     });
-    document.title = `SynSigRa · ${pageTitles[state.currentPage]}`;
+    $("page-heading").textContent = details.title;
+    $("page-description").textContent = details.description;
+    document.title = `Synsigra · ${details.title}`;
+    const accountLink = $("header-account-link");
+    const next = safeNextPage(state.currentPage);
+    accountLink.href = `${base}/account${next ? "?next=" + encodeURIComponent(next) : ""}`;
     if (state.currentPage === "verify") {
       state.runbookJobId = queryParam("job_id") || state.runbookJobId;
       renderVerificationRunbook();
     }
+    if (state.currentPage === "jobs") {
+      const focusJobId = queryParam("job_id");
+      if (focusJobId && focusJobId !== state.focusJobId) {
+        state.focusJobId = focusJobId;
+        state.focusJobHandled = false;
+      }
+      if (state.jobsLoaded) renderJobs();
+    }
   }
 
-  function navigateTo(page, params = {}) {
+  function navigateTo(page, params = {}, options = {}) {
+    const destination = Object.prototype.hasOwnProperty.call(pageTitles, page)
+      ? page
+      : "workspace";
     const query = new URLSearchParams(params);
-    const suffix = page === "workspace" ? "workspace" : page;
-    const url = `${base}/${suffix}${query.toString() ? "?" + query.toString() : ""}`;
-    window.history.pushState({}, "", url);
+    const url = `${base}/${destination}${query.toString() ? "?" + query.toString() : ""}`;
+    if (options.replace) {
+      window.history.replaceState({}, "", url);
+    } else {
+      window.history.pushState({}, "", url);
+    }
     renderCurrentPage();
+    if (!options.preserveScroll) {
+      window.scrollTo({
+        top: 0,
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+      });
+    }
+  }
+
+  function showToast(message, kind = "success") {
+    const node = $("app-toast");
+    window.clearTimeout(state.toastTimer);
+    node.textContent = message;
+    node.className = `app-toast ${kind}`;
+    node.hidden = false;
+    state.toastTimer = window.setTimeout(() => {
+      node.hidden = true;
+    }, 5000);
   }
 
   function setText(id, text, className) {
@@ -2540,11 +2894,14 @@ const char kUiJs[] = R"JS((() => {
       error.body = body;
       error.status = response.status;
       if (response.status === 401 && !path.startsWith("/v1/auth/")) {
+        const returnPage = safeNextPage(state.currentPage);
         state.account = null;
         state.authenticated = false;
         state.role = "";
         renderAuthState();
+        navigateTo("account", returnPage ? { next: returnPage } : {});
         setText("auth-output", "Your session expired. Sign in again.", "error");
+        showToast("Your session expired. Sign in to continue.", "error");
       }
       throw error;
     }
@@ -2574,6 +2931,13 @@ const char kUiJs[] = R"JS((() => {
   }
 
   function renderAuthState() {
+    const accountLabel = state.authenticated && state.account
+      ? state.account.display_name
+      : "Sign in";
+    $("header-account-label").textContent = accountLabel;
+    $("header-account-avatar").textContent = state.authenticated && accountLabel
+      ? accountLabel.trim().charAt(0).toUpperCase()
+      : "?";
     const resetFlow = Boolean(queryParam("reset"));
     $("signed-out-account").hidden = state.authenticated || resetFlow;
     $("signed-in-account").hidden = !state.authenticated;
@@ -3097,7 +3461,7 @@ const char kUiJs[] = R"JS((() => {
       }
       await saveResponseAsFile(response, filename);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   }
 
@@ -3837,7 +4201,13 @@ const char kUiJs[] = R"JS((() => {
             ${canWrite() ? `<button class="danger" data-delete-scenario="${escapeHtml(draft.scenario_id)}">Delete</button>` : ""}
           </div>
         </article>
-      `).join("") || "<p class=\"muted\">No scenario drafts yet.</p>";
+      `).join("") || `
+        <article class="job">
+          <h3>No scenario drafts yet</h3>
+          <p class="muted">Start from a core template or load the clean ECG example above.</p>
+          <button class="secondary" type="button" data-empty-new-scenario>Start a draft</button>
+        </article>
+      `;
     } catch (error) {
       $("scenarios").innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
     }
@@ -4040,7 +4410,13 @@ const char kUiJs[] = R"JS((() => {
           <span class="fingerprint">${escapeHtml(pack.pack_fingerprint)}</span>
           ${canWrite() ? `<div class="actions"><button class="danger" data-delete-custom-pack="${escapeHtml(pack.pack_id)}">Delete</button></div>` : ""}
         </article>
-      `).join("") || "<p class=\"muted\">No custom packs yet.</p>";
+      `).join("") || `
+        <article class="job">
+          <h3>No custom packs yet</h3>
+          <p class="muted">Create and validate a scenario draft, then compose your first immutable pack.</p>
+          <a class="button-link secondary" href="/syn_sig_ra/scenarios">Open scenarios</a>
+        </article>
+      `;
     } catch (error) {
       $("custom-packs").innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
     }
@@ -4087,6 +4463,7 @@ const char kUiJs[] = R"JS((() => {
       renderCustomPackReview();
       $("pack-select").value = pack.pack_id;
       navigateTo("generate");
+      showToast(`Custom pack ${pack.display_name || pack.pack_id} is ready to generate.`);
     } catch (error) {
       $("custom-pack-output").textContent = error.message;
     }
@@ -4098,7 +4475,7 @@ const char kUiJs[] = R"JS((() => {
       await api(`/v1/custom-packs/${encodeURIComponent(id)}`, { method: "DELETE" });
       await loadCustomPacks();
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   }
 
@@ -4173,6 +4550,12 @@ const char kUiJs[] = R"JS((() => {
       });
       state.selectedScenarioId = saved.scenario_id;
       $("scenario-output").textContent = `Saved: ${saved.status}`;
+      showToast(
+        saved.status === "valid"
+          ? "Scenario saved and ready for a custom pack."
+          : "Scenario draft saved. Resolve validation findings before packaging.",
+        saved.status === "valid" ? "success" : "notice"
+      );
     } catch (error) {
       $("scenario-output").textContent = error.message;
       if (error.body && error.body.draft) {
@@ -4190,7 +4573,7 @@ const char kUiJs[] = R"JS((() => {
       if (state.selectedScenarioId === id) newScenario();
       await loadScenarios();
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   }
 
@@ -4206,6 +4589,7 @@ const char kUiJs[] = R"JS((() => {
       $("project-name").value = "";
       await loadProjects();
       $("project-select").value = created.project_id;
+      showToast(`Project ${created.display_name || displayName} created and selected.`);
     } catch (error) {
       $("create-output").textContent = error.message;
     } finally {
@@ -4215,7 +4599,8 @@ const char kUiJs[] = R"JS((() => {
 
   async function createJob() {
     if (!state.authenticated) {
-      $("create-output").textContent = "Sign in first.";
+      navigateTo("account", { next: "generate" });
+      showToast("Sign in to create a challenge job.", "notice");
       return;
     }
     const packId = $("pack-select").value;
@@ -4228,10 +4613,13 @@ const char kUiJs[] = R"JS((() => {
     $("create-output").textContent = "Creating job…";
     try {
       const body = await api("/v1/jobs", { method: "POST", json: { project_id: projectId, pack_id: packId } });
-      $("create-output").textContent = JSON.stringify(body, null, 2);
       await loadJobs({ force: true });
-      await loadUsage();
-      await loadMetrics();
+      await Promise.all([loadUsage(), loadMetrics()]);
+      state.focusJobId = body.job_id;
+      state.focusJobHandled = false;
+      $("create-output").textContent = "";
+      navigateTo("jobs", { job_id: body.job_id });
+      showToast("Challenge job created. Its status will update automatically.");
     } catch (error) {
       $("create-output").textContent = error.message;
     } finally {
@@ -4551,7 +4939,13 @@ const char kUiJs[] = R"JS((() => {
   function renderJobs() {
     const container = $("jobs");
     if (!state.jobs.length) {
-      container.innerHTML = "<p class=\"muted\">No jobs yet.</p>";
+      container.innerHTML = `
+        <article class="job">
+          <h3>No generation jobs yet</h3>
+          <p class="muted">Choose a curated or custom challenge pack to create your first reproducible package.</p>
+          <a class="button-link" href="/syn_sig_ra/packs">Choose a pack</a>
+        </article>
+      `;
       renderVerificationRunbook();
       return;
     }
@@ -4578,7 +4972,7 @@ const char kUiJs[] = R"JS((() => {
       const error = job.error ? `<p class="error">${escapeHtml(job.error.code)}: ${escapeHtml(job.error.message)}</p>` : "";
       const verification = verifierRecipe(job);
       return `
-        <article class="job">
+        <article class="job${job.job_id === state.focusJobId ? " focused" : ""}" data-job-card="${escapeHtml(job.job_id)}">
           <div class="job-header">
             <div>
               <h3>${escapeHtml(job.pack_id || "(unknown pack)")}</h3>
@@ -4611,6 +5005,13 @@ const char kUiJs[] = R"JS((() => {
         </article>
       `;
     }).join("");
+    if (state.focusJobId && !state.focusJobHandled) {
+      const focused = container.querySelector(`[data-job-card="${CSS.escape(state.focusJobId)}"]`);
+      if (focused) {
+        state.focusJobHandled = true;
+        window.requestAnimationFrame(() => focused.scrollIntoView({ block: "center", behavior: "smooth" }));
+      }
+    }
     renderVerificationRunbook();
   }
 
@@ -4625,7 +5026,7 @@ const char kUiJs[] = R"JS((() => {
       state.jobsLoaded = true;
       renderJobs();
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   }
 
@@ -4638,7 +5039,7 @@ const char kUiJs[] = R"JS((() => {
       await loadUsage();
       await loadMetrics();
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   }
 
@@ -4654,7 +5055,7 @@ const char kUiJs[] = R"JS((() => {
       }
       await saveResponseAsFile(response, `${packageId}-${file}`);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   }
 
@@ -4670,7 +5071,7 @@ const char kUiJs[] = R"JS((() => {
       }
       await saveResponseAsFile(response, `${jobId}-detection-templates.zip`);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   }
 
@@ -4686,7 +5087,7 @@ const char kUiJs[] = R"JS((() => {
       }
       await saveResponseAsFile(response, `${jobId}-verification-kit.zip`);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   }
 
@@ -4765,9 +5166,11 @@ const char kUiJs[] = R"JS((() => {
       state.authenticated = true;
       state.role = account.role || "";
       state.pendingVerificationEmail = "";
-      setText("auth-output", "Signed in.", "muted ok");
       renderAuthState();
       await refreshAuthenticatedData();
+      const destination = safeNextPage(queryParam("next")) || "workspace";
+      navigateTo(destination);
+      showToast(`Welcome back, ${account.display_name}.`);
     } catch (error) {
       setText("auth-output", error.message, "error");
     }
@@ -4818,10 +5221,9 @@ const char kUiJs[] = R"JS((() => {
       state.authenticated = true;
       state.role = account.role || "";
       state.pendingVerificationEmail = "";
-      window.history.replaceState({}, "", `${base}/account`);
-      renderCurrentPage();
-      setText("auth-output", "Email verified. You are signed in.", "muted ok");
       renderAuthState();
+      navigateTo("packs", { welcome: "1" }, { replace: true });
+      showToast("Email verified. Choose your first challenge pack.");
     } catch (error) {
       setText("auth-output", error.message, "error");
     }
@@ -4840,15 +5242,14 @@ const char kUiJs[] = R"JS((() => {
         method: "POST",
         json: { token, password }
       });
-      window.history.replaceState({}, "", `${base}/account`);
       $("reset-password").value = "";
       state.account = account;
       state.authenticated = true;
       state.role = account.role || "";
-      setText("auth-output", "Password changed. You are signed in.", "muted ok");
-      renderCurrentPage();
       renderAuthState();
       await refreshAuthenticatedData();
+      navigateTo("workspace", {}, { replace: true });
+      showToast("Password changed. You are signed in.");
     } catch (error) {
       setText("auth-output", error.message, "error");
     }
@@ -4862,9 +5263,11 @@ const char kUiJs[] = R"JS((() => {
     state.authenticated = false;
     state.role = "";
     state.apiKeys = [];
-    renderAuthState();
-    setText("auth-output", "Signed out.", "muted");
     await refreshAuthenticatedData();
+    renderAuthState();
+    navigateTo("account");
+    setText("auth-output", "Signed out.", "muted");
+    showToast("You are signed out.", "notice");
   }
 
   function renderApiKeys() {
@@ -4926,7 +5329,7 @@ const char kUiJs[] = R"JS((() => {
       });
       await loadApiKeys();
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   }
 
@@ -5119,6 +5522,11 @@ const char kUiJs[] = R"JS((() => {
   $("scenarios").addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+    if (target.hasAttribute("data-empty-new-scenario")) {
+      newScenario();
+      $("scenario-template-select").focus();
+      return;
+    }
     const editId = target.getAttribute("data-edit-scenario");
     const deleteId = target.getAttribute("data-delete-scenario");
     const validationPath = target.getAttribute("data-validation-path");
@@ -5164,8 +5572,7 @@ const char kUiJs[] = R"JS((() => {
       : url.pathname.slice(base.length).replace(/^\/+|\/+$/g, "");
     if (!Object.prototype.hasOwnProperty.call(pageTitles, suffix)) return;
     event.preventDefault();
-    window.history.pushState({}, "", url.pathname + url.search);
-    renderCurrentPage();
+    navigateTo(suffix, Object.fromEntries(url.searchParams.entries()));
   });
 
   async function initialize() {

@@ -85,7 +85,7 @@ if [ -f "$APACHE_CONF" ]; then
 SynSigRaEmailTransport smtp
 SynSigRaEmailPublicOrigin https://www.timeonion.com
 SynSigRaEmailFrom $FROM_EMAIL
-SynSigRaEmailFromName SynSigRa
+SynSigRaEmailFromName Synsigra
 SynSigRaEmailSmtpUrl smtp://127.0.0.1:25
 SynSigRaEmailSmtpTls disabled
 EOF

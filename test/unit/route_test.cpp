@@ -101,7 +101,10 @@ int main() {
     require(
         ui.content_type.find("text/html") != std::string::npos &&
             ui.body.find("Algorithm QA workspace") != std::string::npos &&
-            ui.body.find("Guided workflow") != std::string::npos &&
+            ui.body.find("class=\"product-bar\"") != std::string::npos &&
+            ui.body.find("Build custom tests") != std::string::npos &&
+            ui.body.find("header-account-link") != std::string::npos &&
+            ui.body.find("app-toast") != std::string::npos &&
             ui.body.find("What do you want to do next?") != std::string::npos &&
             ui.body.find("pack-intent-filter") != std::string::npos &&
             ui.body.find("pack-comparison") != std::string::npos &&
@@ -121,7 +124,9 @@ int main() {
             ui.body.find("save-key") == std::string::npos &&
             ui.body.find("/syn_sig_ra/docs/api") != std::string::npos &&
             ui.body.find("No PHI") != std::string::npos &&
-            ui.body.find("Evidence path") != std::string::npos,
+            ui.body.find("Evidence path") != std::string::npos &&
+            ui.body.find("SynSigRa") == std::string::npos &&
+            ui.body.find("Sinsigra") == std::string::npos,
         "web UI route should return HTML"
     );
     const syn_sig_ra::RouteResponse packs_page =
@@ -185,12 +190,28 @@ int main() {
             ui_js.body.find("renderCustomPackReview") != std::string::npos &&
             ui_js.body.find("groupValidationErrors") != std::string::npos &&
             ui_js.body.find("saveResponseAsFile") != std::string::npos &&
+            ui_js.body.find("showToast") != std::string::npos &&
+            ui_js.body.find("safeNextPage") != std::string::npos &&
+            ui_js.body.find("navigateTo(\"jobs\", { job_id: body.job_id })") !=
+                std::string::npos &&
+            ui_js.body.find("focusJobId") != std::string::npos &&
             ui_js.body.find("data-no-spa") != std::string::npos &&
             ui_js.body.find("link.hasAttribute(\"download\")") !=
                 std::string::npos &&
             ui_js.body.find("url.protocol !== \"http:\"") !=
                 std::string::npos,
         "web UI JavaScript asset should be served as an executable IIFE"
+    );
+    const syn_sig_ra::RouteResponse ui_css =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/ui/style.css");
+    require(
+        ui_css.status == 200 &&
+            ui_css.content_type.find("text/css") != std::string::npos &&
+            ui_css.body.find("Synsigra landing-aligned application shell") !=
+                std::string::npos &&
+            ui_css.body.find(".product-bar") != std::string::npos &&
+            ui_css.body.find("#07111f") != std::string::npos,
+        "web UI stylesheet should expose the landing-aligned application shell"
     );
     const syn_sig_ra::RouteResponse ui_trailing_slash =
         syn_sig_ra::route_request("GET", "/syn_sig_ra/");
@@ -264,7 +285,7 @@ int main() {
     email_config.transport = syn_sig_ra::EmailTransport::capture_file;
     email_config.public_origin = "https://example.test";
     email_config.from_email = "noreply@example.test";
-    email_config.from_name = "SynSigRa Test";
+    email_config.from_name = "Synsigra Test";
     email_config.capture_directory = email_capture;
     std::string key_hash;
     std::string error;

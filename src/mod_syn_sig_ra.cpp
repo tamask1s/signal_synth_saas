@@ -96,7 +96,7 @@ void* create_server_config(apr_pool_t* pool, server_rec*) {
     config->email_transport = "disabled";
     config->email_public_origin = "";
     config->email_from = "";
-    config->email_from_name = "SynSigRa";
+    config->email_from_name = "Synsigra";
     config->email_smtp_url = "";
     config->email_smtp_username = "";
     config->email_smtp_password_file = "";

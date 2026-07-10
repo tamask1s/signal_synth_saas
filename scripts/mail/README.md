@@ -1,6 +1,6 @@
 # Local outbound mail (Postfix + OpenDKIM)
 
-This is an optional send-only MTA for the SynSigRa VPS. Postfix accepts SMTP
+This is an optional send-only MTA for the Synsigra VPS. Postfix accepts SMTP
 only from loopback and delivers outbound mail directly to the recipient domain's
 MX. OpenDKIM signs `From: noreply@timeonion.com` messages. The SaaS uses
 `smtp://127.0.0.1:25` with `SynSigRaEmailSmtpTls disabled`; plaintext is accepted

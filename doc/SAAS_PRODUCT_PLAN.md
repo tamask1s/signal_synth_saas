@@ -2,7 +2,7 @@
 
 Updated: 2026-07-06
 
-SynSigRa SaaS is now a working private-beta hosted workflow for synthetic
+Synsigra SaaS is now a working private-beta hosted workflow for synthetic
 biosignal algorithm QA. The product remains intentionally thin: generation,
 pack validation, challenge packaging, and local verifier semantics stay in the
 sibling `signal_synth` project. This repo owns browser access, projects,

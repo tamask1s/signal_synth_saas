@@ -222,7 +222,7 @@ SynSigRaPublicBasePath /syn_sig_ra
 # SynSigRaEmailTransport smtp
 # SynSigRaEmailPublicOrigin https://www.timeonion.com
 # SynSigRaEmailFrom noreply@timeonion.com
-# SynSigRaEmailFromName "SynSigRa"
+# SynSigRaEmailFromName "Synsigra"
 # SynSigRaEmailSmtpUrl smtps://smtp.provider.example:465
 # SynSigRaEmailSmtpUsername smtp-user
 # SynSigRaEmailSmtpPasswordFile /etc/syn_sig_ra/smtp-password
@@ -273,7 +273,7 @@ Create `/etc/systemd/system/syn_sig_ra_worker.service`:
 
 ```systemd
 [Unit]
-Description=SynSigRa SaaS worker
+Description=Synsigra SaaS worker
 After=network.target apache22.service
 
 [Service]

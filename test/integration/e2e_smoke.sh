@@ -232,7 +232,7 @@ SynSigRaPublicBasePath /syn_sig_ra
 SynSigRaEmailTransport capture_file
 SynSigRaEmailPublicOrigin "$BASE_URL"
 SynSigRaEmailFrom noreply@example.test
-SynSigRaEmailFromName "SynSigRa Test"
+SynSigRaEmailFromName "Synsigra Test"
 SynSigRaEmailCaptureDirectory "$MAIL_ROOT"
 
 <Location "/syn_sig_ra">
@@ -275,7 +275,9 @@ grep -q '"status":"ready"' "$WORK_ROOT/ready.json" ||
 curl -fsS "$BASE_URL" >"$WORK_ROOT/ui.html" ||
     fail "web UI HTML request failed"
 if ! grep -q 'Algorithm QA workspace' "$WORK_ROOT/ui.html" ||
-    ! grep -q 'Guided workflow' "$WORK_ROOT/ui.html" ||
+    ! grep -q 'class="product-bar"' "$WORK_ROOT/ui.html" ||
+    ! grep -q 'header-account-link' "$WORK_ROOT/ui.html" ||
+    ! grep -q 'Build custom tests' "$WORK_ROOT/ui.html" ||
     ! grep -q 'verification-runbook' "$WORK_ROOT/ui.html" ||
     ! grep -q 'custom-pack-review' "$WORK_ROOT/ui.html" ||
     ! grep -q 'custom-pack-scenario-search' "$WORK_ROOT/ui.html" ||
@@ -309,6 +311,9 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q 'artifactEditorHtml' "$WORK_ROOT/app.js" ||
     ! grep -q 'renderCustomPackAnalysis' "$WORK_ROOT/app.js" ||
     ! grep -q 'saveResponseAsFile' "$WORK_ROOT/app.js" ||
+    ! grep -q 'showToast' "$WORK_ROOT/app.js" ||
+    ! grep -q 'safeNextPage' "$WORK_ROOT/app.js" ||
+    ! grep -q 'focusJobId' "$WORK_ROOT/app.js" ||
     ! grep -q 'data-no-spa' "$WORK_ROOT/app.js" ||
     ! grep -q 'link.hasAttribute("download")' "$WORK_ROOT/app.js" ||
     ! grep -q 'verifyEmailFromLink' "$WORK_ROOT/app.js" ||

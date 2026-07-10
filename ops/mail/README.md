@@ -1,6 +1,6 @@
 # Gmail SMTP for transactional account email
 
-SynSigRa can use a real Gmail account as its authenticated transactional SMTP
+Synsigra can use a real Gmail account as its authenticated transactional SMTP
 sender. The SaaS already contains a libcurl SMTP client. Postfix/OpenDKIM are installed
 as an optional loopback/direct-delivery experiment, but the production path
 should use authenticated Gmail SMTP because the VPS IP is currently blocked by
@@ -10,7 +10,7 @@ recipient MX policy.
 
 1. Enable 2-Step Verification on the sender Google account.
 2. Open <https://myaccount.google.com/apppasswords>.
-3. Create a dedicated app password named `SynSigRa VPS`.
+3. Create a dedicated app password named `Synsigra VPS`.
 4. Keep the generated 16-character value open until the server script asks for
    it. Do not use or store the normal Google account password.
 
@@ -63,7 +63,7 @@ run the same rotation command afterward.
 
 Remove the `Include conf/extra/syn_sig_ra_email.conf` line from
 `/usr/local/apache2/conf/extra/syn_sig_ra.conf`, validate Apache, and reload it.
-Then revoke the `SynSigRa VPS` App Password in the Google account and delete
+Then revoke the `Synsigra VPS` App Password in the Google account and delete
 `/etc/syn_sig_ra/gmail-app-password`.
 
 Gmail authenticates and sends the message as the configured Gmail address.

@@ -1,6 +1,6 @@
-# SynSigRa SaaS
+# Synsigra SaaS
 
-SynSigRa SaaS is the hosted orchestration layer for deterministic synthetic biosignal challenge-package generation. It lets an algorithm developer or QA team create reproducible ECG/PPG/HRV test packages, download waveform and ground-truth artifacts, run proprietary algorithms locally, and verify the algorithm output against packaged reference data.
+Synsigra SaaS is the hosted orchestration layer for deterministic synthetic biosignal challenge-package generation. It lets an algorithm developer or QA team create reproducible ECG/PPG/HRV test packages, download waveform and ground-truth artifacts, run proprietary algorithms locally, and verify the algorithm output against packaged reference data.
 
 The service is intentionally thin: signal generation and authoritative scoring contracts remain in the sibling [`signal_synth`](https://github.com/tamask1s/signal_synth) project. The SaaS layer handles browser access, projects, curated/custom packs, job orchestration, artifact retention, usage limits, and operational visibility.
 
@@ -16,7 +16,7 @@ API base URL:
 https://www.timeonion.com/syn_sig_ra
 ```
 
-> Synthetic engineering data only. Do not enter patient data, personal identifiers, clinical notes, PHI, or other personal data. SynSigRa SaaS is engineering QA tooling, not a medical diagnostic device, patient monitor, certified validator, or clinical validation system.
+> Synthetic engineering data only. Do not enter patient data, personal identifiers, clinical notes, PHI, or other personal data. Synsigra SaaS is engineering QA tooling, not a medical diagnostic device, patient monitor, certified validator, or clinical validation system.
 
 ## Current status
 
@@ -30,13 +30,13 @@ https://www.timeonion.com/syn_sig_ra
 
 ## Product boundary
 
-SynSigRa SaaS is for offline-first algorithm verification:
+Synsigra SaaS is for offline-first algorithm verification:
 
 1. Select or compose a deterministic synthetic challenge pack.
 2. Generate a package in the SaaS worker.
 3. Download `manifest.json` and `package.zip`.
 4. Run your algorithm locally against the package files.
-5. Verify local detector outputs against packaged ground truth using the SynSigRa local verifier.
+5. Verify local detector outputs against packaged ground truth using the Synsigra local verifier.
 6. Archive the package, manifest, provenance bundle, detector build/configuration, detections, and verification reports together.
 
 The SaaS does **not** execute customer detector code and does **not** receive proprietary algorithm output unless the user explicitly sends it elsewhere outside this product workflow.
@@ -53,17 +53,21 @@ Non-goals:
 ## Quick start: browser
 
 1. Open `https://www.timeonion.com/syn_sig_ra/`.
-2. Create an account with an e-mail address, display name, and a password of at least 12 characters. Open the verification link sent to your inbox; it signs you in after confirming ownership. Existing verified users can sign in directly.
-3. If you forget the password, enter the account e-mail on the account page and choose **Email me a reset link**. The link is single-use, expires after 30 minutes, invalidates older browser sessions, and signs you in after the password change.
-4. Start on the guided workspace. It answers the next action: sign in, choose a pack, watch a running job, or verify a completed package.
+2. Use the persistent **Account** profile action to register with an e-mail address, display name, and a password of at least 12 characters. The registration page stays open with a clear inbox prompt; opening the verification link signs you in and continues directly to **Packs**.
+3. Existing users can sign in directly. When sign-in was requested from another page, Synsigra returns to that validated destination. If you forget the password, choose **Email me a reset link** on Account. The link is single-use, expires after 30 minutes, invalidates older browser sessions, and continues to the Workspace after signing in.
+4. Use the persistent product menu for **Workspace**, **Packs**, **Generate**, **Jobs**, and **Verify**. The secondary navigation groups the guided workflow, custom scenario/pack tools, and developer settings. Workspace also recommends the next useful action based on account and job state.
 5. Check the service status card:
    - `health` means the Apache application responds;
    - `ready` means the database, generator, pack catalog, and artifact store are available.
 6. Open **Choose pack** (`/syn_sig_ra/packs`) and filter by detector target, workflow intent, scoring mode, and difficulty. Use the recommendation or comparison table if you do not know pack IDs.
-7. Open **Generate job** (`/syn_sig_ra/generate`), select the `Default` project or create another project if your role permits, confirm the pack, and create a job.
-8. Open **Jobs** (`/syn_sig_ra/jobs`) and wait for `succeeded`.
+7. Open **Generate job** (`/syn_sig_ra/generate`), select the `Default` project or create another project if your role permits, confirm the pack, and create a job. Successful creation automatically opens **Jobs** and focuses the new job card.
+8. Keep **Jobs** (`/syn_sig_ra/jobs`) open and wait for `succeeded`. Status polling updates only changed content; it does not reload the page.
 9. Open **Verify locally** (`/syn_sig_ra/verify`) from the completed job's **Open verification runbook** action.
 10. Download the verification kit, install the generator-free verifier, replace detection-template rows with algorithm output, copy the exact `synsigra-verify` command, then archive the evidence bundle.
+
+Successful project, scenario, custom-pack, authentication and job actions show a short
+in-app confirmation. Browser back/forward navigation remains available, and each
+application page has its own shareable URL under `/syn_sig_ra/...`.
 
 ## Recommended verification workflow
 
@@ -141,9 +145,9 @@ Optional columns include:
 sample_index, channel, label, confidence
 ```
 
-JSON detection documents are also supported by the SynSigRa local verifier.
+JSON detection documents are also supported by the Synsigra local verifier.
 
-### 3. Verify locally with the SynSigRa SDK
+### 3. Verify locally with the Synsigra SDK
 
 Open the UI's **Verifier** panel and download either:
 

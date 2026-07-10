@@ -67,7 +67,7 @@ std::string mail_payload(
 ) {
     std::ostringstream output;
     const std::string from_name = config.from_name.empty()
-        ? "SynSigRa"
+        ? "Synsigra"
         : header_safe(config.from_name);
     output << "From: " << from_name << " <" << config.from_email << ">\r\n"
            << "To: <" << recipient_email << ">\r\n"
@@ -145,7 +145,7 @@ syn_sig_ra::EmailSendStatus write_capture(
     const std::string path =
         config.capture_directory + "/" + id + ".eml";
     std::ofstream output(path.c_str(), std::ios::binary | std::ios::trunc);
-    output << "X-SynSigRa-Capture-To: " << recipient_email << "\n";
+    output << "X-Synsigra-Capture-To: " << recipient_email << "\n";
     output << payload;
     if (!output) {
         error = "unable to write captured email";

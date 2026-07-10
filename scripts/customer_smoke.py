@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dependency-free SynSigRa customer smoke client. Synthetic data only."""
+"""Dependency-free Synsigra customer smoke client. Synthetic data only."""
 
 import argparse
 import json
