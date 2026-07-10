@@ -497,11 +497,13 @@ For immutable custom packs assembled from scenario drafts, see
 ## Metadata and API keys
 
 The module initializes a versioned SQLite database at
-`<SynSigRaDataRoot>/db.sqlite3`. Schema version 8 contains accounts, salted
-password credentials, expiring sessions, organizations, memberships, projects,
-API-key hashes, jobs, packages, and audit events. API keys must be high-entropy
-secrets; only their lowercase SHA-256 hashes are persisted. This pre-beta
-schema requires a clean database reset when its version changes.
+`<SynSigRaDataRoot>/db.sqlite3`. Schema version 9 contains accounts, salted
+password credentials, email-verification state, hashed expiring single-use
+email tokens, delivery/submission rate-limit records, expiring sessions,
+organizations, memberships, projects, API-key hashes, jobs, packages, and
+audit events. API keys and email tokens must be high-entropy secrets; only
+their lowercase SHA-256 hashes are persisted. The service upgrades the live
+version-8 beta schema to version 9 while preserving existing users as verified.
 
 API keys resolve to an organization membership with an `owner`, `admin`,
 `developer`, or `viewer` role. Jobs and packages are project-scoped. See

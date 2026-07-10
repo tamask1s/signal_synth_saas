@@ -65,9 +65,9 @@ The service must not become:
 
 ## Current beta limitations
 
-- Registration is open, but e-mail ownership verification and password
-  recovery are not implemented.
-- No transactional e-mail provider is configured.
+- E-mail ownership verification and password recovery are implemented, but
+  production registration/recovery sending remains disabled until a
+  transactional SMTP provider and verified sender domain are configured.
 - Legal/commercial terms are not ready for less-trusted users.
 - Security baseline needs a focused threat model, secret rotation review, and
   audit export story before broader beta.
@@ -86,7 +86,6 @@ Before broader external beta:
 - [#22 Release, CI/CD, and deployment automation](https://github.com/tamask1s/signal_synth_saas/issues/22)
 - [#23 Security baseline: threat model, secret rotation, audit export](https://github.com/tamask1s/signal_synth_saas/issues/23)
 - [#24 Commercial and legal readiness for private beta](https://github.com/tamask1s/signal_synth_saas/issues/24)
-- [#30 Transactional email verification and password recovery](https://github.com/tamask1s/signal_synth_saas/issues/30)
 
 Product/API hardening after the default verification path:
 

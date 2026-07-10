@@ -217,6 +217,16 @@ SynSigRaSignalSynthCli /opt/signal_synth/bin/signal-synth
 SynSigRaPackRoot /opt/signal_synth_saas/packs
 SynSigRaPublicBasePath /syn_sig_ra
 
+# Enable only after the provider has verified the sender domain and the
+# password file has been created with restrictive permissions.
+# SynSigRaEmailTransport smtp
+# SynSigRaEmailPublicOrigin https://www.timeonion.com
+# SynSigRaEmailFrom noreply@timeonion.com
+# SynSigRaEmailFromName "SynSigRa"
+# SynSigRaEmailSmtpUrl smtps://smtp.provider.example:465
+# SynSigRaEmailSmtpUsername smtp-user
+# SynSigRaEmailSmtpPasswordFile /etc/syn_sig_ra/smtp-password
+
 <Location "/syn_sig_ra">
     SetHandler syn_sig_ra
     Order allow,deny
@@ -234,6 +244,19 @@ grep -q '^Include conf/extra/syn_sig_ra.conf$' \
   echo 'Include conf/extra/syn_sig_ra.conf' |
     sudo tee -a /usr/local/apache2/conf/httpd.conf >/dev/null
 ```
+
+Before uncommenting the SMTP directives, add the provider-supplied SPF and
+DKIM records to the sender domain, wait for provider verification, and store
+the generated SMTP password outside the repository:
+
+```sh
+sudo install -d -m 0750 -o root -g apache /etc/syn_sig_ra
+sudo install -m 0640 -o root -g apache /dev/null /etc/syn_sig_ra/smtp-password
+sudo sh -c 'umask 027; read -r SMTP_PASSWORD; printf "%s\n" "$SMTP_PASSWORD" > /etc/syn_sig_ra/smtp-password'
+```
+
+Replace `apache` with the actual group used by the custom Apache service. Do
+not enable the test-only `capture_file` transport in production.
 
 Validate and reload:
 
