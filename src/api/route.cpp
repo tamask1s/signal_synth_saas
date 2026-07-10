@@ -2899,7 +2899,9 @@ const char kUiJs[] = R"JS((() => {
         state.authenticated = false;
         state.role = "";
         renderAuthState();
-        navigateTo("account", returnPage ? { next: returnPage } : {});
+        if (state.currentPage !== "account") {
+          navigateTo("account", returnPage ? { next: returnPage } : {});
+        }
         setText("auth-output", "Your session expired. Sign in again.", "error");
         showToast("Your session expired. Sign in to continue.", "error");
       }
@@ -4474,6 +4476,7 @@ const char kUiJs[] = R"JS((() => {
     try {
       await api(`/v1/custom-packs/${encodeURIComponent(id)}`, { method: "DELETE" });
       await loadCustomPacks();
+      showToast("Custom pack removed. Existing jobs remain reproducible.");
     } catch (error) {
       showToast(error.message, "error");
     }
@@ -4572,6 +4575,7 @@ const char kUiJs[] = R"JS((() => {
       await api(`/v1/scenarios/${encodeURIComponent(id)}`, { method: "DELETE" });
       if (state.selectedScenarioId === id) newScenario();
       await loadScenarios();
+      showToast("Scenario draft deleted.", "notice");
     } catch (error) {
       showToast(error.message, "error");
     }
@@ -5025,6 +5029,7 @@ const char kUiJs[] = R"JS((() => {
       state.jobsFingerprint = jobsFingerprint(state.jobs);
       state.jobsLoaded = true;
       renderJobs();
+      showToast("Job removed from the list.", "notice");
     } catch (error) {
       showToast(error.message, "error");
     }
@@ -5035,9 +5040,12 @@ const char kUiJs[] = R"JS((() => {
       await api(`/v1/jobs/${encodeURIComponent(jobId)}/${action}`, {
         method: "POST"
       });
-      await loadJobs({ force: true });
-      await loadUsage();
-      await loadMetrics();
+      await Promise.all([
+        loadJobs({ force: true }),
+        loadUsage(),
+        loadMetrics()
+      ]);
+      showToast(action === "retry" ? "Job queued for retry." : "Job cancelled.", "notice");
     } catch (error) {
       showToast(error.message, "error");
     }
@@ -5316,6 +5324,7 @@ const char kUiJs[] = R"JS((() => {
       $("api-key-secret").textContent =
         `Copy this key now; it will not be shown again:\n${created.api_key}`;
       await loadApiKeys();
+      showToast("API key created. Copy the secret now; it is shown only once.");
     } catch (error) {
       $("api-key-secret").textContent = error.message;
     }
@@ -5328,6 +5337,7 @@ const char kUiJs[] = R"JS((() => {
         method: "DELETE"
       });
       await loadApiKeys();
+      showToast("API key revoked.", "notice");
     } catch (error) {
       showToast(error.message, "error");
     }

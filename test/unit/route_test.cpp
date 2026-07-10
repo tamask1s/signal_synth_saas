@@ -194,6 +194,9 @@ int main() {
             ui_js.body.find("safeNextPage") != std::string::npos &&
             ui_js.body.find("navigateTo(\"jobs\", { job_id: body.job_id })") !=
                 std::string::npos &&
+            ui_js.body.find(
+                "navigateTo(\"packs\", { welcome: \"1\" }, { replace: true })"
+            ) != std::string::npos &&
             ui_js.body.find("focusJobId") != std::string::npos &&
             ui_js.body.find("data-no-spa") != std::string::npos &&
             ui_js.body.find("link.hasAttribute(\"download\")") !=

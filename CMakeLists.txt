@@ -236,6 +236,10 @@ if(BUILD_TESTING)
     add_test(NAME pack_catalog_unit COMMAND syn_sig_ra_pack_catalog_test)
     add_test(NAME job_unit COMMAND syn_sig_ra_job_test)
     add_test(NAME worker_unit COMMAND syn_sig_ra_worker_test)
+    add_test(
+        NAME user_facing_brand
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/test/user_facing_brand_test.sh"
+    )
 
     find_program(NM_EXECUTABLE NAMES nm llvm-nm)
     if(NM_EXECUTABLE)

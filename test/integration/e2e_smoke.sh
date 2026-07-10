@@ -313,6 +313,8 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q 'saveResponseAsFile' "$WORK_ROOT/app.js" ||
     ! grep -q 'showToast' "$WORK_ROOT/app.js" ||
     ! grep -q 'safeNextPage' "$WORK_ROOT/app.js" ||
+    ! grep -q 'navigateTo("packs", { welcome: "1" }, { replace: true })' "$WORK_ROOT/app.js" ||
+    ! grep -q 'navigateTo("jobs", { job_id: body.job_id })' "$WORK_ROOT/app.js" ||
     ! grep -q 'focusJobId' "$WORK_ROOT/app.js" ||
     ! grep -q 'data-no-spa' "$WORK_ROOT/app.js" ||
     ! grep -q 'link.hasAttribute("download")' "$WORK_ROOT/app.js" ||
