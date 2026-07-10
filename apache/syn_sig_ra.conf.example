@@ -8,6 +8,17 @@ SynSigRaSignalSynthCli /opt/signal_synth/build/signal-synth
 SynSigRaPackRoot /opt/signal_synth_saas/packs
 SynSigRaPublicBasePath /syn_sig_ra
 
+# Transactional email is disabled until a verified SMTP sender and provider
+# credentials are available. Keep the secret in a root-owned, Apache-readable
+# file; never put it directly in this config or in git.
+# SynSigRaEmailTransport smtp
+# SynSigRaEmailPublicOrigin https://www.timeonion.com
+# SynSigRaEmailFrom noreply@timeonion.com
+# SynSigRaEmailFromName "SynSigRa"
+# SynSigRaEmailSmtpUrl smtps://smtp.provider.example:465
+# SynSigRaEmailSmtpUsername smtp-user
+# SynSigRaEmailSmtpPasswordFile /etc/syn_sig_ra/smtp-password
+
 # The module owns only /syn_sig_ra and descendants. This Location block
 # prevents the core file handler from attempting to resolve those URLs.
 <Location "/syn_sig_ra">

@@ -172,6 +172,7 @@ DATA_ROOT="$WORK_ROOT/data"
 SERVER_ROOT="$WORK_ROOT/apache-root"
 DOC_ROOT="$WORK_ROOT/htdocs"
 RUN_ROOT="$WORK_ROOT/run"
+MAIL_ROOT="$WORK_ROOT/mail"
 DB_PATH="$DATA_ROOT/db.sqlite3"
 APACHE_ERROR_LOG="$WORK_ROOT/apache-error.log"
 HTTPD_CONF="$WORK_ROOT/httpd.conf"
@@ -182,7 +183,8 @@ mkdir -p \
     "$DATA_ROOT/packages" \
     "$SERVER_ROOT/logs" \
     "$DOC_ROOT" \
-    "$RUN_ROOT"
+    "$RUN_ROOT" \
+    "$MAIL_ROOT"
 
 "$ADMIN_BIN" init-db "$DB_PATH" >/dev/null
 
@@ -227,6 +229,11 @@ SynSigRaDataRoot "$DATA_ROOT"
 SynSigRaSignalSynthCli "$SIGNAL_SYNTH_CLI"
 SynSigRaPackRoot "$PACK_ROOT"
 SynSigRaPublicBasePath /syn_sig_ra
+SynSigRaEmailTransport capture_file
+SynSigRaEmailPublicOrigin "$BASE_URL"
+SynSigRaEmailFrom noreply@example.test
+SynSigRaEmailFromName "SynSigRa Test"
+SynSigRaEmailCaptureDirectory "$MAIL_ROOT"
 
 <Location "/syn_sig_ra">
     SetHandler syn_sig_ra
@@ -303,7 +310,9 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q 'renderCustomPackAnalysis' "$WORK_ROOT/app.js" ||
     ! grep -q 'saveResponseAsFile' "$WORK_ROOT/app.js" ||
     ! grep -q 'data-no-spa' "$WORK_ROOT/app.js" ||
-    ! grep -q 'link.hasAttribute("download")' "$WORK_ROOT/app.js"; then
+    ! grep -q 'link.hasAttribute("download")' "$WORK_ROOT/app.js" ||
+    ! grep -q 'verifyEmailFromLink' "$WORK_ROOT/app.js" ||
+    ! grep -q 'completePasswordReset' "$WORK_ROOT/app.js"; then
     dump_file "$WORK_ROOT/app.js" "web UI JavaScript"
     fail "web UI JavaScript was not executable or did not contain API wiring"
 fi
@@ -320,20 +329,87 @@ REGISTER_HTTP=$(
         -d '{"email":"browser@example.com","password":"browser-test-password","display_name":"Browser User"}' \
         "$BASE_URL/v1/auth/register"
 )
-if [ "$REGISTER_HTTP" != "200" ]; then
+if [ "$REGISTER_HTTP" != "202" ]; then
     dump_file "$WORK_ROOT/register.json" "account registration response"
     fail "account registration returned HTTP $REGISTER_HTTP"
 fi
+grep -q '"status":"verification_required"' "$WORK_ROOT/register.json" ||
+    fail "account registration did not require email verification"
+VERIFY_TOKEN=$(python3 - "$MAIL_ROOT" <<'PY'
+import pathlib
+import re
+import sys
+for path in sorted(pathlib.Path(sys.argv[1]).glob("*.eml")):
+    text = path.read_text(encoding="utf-8")
+    match = re.search(r"[?&]verify=([^&\s]+)", text)
+    if match:
+        print(match.group(1))
+        path.unlink()
+        break
+PY
+)
+[ -n "$VERIFY_TOKEN" ] || fail "verification email did not contain a token"
+VERIFY_HTTP=$(
+    curl -sS \
+        -D "$WORK_ROOT/verify-email.headers" \
+        -o "$WORK_ROOT/verify-email.json" \
+        -w '%{http_code}' \
+        -H "Content-Type: application/json" \
+        -d "{\"token\":\"$VERIFY_TOKEN\"}" \
+        "$BASE_URL/v1/auth/verify-email"
+)
+[ "$VERIFY_HTTP" = "200" ] || fail "email verification returned HTTP $VERIFY_HTTP"
+grep -q '"email_verified":true' "$WORK_ROOT/verify-email.json" ||
+    fail "email verification did not mark the account verified"
 SESSION_COOKIE=$(sed -n 's/^[Ss]et-[Cc]ookie: \([^;]*\).*/\1/p' \
-    "$WORK_ROOT/register.headers" | tr -d '\r')
-if [ -z "$SESSION_COOKIE" ]; then
-    fail "account registration did not return a session cookie"
-fi
+    "$WORK_ROOT/verify-email.headers" | tr -d '\r')
+[ -n "$SESSION_COOKIE" ] || fail "email verification did not return a session cookie"
 curl -fsS -H "Cookie: $SESSION_COOKIE" \
     "$BASE_URL/v1/auth/me" >"$WORK_ROOT/account.json" ||
     fail "session account lookup failed"
 grep -q '"email":"browser@example.com"' "$WORK_ROOT/account.json" ||
     fail "session account lookup returned the wrong account"
+
+curl -fsS \
+    -H "Content-Type: application/json" \
+    -d '{"email":"browser@example.com"}' \
+    "$BASE_URL/v1/auth/password-reset/request" \
+    >"$WORK_ROOT/reset-request.json" ||
+    fail "password reset request failed"
+grep -q '"status":"accepted"' "$WORK_ROOT/reset-request.json" ||
+    fail "password reset request did not return the generic response"
+RESET_TOKEN=$(python3 - "$MAIL_ROOT" <<'PY'
+import pathlib
+import re
+import sys
+for path in sorted(pathlib.Path(sys.argv[1]).glob("*.eml")):
+    text = path.read_text(encoding="utf-8")
+    match = re.search(r"[?&]reset=([^&\s]+)", text)
+    if match:
+        print(match.group(1))
+        path.unlink()
+        break
+PY
+)
+[ -n "$RESET_TOKEN" ] || fail "password reset email did not contain a token"
+OLD_SESSION_COOKIE=$SESSION_COOKIE
+RESET_HTTP=$(
+    curl -sS \
+        -D "$WORK_ROOT/reset-complete.headers" \
+        -o "$WORK_ROOT/reset-complete.json" \
+        -w '%{http_code}' \
+        -H "Content-Type: application/json" \
+        -d "{\"token\":\"$RESET_TOKEN\",\"password\":\"replacement-browser-password\"}" \
+        "$BASE_URL/v1/auth/password-reset/complete"
+)
+[ "$RESET_HTTP" = "200" ] || fail "password reset completion returned HTTP $RESET_HTTP"
+OLD_SESSION_HTTP=$(curl -sS -o /dev/null -w '%{http_code}' \
+    -H "Cookie: $OLD_SESSION_COOKIE" "$BASE_URL/v1/auth/me")
+[ "$OLD_SESSION_HTTP" = "401" ] || fail "password reset did not invalidate the old session"
+SESSION_COOKIE=$(sed -n 's/^[Ss]et-[Cc]ookie: \([^;]*\).*/\1/p' \
+    "$WORK_ROOT/reset-complete.headers" | tr -d '\r')
+[ -n "$SESSION_COOKIE" ] || fail "password reset did not return a new session cookie"
+
 curl -fsS -H "Cookie: $SESSION_COOKIE" \
     -H "Content-Type: application/json" \
     -d '{"label":"e2e automation"}' \

@@ -289,7 +289,7 @@ int main() {
         "rate-limit decisions should be persisted"
     );
     require(
-        scalar_int(verification_database, "PRAGMA user_version;") == 8,
+        scalar_int(verification_database, "PRAGMA user_version;") == 9,
         "schema version should be deterministic"
     );
     sqlite3_close(verification_database);

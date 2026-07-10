@@ -8,6 +8,7 @@
 #include "syn_sig_ra/password_auth.h"
 #include "syn_sig_ra/random_id.h"
 #include "syn_sig_ra/sha256.h"
+#include "syn_sig_ra/transactional_email.h"
 #include "ecg_pack.h"
 #include "ecg_scenario_json.h"
 #include "scenario_authoring.h"
@@ -113,6 +114,13 @@ std::string account_json(const syn_sig_ra::AccountRecord& account) {
     json_object_set_new(
         root, "display_name", json_string(account.display_name.c_str()));
     json_object_set_new(root, "role", json_string(account.role.c_str()));
+    json_object_set_new(
+        root, "email_verified", json_boolean(account.email_verified));
+    if (!account.email_verified_at.empty()) {
+        json_object_set_new(
+            root, "email_verified_at",
+            json_string(account.email_verified_at.c_str()));
+    }
     const std::string encoded = json_dump_line(root);
     json_decref(root);
     return encoded;
@@ -139,6 +147,141 @@ bool issue_browser_session(
         "syn_sig_ra_session=" + token +
         "; Path=/syn_sig_ra; Max-Age=604800; Secure; HttpOnly; SameSite=Lax";
     return true;
+}
+
+enum class AccountEmailDeliveryStatus {
+    delivered,
+    rate_limited,
+    storage_error,
+    provider_error
+};
+
+AccountEmailDeliveryStatus deliver_account_email(
+    syn_sig_ra::MetadataStore& store,
+    const syn_sig_ra::EmailConfig& config,
+    const syn_sig_ra::AccountRecord& account,
+    const std::string& purpose,
+    const std::string& public_base_path,
+    std::string& error
+) {
+    std::string token;
+    std::string token_hash;
+    const std::string prefix = purpose == "email_verification"
+        ? "verify_" : "reset_";
+    if (!syn_sig_ra::random_id(prefix, token, error) ||
+        !syn_sig_ra::sha256_hex(token, token_hash, error)) {
+        return AccountEmailDeliveryStatus::storage_error;
+    }
+    const int ttl_minutes = purpose == "email_verification" ? 1440 : 30;
+    const syn_sig_ra::EmailTokenCreateStatus created = store.create_email_token(
+        account.user_id, purpose, token_hash, account.email, ttl_minutes, error);
+    if (created == syn_sig_ra::EmailTokenCreateStatus::rate_limited) {
+        return AccountEmailDeliveryStatus::rate_limited;
+    }
+    if (created != syn_sig_ra::EmailTokenCreateStatus::created) {
+        return AccountEmailDeliveryStatus::storage_error;
+    }
+    const bool verification = purpose == "email_verification";
+    const std::string action = verification ? "verify" : "reset";
+    const std::string link = config.public_origin + public_base_path +
+        "/account?" + action + "=" + token;
+    const std::string subject = verification
+        ? "Verify your SynSigRa email"
+        : "Reset your SynSigRa password";
+    std::ostringstream body;
+    body << (verification
+        ? "Verify your email to activate your SynSigRa account."
+        : "Use this link to choose a new SynSigRa password.")
+         << "\n\n" << link << "\n\n"
+         << (verification
+            ? "This link expires in 24 hours."
+            : "This link expires in 30 minutes.")
+         << " If you did not request this, you can ignore this email.";
+    const syn_sig_ra::EmailSendStatus sent = syn_sig_ra::send_transactional_email(
+        config, account.email, subject, body.str(), error);
+    return sent == syn_sig_ra::EmailSendStatus::sent
+        ? AccountEmailDeliveryStatus::delivered
+        : AccountEmailDeliveryStatus::provider_error;
+}
+
+syn_sig_ra::RouteResponse generic_email_accepted_response() {
+    syn_sig_ra::RouteResponse response = json_response(
+        202,
+        "{\"status\":\"accepted\",\"message\":\"If the account is eligible, "
+        "an email will arrive shortly.\"}\n"
+    );
+    response.cache_control = "no-store";
+    return response;
+}
+
+bool parse_email_request(
+    const std::string& content_type,
+    const std::string& request_body,
+    std::string& email
+) {
+    if (!is_json_content_type(content_type)) return false;
+    json_error_t parse_error;
+    json_t* root = json_loadb(
+        request_body.data(), request_body.size(), JSON_REJECT_DUPLICATES,
+        &parse_error);
+    json_t* value = root == nullptr ? nullptr : json_object_get(root, "email");
+    const bool valid = json_is_object(root) && json_object_size(root) == 1u &&
+        json_is_string(value) && syn_sig_ra::normalize_email(json_string_value(value), email);
+    if (root != nullptr) json_decref(root);
+    return valid;
+}
+
+bool parse_token_request(
+    const std::string& content_type,
+    const std::string& request_body,
+    std::string& token
+) {
+    if (!is_json_content_type(content_type)) return false;
+    json_error_t parse_error;
+    json_t* root = json_loadb(
+        request_body.data(), request_body.size(), JSON_REJECT_DUPLICATES,
+        &parse_error);
+    json_t* value = root == nullptr ? nullptr : json_object_get(root, "token");
+    token = json_is_string(value) ? json_string_value(value) : "";
+    const bool valid = json_is_object(root) && json_object_size(root) == 1u &&
+        !token.empty() && token.size() <= 512;
+    if (root != nullptr) json_decref(root);
+    return valid;
+}
+
+bool parse_password_reset_request(
+    const std::string& content_type,
+    const std::string& request_body,
+    std::string& token,
+    std::string& password
+) {
+    if (!is_json_content_type(content_type)) return false;
+    json_error_t parse_error;
+    json_t* root = json_loadb(
+        request_body.data(), request_body.size(), JSON_REJECT_DUPLICATES,
+        &parse_error);
+    json_t* token_value = root == nullptr
+        ? nullptr : json_object_get(root, "token");
+    json_t* password_value = root == nullptr
+        ? nullptr : json_object_get(root, "password");
+    token = json_is_string(token_value) ? json_string_value(token_value) : "";
+    password = json_is_string(password_value)
+        ? json_string_value(password_value) : "";
+    const bool valid = json_is_object(root) && json_object_size(root) == 2u &&
+        !token.empty() && token.size() <= 512 && password.size() <= 128;
+    if (root != nullptr) json_decref(root);
+    return valid;
+}
+
+syn_sig_ra::RouteResponse internal_account_error(
+    const std::string& message,
+    const std::string& error
+) {
+    syn_sig_ra::RouteResponse response = json_response(
+        503, "{\"error\":{\"code\":\"account_service_unavailable\","
+        "\"message\":\"" + message + "\"}}\n");
+    response.internal_error = error;
+    return response;
 }
 
 std::string json_dump_line(json_t* value) {
@@ -1164,6 +1307,13 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         </section>
 
     <section id="account" class="panel page" data-page="account">
+      <div id="reset-password-panel" class="verify-note" hidden>
+        <h2>Choose a new password</h2>
+        <p class="muted">This reset link is single-use and expires after 30 minutes.</p>
+        <label for="reset-password">New password (12+ characters)</label>
+        <input id="reset-password" type="password" minlength="12" maxlength="128" autocomplete="new-password">
+        <button id="complete-password-reset" class="primary">Change password and sign in</button>
+      </div>
       <div id="signed-out-account">
         <h2>Sign in or create an account</h2>
         <p class="muted">Browser access uses a secure session cookie. API keys are only needed for scripts and CI.</p>
@@ -1175,6 +1325,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
             <label for="login-password">Password</label>
             <input id="login-password" type="password" autocomplete="current-password">
             <button id="login" class="primary">Sign in</button>
+            <button id="request-password-reset" class="secondary">Email me a reset link</button>
           </div>
           <div>
             <h3>Create account</h3>
@@ -1187,12 +1338,18 @@ const char kUiHtml[] = R"HTML(<!doctype html>
             <button id="register" class="primary">Create account</button>
           </div>
         </div>
+        <div id="verification-pending" class="verify-note" hidden>
+          <strong>Verification email sent</strong>
+          <p class="muted">Open the link in your inbox. It expires after 24 hours.</p>
+          <button id="resend-verification" class="secondary">Resend verification email</button>
+        </div>
       </div>
       <div id="signed-in-account" hidden>
         <div class="panel-heading">
           <div>
             <h2 id="account-name">Account</h2>
             <p id="account-email" class="muted"></p>
+            <p id="account-verification" class="status ok"></p>
           </div>
           <button id="logout" class="secondary">Sign out</button>
         </div>
@@ -1474,8 +1631,12 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>GET</td><td><code>/readyz</code></td><td>Readiness and disk</td><td>Public</td></tr>
           <tr><td>GET</td><td><code>/v1/packs</code></td><td>Rich curated pack catalog</td><td>Public</td></tr>
           <tr><td>GET</td><td><code>/v1/packs/{pack_id}</code></td><td>Pack detail including scoreable/reference-only targets</td><td>Public</td></tr>
-          <tr><td>POST</td><td><code>/v1/auth/register</code></td><td>Create account and session</td><td>Public</td></tr>
-          <tr><td>POST</td><td><code>/v1/auth/login</code></td><td>Start browser session</td><td>Public</td></tr>
+          <tr><td>POST</td><td><code>/v1/auth/register</code></td><td>Create account and send verification email</td><td>Public</td></tr>
+          <tr><td>POST</td><td><code>/v1/auth/verify-email</code></td><td>Verify email and start browser session</td><td>Public</td></tr>
+          <tr><td>POST</td><td><code>/v1/auth/resend-verification</code></td><td>Request another verification email</td><td>Public</td></tr>
+          <tr><td>POST</td><td><code>/v1/auth/password-reset/request</code></td><td>Request password-reset email</td><td>Public</td></tr>
+          <tr><td>POST</td><td><code>/v1/auth/password-reset/complete</code></td><td>Set new password and start session</td><td>Public</td></tr>
+          <tr><td>POST</td><td><code>/v1/auth/login</code></td><td>Start browser session after verification</td><td>Public</td></tr>
           <tr><td>GET</td><td><code>/v1/auth/me</code></td><td>Current account</td><td>Session</td></tr>
           <tr><td>POST</td><td><code>/v1/auth/logout</code></td><td>End browser session</td><td>Session</td></tr>
           <tr><td>GET/POST</td><td><code>/v1/projects</code></td><td>List/create projects</td><td>Authenticated</td></tr>
@@ -2218,6 +2379,7 @@ const char kUiJs[] = R"JS((() => {
     currentPage: "workspace",
     authenticated: false,
     account: null,
+    pendingVerificationEmail: "",
     apiKeys: [],
     role: "",
     packs: [],
@@ -2412,12 +2574,21 @@ const char kUiJs[] = R"JS((() => {
   }
 
   function renderAuthState() {
-    $("signed-out-account").hidden = state.authenticated;
+    const resetFlow = Boolean(queryParam("reset"));
+    $("signed-out-account").hidden = state.authenticated || resetFlow;
     $("signed-in-account").hidden = !state.authenticated;
+    $("reset-password-panel").hidden = state.authenticated || !resetFlow;
+    $("verification-pending").hidden = !state.pendingVerificationEmail;
     if (state.authenticated && state.account) {
       $("account-name").textContent = state.account.display_name;
       $("account-email").textContent =
         `${state.account.email} · role: ${state.account.role}`;
+      $("account-verification").textContent = state.account.email_verified
+        ? "Email verified"
+        : "Email verification required";
+      $("account-verification").className = state.account.email_verified
+        ? "status ok"
+        : "status error";
     }
     renderWorkspaceNextAction();
   }
@@ -4582,12 +4753,100 @@ const char kUiJs[] = R"JS((() => {
         method: "POST",
         json: payload
       });
+      $("login-password").value = "";
+      $("register-password").value = "";
+      if (registration && ["verification_required", "accepted"].includes(account.status)) {
+        state.pendingVerificationEmail = email;
+        setText("auth-output", account.message || "Check your inbox to continue.", "muted ok");
+        renderAuthState();
+        return;
+      }
       state.account = account;
       state.authenticated = true;
       state.role = account.role || "";
-      $("login-password").value = "";
-      $("register-password").value = "";
-      setText("auth-output", "", "muted");
+      state.pendingVerificationEmail = "";
+      setText("auth-output", "Signed in.", "muted ok");
+      renderAuthState();
+      await refreshAuthenticatedData();
+    } catch (error) {
+      setText("auth-output", error.message, "error");
+    }
+  }
+
+  async function requestPasswordReset() {
+    const email = $("login-email").value.trim();
+    if (!email) {
+      setText("auth-output", "Enter your email address first.", "error");
+      return;
+    }
+    setText("auth-output", "Requesting reset email…", "muted");
+    try {
+      const result = await api("/v1/auth/password-reset/request", {
+        method: "POST",
+        json: { email }
+      });
+      setText("auth-output", result.message, "muted ok");
+    } catch (error) {
+      setText("auth-output", error.message, "error");
+    }
+  }
+
+  async function resendVerification() {
+    if (!state.pendingVerificationEmail) return;
+    setText("auth-output", "Requesting another verification email…", "muted");
+    try {
+      const result = await api("/v1/auth/resend-verification", {
+        method: "POST",
+        json: { email: state.pendingVerificationEmail }
+      });
+      setText("auth-output", result.message, "muted ok");
+    } catch (error) {
+      setText("auth-output", error.message, "error");
+    }
+  }
+
+  async function verifyEmailFromLink() {
+    const token = queryParam("verify");
+    if (!token) return;
+    setText("auth-output", "Verifying email…", "muted");
+    try {
+      const account = await api("/v1/auth/verify-email", {
+        method: "POST",
+        json: { token }
+      });
+      state.account = account;
+      state.authenticated = true;
+      state.role = account.role || "";
+      state.pendingVerificationEmail = "";
+      window.history.replaceState({}, "", `${base}/account`);
+      renderCurrentPage();
+      setText("auth-output", "Email verified. You are signed in.", "muted ok");
+      renderAuthState();
+    } catch (error) {
+      setText("auth-output", error.message, "error");
+    }
+  }
+
+  async function completePasswordReset() {
+    const token = queryParam("reset");
+    const password = $("reset-password").value;
+    if (!token || password.length < 12) {
+      setText("auth-output", "Enter a password containing at least 12 characters.", "error");
+      return;
+    }
+    setText("auth-output", "Changing password…", "muted");
+    try {
+      const account = await api("/v1/auth/password-reset/complete", {
+        method: "POST",
+        json: { token, password }
+      });
+      window.history.replaceState({}, "", `${base}/account`);
+      $("reset-password").value = "";
+      state.account = account;
+      state.authenticated = true;
+      state.role = account.role || "";
+      setText("auth-output", "Password changed. You are signed in.", "muted ok");
+      renderCurrentPage();
       renderAuthState();
       await refreshAuthenticatedData();
     } catch (error) {
@@ -4718,6 +4977,9 @@ const char kUiJs[] = R"JS((() => {
 
   $("login").addEventListener("click", () => submitAuth("login"));
   $("register").addEventListener("click", () => submitAuth("register"));
+  $("request-password-reset").addEventListener("click", requestPasswordReset);
+  $("resend-verification").addEventListener("click", resendVerification);
+  $("complete-password-reset").addEventListener("click", completePasswordReset);
   $("logout").addEventListener("click", logout);
   $("create-api-key").addEventListener("click", createApiKey);
   $("api-keys").addEventListener("click", (event) => {
@@ -4911,6 +5173,9 @@ const char kUiJs[] = R"JS((() => {
     renderAuthState();
     checkHealth();
     loadPacks();
+    if (queryParam("verify")) {
+      await verifyEmailFromLink();
+    }
     await loadSession();
     await refreshAuthenticatedData();
   }
@@ -4972,7 +5237,8 @@ RouteResponse route_request(
     const std::string& data_root,
     const std::string& query_string,
     const std::string& signal_synth_cli,
-    const std::string& cookie_header
+    const std::string& cookie_header,
+    const EmailConfig& email_config
 ) {
     if (!owns_uri(uri, public_base_path)) {
         RouteResponse response;
@@ -5063,6 +5329,161 @@ RouteResponse route_request(
                 "Secure; HttpOnly; SameSite=Lax";
             return response;
         }
+        if (uri == auth_path + "/verify-email") {
+            if (method != "POST") {
+                return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Email verification only accepts POST.\"}}\n");
+            }
+            std::string token;
+            if (!parse_token_request(content_type, request_body, token)) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_token\","
+                    "\"message\":\"The verification link is invalid or expired.\"}}\n");
+            }
+            std::string token_hash;
+            std::string error;
+            if (!sha256_hex(token, token_hash, error)) {
+                return internal_account_error(
+                    "Email verification is temporarily unavailable.", error);
+            }
+            const RateLimitStatus rate = metadata_store->record_email_token_submission(
+                "email_verification", token_hash, 10, 15, error);
+            if (rate == RateLimitStatus::limited) {
+                return json_response(429, "{\"error\":{\"code\":\"verification_rate_limit\","
+                    "\"message\":\"Too many verification attempts. Try again later.\"}}\n");
+            }
+            if (rate == RateLimitStatus::storage_error) {
+                return internal_account_error(
+                    "Email verification is temporarily unavailable.", error);
+            }
+            AccountRecord account;
+            const EmailTokenConsumeStatus consumed =
+                metadata_store->verify_email_token(token_hash, account, error);
+            if (consumed == EmailTokenConsumeStatus::invalid_or_expired) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_or_expired_token\","
+                    "\"message\":\"The verification link is invalid or expired.\"}}\n");
+            }
+            if (consumed != EmailTokenConsumeStatus::consumed) {
+                return internal_account_error(
+                    "Email verification is temporarily unavailable.", error);
+            }
+            RouteResponse response;
+            if (!issue_browser_session(*metadata_store, account, response, error)) {
+                return internal_account_error("Unable to start the session.", error);
+            }
+            return response;
+        }
+        if (uri == auth_path + "/resend-verification" ||
+            uri == auth_path + "/password-reset/request") {
+            if (method != "POST") {
+                return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"This email operation only accepts POST.\"}}\n");
+            }
+            if (!email_delivery_configured(email_config)) {
+                return json_response(503, "{\"error\":{\"code\":\"email_delivery_unavailable\","
+                    "\"message\":\"Email delivery is not configured yet.\"}}\n");
+            }
+            std::string email;
+            if (!parse_email_request(content_type, request_body, email)) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_email_request\","
+                    "\"message\":\"Enter a valid email address.\"}}\n");
+            }
+            const bool verification = uri == auth_path + "/resend-verification";
+            const std::string purpose = verification
+                ? "email_verification" : "password_reset";
+            std::string email_hash;
+            std::string error;
+            if (!sha256_hex(purpose + ":" + email, email_hash, error)) {
+                RouteResponse response = generic_email_accepted_response();
+                response.internal_error = error;
+                return response;
+            }
+            const RateLimitStatus rate = metadata_store->record_email_send_attempt(
+                purpose, email_hash, 3, 60, error);
+            if (rate == RateLimitStatus::storage_error) {
+                return internal_account_error(
+                    "Email delivery is temporarily unavailable.", error);
+            }
+            if (rate == RateLimitStatus::limited) {
+                return generic_email_accepted_response();
+            }
+            AccountRecord account;
+            const RecordLookupStatus found =
+                metadata_store->find_account_by_email(email, account, error);
+            if (found == RecordLookupStatus::storage_error) {
+                return internal_account_error(
+                    "Email delivery is temporarily unavailable.", error);
+            }
+            const bool eligible = found == RecordLookupStatus::found &&
+                (verification ? !account.email_verified : account.email_verified);
+            if (!eligible) return generic_email_accepted_response();
+            const AccountEmailDeliveryStatus delivered = deliver_account_email(
+                *metadata_store, email_config, account, purpose,
+                public_base_path, error);
+            if (delivered == AccountEmailDeliveryStatus::storage_error) {
+                return internal_account_error(
+                    "Email delivery is temporarily unavailable.", error);
+            }
+            RouteResponse response = generic_email_accepted_response();
+            if (delivered == AccountEmailDeliveryStatus::provider_error) {
+                response.internal_error = error;
+            }
+            return response;
+        }
+        if (uri == auth_path + "/password-reset/complete") {
+            if (method != "POST") {
+                return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Password reset only accepts POST.\"}}\n");
+            }
+            std::string token;
+            std::string password;
+            if (!parse_password_reset_request(
+                    content_type, request_body, token, password)) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_password_reset\","
+                    "\"message\":\"Enter a valid reset link and new password.\"}}\n");
+            }
+            std::string salt;
+            std::string password_hash;
+            std::string token_hash;
+            std::string error;
+            if (!hash_password(password, salt, password_hash, error)) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_password\","
+                    "\"message\":\"Password must contain 12-128 characters.\"}}\n");
+            }
+            if (!sha256_hex(token, token_hash, error)) {
+                return internal_account_error(
+                    "Password reset is temporarily unavailable.", error);
+            }
+            const RateLimitStatus rate = metadata_store->record_email_token_submission(
+                "password_reset", token_hash, 10, 15, error);
+            if (rate == RateLimitStatus::limited) {
+                return json_response(429, "{\"error\":{\"code\":\"reset_rate_limit\","
+                    "\"message\":\"Too many reset attempts. Try again later.\"}}\n");
+            }
+            if (rate == RateLimitStatus::storage_error) {
+                return internal_account_error(
+                    "Password reset is temporarily unavailable.", error);
+            }
+            AccountRecord account;
+            const EmailTokenConsumeStatus consumed =
+                metadata_store->consume_password_reset_token(
+                    token_hash, account, error);
+            if (consumed == EmailTokenConsumeStatus::invalid_or_expired) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_or_expired_token\","
+                    "\"message\":\"The reset link is invalid or expired.\"}}\n");
+            }
+            if (consumed != EmailTokenConsumeStatus::consumed ||
+                !metadata_store->update_account_password(
+                    account.user_id, salt, password_hash, error) ||
+                !metadata_store->delete_sessions_for_user(account.user_id, error)) {
+                return internal_account_error("Unable to reset the password.", error);
+            }
+            RouteResponse response;
+            if (!issue_browser_session(*metadata_store, account, response, error)) {
+                return internal_account_error(
+                    "Password changed, but sign-in failed.", error);
+            }
+            return response;
+        }
         const bool registration = uri == auth_path + "/register";
         const bool login = uri == auth_path + "/login";
         if ((!registration && !login) || method != "POST") {
@@ -5107,6 +5528,10 @@ RouteResponse route_request(
         AccountRecord account;
         std::string error;
         if (registration) {
+            if (!email_delivery_configured(email_config)) {
+                return json_response(503, "{\"error\":{\"code\":\"email_delivery_unavailable\","
+                    "\"message\":\"Registration is temporarily unavailable because email delivery is not configured.\"}}\n");
+            }
             if (display_name.empty() || display_name.size() > 100) {
                 return json_response(400, "{\"error\":{\"code\":\"invalid_display_name\","
                     "\"message\":\"Display name must contain 1-100 characters.\"}}\n");
@@ -5120,8 +5545,7 @@ RouteResponse route_request(
             const AccountCreateStatus created = metadata_store->create_account(
                 email, display_name, salt, password_hash, account, error);
             if (created == AccountCreateStatus::email_exists) {
-                return json_response(409, "{\"error\":{\"code\":\"email_exists\","
-                    "\"message\":\"An account already uses this email.\"}}\n");
+                return generic_email_accepted_response();
             }
             if (created != AccountCreateStatus::created) {
                 RouteResponse response = json_response(
@@ -5130,6 +5554,19 @@ RouteResponse route_request(
                 response.internal_error = error;
                 return response;
             }
+            const AccountEmailDeliveryStatus delivered = deliver_account_email(
+                *metadata_store, email_config, account, "email_verification",
+                public_base_path, error);
+            if (delivered != AccountEmailDeliveryStatus::delivered) {
+                return internal_account_error(
+                    "The account was created, but its verification email could not be sent. Try resending it shortly.",
+                    error);
+            }
+            RouteResponse response = json_response(
+                202, "{\"status\":\"verification_required\","
+                "\"message\":\"Check your inbox and verify your email before signing in.\"}\n");
+            response.cache_control = "no-store";
+            return response;
         } else {
             bool matches = false;
             const RecordLookupStatus found =
@@ -5157,6 +5594,10 @@ RouteResponse route_request(
                 return json_response(401, "{\"error\":{\"code\":\"invalid_login\","
                     "\"message\":\"Email or password is incorrect.\"}}\n");
             }
+            if (!account.email_verified) {
+                return json_response(403, "{\"error\":{\"code\":\"email_verification_required\","
+                    "\"message\":\"Verify your email before signing in.\"}}\n");
+            }
         }
         RouteResponse response;
         if (!issue_browser_session(*metadata_store, account, response, error)) {
@@ -5178,8 +5619,10 @@ RouteResponse route_request(
                 "\"message\":\"Authentication storage is unavailable.\"}}\n"
             );
         }
+        AccountRecord authenticated_account;
         const AuthenticationResult authentication = authorization_header.empty()
-            ? authenticate_session(cookie_header, *metadata_store)
+            ? authenticate_session(
+                cookie_header, *metadata_store, &authenticated_account)
             : authenticate_bearer(authorization_header, *metadata_store);
         if (authentication.status == AuthenticationStatus::storage_error) {
             RouteResponse response = json_response(
@@ -5198,6 +5641,11 @@ RouteResponse route_request(
             );
             response.www_authenticate = "Bearer realm=\"syn_sig_ra\"";
             return response;
+        }
+        if (authorization_header.empty() &&
+            !authenticated_account.email_verified) {
+            return json_response(403, "{\"error\":{\"code\":\"email_verification_required\","
+                "\"message\":\"Verify your email before continuing.\"}}\n");
         }
         authenticated_identity = authentication.identity;
         authenticated = true;

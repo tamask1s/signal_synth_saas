@@ -5,11 +5,13 @@
 #include "syn_sig_ra/sha256.h"
 
 #include <unistd.h>
+#include <dirent.h>
 
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <sys/stat.h>
 
@@ -26,6 +28,36 @@ void write_file(const std::string& path, const std::string& content) {
     std::ofstream output(path.c_str(), std::ios::binary | std::ios::trunc);
     output << content;
     require(static_cast<bool>(output), "test fixture should be writable: " + path);
+}
+
+std::string take_email_token(
+    const std::string& directory,
+    const std::string& parameter
+) {
+    DIR* stream = opendir(directory.c_str());
+    require(stream != nullptr, "email capture directory should be readable");
+    std::string token;
+    for (dirent* entry = readdir(stream); entry != nullptr;
+         entry = readdir(stream)) {
+        const std::string name(entry->d_name);
+        if (name.size() < 4 || name.substr(name.size() - 4) != ".eml") continue;
+        const std::string path = directory + "/" + name;
+        std::ifstream input(path.c_str(), std::ios::binary);
+        std::ostringstream content;
+        content << input.rdbuf();
+        const std::string marker = parameter + "=";
+        const std::string::size_type start = content.str().find(marker);
+        if (start == std::string::npos) continue;
+        const std::string::size_type value_start = start + marker.size();
+        const std::string::size_type end = content.str().find_first_of(
+            "& \r\n", value_start);
+        token = content.str().substr(value_start, end - value_start);
+        std::remove(path.c_str());
+        break;
+    }
+    closedir(stream);
+    require(!token.empty(), "captured email should contain a " + parameter + " token");
+    return token;
 }
 
 }  // namespace
@@ -225,6 +257,15 @@ int main() {
         "/tmp/syn_sig_ra_route_auth_" + std::to_string(getpid()) + ".sqlite3";
     std::remove(database_path.c_str());
     syn_sig_ra::MetadataStore store(database_path);
+    const std::string email_capture =
+        "/tmp/syn_sig_ra_route_mail_" + std::to_string(getpid());
+    mkdir(email_capture.c_str(), 0700);
+    syn_sig_ra::EmailConfig email_config;
+    email_config.transport = syn_sig_ra::EmailTransport::capture_file;
+    email_config.public_origin = "https://example.test";
+    email_config.from_email = "noreply@example.test";
+    email_config.from_name = "SynSigRa Test";
+    email_config.capture_directory = email_capture;
     std::string key_hash;
     std::string error;
     require(
@@ -251,16 +292,46 @@ int main() {
             "application/json",
             "{\"email\":\"new@example.com\","
             "\"password\":\"long-enough-password\","
-            "\"display_name\":\"New User\"}"
+            "\"display_name\":\"New User\"}",
+            "",
+            "",
+            "",
+            "",
+            email_config
         );
     require(
-        registered.status == 200 &&
-            registered.body.find("\"email\":\"new@example.com\"") !=
-                std::string::npos &&
-            registered.set_cookie.find("Secure") != std::string::npos &&
-            registered.set_cookie.find("HttpOnly") != std::string::npos &&
+        registered.status == 202 &&
+            registered.body.find("verification_required") != std::string::npos &&
+            registered.set_cookie.empty() &&
             registered.cache_control == "no-store",
-        "registration should create a secure browser session"
+        "registration should require deliverable email verification"
+    );
+    const std::string verification_token =
+        take_email_token(email_capture, "verify");
+    const syn_sig_ra::RouteResponse verified =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/auth/verify-email",
+            "/syn_sig_ra",
+            "",
+            &store,
+            "",
+            "application/json",
+            "{\"token\":\"" + verification_token + "\"}",
+            "",
+            "",
+            "",
+            "",
+            email_config
+        );
+    require(
+        verified.status == 200 &&
+            verified.body.find("\"email_verified\":true") != std::string::npos &&
+            verified.set_cookie.find("Secure") != std::string::npos &&
+            verified.set_cookie.find("HttpOnly") != std::string::npos,
+        "single-use email token should verify and sign in the account: status=" +
+            std::to_string(verified.status) + " body=" + verified.body +
+            " internal=" + verified.internal_error
     );
     const syn_sig_ra::RouteResponse account =
         syn_sig_ra::route_request(
@@ -275,7 +346,7 @@ int main() {
             "",
             "",
             "",
-            registered.set_cookie
+            verified.set_cookie
         );
     require(
         account.status == 200 &&
@@ -296,12 +367,54 @@ int main() {
             "",
             "",
             "",
-            registered.set_cookie
+            verified.set_cookie
         );
     require(
         personal_key.status == 201 &&
             personal_key.body.find("\"api_key\":\"ssk_") != std::string::npos,
         "signed-in account should create a one-time API key"
+    );
+
+    const syn_sig_ra::RouteResponse reset_requested =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/auth/password-reset/request",
+            "/syn_sig_ra", "", &store, "", "application/json",
+            "{\"email\":\"new@example.com\"}",
+            "", "", "", "", email_config
+        );
+    require(
+        reset_requested.status == 202 &&
+            reset_requested.body.find("If the account is eligible") !=
+                std::string::npos,
+        "password reset request should use a generic response"
+    );
+    const std::string reset_token = take_email_token(email_capture, "reset");
+    const syn_sig_ra::RouteResponse reset_completed =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/auth/password-reset/complete",
+            "/syn_sig_ra", "", &store, "", "application/json",
+            "{\"token\":\"" + reset_token +
+                "\",\"password\":\"replacement-password-123\"}",
+            "", "", "", "", email_config
+        );
+    require(
+        reset_completed.status == 200 &&
+            reset_completed.set_cookie.find("HttpOnly") != std::string::npos,
+        "single-use reset token should change the password and issue a session"
+    );
+    const syn_sig_ra::RouteResponse reused_reset =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/auth/password-reset/complete",
+            "/syn_sig_ra", "", &store, "", "application/json",
+            "{\"token\":\"" + reset_token +
+                "\",\"password\":\"another-password-123\"}"
+        );
+    require(
+        reused_reset.status == 400,
+        "consumed reset token should not be reusable"
     );
 
     const syn_sig_ra::RouteResponse unauthorized =
@@ -523,6 +636,7 @@ int main() {
     rmdir((download_root + "/downloads").c_str());
     rmdir(download_pack_root.c_str());
     rmdir(download_root.c_str());
+    rmdir(email_capture.c_str());
     std::remove(database_path.c_str());
 
     return EXIT_SUCCESS;

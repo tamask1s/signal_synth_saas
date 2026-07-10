@@ -1,6 +1,7 @@
 #include "syn_sig_ra/route.h"
 #include "syn_sig_ra/metadata_store.h"
 #include "syn_sig_ra/runtime_config.h"
+#include "syn_sig_ra/transactional_email.h"
 
 extern "C" {
 #include <apr_strings.h>
@@ -56,10 +57,26 @@ struct ApacheServerConfig {
     const char* signal_synth_cli;
     const char* pack_root;
     const char* public_base_path;
+    const char* email_transport;
+    const char* email_public_origin;
+    const char* email_from;
+    const char* email_from_name;
+    const char* email_smtp_url;
+    const char* email_smtp_username;
+    const char* email_smtp_password_file;
+    const char* email_capture_directory;
     bool data_root_set;
     bool signal_synth_cli_set;
     bool pack_root_set;
     bool public_base_path_set;
+    bool email_transport_set;
+    bool email_public_origin_set;
+    bool email_from_set;
+    bool email_from_name_set;
+    bool email_smtp_url_set;
+    bool email_smtp_username_set;
+    bool email_smtp_password_file_set;
+    bool email_capture_directory_set;
 };
 
 void* create_server_config(apr_pool_t* pool, server_rec*) {
@@ -74,6 +91,14 @@ void* create_server_config(apr_pool_t* pool, server_rec*) {
     config->pack_root = apr_pstrdup(pool, defaults.pack_root.c_str());
     config->public_base_path =
         apr_pstrdup(pool, defaults.public_base_path.c_str());
+    config->email_transport = "disabled";
+    config->email_public_origin = "";
+    config->email_from = "";
+    config->email_from_name = "SynSigRa";
+    config->email_smtp_url = "";
+    config->email_smtp_username = "";
+    config->email_smtp_password_file = "";
+    config->email_capture_directory = "";
     return config;
 }
 
@@ -94,12 +119,43 @@ void* merge_server_config(apr_pool_t* pool, void* base_value, void* add_value) {
     merged->public_base_path = add->public_base_path_set
         ? add->public_base_path
         : base->public_base_path;
+    merged->email_transport = add->email_transport_set
+        ? add->email_transport : base->email_transport;
+    merged->email_public_origin = add->email_public_origin_set
+        ? add->email_public_origin : base->email_public_origin;
+    merged->email_from = add->email_from_set
+        ? add->email_from : base->email_from;
+    merged->email_from_name = add->email_from_name_set
+        ? add->email_from_name : base->email_from_name;
+    merged->email_smtp_url = add->email_smtp_url_set
+        ? add->email_smtp_url : base->email_smtp_url;
+    merged->email_smtp_username = add->email_smtp_username_set
+        ? add->email_smtp_username : base->email_smtp_username;
+    merged->email_smtp_password_file = add->email_smtp_password_file_set
+        ? add->email_smtp_password_file : base->email_smtp_password_file;
+    merged->email_capture_directory = add->email_capture_directory_set
+        ? add->email_capture_directory : base->email_capture_directory;
     merged->data_root_set = add->data_root_set || base->data_root_set;
     merged->signal_synth_cli_set =
         add->signal_synth_cli_set || base->signal_synth_cli_set;
     merged->pack_root_set = add->pack_root_set || base->pack_root_set;
     merged->public_base_path_set =
         add->public_base_path_set || base->public_base_path_set;
+    merged->email_transport_set =
+        add->email_transport_set || base->email_transport_set;
+    merged->email_public_origin_set =
+        add->email_public_origin_set || base->email_public_origin_set;
+    merged->email_from_set = add->email_from_set || base->email_from_set;
+    merged->email_from_name_set =
+        add->email_from_name_set || base->email_from_name_set;
+    merged->email_smtp_url_set =
+        add->email_smtp_url_set || base->email_smtp_url_set;
+    merged->email_smtp_username_set =
+        add->email_smtp_username_set || base->email_smtp_username_set;
+    merged->email_smtp_password_file_set =
+        add->email_smtp_password_file_set || base->email_smtp_password_file_set;
+    merged->email_capture_directory_set =
+        add->email_capture_directory_set || base->email_capture_directory_set;
     return merged;
 }
 
@@ -175,6 +231,70 @@ const char* set_public_base_path(
     return nullptr;
 }
 
+ApacheServerConfig* current_server_config(cmd_parms* command) {
+    return static_cast<ApacheServerConfig*>(ap_get_module_config(
+        command->server->module_config, &syn_sig_ra_module));
+}
+
+const char* set_email_transport(cmd_parms* command, void*, const char* value) {
+    const std::string transport(value);
+    if (transport != "disabled" && transport != "smtp" &&
+        transport != "capture_file") {
+        return "SynSigRaEmailTransport must be disabled, smtp, or capture_file";
+    }
+    ApacheServerConfig* config = current_server_config(command);
+    config->email_transport = apr_pstrdup(command->pool, value);
+    config->email_transport_set = true;
+    return nullptr;
+}
+
+const char* set_email_public_origin(cmd_parms* command, void*, const char* value) {
+    std::string error;
+    if (!syn_sig_ra::validate_public_origin(value, error)) {
+        return apr_pstrdup(command->pool, error.c_str());
+    }
+    ApacheServerConfig* config = current_server_config(command);
+    config->email_public_origin = apr_pstrdup(command->pool, value);
+    config->email_public_origin_set = true;
+    return nullptr;
+}
+
+const char* set_email_from(cmd_parms* command, void*, const char* value) {
+    std::string error;
+    if (!syn_sig_ra::validate_email_address(value, error)) {
+        return apr_pstrdup(command->pool, error.c_str());
+    }
+    ApacheServerConfig* config = current_server_config(command);
+    config->email_from = apr_pstrdup(command->pool, value);
+    config->email_from_set = true;
+    return nullptr;
+}
+
+#define SYN_SIG_RA_EMAIL_STRING_SETTER(function_name, field, flag) \
+const char* function_name(cmd_parms* command, void*, const char* value) { \
+    ApacheServerConfig* config = current_server_config(command); \
+    config->field = apr_pstrdup(command->pool, value); \
+    config->flag = true; \
+    return nullptr; \
+}
+
+SYN_SIG_RA_EMAIL_STRING_SETTER(
+    set_email_from_name, email_from_name, email_from_name_set)
+SYN_SIG_RA_EMAIL_STRING_SETTER(
+    set_email_smtp_url, email_smtp_url, email_smtp_url_set)
+SYN_SIG_RA_EMAIL_STRING_SETTER(
+    set_email_smtp_username, email_smtp_username, email_smtp_username_set)
+SYN_SIG_RA_EMAIL_STRING_SETTER(
+    set_email_smtp_password_file,
+    email_smtp_password_file,
+    email_smtp_password_file_set)
+SYN_SIG_RA_EMAIL_STRING_SETTER(
+    set_email_capture_directory,
+    email_capture_directory,
+    email_capture_directory_set)
+
+#undef SYN_SIG_RA_EMAIL_STRING_SETTER
+
 #if defined(__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-function-type"
@@ -208,6 +328,54 @@ const command_rec syn_sig_ra_directives[] = {
         nullptr,
         RSRC_CONF,
         "Public URL base path at or below /syn_sig_ra"
+    ),
+    AP_INIT_TAKE1(
+        "SynSigRaEmailTransport",
+        reinterpret_cast<cmd_func>(set_email_transport),
+        nullptr, RSRC_CONF,
+        "Transactional email transport: disabled, smtp, or capture_file"
+    ),
+    AP_INIT_TAKE1(
+        "SynSigRaEmailPublicOrigin",
+        reinterpret_cast<cmd_func>(set_email_public_origin),
+        nullptr, RSRC_CONF,
+        "Public origin used in verification and reset links"
+    ),
+    AP_INIT_TAKE1(
+        "SynSigRaEmailFrom",
+        reinterpret_cast<cmd_func>(set_email_from),
+        nullptr, RSRC_CONF,
+        "Verified sender email address"
+    ),
+    AP_INIT_TAKE1(
+        "SynSigRaEmailFromName",
+        reinterpret_cast<cmd_func>(set_email_from_name),
+        nullptr, RSRC_CONF,
+        "Sender display name"
+    ),
+    AP_INIT_TAKE1(
+        "SynSigRaEmailSmtpUrl",
+        reinterpret_cast<cmd_func>(set_email_smtp_url),
+        nullptr, RSRC_CONF,
+        "SMTP URL, for example smtps://smtp.provider.example:465"
+    ),
+    AP_INIT_TAKE1(
+        "SynSigRaEmailSmtpUsername",
+        reinterpret_cast<cmd_func>(set_email_smtp_username),
+        nullptr, RSRC_CONF,
+        "SMTP username"
+    ),
+    AP_INIT_TAKE1(
+        "SynSigRaEmailSmtpPasswordFile",
+        reinterpret_cast<cmd_func>(set_email_smtp_password_file),
+        nullptr, RSRC_CONF,
+        "File containing the SMTP password"
+    ),
+    AP_INIT_TAKE1(
+        "SynSigRaEmailCaptureDirectory",
+        reinterpret_cast<cmd_func>(set_email_capture_directory),
+        nullptr, RSRC_CONF,
+        "Test-only directory for captured email files"
     ),
     {nullptr, nullptr, nullptr, 0, RAW_ARGS, nullptr}
 };
@@ -289,6 +457,20 @@ int syn_sig_ra_handler(request_rec* request) {
             );
         }
     }
+    syn_sig_ra::EmailConfig email_config;
+    const std::string email_transport(config->email_transport);
+    if (email_transport == "smtp") {
+        email_config.transport = syn_sig_ra::EmailTransport::smtp;
+    } else if (email_transport == "capture_file") {
+        email_config.transport = syn_sig_ra::EmailTransport::capture_file;
+    }
+    email_config.public_origin = config->email_public_origin;
+    email_config.from_email = config->email_from;
+    email_config.from_name = config->email_from_name;
+    email_config.smtp_url = config->email_smtp_url;
+    email_config.smtp_username = config->email_smtp_username;
+    email_config.smtp_password_file = config->email_smtp_password_file;
+    email_config.capture_directory = config->email_capture_directory;
     const syn_sig_ra::RouteResponse response = syn_sig_ra::route_request(
         method,
         uri,
@@ -301,7 +483,8 @@ int syn_sig_ra_handler(request_rec* request) {
         config->data_root,
         query_string,
         config->signal_synth_cli,
-        cookie
+        cookie,
+        email_config
     );
 
     if (response.disposition == syn_sig_ra::RouteDisposition::declined) {

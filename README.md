@@ -24,7 +24,7 @@ https://www.timeonion.com/syn_sig_ra
 - Browser access uses server-side sessions through `Secure`, `HttpOnly`, `SameSite=Lax` cookies.
 - The browser UI does not ask users to paste API keys.
 - API keys are created from the account panel for scripts and CI; each secret is shown once and only a SHA-256 hash is retained server-side.
-- Registration is currently open, but e-mail ownership verification and password recovery are not implemented until a transactional mail provider is configured.
+- E-mail ownership verification and forgotten-password recovery are implemented with expiring, single-use links. New registration is available when the deployment has a transactional SMTP provider configured.
 - The current curated beta catalog is imported from `signal_synth/examples/catalog/curated_pack_metadata_v1.json` and contains ECG, HRV, PPG, signal-quality and wearable stress packs, not only the R-peak smoke pack.
 - Generated packages are immutable while retained. Default artifact retention is 90 days.
 
@@ -53,16 +53,17 @@ Non-goals:
 ## Quick start: browser
 
 1. Open `https://www.timeonion.com/syn_sig_ra/`.
-2. Create an account with an e-mail address, display name, and a password of at least 12 characters, or sign in with an existing account.
-3. Start on the guided workspace. It answers the next action: sign in, choose a pack, watch a running job, or verify a completed package.
-4. Check the service status card:
+2. Create an account with an e-mail address, display name, and a password of at least 12 characters. Open the verification link sent to your inbox; it signs you in after confirming ownership. Existing verified users can sign in directly.
+3. If you forget the password, enter the account e-mail on the account page and choose **Email me a reset link**. The link is single-use, expires after 30 minutes, invalidates older browser sessions, and signs you in after the password change.
+4. Start on the guided workspace. It answers the next action: sign in, choose a pack, watch a running job, or verify a completed package.
+5. Check the service status card:
    - `health` means the Apache application responds;
    - `ready` means the database, generator, pack catalog, and artifact store are available.
-5. Open **Choose pack** (`/syn_sig_ra/packs`) and filter by detector target, workflow intent, scoring mode, and difficulty. Use the recommendation or comparison table if you do not know pack IDs.
-6. Open **Generate job** (`/syn_sig_ra/generate`), select the `Default` project or create another project if your role permits, confirm the pack, and create a job.
-7. Open **Jobs** (`/syn_sig_ra/jobs`) and wait for `succeeded`.
-8. Open **Verify locally** (`/syn_sig_ra/verify`) from the completed job's **Open verification runbook** action.
-9. Download the verification kit, install the generator-free verifier, replace detection-template rows with algorithm output, copy the exact `synsigra-verify` command, then archive the evidence bundle.
+6. Open **Choose pack** (`/syn_sig_ra/packs`) and filter by detector target, workflow intent, scoring mode, and difficulty. Use the recommendation or comparison table if you do not know pack IDs.
+7. Open **Generate job** (`/syn_sig_ra/generate`), select the `Default` project or create another project if your role permits, confirm the pack, and create a job.
+8. Open **Jobs** (`/syn_sig_ra/jobs`) and wait for `succeeded`.
+9. Open **Verify locally** (`/syn_sig_ra/verify`) from the completed job's **Open verification runbook** action.
+10. Download the verification kit, install the generator-free verifier, replace detection-template rows with algorithm output, copy the exact `synsigra-verify` command, then archive the evidence bundle.
 
 ## Recommended verification workflow
 
@@ -236,7 +237,9 @@ Notes:
 
 - Accounts and API keys belong to a user in an organization.
 - Cross-organization resources deliberately return `404`.
-- Sign out invalidates the server-side browser session.
+- New accounts must verify e-mail ownership before login or API-key creation.
+- The account page can resend verification mail and request/complete forgotten-password recovery without exposing whether an address exists.
+- Sign out invalidates the server-side browser session. A successful password reset invalidates all older browser sessions for that user.
 - API keys can be listed and revoked from the UI.
 
 ### Verifier downloads and runbooks
@@ -459,8 +462,12 @@ Authorization: Bearer <api-key>
 | `GET` | `/readyz` | Component readiness/disk | Public |
 | `GET` | `/v1/packs` | Curated pack list | Public |
 | `GET` | `/v1/packs/{pack_id}` | Curated pack detail | Public |
-| `POST` | `/v1/auth/register` | Create account and browser session | Public |
-| `POST` | `/v1/auth/login` | Start browser session | Public |
+| `POST` | `/v1/auth/register` | Create unverified account and send verification link | Public |
+| `POST` | `/v1/auth/verify-email` | Consume verification token and start session | Public |
+| `POST` | `/v1/auth/resend-verification` | Request another verification link (generic response) | Public |
+| `POST` | `/v1/auth/password-reset/request` | Request password-reset link (generic response) | Public |
+| `POST` | `/v1/auth/password-reset/complete` | Consume reset token, change password, start session | Public |
+| `POST` | `/v1/auth/login` | Start browser session for verified account | Public |
 | `GET` | `/v1/auth/me` | Current account | Session |
 | `POST` | `/v1/auth/logout` | End browser session | Session |
 | `GET` | `/v1/projects` | Project list and caller role | Authenticated |
@@ -568,7 +575,8 @@ The current deployment uses nginx as the public TLS edge and a custom Apache bac
 - Browser authentication uses revocable, expiring server-side sessions.
 - API key secrets are displayed once and stored only as SHA-256 hashes.
 - Passwords are stored using salted PBKDF2-HMAC-SHA256.
-- E-mail verification and password recovery are not implemented yet.
+- E-mail verification and password-reset tokens are stored only as SHA-256 hashes, expire, are single-use, and are send/submission rate-limited. Recovery request responses do not disclose whether an account exists.
+- Production e-mail delivery requires a transactional SMTP provider, verified sender domain, and an Apache-readable password file. If delivery is not configured, new registration and recovery sending return a controlled service-unavailable response; existing verified accounts remain usable.
 - The product accepts synthetic engineering scenarios only.
 - Do not upload PHI, personal data, patient identifiers, or clinical free text.
 - The service does not execute customer detector code.

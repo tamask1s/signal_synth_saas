@@ -1,6 +1,8 @@
 #ifndef SYN_SIG_RA_ROUTE_H
 #define SYN_SIG_RA_ROUTE_H
 
+#include "syn_sig_ra/transactional_email.h"
+
 #include <string>
 
 namespace syn_sig_ra {
@@ -43,7 +45,8 @@ RouteResponse route_request(
     const std::string& data_root = "",
     const std::string& query_string = "",
     const std::string& signal_synth_cli = "",
-    const std::string& cookie_header = ""
+    const std::string& cookie_header = "",
+    const EmailConfig& email_config = EmailConfig()
 );
 
 bool route_requires_authentication(

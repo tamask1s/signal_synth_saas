@@ -17,13 +17,15 @@ components:
   schemas:
     Account:
       type: object
-      required: [user_id, organization_id, email, display_name, role]
+      required: [user_id, organization_id, email, display_name, role, email_verified]
       properties:
         user_id: {type: string}
         organization_id: {type: string}
         email: {type: string, format: email}
         display_name: {type: string}
         role: {type: string, enum: [owner, admin, developer, viewer]}
+        email_verified: {type: boolean}
+        email_verified_at: {type: string, format: date-time}
     Error:
       type: object
       required: [error]
@@ -287,7 +289,7 @@ paths:
         '404': {description: Pack/case not found}
   /v1/auth/register:
     post:
-      summary: Create an account and browser session
+      summary: Create an account and send an ownership-verification email
       requestBody:
         required: true
         content:
@@ -301,8 +303,75 @@ paths:
                 display_name: {type: string, minLength: 1, maxLength: 100}
               additionalProperties: false
       responses:
-        '200': {description: Account and secure session created, content: {application/json: {schema: {$ref: '#/components/schemas/Account'}}}}
-        '409': {description: Email already registered}
+        '202': {description: Verification required or generic accepted response}
+        '503': {description: Transactional email delivery is not configured or temporarily unavailable}
+  /v1/auth/verify-email:
+    post:
+      summary: Verify email ownership and start a browser session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: {type: string, maxLength: 512}
+              additionalProperties: false
+      responses:
+        '200': {description: Verified and signed in, content: {application/json: {schema: {$ref: '#/components/schemas/Account'}}}}
+        '400': {description: Invalid or expired single-use token}
+        '429': {description: Too many token submissions}
+  /v1/auth/resend-verification:
+    post:
+      summary: Request another email-verification link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: {type: string, format: email}
+              additionalProperties: false
+      responses:
+        '202': {description: Generic accepted response independent of account eligibility}
+        '503': {description: Transactional email delivery is unavailable}
+  /v1/auth/password-reset/request:
+    post:
+      summary: Request a forgotten-password email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: {type: string, format: email}
+              additionalProperties: false
+      responses:
+        '202': {description: Generic accepted response independent of account existence}
+        '503': {description: Transactional email delivery is unavailable}
+  /v1/auth/password-reset/complete:
+    post:
+      summary: Consume a reset token, change password, and start a browser session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: {type: string, maxLength: 512}
+                password: {type: string, minLength: 12, maxLength: 128}
+              additionalProperties: false
+      responses:
+        '200': {description: Password changed and signed in, content: {application/json: {schema: {$ref: '#/components/schemas/Account'}}}}
+        '400': {description: Invalid or expired single-use token or invalid password}
+        '429': {description: Too many token submissions}
   /v1/auth/login:
     post:
       summary: Start a browser session
@@ -320,6 +389,7 @@ paths:
       responses:
         '200': {description: Signed in, content: {application/json: {schema: {$ref: '#/components/schemas/Account'}}}}
         '401': {description: Invalid email or password}
+        '403': {description: Email ownership is not verified}
   /v1/auth/me:
     get:
       summary: Current browser account

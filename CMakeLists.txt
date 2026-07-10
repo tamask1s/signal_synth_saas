@@ -21,6 +21,7 @@ option(
 
 find_package(OpenSSL REQUIRED)
 find_package(SQLite3 REQUIRED)
+find_package(CURL REQUIRED)
 find_path(JANSSON_INCLUDE_DIR jansson.h REQUIRED)
 find_library(JANSSON_LIBRARY NAMES jansson REQUIRED)
 add_library(Jansson::Jansson UNKNOWN IMPORTED)
@@ -103,6 +104,7 @@ add_library(syn_sig_ra_core STATIC
     src/auth/sha256.cpp
     src/catalog/pack_catalog.cpp
     src/config/runtime_config.cpp
+    src/email/transactional_email.cpp
     src/job/job_request.cpp
     src/job/random_id.cpp
     src/storage/metadata_store.cpp
@@ -121,6 +123,7 @@ target_link_libraries(syn_sig_ra_core
     PUBLIC
         OpenSSL::Crypto
         SQLite::SQLite3
+        CURL::libcurl
         Jansson::Jansson
         signal_synth::signal_synth
 )

@@ -23,6 +23,8 @@ struct AccountRecord {
     std::string password_salt;
     std::string password_hash;
     std::string role;
+    bool email_verified = false;
+    std::string email_verified_at;
 };
 
 struct ProjectRecord {
@@ -163,6 +165,24 @@ enum class JobDeleteStatus {
     storage_error
 };
 
+enum class RateLimitStatus {
+    allowed,
+    limited,
+    storage_error
+};
+
+enum class EmailTokenCreateStatus {
+    created,
+    rate_limited,
+    storage_error
+};
+
+enum class EmailTokenConsumeStatus {
+    consumed,
+    invalid_or_expired,
+    storage_error
+};
+
 enum class JobLifecycleStatus {
     succeeded,
     not_found,
@@ -211,6 +231,55 @@ public:
 
     bool delete_session(
         const std::string& token_hash,
+        std::string& error
+    );
+
+    bool delete_sessions_for_user(
+        const std::string& user_id,
+        std::string& error
+    );
+
+    RateLimitStatus record_email_send_attempt(
+        const std::string& purpose,
+        const std::string& email_hash,
+        int max_attempts,
+        int window_minutes,
+        std::string& error
+    );
+
+    RateLimitStatus record_email_token_submission(
+        const std::string& purpose,
+        const std::string& token_hash,
+        int max_attempts,
+        int window_minutes,
+        std::string& error
+    );
+
+    EmailTokenCreateStatus create_email_token(
+        const std::string& user_id,
+        const std::string& purpose,
+        const std::string& token_hash,
+        const std::string& recipient_email,
+        int ttl_minutes,
+        std::string& error
+    );
+
+    EmailTokenConsumeStatus verify_email_token(
+        const std::string& token_hash,
+        AccountRecord& account,
+        std::string& error
+    );
+
+    EmailTokenConsumeStatus consume_password_reset_token(
+        const std::string& token_hash,
+        AccountRecord& account,
+        std::string& error
+    );
+
+    bool update_account_password(
+        const std::string& user_id,
+        const std::string& password_salt,
+        const std::string& password_hash,
         std::string& error
     );
 

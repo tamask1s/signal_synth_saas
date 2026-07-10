@@ -11,7 +11,7 @@
 
 namespace {
 
-const int kSchemaVersion = 8;
+const int kSchemaVersion = 9;
 const int kRequestLimitPerMinute = 120;
 const int kConcurrentJobLimit = 2;
 const int kMonthlyJobLimit = 100;
@@ -31,6 +31,9 @@ CREATE TABLE IF NOT EXISTS users (
     display_name TEXT NOT NULL,
     password_salt TEXT NOT NULL,
     password_hash TEXT NOT NULL,
+    email_verified INTEGER NOT NULL DEFAULT 1
+        CHECK (email_verified IN (0, 1)),
+    email_verified_at TEXT,
     created_at TEXT NOT NULL DEFAULT (
         strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     )
@@ -223,6 +226,47 @@ CREATE TABLE IF NOT EXISTS custom_packs (
 CREATE INDEX IF NOT EXISTS custom_packs_owner_created_idx
     ON custom_packs (organization_id,user_id,created_at);
 
+CREATE TABLE IF NOT EXISTS email_tokens (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    purpose TEXT NOT NULL CHECK (purpose IN ('email_verification','password_reset')),
+    token_hash TEXT NOT NULL UNIQUE CHECK (length(token_hash) = 64),
+    recipient_email TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    consumed_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    ),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS email_tokens_user_purpose_created_idx
+    ON email_tokens (user_id,purpose,created_at);
+CREATE INDEX IF NOT EXISTS email_tokens_hash_idx
+    ON email_tokens (token_hash);
+
+CREATE TABLE IF NOT EXISTS email_send_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    purpose TEXT NOT NULL,
+    email_hash TEXT NOT NULL CHECK (length(email_hash) = 64),
+    created_at TEXT NOT NULL DEFAULT (
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    )
+);
+CREATE INDEX IF NOT EXISTS email_send_attempts_rate_idx
+    ON email_send_attempts (purpose,email_hash,created_at);
+
+CREATE TABLE IF NOT EXISTS email_token_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    purpose TEXT NOT NULL,
+    token_hash TEXT NOT NULL CHECK (length(token_hash) = 64),
+    accepted INTEGER NOT NULL DEFAULT 0 CHECK (accepted IN (0, 1)),
+    created_at TEXT NOT NULL DEFAULT (
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    )
+);
+CREATE INDEX IF NOT EXISTS email_token_submissions_rate_idx
+    ON email_token_submissions (purpose,token_hash,created_at);
+
 CREATE INDEX IF NOT EXISTS jobs_owner_created_idx
     ON jobs (organization_id, project_id, created_at);
 CREATE INDEX IF NOT EXISTS packages_owner_created_idx
@@ -379,7 +423,8 @@ bool MetadataStore::initialize(std::string& error) {
         : -1;
     sqlite3_finalize(version_statement);
 
-    if (schema_version != 0 && schema_version != kSchemaVersion) {
+    if (schema_version != 0 && schema_version != 8 &&
+        schema_version != kSchemaVersion) {
         error = "SQLite metadata schema is obsolete; reset the pre-beta database";
         return false;
     }
@@ -387,9 +432,20 @@ bool MetadataStore::initialize(std::string& error) {
     if (!execute("BEGIN IMMEDIATE;", error)) {
         return false;
     }
-    bool succeeded = execute(kSchemaSql, error);
+    bool succeeded = true;
+    if (schema_version == 8) {
+        succeeded =
+            execute("ALTER TABLE users ADD COLUMN email_verified "
+                    "INTEGER NOT NULL DEFAULT 1;", error) &&
+            execute("ALTER TABLE users ADD COLUMN email_verified_at TEXT;", error) &&
+            execute("UPDATE users SET email_verified=1, "
+                    "email_verified_at=COALESCE(email_verified_at,created_at);", error);
+    }
     if (succeeded) {
-        succeeded = execute("PRAGMA user_version = 8;", error);
+        succeeded = execute(kSchemaSql, error);
+    }
+    if (succeeded) {
+        succeeded = execute("PRAGMA user_version = 9;", error);
     }
     if (!succeeded || !execute("COMMIT;", error)) {
         std::string rollback_error;
@@ -425,8 +481,9 @@ AccountCreateStatus MetadataStore::create_account(
     const char* statements[] = {
         "INSERT INTO organizations (id,display_name) VALUES (?1,?2);",
         "INSERT INTO users "
-        "(id,email,display_name,password_salt,password_hash) "
-        "VALUES (?1,?2,?3,?4,?5);",
+        "(id,email,display_name,password_salt,password_hash,"
+        "email_verified,email_verified_at) "
+        "VALUES (?1,?2,?3,?4,?5,0,NULL);",
         "INSERT INTO organization_memberships "
         "(organization_id,user_id,role) VALUES (?1,?2,'owner');",
         "INSERT INTO projects "
@@ -484,6 +541,8 @@ AccountCreateStatus MetadataStore::create_account(
     account.password_salt = password_salt;
     account.password_hash = password_hash;
     account.role = "owner";
+    account.email_verified = false;
+    account.email_verified_at.clear();
     return AccountCreateStatus::created;
 }
 
@@ -496,7 +555,8 @@ RecordLookupStatus MetadataStore::find_account_by_email(
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "SELECT u.id,m.organization_id,u.email,u.display_name,"
-        "u.password_salt,u.password_hash,m.role "
+        "u.password_salt,u.password_hash,m.role,u.email_verified,"
+        "COALESCE(u.email_verified_at,'') "
         "FROM users u JOIN organization_memberships m ON m.user_id=u.id "
         "WHERE u.email=?1 LIMIT 1;";
     if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
@@ -522,6 +582,8 @@ RecordLookupStatus MetadataStore::find_account_by_email(
     account.password_salt = column_text(statement, 4);
     account.password_hash = column_text(statement, 5);
     account.role = column_text(statement, 6);
+    account.email_verified = sqlite3_column_int(statement, 7) == 1;
+    account.email_verified_at = column_text(statement, 8);
     sqlite3_finalize(statement);
     return RecordLookupStatus::found;
 }
@@ -561,7 +623,8 @@ RecordLookupStatus MetadataStore::find_session(
     if (!initialize(error)) return RecordLookupStatus::storage_error;
     sqlite3_stmt* statement = nullptr;
     const char* sql =
-        "SELECT k.id,k.organization_id,k.user_id,m.role,u.email,u.display_name "
+        "SELECT k.id,k.organization_id,k.user_id,m.role,u.email,u.display_name,"
+        "u.email_verified,COALESCE(u.email_verified_at,'') "
         "FROM sessions s JOIN api_keys k ON k.id=s.api_key_id "
         "JOIN organization_memberships m ON m.organization_id=k.organization_id "
         "AND m.user_id=k.user_id JOIN users u ON u.id=k.user_id "
@@ -592,6 +655,8 @@ RecordLookupStatus MetadataStore::find_session(
     account.role = identity.role;
     account.email = column_text(statement, 4);
     account.display_name = column_text(statement, 5);
+    account.email_verified = sqlite3_column_int(statement, 6) == 1;
+    account.email_verified_at = column_text(statement, 7);
     sqlite3_finalize(statement);
     return RecordLookupStatus::found;
 }
@@ -608,6 +673,356 @@ bool MetadataStore::delete_session(
         ) == SQLITE_OK &&
         bind_text(statement, 1, token_hash) &&
         sqlite3_step(statement) == SQLITE_DONE;
+    if (!succeeded) error = sqlite3_errmsg(database_);
+    sqlite3_finalize(statement);
+    return succeeded;
+}
+
+bool MetadataStore::delete_sessions_for_user(
+    const std::string& user_id,
+    std::string& error
+) {
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "DELETE FROM sessions WHERE api_key_id IN "
+        "(SELECT id FROM api_keys WHERE user_id=?1 AND kind='browser');";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, user_id) &&
+        sqlite3_step(statement) == SQLITE_DONE;
+    if (!succeeded) error = sqlite3_errmsg(database_);
+    sqlite3_finalize(statement);
+    return succeeded;
+}
+
+RateLimitStatus MetadataStore::record_email_send_attempt(
+    const std::string& purpose,
+    const std::string& email_hash,
+    int max_attempts,
+    int window_minutes,
+    std::string& error
+) {
+    if (!is_sha256_hex(email_hash) || max_attempts < 1 ||
+        window_minutes < 1 ||
+        (purpose != "email_verification" && purpose != "password_reset")) {
+        error = "invalid email send rate-limit input";
+        return RateLimitStatus::storage_error;
+    }
+    if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
+        return RateLimitStatus::storage_error;
+    }
+    std::ostringstream modifier;
+    modifier << "-" << window_minutes << " minutes";
+    sqlite3_stmt* statement = nullptr;
+    const char* count_sql =
+        "SELECT COUNT(*) FROM email_send_attempts "
+        "WHERE purpose=?1 AND email_hash=?2 AND created_at >= "
+        "strftime('%Y-%m-%dT%H:%M:%fZ','now',?3);";
+    bool succeeded =
+        sqlite3_prepare_v2(database_, count_sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, purpose) &&
+        bind_text(statement, 2, email_hash) &&
+        bind_text(statement, 3, modifier.str()) &&
+        sqlite3_step(statement) == SQLITE_ROW;
+    const int count = succeeded ? sqlite3_column_int(statement, 0) : 0;
+    sqlite3_finalize(statement);
+    if (succeeded && count < max_attempts) {
+        const char* insert_sql =
+            "INSERT INTO email_send_attempts (purpose,email_hash) VALUES (?1,?2);";
+        succeeded =
+            sqlite3_prepare_v2(database_, insert_sql, -1, &statement, nullptr) == SQLITE_OK &&
+            bind_text(statement, 1, purpose) && bind_text(statement, 2, email_hash) &&
+            sqlite3_step(statement) == SQLITE_DONE;
+        sqlite3_finalize(statement);
+    }
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (!succeeded) error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return RateLimitStatus::storage_error;
+    }
+    return count >= max_attempts
+        ? RateLimitStatus::limited
+        : RateLimitStatus::allowed;
+}
+
+RateLimitStatus MetadataStore::record_email_token_submission(
+    const std::string& purpose,
+    const std::string& token_hash,
+    int max_attempts,
+    int window_minutes,
+    std::string& error
+) {
+    if (!is_sha256_hex(token_hash) || max_attempts < 1 ||
+        window_minutes < 1 ||
+        (purpose != "email_verification" && purpose != "password_reset")) {
+        error = "invalid email token rate-limit input";
+        return RateLimitStatus::storage_error;
+    }
+    if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
+        return RateLimitStatus::storage_error;
+    }
+    std::ostringstream modifier;
+    modifier << "-" << window_minutes << " minutes";
+    sqlite3_stmt* statement = nullptr;
+    const char* count_sql =
+        "SELECT COUNT(*) FROM email_token_submissions "
+        "WHERE purpose=?1 AND token_hash=?2 AND created_at >= "
+        "strftime('%Y-%m-%dT%H:%M:%fZ','now',?3);";
+    bool succeeded =
+        sqlite3_prepare_v2(database_, count_sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, purpose) && bind_text(statement, 2, token_hash) &&
+        bind_text(statement, 3, modifier.str()) &&
+        sqlite3_step(statement) == SQLITE_ROW;
+    const int count = succeeded ? sqlite3_column_int(statement, 0) : 0;
+    sqlite3_finalize(statement);
+    if (succeeded && count < max_attempts) {
+        const char* insert_sql =
+            "INSERT INTO email_token_submissions (purpose,token_hash) VALUES (?1,?2);";
+        succeeded =
+            sqlite3_prepare_v2(database_, insert_sql, -1, &statement, nullptr) == SQLITE_OK &&
+            bind_text(statement, 1, purpose) && bind_text(statement, 2, token_hash) &&
+            sqlite3_step(statement) == SQLITE_DONE;
+        sqlite3_finalize(statement);
+    }
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (!succeeded) error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return RateLimitStatus::storage_error;
+    }
+    return count >= max_attempts
+        ? RateLimitStatus::limited
+        : RateLimitStatus::allowed;
+}
+
+EmailTokenCreateStatus MetadataStore::create_email_token(
+    const std::string& user_id,
+    const std::string& purpose,
+    const std::string& token_hash,
+    const std::string& recipient_email,
+    int ttl_minutes,
+    std::string& error
+) {
+    if (user_id.empty() || recipient_email.empty() || !is_sha256_hex(token_hash) ||
+        ttl_minutes < 5 || ttl_minutes > 10080 ||
+        (purpose != "email_verification" && purpose != "password_reset")) {
+        error = "invalid email token input";
+        return EmailTokenCreateStatus::storage_error;
+    }
+    std::string token_id;
+    if (!random_id("email_token_", token_id, error) ||
+        !initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
+        return EmailTokenCreateStatus::storage_error;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* count_sql =
+        "SELECT COUNT(*) FROM email_tokens WHERE user_id=?1 AND purpose=?2 "
+        "AND created_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 hour');";
+    bool succeeded =
+        sqlite3_prepare_v2(database_, count_sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, user_id) && bind_text(statement, 2, purpose) &&
+        sqlite3_step(statement) == SQLITE_ROW;
+    const int recent_count = succeeded ? sqlite3_column_int(statement, 0) : 0;
+    sqlite3_finalize(statement);
+    if (!succeeded) {
+        error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return EmailTokenCreateStatus::storage_error;
+    }
+    if (recent_count >= 3) {
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return EmailTokenCreateStatus::rate_limited;
+    }
+    const char* invalidate_sql =
+        "UPDATE email_tokens SET consumed_at=COALESCE(consumed_at,"
+        "strftime('%Y-%m-%dT%H:%M:%fZ','now')) "
+        "WHERE user_id=?1 AND purpose=?2 AND consumed_at IS NULL;";
+    succeeded =
+        sqlite3_prepare_v2(database_, invalidate_sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, user_id) && bind_text(statement, 2, purpose) &&
+        sqlite3_step(statement) == SQLITE_DONE;
+    sqlite3_finalize(statement);
+    std::ostringstream expiry;
+    expiry << "+" << ttl_minutes << " minutes";
+    if (succeeded) {
+        const char* insert_sql =
+            "INSERT INTO email_tokens "
+            "(id,user_id,purpose,token_hash,recipient_email,expires_at) "
+            "VALUES (?1,?2,?3,?4,?5,"
+            "strftime('%Y-%m-%dT%H:%M:%fZ','now',?6));";
+        succeeded =
+            sqlite3_prepare_v2(database_, insert_sql, -1, &statement, nullptr) == SQLITE_OK &&
+            bind_text(statement, 1, token_id) && bind_text(statement, 2, user_id) &&
+            bind_text(statement, 3, purpose) && bind_text(statement, 4, token_hash) &&
+            bind_text(statement, 5, recipient_email) && bind_text(statement, 6, expiry.str()) &&
+            sqlite3_step(statement) == SQLITE_DONE;
+        sqlite3_finalize(statement);
+    }
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (!succeeded) error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return EmailTokenCreateStatus::storage_error;
+    }
+    return EmailTokenCreateStatus::created;
+}
+
+EmailTokenConsumeStatus MetadataStore::verify_email_token(
+    const std::string& token_hash,
+    AccountRecord& account,
+    std::string& error
+) {
+    if (!is_sha256_hex(token_hash)) return EmailTokenConsumeStatus::invalid_or_expired;
+    if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
+        return EmailTokenConsumeStatus::storage_error;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT t.id,u.id,m.organization_id,u.email,u.display_name,"
+        "u.password_salt,u.password_hash,m.role "
+        "FROM email_tokens t JOIN users u ON u.id=t.user_id "
+        "JOIN organization_memberships m ON m.user_id=u.id "
+        "WHERE t.token_hash=?1 AND t.purpose='email_verification' "
+        "AND t.consumed_at IS NULL AND t.expires_at > "
+        "strftime('%Y-%m-%dT%H:%M:%fZ','now') LIMIT 1;";
+    bool prepared = sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, token_hash);
+    const int result = prepared ? sqlite3_step(statement) : SQLITE_ERROR;
+    if (!prepared || (result != SQLITE_ROW && result != SQLITE_DONE)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return EmailTokenConsumeStatus::storage_error;
+    }
+    if (result == SQLITE_DONE) {
+        sqlite3_finalize(statement);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return EmailTokenConsumeStatus::invalid_or_expired;
+    }
+    const std::string token_id = column_text(statement, 0);
+    account.user_id = column_text(statement, 1);
+    account.organization_id = column_text(statement, 2);
+    account.email = column_text(statement, 3);
+    account.display_name = column_text(statement, 4);
+    account.password_salt = column_text(statement, 5);
+    account.password_hash = column_text(statement, 6);
+    account.role = column_text(statement, 7);
+    sqlite3_finalize(statement);
+    const char* update_token =
+        "UPDATE email_tokens SET consumed_at="
+        "strftime('%Y-%m-%dT%H:%M:%fZ','now') "
+        "WHERE id=?1 AND consumed_at IS NULL;";
+    bool succeeded =
+        sqlite3_prepare_v2(database_, update_token, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, token_id) && sqlite3_step(statement) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    sqlite3_finalize(statement);
+    if (succeeded) {
+        const char* update_user =
+            "UPDATE users SET email_verified=1,email_verified_at="
+            "COALESCE(email_verified_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')) "
+            "WHERE id=?1;";
+        succeeded =
+            sqlite3_prepare_v2(database_, update_user, -1, &statement, nullptr) == SQLITE_OK &&
+            bind_text(statement, 1, account.user_id) &&
+            sqlite3_step(statement) == SQLITE_DONE && sqlite3_changes(database_) == 1;
+        sqlite3_finalize(statement);
+    }
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (!succeeded) error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return EmailTokenConsumeStatus::storage_error;
+    }
+    account.email_verified = true;
+    account.email_verified_at.clear();
+    return EmailTokenConsumeStatus::consumed;
+}
+
+EmailTokenConsumeStatus MetadataStore::consume_password_reset_token(
+    const std::string& token_hash,
+    AccountRecord& account,
+    std::string& error
+) {
+    if (!is_sha256_hex(token_hash)) return EmailTokenConsumeStatus::invalid_or_expired;
+    if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
+        return EmailTokenConsumeStatus::storage_error;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT t.id,u.id,m.organization_id,u.email,u.display_name,"
+        "u.password_salt,u.password_hash,m.role,COALESCE(u.email_verified_at,'') "
+        "FROM email_tokens t JOIN users u ON u.id=t.user_id "
+        "JOIN organization_memberships m ON m.user_id=u.id "
+        "WHERE t.token_hash=?1 AND t.purpose='password_reset' "
+        "AND u.email_verified=1 AND t.consumed_at IS NULL AND t.expires_at > "
+        "strftime('%Y-%m-%dT%H:%M:%fZ','now') LIMIT 1;";
+    bool prepared = sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, token_hash);
+    const int result = prepared ? sqlite3_step(statement) : SQLITE_ERROR;
+    if (!prepared || (result != SQLITE_ROW && result != SQLITE_DONE)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return EmailTokenConsumeStatus::storage_error;
+    }
+    if (result == SQLITE_DONE) {
+        sqlite3_finalize(statement);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return EmailTokenConsumeStatus::invalid_or_expired;
+    }
+    const std::string token_id = column_text(statement, 0);
+    account.user_id = column_text(statement, 1);
+    account.organization_id = column_text(statement, 2);
+    account.email = column_text(statement, 3);
+    account.display_name = column_text(statement, 4);
+    account.password_salt = column_text(statement, 5);
+    account.password_hash = column_text(statement, 6);
+    account.role = column_text(statement, 7);
+    account.email_verified = true;
+    account.email_verified_at = column_text(statement, 8);
+    sqlite3_finalize(statement);
+    const char* update_sql =
+        "UPDATE email_tokens SET consumed_at="
+        "strftime('%Y-%m-%dT%H:%M:%fZ','now') "
+        "WHERE id=?1 AND consumed_at IS NULL;";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, update_sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, token_id) && sqlite3_step(statement) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    sqlite3_finalize(statement);
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (!succeeded) error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return EmailTokenConsumeStatus::storage_error;
+    }
+    return EmailTokenConsumeStatus::consumed;
+}
+
+bool MetadataStore::update_account_password(
+    const std::string& user_id,
+    const std::string& password_salt,
+    const std::string& password_hash,
+    std::string& error
+) {
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE users SET password_salt=?2,password_hash=?3 WHERE id=?1;";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, user_id) && bind_text(statement, 2, password_salt) &&
+        bind_text(statement, 3, password_hash) &&
+        sqlite3_step(statement) == SQLITE_DONE && sqlite3_changes(database_) == 1;
     if (!succeeded) error = sqlite3_errmsg(database_);
     sqlite3_finalize(statement);
     return succeeded;
@@ -833,7 +1248,9 @@ ApiKeyLookupStatus MetadataStore::find_active_api_key(
         "SELECT k.id, k.organization_id, k.user_id, m.role "
         "FROM api_keys k JOIN organization_memberships m "
         "ON m.organization_id = k.organization_id AND m.user_id = k.user_id "
-        "WHERE k.key_hash = ?1 AND k.active = 1;";
+        "JOIN users u ON u.id = k.user_id "
+        "WHERE k.key_hash = ?1 AND k.active = 1 "
+        "AND u.email_verified = 1;";
     if (sqlite3_prepare_v2(
             database_,
             sql,
