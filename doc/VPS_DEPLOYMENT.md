@@ -256,7 +256,9 @@ sudo sh -c 'umask 027; read -r SMTP_PASSWORD; printf "%s\n" "$SMTP_PASSWORD" > /
 ```
 
 Replace `apache` with the actual group used by the custom Apache service. Do
-not enable the test-only `capture_file` transport in production.
+not enable the test-only `capture_file` transport in production. For the
+currently blocked direct-VPS IP, use the Gmail App Password workflow in
+[`../ops/mail/README.md`](../ops/mail/README.md) instead of a direct relay.
 
 Validate and reload:
 

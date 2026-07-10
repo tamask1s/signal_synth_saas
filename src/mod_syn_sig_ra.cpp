@@ -64,6 +64,7 @@ struct ApacheServerConfig {
     const char* email_smtp_url;
     const char* email_smtp_username;
     const char* email_smtp_password_file;
+    const char* email_smtp_tls_mode;
     const char* email_capture_directory;
     bool data_root_set;
     bool signal_synth_cli_set;
@@ -76,6 +77,7 @@ struct ApacheServerConfig {
     bool email_smtp_url_set;
     bool email_smtp_username_set;
     bool email_smtp_password_file_set;
+    bool email_smtp_tls_mode_set;
     bool email_capture_directory_set;
 };
 
@@ -98,6 +100,7 @@ void* create_server_config(apr_pool_t* pool, server_rec*) {
     config->email_smtp_url = "";
     config->email_smtp_username = "";
     config->email_smtp_password_file = "";
+    config->email_smtp_tls_mode = "required";
     config->email_capture_directory = "";
     return config;
 }
@@ -133,6 +136,8 @@ void* merge_server_config(apr_pool_t* pool, void* base_value, void* add_value) {
         ? add->email_smtp_username : base->email_smtp_username;
     merged->email_smtp_password_file = add->email_smtp_password_file_set
         ? add->email_smtp_password_file : base->email_smtp_password_file;
+    merged->email_smtp_tls_mode = add->email_smtp_tls_mode_set
+        ? add->email_smtp_tls_mode : base->email_smtp_tls_mode;
     merged->email_capture_directory = add->email_capture_directory_set
         ? add->email_capture_directory : base->email_capture_directory;
     merged->data_root_set = add->data_root_set || base->data_root_set;
@@ -154,6 +159,8 @@ void* merge_server_config(apr_pool_t* pool, void* base_value, void* add_value) {
         add->email_smtp_username_set || base->email_smtp_username_set;
     merged->email_smtp_password_file_set =
         add->email_smtp_password_file_set || base->email_smtp_password_file_set;
+    merged->email_smtp_tls_mode_set =
+        add->email_smtp_tls_mode_set || base->email_smtp_tls_mode_set;
     merged->email_capture_directory_set =
         add->email_capture_directory_set || base->email_capture_directory_set;
     return merged;
@@ -270,6 +277,17 @@ const char* set_email_from(cmd_parms* command, void*, const char* value) {
     return nullptr;
 }
 
+const char* set_email_smtp_tls_mode(cmd_parms* command, void*, const char* value) {
+    const std::string mode(value);
+    if (mode != "required" && mode != "opportunistic" && mode != "disabled") {
+        return "SynSigRaEmailSmtpTls must be required, opportunistic, or disabled";
+    }
+    ApacheServerConfig* config = current_server_config(command);
+    config->email_smtp_tls_mode = apr_pstrdup(command->pool, value);
+    config->email_smtp_tls_mode_set = true;
+    return nullptr;
+}
+
 #define SYN_SIG_RA_EMAIL_STRING_SETTER(function_name, field, flag) \
 const char* function_name(cmd_parms* command, void*, const char* value) { \
     ApacheServerConfig* config = current_server_config(command); \
@@ -364,6 +382,12 @@ const command_rec syn_sig_ra_directives[] = {
         reinterpret_cast<cmd_func>(set_email_smtp_username),
         nullptr, RSRC_CONF,
         "SMTP username"
+    ),
+    AP_INIT_TAKE1(
+        "SynSigRaEmailSmtpTls",
+        reinterpret_cast<cmd_func>(set_email_smtp_tls_mode),
+        nullptr, RSRC_CONF,
+        "SMTP TLS mode: required, opportunistic, or disabled (loopback only)"
     ),
     AP_INIT_TAKE1(
         "SynSigRaEmailSmtpPasswordFile",
@@ -470,6 +494,12 @@ int syn_sig_ra_handler(request_rec* request) {
     email_config.smtp_url = config->email_smtp_url;
     email_config.smtp_username = config->email_smtp_username;
     email_config.smtp_password_file = config->email_smtp_password_file;
+    const std::string email_tls_mode(config->email_smtp_tls_mode);
+    email_config.tls_mode = email_tls_mode == "disabled"
+        ? syn_sig_ra::EmailTlsMode::disabled
+        : (email_tls_mode == "opportunistic"
+            ? syn_sig_ra::EmailTlsMode::opportunistic
+            : syn_sig_ra::EmailTlsMode::required);
     email_config.capture_directory = config->email_capture_directory;
     const syn_sig_ra::RouteResponse response = syn_sig_ra::route_request(
         method,

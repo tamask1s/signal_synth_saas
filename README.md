@@ -576,7 +576,7 @@ The current deployment uses nginx as the public TLS edge and a custom Apache bac
 - API key secrets are displayed once and stored only as SHA-256 hashes.
 - Passwords are stored using salted PBKDF2-HMAC-SHA256.
 - E-mail verification and password-reset tokens are stored only as SHA-256 hashes, expire, are single-use, and are send/submission rate-limited. Recovery request responses do not disclose whether an account exists.
-- Production e-mail delivery requires a transactional SMTP provider, verified sender domain, and an Apache-readable password file. If delivery is not configured, new registration and recovery sending return a controlled service-unavailable response; existing verified accounts remain usable.
+- Production e-mail delivery requires authenticated SMTP. For this low-volume beta, the supported ready-to-run path is Gmail SMTP with a Google App Password; see [`ops/mail/README.md`](ops/mail/README.md). If delivery is not configured, new registration and recovery sending return a controlled service-unavailable response; existing verified accounts remain usable.
 - The product accepts synthetic engineering scenarios only.
 - Do not upload PHI, personal data, patient identifiers, or clinical free text.
 - The service does not execute customer detector code.

@@ -106,6 +106,20 @@ std::size_t read_callback(
     return count;
 }
 
+bool loopback_smtp_url(const std::string& value) {
+    static const char* prefixes[] = {
+        "smtp://127.0.0.1", "smtp://localhost", "smtp://[::1]"
+    };
+    for (const char* prefix : prefixes) {
+        const std::string expected(prefix);
+        if (value.compare(0, expected.size(), expected) == 0 &&
+            (value.size() == expected.size() || value[expected.size()] == ':')) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool directory_writable(const std::string& path) {
     struct stat info;
     return !path.empty() &&
@@ -146,6 +160,7 @@ namespace syn_sig_ra {
 
 EmailConfig::EmailConfig()
     : transport(EmailTransport::disabled),
+      tls_mode(EmailTlsMode::required),
       connect_timeout_seconds(10),
       send_timeout_seconds(20) {}
 
@@ -191,7 +206,9 @@ bool email_delivery_configured(const EmailConfig& config) {
     if (config.transport == EmailTransport::capture_file) {
         return directory_writable(config.capture_directory);
     }
-    return !config.smtp_url.empty();
+    if (config.smtp_url.empty()) return false;
+    return config.tls_mode != EmailTlsMode::disabled ||
+        loopback_smtp_url(config.smtp_url);
 }
 
 EmailSendStatus send_transactional_email(
@@ -252,7 +269,18 @@ EmailSendStatus send_transactional_email(
     curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback);
     curl_easy_setopt(curl, CURLOPT_READDATA, &upload);
     curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
-    curl_easy_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_ALL);
+    const curl_usessl tls_mode = config.tls_mode == EmailTlsMode::required
+        ? CURLUSESSL_ALL
+        : (config.tls_mode == EmailTlsMode::opportunistic
+            ? CURLUSESSL_TRY : CURLUSESSL_NONE);
+    if (config.tls_mode == EmailTlsMode::disabled &&
+        !loopback_smtp_url(config.smtp_url)) {
+        error = "plaintext SMTP is permitted only for a loopback URL";
+        curl_slist_free_all(recipients);
+        curl_easy_cleanup(curl);
+        return EmailSendStatus::invalid_config;
+    }
+    curl_easy_setopt(curl, CURLOPT_USE_SSL, tls_mode);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, config.connect_timeout_seconds);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, config.send_timeout_seconds);
     if (!config.smtp_username.empty()) {

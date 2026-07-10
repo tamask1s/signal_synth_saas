@@ -16,6 +16,7 @@ SynSigRaPublicBasePath /syn_sig_ra
 # SynSigRaEmailFrom noreply@timeonion.com
 # SynSigRaEmailFromName "SynSigRa"
 # SynSigRaEmailSmtpUrl smtps://smtp.provider.example:465
+# SynSigRaEmailSmtpTls required
 # SynSigRaEmailSmtpUsername smtp-user
 # SynSigRaEmailSmtpPasswordFile /etc/syn_sig_ra/smtp-password
 

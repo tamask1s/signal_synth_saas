@@ -11,6 +11,12 @@ enum class EmailTransport {
     capture_file
 };
 
+enum class EmailTlsMode {
+    required,
+    opportunistic,
+    disabled
+};
+
 enum class EmailSendStatus {
     sent,
     disabled,
@@ -22,6 +28,7 @@ struct EmailConfig {
     EmailConfig();
 
     EmailTransport transport;
+    EmailTlsMode tls_mode;
     std::string public_origin;
     std::string from_email;
     std::string from_name;
