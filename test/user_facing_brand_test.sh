@@ -14,6 +14,7 @@ doc/VPS_DEPLOYMENT.md
 doc/PRIVATE_BETA_TERMS.md
 doc/PRIVACY_NO_PHI_NOTICE.md
 doc/PRIVATE_BETA_SUPPORT.md
+doc/PRODUCT_CAPABILITIES.md
 apache/syn_sig_ra.conf.example
 ops/mail/README.md
 ops/mail/configure_gmail_smtp.sh
@@ -37,6 +38,14 @@ tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 unzip -qq "$repo_dir/doc/synsigra_main_landing_package_v10.zip" -d "$tmp_dir"
 if grep -RInE "$legacy_pattern" "$tmp_dir" --exclude='*.png'; then
+    failed=1
+fi
+
+landing="$tmp_dir/synsigra_main_landing_package/main/index.html"
+grep -q "0.01 seconds to 24 hours" "$landing" ||
+    { echo "landing capability range is missing" >&2; failed=1; }
+if grep -qiE "new front door|landing page is|page intentionally presents" "$landing"; then
+    echo "internal landing-page copy found in customer-facing content" >&2
     failed=1
 fi
 

@@ -34,6 +34,7 @@ https://www.timeonion.com/syn_sig_ra
 
 Public beta documents:
 
+- [Product capabilities and authoring boundaries](doc/PRODUCT_CAPABILITIES.md)
 - [Private Beta Terms](doc/PRIVATE_BETA_TERMS.md)
 - [Privacy and No-PHI Notice](doc/PRIVACY_NO_PHI_NOTICE.md)
 - [Support, availability, and billing expectations](doc/PRIVATE_BETA_SUPPORT.md)
@@ -99,10 +100,15 @@ For each experiment, preserve at least:
 
 The fastest path is the completed job's **Verification kit ZIP**. It contains
 `README.md`, `manifest.json`, `package.zip`, `PACKAGE_USE_NOTICE.txt`,
-`SUPPORT_AND_TERMS.txt`, and detector-output templates when the pack has locally
+`SUPPORT_AND_TERMS.txt`, `PLATFORM_CAPABILITIES.md`, and detector-output templates when the pack has locally
 scoreable targets. The notice files state the permitted internal engineering
 use, prohibited clinical claims, support channel, no-SLA status, retention and
 free-beta billing boundary.
+
+`PLATFORM_CAPABILITIES.md` explains the wider configurable space—including
+duration, sampling, physiology modulation, noise, artifacts, PPG behavior, and
+verification targets—so a short starter scenario is not confused with the
+platform limit. The exact job manifest and provenance remain authoritative.
 
 A fingerprint change means the test input changed. Do not compare results as though they came from the same fixture.
 

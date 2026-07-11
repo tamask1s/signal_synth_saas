@@ -635,6 +635,7 @@ expected = {
     "README.md",
     "PACKAGE_USE_NOTICE.txt",
     "SUPPORT_AND_TERMS.txt",
+    "PLATFORM_CAPABILITIES.md",
     "detections/clean_70_r_peak.csv",
     "detections/slow_45_r_peak.csv",
     "detections/fast_120_r_peak.csv",
@@ -654,6 +655,9 @@ with zipfile.ZipFile(archive_path) as archive:
     notice = archive.read("PACKAGE_USE_NOTICE.txt").decode("utf-8")
     if "not represent synthetic results" not in notice:
         raise SystemExit("template zip lacks package-use claim boundary")
+    capabilities = archive.read("PLATFORM_CAPABILITIES.md").decode("utf-8")
+    if "74 fields" not in capabilities or "20 artifact families" not in capabilities:
+        raise SystemExit("template zip lacks platform capability context")
     csv = archive.read("detections/clean_70_r_peak.csv").decode("utf-8")
     if not csv.startswith("time_seconds,sample_index,channel,label,confidence\n"):
         raise SystemExit("R-peak template CSV header is invalid")
@@ -671,6 +675,7 @@ expected = {
     "package.zip",
     "PACKAGE_USE_NOTICE.txt",
     "SUPPORT_AND_TERMS.txt",
+    "PLATFORM_CAPABILITIES.md",
     "detections/clean_70_r_peak.csv",
     "detections/slow_45_r_peak.csv",
     "detections/fast_120_r_peak.csv",
@@ -690,6 +695,9 @@ with zipfile.ZipFile(kit_path) as archive:
     support = archive.read("SUPPORT_AND_TERMS.txt").decode("utf-8")
     if "no automatic paid" not in support or "without an uptime" not in support:
         raise SystemExit("verification kit lacks support and billing boundary")
+    capabilities = archive.read("PLATFORM_CAPABILITIES.md").decode("utf-8")
+    if "starter pack" not in capabilities or "24 hours" not in capabilities:
+        raise SystemExit("verification kit lacks wider platform context")
     nested_package = archive.read("package.zip")
 with open(package_path, "rb") as handle:
     if nested_package != handle.read():

@@ -347,6 +347,38 @@ Privacy and no-PHI notice:
 https://www.timeonion.com/syn_sig_ra/legal/privacy
 )NOTICE";
 
+const char kPlatformCapabilities[] = R"NOTICE(# Synsigra platform capabilities
+
+This job is one reproducible verification slice. A short or simple starter pack
+does not represent the limits of the Synsigra authoring platform.
+
+The current authoring contract exposes 74 fields, a 71-entry condition catalog,
+20 artifact families, 8 verification target types, and deterministic seeds.
+
+## Configurable dimensions
+
+- Duration from 0.01 seconds to 24 hours, subject to package limits.
+- Sample rates from 100 Hz to 1 MHz, including standard ECG/PPG rates.
+- ECG rate, RR variability, ectopy, rhythm/conduction patterns, episodes,
+  pacing controls, and parameterized 12-lead morphology where supported.
+- HRV LF/HF structure, SDNN, respiration, and activity-linked modulation.
+- PPG pulse timing, shape, perfusion, missing/weak pulses, timing jitter,
+  amplitude modulation, and pulse-transit-time variation.
+- ECG noise, dropout, saturation, lead/electrode faults, drift, dropped
+  samples, quantization, clipping, and PPG motion/ambient/sensor artifacts.
+- Targets for R peaks, PPG peaks/onsets, beat classification, HRV, signal
+  quality, morphology assertions, and ECG-PPG alignment.
+
+Catalog entries declare native, parameterized, or catalog-only support.
+Unsupported combinations are rejected rather than silently approximated.
+
+Synsigra output is synthetic engineering QA evidence, not patient data,
+clinical evidence, or a medical-device authorization. The manifest and
+provenance inside this job remain authoritative for the exact generated slice.
+
+Live product: https://www.timeonion.com/syn_sig_ra/
+)NOTICE";
+
 void append_beta_notices(std::vector<ZipEntry>& entries) {
     ZipEntry package_notice;
     package_notice.path = "PACKAGE_USE_NOTICE.txt";
@@ -356,6 +388,10 @@ void append_beta_notices(std::vector<ZipEntry>& entries) {
     support_notice.path = "SUPPORT_AND_TERMS.txt";
     support_notice.content = kSupportAndTermsNotice;
     entries.push_back(support_notice);
+    ZipEntry capabilities;
+    capabilities.path = "PLATFORM_CAPABILITIES.md";
+    capabilities.content = kPlatformCapabilities;
+    entries.push_back(capabilities);
 }
 
 void append_u16(std::string& output, std::uint16_t value) {
@@ -584,6 +620,8 @@ std::string verification_kit_readme(
            << "and prohibited-use boundary.\n"
            << "- `SUPPORT_AND_TERMS.txt`: support, availability, retention "
            << "and billing expectations.\n"
+           << "- `PLATFORM_CAPABILITIES.md`: the wider authoring surface, so "
+           << "this pack is not mistaken for the platform limit.\n"
            << "- The nested `package.zip` contains `provenance.json` and "
            << "`ENGINEERING_CLAIM_BOUNDARY.txt` for generator identity, "
            << "contract identity, fingerprints and the engineering QA claim "
@@ -1388,6 +1426,31 @@ const char kUiHtml[] = R"HTML(<!doctype html>
             <span>Run verifier</span>
             <span>Archive package + provenance</span>
           </aside>
+          <section class="panel capability-overview" aria-labelledby="capability-overview-heading">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Authoring breadth</p>
+                <h2 id="capability-overview-heading">A test space, not a single waveform</h2>
+                <p class="muted compact">A starter pack is one validated slice. Build deterministic tests across timing, physiology, modulation, artifacts, targets, and output contracts.</p>
+              </div>
+              <a class="button-link secondary" href="/syn_sig_ra/scenarios">Open scenario editor</a>
+            </div>
+            <div class="capability-stats" aria-label="Current Synsigra authoring contract">
+              <div><strong>74</strong><span>authoring fields</span></div>
+              <div><strong>71</strong><span>catalog entries</span></div>
+              <div><strong>20</strong><span>artifact families</span></div>
+              <div><strong>8</strong><span>verification targets</span></div>
+            </div>
+            <div class="cards capability-cards">
+              <article class="card"><h3>Time, sampling, repeatability</h3><p class="muted">0.01 seconds to 24 hours, 100 Hz to 1 MHz, standard presets, deterministic 64-bit seeds, and controlled randomization.</p></article>
+              <article class="card"><h3>ECG rhythm and morphology</h3><p class="muted">Rate and RR variation, ectopy, rhythm/conduction patterns, episodes, pacing, and parameterized 12-lead morphology where supported.</p></article>
+              <article class="card"><h3>HRV and physiology modulation</h3><p class="muted">SDNN and LF/HF structure, respiratory frequency/amplitude, RR bounds, and activity-linked modulation.</p></article>
+              <article class="card"><h3>PPG timing and shape</h3><p class="muted">Pulse delay, rise/decay, dicrotic shape, perfusion, weak/missing pulses, jitter, amplitude modulation, and PTT variation.</p></article>
+              <article class="card"><h3>Noise and device faults</h3><p class="muted">Baseline, powerline and EMG noise; dropout, saturation, motion, drift, clipping, quantization, lead/electrode and sensor faults.</p></article>
+              <article class="card"><h3>Ground truth and evidence</h3><p class="muted">R-peak, PPG, beat, HRV, quality, morphology and alignment targets with manifests, fingerprints, provenance, reports, and local scoring.</p></article>
+            </div>
+            <p class="muted capability-footnote">The condition catalog explicitly distinguishes native, parameterized, and catalog-only support. Unsupported combinations are rejected.</p>
+          </section>
         </section>
 
     <section id="account" class="panel page" data-page="account">
@@ -1462,6 +1525,10 @@ const char kUiHtml[] = R"HTML(<!doctype html>
           </div>
           <button id="refresh-packs" class="secondary">Refresh</button>
         </div>
+        <aside class="verify-note pack-scope-note">
+          <strong>A pack is a validated slice, not the platform ceiling.</strong>
+          <p class="muted compact">Start with a curated pack for a fast, scoreable baseline. For different duration, sampling, physiology, frequency/amplitude modulation, noise, artifacts, or target combinations, clone a case in the <a href="/syn_sig_ra/scenarios">scenario editor</a> and compose a custom pack.</p>
+        </aside>
         <div class="filter-row">
           <label>
             Detector target
@@ -2096,6 +2163,29 @@ body {
   color: #fff;
   font-weight: 800;
 }
+
+.capability-overview { margin-top: 20px; }
+.capability-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+.capability-stats div {
+  display: grid;
+  gap: 2px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(111, 124, 255, .08);
+}
+.capability-stats strong { font-size: 26px; color: var(--primary); }
+.capability-stats span { color: var(--muted); font-size: 13px; }
+.capability-cards .card { min-height: 142px; }
+.capability-cards p { margin-bottom: 0; }
+.capability-footnote { margin: 14px 0 0; font-size: 13px; }
+.pack-scope-note { margin-bottom: 16px; }
+.pack-scope-note a { color: var(--primary); font-weight: 700; }
 
 .eyebrow {
   margin: 0 0 8px;
@@ -2811,6 +2901,7 @@ th, td { border-color: var(--border); }
   .side-nav a { flex: 0 0 auto; white-space: nowrap; }
   .panel-heading { align-items: flex-start; flex-direction: column; }
   .inline-label { width: 100%; min-width: 0; }
+  .capability-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 520px) {
   .product-bar { padding-inline: 14px; }
@@ -2818,6 +2909,7 @@ th, td { border-color: var(--border); }
   #header-account-label { display: none; }
   .shell { padding-inline: 12px; }
   .app-header, .panel { border-radius: 18px; }
+  .capability-stats { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

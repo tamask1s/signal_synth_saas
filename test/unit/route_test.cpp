@@ -106,6 +106,11 @@ int main() {
             ui.body.find("header-account-link") != std::string::npos &&
             ui.body.find("app-toast") != std::string::npos &&
             ui.body.find("What do you want to do next?") != std::string::npos &&
+            ui.body.find("A test space, not a single waveform") !=
+                std::string::npos &&
+            ui.body.find("74</strong><span>authoring fields") !=
+                std::string::npos &&
+            ui.body.find("A pack is a validated slice") != std::string::npos &&
             ui.body.find("pack-intent-filter") != std::string::npos &&
             ui.body.find("pack-comparison") != std::string::npos &&
             ui.body.find("verification-runbook") != std::string::npos &&
