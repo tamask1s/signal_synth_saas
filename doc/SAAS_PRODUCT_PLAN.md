@@ -65,10 +65,13 @@ The service must not become:
 
 ## Current beta limitations
 
-- E-mail ownership verification and password recovery are implemented, but
-  production registration/recovery sending remains disabled until a
-  transactional SMTP provider and verified sender domain are configured.
-- Legal/commercial terms are not ready for less-trusted users.
+- E-mail ownership verification and password recovery use the configured Gmail
+  SMTP transport; a dedicated sender domain/provider can replace it as volume
+  grows.
+- Versioned Private Beta Terms, Privacy/No-PHI notice, support expectations,
+  package-use notices and explicit free-beta billing status are published and
+  enforced for new registration. They remain operator-authored beta templates,
+  not a substitute for professional legal review before a paid/public launch.
 - Security baseline needs a focused threat model, secret rotation review, and
   audit export story before broader beta.
 - Release automation exists as scripts, but full CI/CD/release governance is

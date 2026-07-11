@@ -205,6 +205,7 @@ public:
         const std::string& display_name,
         const std::string& password_salt,
         const std::string& password_hash,
+        const std::string& terms_version,
         AccountRecord& account,
         std::string& error
     );

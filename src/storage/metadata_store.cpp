@@ -39,6 +39,17 @@ CREATE TABLE IF NOT EXISTS users (
     )
 );
 
+CREATE TABLE IF NOT EXISTS legal_acceptances (
+    user_id TEXT NOT NULL,
+    document_type TEXT NOT NULL,
+    document_version TEXT NOT NULL,
+    accepted_at TEXT NOT NULL DEFAULT (
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    ),
+    PRIMARY KEY (user_id, document_type, document_version),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
 CREATE TABLE IF NOT EXISTS organization_memberships (
     organization_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
@@ -461,6 +472,7 @@ AccountCreateStatus MetadataStore::create_account(
     const std::string& display_name,
     const std::string& password_salt,
     const std::string& password_hash,
+    const std::string& terms_version,
     AccountRecord& account,
     std::string& error
 ) {
@@ -484,6 +496,9 @@ AccountCreateStatus MetadataStore::create_account(
         "(id,email,display_name,password_salt,password_hash,"
         "email_verified,email_verified_at) "
         "VALUES (?1,?2,?3,?4,?5,0,NULL);",
+        "INSERT INTO legal_acceptances "
+        "(user_id,document_type,document_version) "
+        "VALUES (?1,'private_beta_terms',?2);",
         "INSERT INTO organization_memberships "
         "(organization_id,user_id,role) VALUES (?1,?2,'owner');",
         "INSERT INTO projects "
@@ -494,7 +509,7 @@ AccountCreateStatus MetadataStore::create_account(
     };
     bool succeeded = true;
     bool duplicate_email = false;
-    for (int index = 0; index < 5 && succeeded; ++index) {
+    for (int index = 0; index < 6 && succeeded; ++index) {
         sqlite3_stmt* statement = nullptr;
         succeeded = sqlite3_prepare_v2(
             database_, statements[index], -1, &statement, nullptr
@@ -509,9 +524,12 @@ AccountCreateStatus MetadataStore::create_account(
                 bind_text(statement, 4, password_salt) &&
                 bind_text(statement, 5, password_hash);
         } else if (succeeded && index == 2) {
+            succeeded = bind_text(statement, 1, user_id) &&
+                bind_text(statement, 2, terms_version);
+        } else if (succeeded && index == 3) {
             succeeded = bind_text(statement, 1, organization_id) &&
                 bind_text(statement, 2, user_id);
-        } else if (succeeded && index == 3) {
+        } else if (succeeded && index == 4) {
             succeeded = bind_text(statement, 1, organization_id);
         } else if (succeeded) {
             succeeded = bind_text(statement, 1, browser_key_id) &&

@@ -100,6 +100,7 @@ int main() {
                 "Account User",
                 password_salt,
                 password_hash,
+                "private-beta-2026-07-11",
                 account,
                 error
             ) == syn_sig_ra::AccountCreateStatus::created,
@@ -260,9 +261,18 @@ int main() {
             "AND name IN ('organizations', 'users', 'organization_memberships', "
             "'projects', 'api_keys', 'jobs', 'packages', 'audit_events', "
             "'quota_decisions', 'worker_heartbeat', 'scenario_drafts', "
-            "'custom_packs', 'sessions');"
-        ) == 13,
+            "'custom_packs', 'sessions', 'legal_acceptances');"
+        ) == 14,
         "all metadata tables should exist"
+    );
+    require(
+        scalar_int(
+            verification_database,
+            "SELECT count(*) FROM legal_acceptances "
+            "WHERE document_type='private_beta_terms' "
+            "AND document_version='private-beta-2026-07-11';"
+        ) == 1,
+        "account creation should record the accepted terms version"
     );
     require(
         scalar_int(

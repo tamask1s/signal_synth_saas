@@ -32,6 +32,10 @@
 
 namespace {
 
+const char kTermsVersion[] = "private-beta-2026-07-11";
+const char kSupportUrl[] =
+    "https://github.com/tamask1s/signal_synth_saas/issues/new";
+
 bool owns_uri(const std::string& uri, const std::string& prefix) {
     return uri == prefix ||
            (uri.size() > prefix.size() &&
@@ -300,6 +304,60 @@ struct ZipEntry {
     std::string content;
 };
 
+const char kPackageUseNotice[] = R"NOTICE(Synsigra private-beta package use notice
+Version: private-beta-2026-07-11
+
+PERMITTED USE
+This synthetic package and its verifier reports may be used, reproduced and
+archived inside the account holder's organization for algorithm development,
+regression testing, benchmarking, reproducibility and engineering evaluation.
+Contractors may use it only while acting for that organization under equivalent
+confidentiality and use restrictions.
+
+PROHIBITED USE
+Do not sell, sublicense or publish this package as a standalone dataset. Do not
+use it to identify or model a real person. Do not represent synthetic results as
+diagnostic, patient-monitoring, clinical-validation, certification or
+medical-device conformity evidence.
+
+Keep the manifest, package fingerprint, provenance.json and
+ENGINEERING_CLAIM_BOUNDARY.txt with archived evidence. This notice does not
+replace or alter those package identity and provenance records.
+
+The beta materials are provided as-is and as-available to the extent permitted
+by law. Full terms: https://www.timeonion.com/syn_sig_ra/legal/terms
+)NOTICE";
+
+const char kSupportAndTermsNotice[] = R"NOTICE(Synsigra private-beta support and service notice
+Version: private-beta-2026-07-11
+
+The private beta is free, collects no payment method, has no automatic paid
+conversion, and is provided on a best-effort basis without an uptime or
+response-time SLA. Generated artifacts are normally retained for 90 days; keep
+local copies of evidence you need.
+
+Support: https://github.com/tamask1s/signal_synth_saas/issues/new
+
+The tracker is public. Never include passwords, API keys, account-action links,
+PHI, personal data, real patient data, proprietary detector output or source
+code. Support is normally reviewed within three business days as a target, not
+a contractual SLA.
+
+Privacy and no-PHI notice:
+https://www.timeonion.com/syn_sig_ra/legal/privacy
+)NOTICE";
+
+void append_beta_notices(std::vector<ZipEntry>& entries) {
+    ZipEntry package_notice;
+    package_notice.path = "PACKAGE_USE_NOTICE.txt";
+    package_notice.content = kPackageUseNotice;
+    entries.push_back(package_notice);
+    ZipEntry support_notice;
+    support_notice.path = "SUPPORT_AND_TERMS.txt";
+    support_notice.content = kSupportAndTermsNotice;
+    entries.push_back(support_notice);
+}
+
 void append_u16(std::string& output, std::uint16_t value) {
     output.push_back(static_cast<char>(value & 0xffu));
     output.push_back(static_cast<char>((value >> 8) & 0xffu));
@@ -493,6 +551,7 @@ bool build_detection_template_zip(
     readme.path = "README.md";
     readme.content = detection_template_readme(job, pack, templates);
     entries.push_back(readme);
+    append_beta_notices(entries);
     entries.insert(entries.end(), templates.begin(), templates.end());
     zip = zip_store_archive(entries);
     return true;
@@ -521,6 +580,10 @@ std::string verification_kit_readme(
            << "## Included files\n\n"
            << "- `package.zip`: downloaded challenge package.\n"
            << "- `manifest.json`: package identity and file contract.\n"
+           << "- `PACKAGE_USE_NOTICE.txt`: private-beta package permission "
+           << "and prohibited-use boundary.\n"
+           << "- `SUPPORT_AND_TERMS.txt`: support, availability, retention "
+           << "and billing expectations.\n"
            << "- The nested `package.zip` contains `provenance.json` and "
            << "`ENGINEERING_CLAIM_BOUNDARY.txt` for generator identity, "
            << "contract identity, fingerprints and the engineering QA claim "
@@ -587,6 +650,7 @@ bool build_verification_kit_zip(
     readme.path = "README.md";
     readme.content = verification_kit_readme(job, pack, has_templates);
     entries.push_back(readme);
+    append_beta_notices(entries);
     ZipEntry manifest_entry;
     manifest_entry.path = "manifest.json";
     manifest_entry.content = manifest;
@@ -1355,7 +1419,11 @@ const char kUiHtml[] = R"HTML(<!doctype html>
             <input id="register-email" type="email" autocomplete="email">
             <label for="register-password">Password (12+ characters)</label>
             <input id="register-password" type="password" minlength="12" maxlength="128" autocomplete="new-password">
-            <button id="register" class="primary">Create account</button>
+            <label class="terms-consent" for="register-terms">
+              <input id="register-terms" type="checkbox">
+              <span>I accept the <a href="/syn_sig_ra/legal/terms" target="_blank" rel="noopener">Private Beta Terms</a> and <a href="/syn_sig_ra/legal/privacy" target="_blank" rel="noopener">Privacy &amp; No-PHI Notice</a> (version <code>private-beta-2026-07-11</code>).</span>
+            </label>
+            <button id="register" class="primary" disabled>Create account</button>
           </div>
         </div>
         <div id="verification-pending" class="verify-note" hidden>
@@ -1583,11 +1651,22 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <p><a href="/syn_sig_ra/docs/quickstart">One-page quickstart</a></p>
       <p><a href="/syn_sig_ra/docs/api">Rendered API reference</a></p>
       <p><a href="/syn_sig_ra/docs/troubleshooting">Troubleshooting guide</a></p>
+      <p><a href="/syn_sig_ra/legal/terms">Private Beta Terms</a></p>
+      <p><a href="/syn_sig_ra/legal/privacy">Privacy &amp; No-PHI Notice</a></p>
+      <p><a href="/syn_sig_ra/legal/support">Support, availability &amp; billing</a></p>
       <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/README.md" target="_blank" rel="noopener">Full user manual</a></p>
       <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/doc/openapi.yaml" target="_blank" rel="noopener">Raw OpenAPI YAML</a></p>
     </section>
       </div>
     </div>
+    <footer class="legal-footer">
+      <span>Synsigra private beta · synthetic engineering QA only</span>
+      <nav aria-label="Legal and support">
+        <a href="/syn_sig_ra/legal/terms">Terms</a>
+        <a href="/syn_sig_ra/legal/privacy">Privacy &amp; No-PHI</a>
+        <a href="/syn_sig_ra/legal/support">Support &amp; service</a>
+      </nav>
+    </footer>
   </main>
   <script src="/syn_sig_ra/ui/app.js"></script>
 </body>
@@ -1609,7 +1688,7 @@ const char kQuickstartHtml[] = R"HTML(<!doctype html>
       <h1>One-page quickstart</h1>
       <p class="verify-note"><strong>Synthetic engineering data only.</strong> Do not enter patient data, personal identifiers, clinical notes, PHI, or diagnostic-use claims.</p>
       <ol>
-        <li>Open <a href="/syn_sig_ra/workspace">the guided workspace</a>, create an account, or sign in.</li>
+        <li>Open <a href="/syn_sig_ra/workspace">the guided workspace</a>. To create an account, read and accept the current <a href="/syn_sig_ra/legal/terms">Private Beta Terms</a> and <a href="/syn_sig_ra/legal/privacy">Privacy &amp; No-PHI Notice</a>.</li>
         <li>Open <a href="/syn_sig_ra/packs">Choose pack</a>. Filter by target, workflow intent, scoring mode, and difficulty; use the recommended pack or comparison table.</li>
         <li>Open <a href="/syn_sig_ra/generate">Generate job</a>. Use the default project or create a project if your role allows it, then create the challenge job.</li>
         <li>Open <a href="/syn_sig_ra/jobs">Jobs</a> and wait for <code>succeeded</code>.</li>
@@ -1649,9 +1728,10 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
         <tbody>
           <tr><td>GET</td><td><code>/healthz</code></td><td>Liveness/build</td><td>Public</td></tr>
           <tr><td>GET</td><td><code>/readyz</code></td><td>Readiness and disk</td><td>Public</td></tr>
+          <tr><td>GET</td><td><code>/v1/legal</code></td><td>Current terms version, public notices, retention and billing status</td><td>Public</td></tr>
           <tr><td>GET</td><td><code>/v1/packs</code></td><td>Rich curated pack catalog</td><td>Public</td></tr>
           <tr><td>GET</td><td><code>/v1/packs/{pack_id}</code></td><td>Pack detail including scoreable/reference-only targets</td><td>Public</td></tr>
-          <tr><td>POST</td><td><code>/v1/auth/register</code></td><td>Create account and send verification email</td><td>Public</td></tr>
+          <tr><td>POST</td><td><code>/v1/auth/register</code></td><td>Accept current terms, create account and send verification email</td><td>Public</td></tr>
           <tr><td>POST</td><td><code>/v1/auth/verify-email</code></td><td>Verify email and start browser session</td><td>Public</td></tr>
           <tr><td>POST</td><td><code>/v1/auth/resend-verification</code></td><td>Request another verification email</td><td>Public</td></tr>
           <tr><td>POST</td><td><code>/v1/auth/password-reset/request</code></td><td>Request password-reset email</td><td>Public</td></tr>
@@ -1741,6 +1821,102 @@ const char kTroubleshootingHtml[] = R"HTML(<!doctype html>
       </table>
       <p class="verify-note"><strong>Boundary:</strong> Synsigra is synthetic engineering QA tooling, not clinical validation, diagnosis, patient monitoring, or PHI storage.</p>
       <p><a href="/syn_sig_ra/docs/quickstart">Quickstart</a> · <a href="/syn_sig_ra/docs/api">Rendered API reference</a> · <a href="/syn_sig_ra/">Back to app</a></p>
+    </section>
+  </main>
+</body>
+</html>
+)HTML";
+
+const char kTermsHtml[] = R"HTML(<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Synsigra Private Beta Terms</title>
+  <link rel="stylesheet" href="/syn_sig_ra/ui/style.css">
+</head>
+<body>
+  <main class="shell legal-document">
+    <section class="panel">
+      <p class="eyebrow">Private beta · version private-beta-2026-07-11</p>
+      <h1>Synsigra Private Beta Terms</h1>
+      <p class="lede">Effective 11 July 2026. These terms define a synthetic engineering-QA evaluation service, not a medical or clinical product.</p>
+      <h2>Permitted use</h2>
+      <p>You may use downloaded synthetic packages and the generator-free verifier inside your organization for algorithm development, regression testing, benchmarking, reproducibility and engineering evaluation.</p>
+      <h2>Not medical or clinical use</h2>
+      <p>Synsigra is not intended for diagnosis, prevention, monitoring, prediction, prognosis or treatment of disease; clinical decisions; patient monitoring; clinical validation or certification; or medical-device conformity assessment. Synthetic results are engineering evidence only.</p>
+      <h2>Synthetic data and no-PHI rule</h2>
+      <p>Except for your own account email and display name, do not submit PHI, patient identifiers, medical records, real patient waveforms or annotations, clinical notes, another person's personal data, detector source code or confidential detector output. Detector code and output are intended to remain local.</p>
+      <h2>Accounts and acceptable use</h2>
+      <p>Protect passwords and API keys. Do not bypass limits, probe another organization, interfere with the service, distribute malware, infringe third-party rights or use the beta unlawfully. Access may be limited or suspended to protect the service and its intended-use boundary.</p>
+      <h2>Package use permission</h2>
+      <p>During the beta, the account holder receives a non-exclusive, non-transferable, revocable permission to use, reproduce and archive packages and reports internally for the permitted purposes. Do not sell, sublicense or publish packages as a standalone dataset, use them to identify or model a real person, or represent them as clinical evidence. Keep manifests, fingerprints, provenance and claim-boundary notices with archived evidence.</p>
+      <h2>Availability, support and billing</h2>
+      <p>The beta is best-effort and has no uptime or response-time SLA. Generated artifacts are normally retained for 90 days; keep local copies. The current beta is free, collects no payment method and never converts automatically to a paid plan. Any future paid plan requires notice, pricing and explicit opt-in.</p>
+      <h2>As-is beta</h2>
+      <p>To the extent permitted by law, the service and generated materials are provided as-is and as-available without warranties of uninterrupted availability, fitness for a particular purpose or suitability for regulated or clinical use. Nothing excludes liability that cannot lawfully be excluded.</p>
+      <h2>Support</h2>
+      <p><a href="https://github.com/tamask1s/signal_synth_saas/issues/new" target="_blank" rel="noopener">Open a support issue</a>. The tracker is public: never include credentials, PHI, personal data or confidential information.</p>
+      <p><a href="/syn_sig_ra/legal/privacy">Privacy &amp; No-PHI Notice</a> · <a href="/syn_sig_ra/legal/support">Support &amp; service expectations</a> · <a href="/syn_sig_ra/account">Back to account</a></p>
+    </section>
+  </main>
+</body>
+</html>
+)HTML";
+
+const char kPrivacyHtml[] = R"HTML(<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Synsigra Privacy and No-PHI Notice</title>
+  <link rel="stylesheet" href="/syn_sig_ra/ui/style.css">
+</head>
+<body>
+  <main class="shell legal-document">
+    <section class="panel">
+      <p class="eyebrow">Private beta · effective 11 July 2026</p>
+      <h1>Privacy and No-PHI Notice</h1>
+      <p class="lede">Synsigra minimizes account and operational data and is designed for synthetic engineering inputs only.</p>
+      <h2>What is processed</h2>
+      <p>Account email and display name; salted password hashes; session and API-key hashes; organization, project, job, usage and quota metadata; synthetic scenario drafts and custom-pack descriptions; generated packages; and limited method/route/status/duration and worker-event logs.</p>
+      <h2>Why</h2>
+      <p>To secure accounts, deliver account email, generate and retain requested packages, enforce quotas, diagnose failures, protect the service and provide beta support. Personal data is not sold and there is no advertising or patient-level automated decision-making.</p>
+      <h2>No-PHI rule</h2>
+      <p>Do not submit PHI, real patient data, patient identifiers, medical records, clinical notes, real-person waveforms or annotations, or another person's personal data. The beta is not offered as a HIPAA business-associate service and no BAA is provided.</p>
+      <h2>Retention and infrastructure</h2>
+      <p>Generated artifacts are normally retained for 90 days. Reproducibility metadata may remain after expiry. Account and security records are retained while needed to operate and protect the beta. Data is processed on the service VPS and by required hosting, DNS and Gmail SMTP providers. Essential secure session cookies are used; advertising and cross-site tracking cookies are not.</p>
+      <h2>Requests and support</h2>
+      <p>Eligible jobs, drafts, custom packs and API keys can be deleted in the product. Account access, correction or deletion requests may be started through the <a href="https://github.com/tamask1s/signal_synth_saas/issues/new" target="_blank" rel="noopener">public support tracker</a>. Use only the minimum account identifier needed to arrange a non-public follow-up; never post sensitive information.</p>
+      <p><a href="/syn_sig_ra/legal/terms">Private Beta Terms</a> · <a href="/syn_sig_ra/legal/support">Support &amp; service expectations</a> · <a href="/syn_sig_ra/account">Back to account</a></p>
+    </section>
+  </main>
+</body>
+</html>
+)HTML";
+
+const char kSupportHtml[] = R"HTML(<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Synsigra Private Beta Support</title>
+  <link rel="stylesheet" href="/syn_sig_ra/ui/style.css">
+</head>
+<body>
+  <main class="shell legal-document">
+    <section class="panel">
+      <p class="eyebrow">Private beta support</p>
+      <h1>Support, availability and billing</h1>
+      <h2>Get support</h2>
+      <p><a class="button-link" href="https://github.com/tamask1s/signal_synth_saas/issues/new" target="_blank" rel="noopener">Open a support issue</a></p>
+      <p>Include a job or package ID, UTC timestamp, browser version and exact safe error code. Never include passwords, API keys, account-action links, PHI, personal data, proprietary detector output or source code.</p>
+      <h2>Response and availability</h2>
+      <p>Support is normally reviewed within three business days, as a target rather than an SLA. The service is best-effort with no guaranteed uptime, recovery time or response time. Keep local copies of packages and evidence you need.</p>
+      <p><a href="/syn_sig_ra/healthz">Service health</a> · <a href="/syn_sig_ra/readyz">Component readiness</a></p>
+      <h2>Billing</h2>
+      <p>The current private beta is free. No payment method is collected and there is no automatic paid conversion. Future charges require new pricing, notice and explicit opt-in.</p>
+      <p><a href="/syn_sig_ra/legal/terms">Private Beta Terms</a> · <a href="/syn_sig_ra/legal/privacy">Privacy &amp; No-PHI Notice</a> · <a href="/syn_sig_ra/">Back to Synsigra</a></p>
     </section>
   </main>
 </body>
@@ -2649,10 +2825,58 @@ th, td { border-color: var(--border); }
     transition: none !important;
   }
 }
+.terms-consent {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 9px;
+  align-items: start;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(111, 124, 255, .08);
+  font-size: 13px;
+  font-weight: 500;
+}
+.terms-consent input {
+  width: auto;
+  margin: 3px 0 0;
+}
+.legal-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 28px;
+  padding: 18px 4px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+}
+.legal-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.legal-document {
+  max-width: 900px;
+}
+.legal-document .panel {
+  padding: clamp(22px, 5vw, 48px);
+}
+.legal-document h1 {
+  font-size: clamp(34px, 6vw, 58px);
+}
+.legal-document h2 {
+  margin-top: 30px;
+}
+@media (max-width: 620px) {
+  .legal-footer { flex-direction: column; }
+}
 )CSS";
 
 const char kUiJs[] = R"JS((() => {
   const base = "/syn_sig_ra";
+  const termsVersion = "private-beta-2026-07-11";
   const state = {
     currentPage: "workspace",
     authenticated: false,
@@ -5155,7 +5379,19 @@ const char kUiJs[] = R"JS((() => {
     const email = $(registration ? "register-email" : "login-email").value.trim();
     const password = $(registration ? "register-password" : "login-password").value;
     const payload = { email, password };
-    if (registration) payload.display_name = $("register-name").value.trim();
+    if (registration) {
+      if (!$("register-terms").checked) {
+        setText(
+          "auth-output",
+          "Accept the Private Beta Terms and Privacy & No-PHI Notice to create an account.",
+          "error"
+        );
+        return;
+      }
+      payload.display_name = $("register-name").value.trim();
+      payload.accept_terms = true;
+      payload.terms_version = termsVersion;
+    }
     setText("auth-output", registration ? "Creating account…" : "Signing in…", "muted");
     try {
       const account = await api(`/v1/auth/${kind}`, {
@@ -5166,6 +5402,8 @@ const char kUiJs[] = R"JS((() => {
       $("register-password").value = "";
       if (registration && ["verification_required", "accepted"].includes(account.status)) {
         state.pendingVerificationEmail = email;
+        $("register-terms").checked = false;
+        $("register").disabled = true;
         setText("auth-output", account.message || "Check your inbox to continue.", "muted ok");
         renderAuthState();
         return;
@@ -5390,6 +5628,9 @@ const char kUiJs[] = R"JS((() => {
 
   $("login").addEventListener("click", () => submitAuth("login"));
   $("register").addEventListener("click", () => submitAuth("register"));
+  $("register-terms").addEventListener("change", () => {
+    $("register").disabled = !$("register-terms").checked;
+  });
   $("request-password-reset").addEventListener("click", requestPasswordReset);
   $("resend-verification").addEventListener("click", resendVerification);
   $("complete-password-reset").addEventListener("click", completePasswordReset);
@@ -5664,6 +5905,35 @@ RouteResponse route_request(
         return response;
     }
 
+    if (uri == public_base_path + "/v1/legal") {
+        if (method != "GET") {
+            return json_response(
+                405,
+                "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Legal metadata only accepts GET.\"}}\n"
+            );
+        }
+        json_t* root = json_object();
+        json_object_set_new(
+            root, "terms_version", json_string(kTermsVersion));
+        json_object_set_new(
+            root, "terms_url",
+            json_string((public_base_path + "/legal/terms").c_str()));
+        json_object_set_new(
+            root, "privacy_url",
+            json_string((public_base_path + "/legal/privacy").c_str()));
+        json_object_set_new(
+            root, "support_url", json_string(kSupportUrl));
+        json_object_set_new(root, "billing_status", json_string("free_beta"));
+        json_object_set_new(root, "uptime_sla", json_null());
+        json_object_set_new(root, "artifact_retention_days", json_integer(90));
+        const std::string encoded = json_dump_line(root);
+        json_decref(root);
+        RouteResponse response = json_response(200, encoded);
+        response.cache_control = "public, max-age=300";
+        return response;
+    }
+
     const std::string ready_path = public_base_path + "/readyz";
     if (uri == ready_path) {
         if (method != "GET") {
@@ -5921,11 +6191,30 @@ RouteResponse route_request(
             ? nullptr : json_object_get(root, "password");
         json_t* name_value = root == nullptr
             ? nullptr : json_object_get(root, "display_name");
+        json_t* accept_terms_value = root == nullptr
+            ? nullptr : json_object_get(root, "accept_terms");
+        json_t* terms_version_value = root == nullptr
+            ? nullptr : json_object_get(root, "terms_version");
+        const bool terms_accepted = !registration ||
+            (json_is_true(accept_terms_value) &&
+             json_is_string(terms_version_value) &&
+             std::string(json_string_value(terms_version_value)) ==
+                 kTermsVersion);
+        if (registration && json_is_object(root) && !terms_accepted) {
+            json_decref(root);
+            return json_response(
+                400,
+                "{\"error\":{\"code\":\"terms_acceptance_required\","
+                "\"message\":\"Accept the current Private Beta Terms and "
+                "Privacy & No-PHI Notice before registering.\"}}\n"
+            );
+        }
         std::string email;
         const bool valid_shape = json_is_object(root) &&
             json_is_string(email_value) && json_is_string(password_value) &&
             (!registration || json_is_string(name_value)) &&
-            json_object_size(root) == (registration ? 3u : 2u);
+            terms_accepted &&
+            json_object_size(root) == (registration ? 5u : 2u);
         if (!valid_shape ||
             !normalize_email(
                 json_is_string(email_value) ? json_string_value(email_value) : "",
@@ -5960,7 +6249,8 @@ RouteResponse route_request(
                     "\"message\":\"Password must contain 12-128 characters.\"}}\n");
             }
             const AccountCreateStatus created = metadata_store->create_account(
-                email, display_name, salt, password_hash, account, error);
+                email, display_name, salt, password_hash, kTermsVersion,
+                account, error);
             if (created == AccountCreateStatus::email_exists) {
                 return generic_email_accepted_response();
             }
@@ -7677,6 +7967,31 @@ RouteResponse route_request(
             response.body = kApiDocsHtml;
         } else {
             response.body = kTroubleshootingHtml;
+        }
+        return response;
+    }
+
+    if (uri == public_base_path + "/legal/terms" ||
+        uri == public_base_path + "/legal/privacy" ||
+        uri == public_base_path + "/legal/support") {
+        if (method != "GET") {
+            return json_response(
+                405,
+                "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Legal and support pages only accept GET.\"}}\n"
+            );
+        }
+        RouteResponse response;
+        response.disposition = RouteDisposition::handled;
+        response.status = 200;
+        response.content_type = "text/html; charset=utf-8";
+        response.cache_control = "public, max-age=300";
+        if (uri == public_base_path + "/legal/terms") {
+            response.body = kTermsHtml;
+        } else if (uri == public_base_path + "/legal/privacy") {
+            response.body = kPrivacyHtml;
+        } else {
+            response.body = kSupportHtml;
         }
         return response;
     }

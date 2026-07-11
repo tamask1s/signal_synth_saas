@@ -277,6 +277,8 @@ curl -fsS "$BASE_URL" >"$WORK_ROOT/ui.html" ||
 if ! grep -q 'Algorithm QA workspace' "$WORK_ROOT/ui.html" ||
     ! grep -q 'class="product-bar"' "$WORK_ROOT/ui.html" ||
     ! grep -q 'header-account-link' "$WORK_ROOT/ui.html" ||
+    ! grep -q 'register-terms' "$WORK_ROOT/ui.html" ||
+    ! grep -q '/syn_sig_ra/legal/privacy' "$WORK_ROOT/ui.html" ||
     ! grep -q 'Build custom tests' "$WORK_ROOT/ui.html" ||
     ! grep -q 'verification-runbook' "$WORK_ROOT/ui.html" ||
     ! grep -q 'custom-pack-review' "$WORK_ROOT/ui.html" ||
@@ -313,6 +315,7 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q 'saveResponseAsFile' "$WORK_ROOT/app.js" ||
     ! grep -q 'showToast' "$WORK_ROOT/app.js" ||
     ! grep -q 'safeNextPage' "$WORK_ROOT/app.js" ||
+    ! grep -q 'private-beta-2026-07-11' "$WORK_ROOT/app.js" ||
     ! grep -q 'navigateTo("packs", { welcome: "1" }, { replace: true })' "$WORK_ROOT/app.js" ||
     ! grep -q 'navigateTo("jobs", { job_id: body.job_id })' "$WORK_ROOT/app.js" ||
     ! grep -q 'focusJobId' "$WORK_ROOT/app.js" ||
@@ -327,13 +330,30 @@ fi
 curl -fsS "$BASE_URL/v1/packs" >"$WORK_ROOT/packs.json" ||
     fail "pack catalog request failed"
 
+curl -fsS "$BASE_URL/v1/legal" >"$WORK_ROOT/legal.json" ||
+    fail "legal metadata request failed"
+grep -q '"terms_version":"private-beta-2026-07-11"' "$WORK_ROOT/legal.json" ||
+    fail "legal metadata did not expose current terms"
+grep -q '"billing_status":"free_beta"' "$WORK_ROOT/legal.json" ||
+    fail "legal metadata did not expose beta billing status"
+for legal_page in terms privacy support; do
+    curl -fsS "$BASE_URL/legal/$legal_page" >"$WORK_ROOT/legal-$legal_page.html" ||
+        fail "legal page request failed: $legal_page"
+done
+grep -q 'not intended for diagnosis' "$WORK_ROOT/legal-terms.html" ||
+    fail "terms page lacks medical-use boundary"
+grep -q 'No-PHI' "$WORK_ROOT/legal-privacy.html" ||
+    fail "privacy page lacks no-PHI boundary"
+grep -q 'no guaranteed uptime' "$WORK_ROOT/legal-support.html" ||
+    fail "support page lacks no-SLA boundary"
+
 REGISTER_HTTP=$(
     curl -sS \
         -D "$WORK_ROOT/register.headers" \
         -o "$WORK_ROOT/register.json" \
         -w '%{http_code}' \
         -H "Content-Type: application/json" \
-        -d '{"email":"browser@example.com","password":"browser-test-password","display_name":"Browser User"}' \
+        -d '{"email":"browser@example.com","password":"browser-test-password","display_name":"Browser User","accept_terms":true,"terms_version":"private-beta-2026-07-11"}' \
         "$BASE_URL/v1/auth/register"
 )
 if [ "$REGISTER_HTTP" != "202" ]; then
@@ -613,6 +633,8 @@ import zipfile
 archive_path, package_id = sys.argv[1], sys.argv[2]
 expected = {
     "README.md",
+    "PACKAGE_USE_NOTICE.txt",
+    "SUPPORT_AND_TERMS.txt",
     "detections/clean_70_r_peak.csv",
     "detections/slow_45_r_peak.csv",
     "detections/fast_120_r_peak.csv",
@@ -629,6 +651,9 @@ with zipfile.ZipFile(archive_path) as archive:
     readme = archive.read("README.md").decode("utf-8")
     if "synsigra-verify" not in readme or package_id not in readme:
         raise SystemExit("template README does not match verifier workflow")
+    notice = archive.read("PACKAGE_USE_NOTICE.txt").decode("utf-8")
+    if "not represent synthetic results" not in notice:
+        raise SystemExit("template zip lacks package-use claim boundary")
     csv = archive.read("detections/clean_70_r_peak.csv").decode("utf-8")
     if not csv.startswith("time_seconds,sample_index,channel,label,confidence\n"):
         raise SystemExit("R-peak template CSV header is invalid")
@@ -644,6 +669,8 @@ expected = {
     "README.md",
     "manifest.json",
     "package.zip",
+    "PACKAGE_USE_NOTICE.txt",
+    "SUPPORT_AND_TERMS.txt",
     "detections/clean_70_r_peak.csv",
     "detections/slow_45_r_peak.csv",
     "detections/fast_120_r_peak.csv",
@@ -660,6 +687,9 @@ with zipfile.ZipFile(kit_path) as archive:
     readme = archive.read("README.md").decode("utf-8")
     if "synsigra-verify package.zip detections/" not in readme:
         raise SystemExit("verification kit README lacks first-run command")
+    support = archive.read("SUPPORT_AND_TERMS.txt").decode("utf-8")
+    if "no automatic paid" not in support or "without an uptime" not in support:
+        raise SystemExit("verification kit lacks support and billing boundary")
     nested_package = archive.read("package.zip")
 with open(package_path, "rb") as handle:
     if nested_package != handle.read():

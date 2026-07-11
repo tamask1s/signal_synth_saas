@@ -177,6 +177,25 @@ components:
         install: {type: array, items: {type: string}}
         verify_example: {type: string}
 paths:
+  /v1/legal:
+    get:
+      summary: Current private-beta legal, support, retention and billing metadata
+      responses:
+        '200':
+          description: Current terms version and public legal/support destinations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [terms_version, terms_url, privacy_url, support_url, billing_status, uptime_sla, artifact_retention_days]
+                properties:
+                  terms_version: {type: string, example: private-beta-2026-07-11}
+                  terms_url: {type: string}
+                  privacy_url: {type: string}
+                  support_url: {type: string, format: uri}
+                  billing_status: {type: string, enum: [free_beta]}
+                  uptime_sla: {type: string, nullable: true}
+                  artifact_retention_days: {type: integer, example: 90}
   /healthz:
     get:
       summary: Liveness
@@ -296,14 +315,21 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, password, display_name]
+              required: [email, password, display_name, accept_terms, terms_version]
               properties:
                 email: {type: string, format: email}
                 password: {type: string, minLength: 12, maxLength: 128}
                 display_name: {type: string, minLength: 1, maxLength: 100}
+                accept_terms:
+                  type: boolean
+                  description: Must be true.
+                terms_version:
+                  type: string
+                  enum: [private-beta-2026-07-11]
               additionalProperties: false
       responses:
         '202': {description: Verification required or generic accepted response}
+        '400': {description: Invalid account request or current terms were not accepted}
         '503': {description: Transactional email delivery is not configured or temporarily unavailable}
   /v1/auth/verify-email:
     post:

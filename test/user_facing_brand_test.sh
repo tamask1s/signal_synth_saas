@@ -11,6 +11,9 @@ src/mod_syn_sig_ra.cpp
 doc/openapi.yaml
 doc/SAAS_PRODUCT_PLAN.md
 doc/VPS_DEPLOYMENT.md
+doc/PRIVATE_BETA_TERMS.md
+doc/PRIVACY_NO_PHI_NOTICE.md
+doc/PRIVATE_BETA_SUPPORT.md
 apache/syn_sig_ra.conf.example
 ops/mail/README.md
 ops/mail/configure_gmail_smtp.sh

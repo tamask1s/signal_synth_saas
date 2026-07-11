@@ -27,6 +27,16 @@ https://www.timeonion.com/syn_sig_ra
 - E-mail ownership verification and forgotten-password recovery are implemented with expiring, single-use links. New registration is available when the deployment has a transactional SMTP provider configured.
 - The current curated beta catalog is imported from `signal_synth/examples/catalog/curated_pack_metadata_v1.json` and contains ECG, HRV, PPG, signal-quality and wearable stress packs, not only the R-peak smoke pack.
 - Generated packages are immutable while retained. Default artifact retention is 90 days.
+- Registration requires explicit acceptance of the versioned Private Beta Terms
+  and Privacy & No-PHI Notice. The accepted version and UTC timestamp are stored.
+- The private beta is free, has no payment method or automatic paid conversion,
+  and is provided best-effort without an uptime or support-response SLA.
+
+Public beta documents:
+
+- [Private Beta Terms](doc/PRIVATE_BETA_TERMS.md)
+- [Privacy and No-PHI Notice](doc/PRIVACY_NO_PHI_NOTICE.md)
+- [Support, availability, and billing expectations](doc/PRIVATE_BETA_SUPPORT.md)
 
 ## Product boundary
 
@@ -53,7 +63,7 @@ Non-goals:
 ## Quick start: browser
 
 1. Open `https://www.timeonion.com/syn_sig_ra/`.
-2. Use the persistent **Account** profile action to register with an e-mail address, display name, and a password of at least 12 characters. The registration page stays open with a clear inbox prompt; opening the verification link signs you in and continues directly to **Packs**.
+2. Use the persistent **Account** profile action to register with an e-mail address, display name, and a password of at least 12 characters. Read and accept the linked Private Beta Terms and Privacy & No-PHI Notice; the server records the exact accepted version. The registration page stays open with a clear inbox prompt; opening the verification link signs you in and continues directly to **Packs**.
 3. Existing users can sign in directly. When sign-in was requested from another page, Synsigra returns to that validated destination. If you forget the password, choose **Email me a reset link** on Account. The link is single-use, expires after 30 minutes, invalidates older browser sessions, and continues to the Workspace after signing in.
 4. Use the persistent product menu for **Workspace**, **Packs**, **Generate**, **Jobs**, and **Verify**. The secondary navigation groups the guided workflow, custom scenario/pack tools, and developer settings. Workspace also recommends the next useful action based on account and job state.
 5. Check the service status card:
@@ -88,8 +98,11 @@ For each experiment, preserve at least:
 - `package.zip`.
 
 The fastest path is the completed job's **Verification kit ZIP**. It contains
-`README.md`, `manifest.json`, `package.zip`, and detector-output templates when
-the pack has locally scoreable targets.
+`README.md`, `manifest.json`, `package.zip`, `PACKAGE_USE_NOTICE.txt`,
+`SUPPORT_AND_TERMS.txt`, and detector-output templates when the pack has locally
+scoreable targets. The notice files state the permitted internal engineering
+use, prohibited clinical claims, support channel, no-SLA status, retention and
+free-beta billing boundary.
 
 A fingerprint change means the test input changed. Do not compare results as though they came from the same fixture.
 
@@ -464,9 +477,10 @@ Authorization: Bearer <api-key>
 |---|---|---|---|
 | `GET` | `/healthz` | Liveness/build | Public |
 | `GET` | `/readyz` | Component readiness/disk | Public |
+| `GET` | `/v1/legal` | Current terms version, legal/support URLs, retention and billing status | Public |
 | `GET` | `/v1/packs` | Curated pack list | Public |
 | `GET` | `/v1/packs/{pack_id}` | Curated pack detail | Public |
-| `POST` | `/v1/auth/register` | Create unverified account and send verification link | Public |
+| `POST` | `/v1/auth/register` | Accept current terms, create unverified account and send verification link | Public |
 | `POST` | `/v1/auth/verify-email` | Consume verification token and start session | Public |
 | `POST` | `/v1/auth/resend-verification` | Request another verification link (generic response) | Public |
 | `POST` | `/v1/auth/password-reset/request` | Request password-reset link (generic response) | Public |

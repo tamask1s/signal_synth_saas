@@ -121,6 +121,9 @@ int main() {
             ui.body.find("custom-pack-scenario-search") != std::string::npos &&
             ui.body.find("scenario-groups") != std::string::npos &&
             ui.body.find("register-email") != std::string::npos &&
+            ui.body.find("register-terms") != std::string::npos &&
+            ui.body.find("/syn_sig_ra/legal/terms") != std::string::npos &&
+            ui.body.find("/syn_sig_ra/legal/privacy") != std::string::npos &&
             ui.body.find("save-key") == std::string::npos &&
             ui.body.find("/syn_sig_ra/docs/api") != std::string::npos &&
             ui.body.find("No PHI") != std::string::npos &&
@@ -142,6 +145,36 @@ int main() {
         verify_page.status == 200 &&
             verify_page.body.find("Verification runbook") != std::string::npos,
         "verification route should serve the web UI"
+    );
+    const syn_sig_ra::RouteResponse legal_metadata =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/v1/legal");
+    require(
+        legal_metadata.status == 200 &&
+            legal_metadata.body.find("private-beta-2026-07-11") !=
+                std::string::npos &&
+            legal_metadata.body.find("\"billing_status\":\"free_beta\"") !=
+                std::string::npos &&
+            legal_metadata.body.find("\"uptime_sla\":null") !=
+                std::string::npos,
+        "public legal metadata should expose the current beta contract"
+    );
+    const syn_sig_ra::RouteResponse legal_terms =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/legal/terms");
+    const syn_sig_ra::RouteResponse legal_privacy =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/legal/privacy");
+    const syn_sig_ra::RouteResponse legal_support =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/legal/support");
+    require(
+        legal_terms.status == 200 &&
+            legal_terms.body.find("Private Beta Terms") != std::string::npos &&
+            legal_terms.body.find("not intended for diagnosis") !=
+                std::string::npos &&
+            legal_privacy.status == 200 &&
+            legal_privacy.body.find("Privacy and No-PHI") != std::string::npos &&
+            legal_support.status == 200 &&
+            legal_support.body.find("no guaranteed uptime") != std::string::npos &&
+            legal_support.body.find("No payment method") != std::string::npos,
+        "public legal and support pages should state the beta boundaries"
     );
     const syn_sig_ra::RouteResponse docs_api =
         syn_sig_ra::route_request("GET", "/syn_sig_ra/docs/api");
@@ -305,6 +338,31 @@ int main() {
         "route test API key creation should succeed: " + error
     );
 
+    const syn_sig_ra::RouteResponse missing_terms =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/auth/register",
+            "/syn_sig_ra",
+            "",
+            &store,
+            "",
+            "application/json",
+            "{\"email\":\"missing-terms@example.com\","
+            "\"password\":\"long-enough-password\","
+            "\"display_name\":\"Missing Terms\"}",
+            "",
+            "",
+            "",
+            "",
+            email_config
+        );
+    require(
+        missing_terms.status == 400 &&
+            missing_terms.body.find("terms_acceptance_required") !=
+                std::string::npos,
+        "registration should reject missing current terms acceptance"
+    );
+
     const syn_sig_ra::RouteResponse registered =
         syn_sig_ra::route_request(
             "POST",
@@ -316,7 +374,9 @@ int main() {
             "application/json",
             "{\"email\":\"new@example.com\","
             "\"password\":\"long-enough-password\","
-            "\"display_name\":\"New User\"}",
+            "\"display_name\":\"New User\","
+            "\"accept_terms\":true,"
+            "\"terms_version\":\"private-beta-2026-07-11\"}",
             "",
             "",
             "",
