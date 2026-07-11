@@ -151,6 +151,24 @@ int main() {
         "successful worker should persist immutable package metadata"
     );
     const std::string successful_package_id = job.package_id;
+    const std::string successful_generator_identity =
+        job.generator_build_identity;
+    require(
+        job.source_pack_path.find(root + "/recipes/") == 0 &&
+            access(job.source_pack_path.c_str(), R_OK) == 0 &&
+            access(
+                (root + "/generator_releases/" +
+                 job.generator_build_identity.substr(7) +
+                 "/signal-synth").c_str(),
+                X_OK) == 0,
+        "successful jobs should pin immutable recipes and generator releases"
+    );
+    require(
+        access(
+            (packages + "/" + job.package_id + "/extracted").c_str(),
+            F_OK) != 0,
+        "stored packages should not duplicate the archived extracted tree"
+    );
     const syn_sig_ra::RouteResponse manifest_download =
         syn_sig_ra::route_request(
             "GET",
@@ -262,6 +280,49 @@ int main() {
         "expired artifacts must no longer be downloadable"
     );
 
+    const syn_sig_ra::RouteResponse rebuild =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/jobs/" + succeeded_job + "/rebuild",
+            "/syn_sig_ra",
+            "Bearer worker-secret",
+            &store,
+            packs,
+            "application/json",
+            "",
+            root
+        );
+    require(
+        rebuild.status == 202 &&
+            rebuild.body.find("\"exact_rebuild_of\":\"" + succeeded_job) !=
+                std::string::npos,
+        "expired artifacts should queue an explicit exact rebuild: " +
+            rebuild.body
+    );
+    const std::string rebuild_marker("\"job_id\":\"");
+    const std::string rebuild_start = rebuild.body.substr(
+        rebuild.body.find(rebuild_marker) + rebuild_marker.size());
+    const std::string rebuilt_job =
+        rebuild_start.substr(0, rebuild_start.find('"'));
+    config.signal_synth_cli = failure_cli;
+    require(
+        syn_sig_ra::run_worker_once(config, claimed_job, error) ==
+            syn_sig_ra::WorkerRunStatus::succeeded &&
+            claimed_job == rebuilt_job,
+        "exact rebuild should use the historical generator, not current CLI: " +
+            error
+    );
+    require(
+        store.find_job(rebuilt_job, owner, job, error) ==
+            syn_sig_ra::RecordLookupStatus::found &&
+            job.status == "succeeded" &&
+            job.generator_build_identity == successful_generator_identity &&
+            job.package_fingerprint ==
+                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "exact rebuild should preserve generator and package identity"
+    );
+
     std::string failed_job;
     require(
         store.create_job(
@@ -276,7 +337,6 @@ int main() {
         ),
         "failure job should be queued"
     );
-    config.signal_synth_cli = failure_cli;
     require(
         syn_sig_ra::run_worker_once(config, claimed_job, error) ==
             syn_sig_ra::WorkerRunStatus::failed_job,

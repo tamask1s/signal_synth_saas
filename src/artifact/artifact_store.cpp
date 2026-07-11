@@ -130,6 +130,42 @@ bool make_read_only(const std::string& path, std::string& error) {
     return true;
 }
 
+bool remove_tree(const std::string& path, std::string& error) {
+    struct stat information;
+    if (lstat(path.c_str(), &information) != 0) {
+        error = "unable to inspect temporary rendered package";
+        return false;
+    }
+    if (S_ISLNK(information.st_mode)) {
+        error = "temporary rendered packages must not contain symbolic links";
+        return false;
+    }
+    if (S_ISDIR(information.st_mode)) {
+        DIR* directory = opendir(path.c_str());
+        if (directory == nullptr) {
+            error = "unable to open temporary rendered package";
+            return false;
+        }
+        bool succeeded = true;
+        for (dirent* entry = readdir(directory);
+             entry != nullptr; entry = readdir(directory)) {
+            const std::string name(entry->d_name);
+            if (name != "." && name != ".." &&
+                !remove_tree(path + "/" + name, error)) {
+                succeeded = false;
+                break;
+            }
+        }
+        closedir(directory);
+        return succeeded && rmdir(path.c_str()) == 0;
+    }
+    if (!S_ISREG(information.st_mode) || unlink(path.c_str()) != 0) {
+        error = "unable to remove temporary rendered package";
+        return false;
+    }
+    return true;
+}
+
 bool tree_size(const std::string& path, long long& size, std::string& error) {
     struct stat information;
     if (lstat(path.c_str(), &information) != 0) {
@@ -208,6 +244,7 @@ bool store_immutable_package(
             package_directory + "/package.zip",
             error
         ) ||
+        !remove_tree(extracted_directory, error) ||
         !make_read_only(package_directory, error)) {
         return false;
     }

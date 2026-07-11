@@ -32,7 +32,7 @@
 
 namespace {
 
-const char kTermsVersion[] = "private-beta-2026-07-11";
+const char kTermsVersion[] = "private-beta-2026-07-11-r2";
 const char kSupportUrl[] =
     "https://github.com/tamask1s/signal_synth_saas/issues/new";
 
@@ -48,6 +48,34 @@ bool path_at_or_below(const std::string& uri, const std::string& path) {
            (uri.size() > path.size() &&
             uri.compare(0, path.size(), path) == 0 &&
             uri[path.size()] == '/');
+}
+
+bool regular_file_without_symlink(const std::string& path) {
+    struct stat information;
+    return lstat(path.c_str(), &information) == 0 &&
+        S_ISREG(information.st_mode);
+}
+
+bool disk_generation_capacity(
+    const std::string& data_root,
+    unsigned long long& free_bytes,
+    unsigned long long& reserve_bytes
+) {
+    struct statvfs disk;
+    if (data_root.empty() || statvfs(data_root.c_str(), &disk) != 0) {
+        free_bytes = 0;
+        reserve_bytes = 1024ull * 1024ull * 1024ull;
+        return false;
+    }
+    free_bytes =
+        static_cast<unsigned long long>(disk.f_bavail) * disk.f_frsize;
+    const unsigned long long total =
+        static_cast<unsigned long long>(disk.f_blocks) * disk.f_frsize;
+    reserve_bytes = total / 10ull;
+    if (reserve_bytes < 1024ull * 1024ull * 1024ull) {
+        reserve_bytes = 1024ull * 1024ull * 1024ull;
+    }
+    return free_bytes > reserve_bytes;
 }
 
 bool is_ui_page_route(const std::string& uri, const std::string& public_base_path) {
@@ -305,7 +333,7 @@ struct ZipEntry {
 };
 
 const char kPackageUseNotice[] = R"NOTICE(Synsigra private-beta package use notice
-Version: private-beta-2026-07-11
+Version: private-beta-2026-07-11-r2
 
 PERMITTED USE
 This synthetic package and its verifier reports may be used, reproduced and
@@ -329,11 +357,11 @@ by law. Full terms: https://www.timeonion.com/syn_sig_ra/legal/terms
 )NOTICE";
 
 const char kSupportAndTermsNotice[] = R"NOTICE(Synsigra private-beta support and service notice
-Version: private-beta-2026-07-11
+Version: private-beta-2026-07-11-r2
 
 The private beta is free, collects no payment method, has no automatic paid
 conversion, and is provided on a best-effort basis without an uptime or
-response-time SLA. Generated artifacts are normally retained for 90 days; keep
+response-time SLA. Generated artifacts are normally cached for 14 days; keep
 local copies of evidence you need.
 
 Support: https://github.com/tamask1s/signal_synth_saas/issues/new
@@ -1484,7 +1512,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
             <input id="register-password" type="password" minlength="12" maxlength="128" autocomplete="new-password">
             <label class="terms-consent" for="register-terms">
               <input id="register-terms" type="checkbox">
-              <span>I accept the <a href="/syn_sig_ra/legal/terms" target="_blank" rel="noopener">Private Beta Terms</a> and <a href="/syn_sig_ra/legal/privacy" target="_blank" rel="noopener">Privacy &amp; No-PHI Notice</a> (version <code>private-beta-2026-07-11</code>).</span>
+              <span>I accept the <a href="/syn_sig_ra/legal/terms" target="_blank" rel="noopener">Private Beta Terms</a> and <a href="/syn_sig_ra/legal/privacy" target="_blank" rel="noopener">Privacy &amp; No-PHI Notice</a> (version <code>private-beta-2026-07-11-r2</code>).</span>
             </label>
             <button id="register" class="primary" disabled>Create account</button>
           </div>
@@ -1881,7 +1909,7 @@ const char kTroubleshootingHtml[] = R"HTML(<!doctype html>
           <tr><td><code>429 concurrent_job_limit</code></td><td>Wait for queued/running jobs to finish. Current limit is 2 active jobs per organization.</td></tr>
           <tr><td><code>429 monthly_job_limit</code></td><td>Monthly job quota is exhausted. Use existing packages or contact the operator.</td></tr>
           <tr><td>Failed job</td><td>Open the job card and read the error. If it is a generator/catalog issue, keep the job ID and report it.</td></tr>
-          <tr><td>Expired artifact</td><td>Regenerate the job from the same pack version if the retained package is gone. Archive downloaded packages locally for audit evidence.</td></tr>
+          <tr><td>Expired artifact</td><td>Use <strong>Rebuild exact package</strong>. Synsigra requires the preserved recipe and SHA-256-addressed historical generator, then verifies the package fingerprint. Historical jobs without those inputs fail explicitly.</td></tr>
           <tr><td>Verifier exit <code>1</code></td><td>Check package path, detection filenames, required columns, units, selected profile, and per-case report.</td></tr>
           <tr><td>Verifier exit <code>2</code></td><td>Fix CLI arguments. Start from the command in the completed-job recipe panel.</td></tr>
         </tbody>
@@ -1905,7 +1933,7 @@ const char kTermsHtml[] = R"HTML(<!doctype html>
 <body>
   <main class="shell legal-document">
     <section class="panel">
-      <p class="eyebrow">Private beta · version private-beta-2026-07-11</p>
+      <p class="eyebrow">Private beta · version private-beta-2026-07-11-r2</p>
       <h1>Synsigra Private Beta Terms</h1>
       <p class="lede">Effective 11 July 2026. These terms define a synthetic engineering-QA evaluation service, not a medical or clinical product.</p>
       <h2>Permitted use</h2>
@@ -1919,7 +1947,7 @@ const char kTermsHtml[] = R"HTML(<!doctype html>
       <h2>Package use permission</h2>
       <p>During the beta, the account holder receives a non-exclusive, non-transferable, revocable permission to use, reproduce and archive packages and reports internally for the permitted purposes. Do not sell, sublicense or publish packages as a standalone dataset, use them to identify or model a real person, or represent them as clinical evidence. Keep manifests, fingerprints, provenance and claim-boundary notices with archived evidence.</p>
       <h2>Availability, support and billing</h2>
-      <p>The beta is best-effort and has no uptime or response-time SLA. Generated artifacts are normally retained for 90 days; keep local copies. The current beta is free, collects no payment method and never converts automatically to a paid plan. Any future paid plan requires notice, pricing and explicit opt-in.</p>
+      <p>The beta is best-effort and has no uptime or response-time SLA. Generated artifacts are normally cached for 14 days; keep local copies. Newer jobs preserve an immutable recipe and exact generator release for an explicit verified rebuild after cache expiry. The current beta is free, collects no payment method and never converts automatically to a paid plan. Any future paid plan requires notice, pricing and explicit opt-in.</p>
       <h2>As-is beta</h2>
       <p>To the extent permitted by law, the service and generated materials are provided as-is and as-available without warranties of uninterrupted availability, fitness for a particular purpose or suitability for regulated or clinical use. Nothing excludes liability that cannot lawfully be excluded.</p>
       <h2>Support</h2>
@@ -1952,7 +1980,7 @@ const char kPrivacyHtml[] = R"HTML(<!doctype html>
       <h2>No-PHI rule</h2>
       <p>Do not submit PHI, real patient data, patient identifiers, medical records, clinical notes, real-person waveforms or annotations, or another person's personal data. The beta is not offered as a HIPAA business-associate service and no BAA is provided.</p>
       <h2>Retention and infrastructure</h2>
-      <p>Generated artifacts are normally retained for 90 days. Reproducibility metadata may remain after expiry. Account and security records are retained while needed to operate and protect the beta. Data is processed on the service VPS and by required hosting, DNS and Gmail SMTP providers. Essential secure session cookies are used; advertising and cross-site tracking cookies are not.</p>
+      <p>Generated artifacts are normally cached for 14 days. Reproducibility metadata, immutable pack recipes, and exact generator releases may remain after expiry so the user can explicitly request a fingerprint-verified rebuild. Account and security records are retained while needed to operate and protect the beta. Data is processed on the service VPS and by required hosting, DNS and Gmail SMTP providers. Essential secure session cookies are used; advertising and cross-site tracking cookies are not.</p>
       <h2>Requests and support</h2>
       <p>Eligible jobs, drafts, custom packs and API keys can be deleted in the product. Account access, correction or deletion requests may be started through the <a href="https://github.com/tamask1s/signal_synth_saas/issues/new" target="_blank" rel="noopener">public support tracker</a>. Use only the minimum account identifier needed to arrange a non-public follow-up; never post sensitive information.</p>
       <p><a href="/syn_sig_ra/legal/terms">Private Beta Terms</a> · <a href="/syn_sig_ra/legal/support">Support &amp; service expectations</a> · <a href="/syn_sig_ra/account">Back to account</a></p>
@@ -2968,7 +2996,7 @@ th, td { border-color: var(--border); }
 
 const char kUiJs[] = R"JS((() => {
   const base = "/syn_sig_ra";
-  const termsVersion = "private-beta-2026-07-11";
+  const termsVersion = "private-beta-2026-07-11-r2";
   const state = {
     currentPage: "workspace",
     authenticated: false,
@@ -5159,16 +5187,22 @@ const char kUiJs[] = R"JS((() => {
           </div>
           <span class="badge succeeded">succeeded</span>
         </div>
-        ${expired ? `<p class="error">Artifacts have expired. Regenerate the job before following this runbook.</p>` : ""}
+        ${expired ? `<p class="error">The cached artifact expired. Return to Jobs and request an exact-version rebuild before using this runbook.</p>` : ""}
         <p class="muted">Package <span class="fingerprint">${escapeHtml(job.package_id)}</span></p>
         <p><strong>Scoreable locally</strong>${targetTags(scoreable, "scoreable")}</p>
         <p><strong>Reference-only</strong>${targetTags(referenceOnly, "reference")}</p>
         <div class="actions">
           <button class="primary" data-download-kit="${escapeHtml(job.job_id)}" ${expired ? "disabled" : ""}>Download verification kit</button>
-          <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="manifest.json" ${expired ? "disabled" : ""}>Manifest</button>
-          <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="package.zip" ${expired ? "disabled" : ""}>Package ZIP</button>
-          ${hasDetectionTemplates(job) ? `<button class="secondary" data-download-templates="${escapeHtml(job.job_id)}" ${expired ? "disabled" : ""}>Detection templates ZIP</button>` : ""}
         </div>
+        <details class="meta">
+          <summary>Advanced artifact downloads</summary>
+          <p class="muted compact">The verification kit above is the normal complete download. Use these files only for a custom integration.</p>
+          <div class="actions">
+            <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="manifest.json" ${expired ? "disabled" : ""}>Manifest</button>
+            <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="package.zip" ${expired ? "disabled" : ""}>Package ZIP</button>
+            ${hasDetectionTemplates(job) ? `<button class="secondary" data-download-templates="${escapeHtml(job.job_id)}" ${expired ? "disabled" : ""}>Detection templates ZIP</button>` : ""}
+          </div>
+        </details>
         <ol>
           <li>
             <strong>Download files.</strong>
@@ -5273,12 +5307,11 @@ const char kUiJs[] = R"JS((() => {
       const artifactActions = job.status === "succeeded" && job.package_id ? `
         <button class="primary" data-open-runbook="${escapeHtml(job.job_id)}">Open verification runbook</button>
         <button class="secondary" data-download-kit="${escapeHtml(job.job_id)}">Verification kit ZIP</button>
-        <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="manifest.json">Manifest</button>
-        <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="package.zip">Package ZIP</button>
-        ${hasDetectionTemplates(job) ? `<button class="secondary" data-download-templates="${escapeHtml(job.job_id)}">Detection templates ZIP</button>` : ""}
+      ` : job.status === "succeeded" && job.artifact_status === "expired" ? `
+        <button class="primary" data-job-action="rebuild" data-job-id="${escapeHtml(job.job_id)}">Rebuild exact package</button>
       ` : "";
       const artifactExpired = job.artifact_status === "expired"
-        ? `<p class="muted">Artifacts expired; reproducibility metadata remains.</p>`
+        ? `<p class="muted">Cached package expired. Synsigra can rebuild it only from the preserved recipe and exact historical generator; it will never substitute the latest generator.</p>`
         : "";
       const deleteAction = !canWrite() || job.status === "running" ? "" : `
         <button class="danger" data-delete-job="${escapeHtml(job.job_id)}">Delete</button>
@@ -5353,7 +5386,7 @@ const char kUiJs[] = R"JS((() => {
 
   async function runJobAction(jobId, action) {
     try {
-      await api(`/v1/jobs/${encodeURIComponent(jobId)}/${action}`, {
+      const body = await api(`/v1/jobs/${encodeURIComponent(jobId)}/${action}`, {
         method: "POST"
       });
       await Promise.all([
@@ -5361,7 +5394,14 @@ const char kUiJs[] = R"JS((() => {
         loadUsage(),
         loadMetrics()
       ]);
-      showToast(action === "retry" ? "Job queued for retry." : "Job cancelled.", "notice");
+      if (action === "rebuild" && body.job_id) {
+        showToast("Exact-version rebuild queued.", "notice");
+        navigateTo("jobs", { job_id: body.job_id });
+        state.focusJobId = body.job_id;
+        state.focusJobHandled = false;
+      } else {
+        showToast(action === "retry" ? "Job queued for retry." : "Job cancelled.", "notice");
+      }
     } catch (error) {
       showToast(error.message, "error");
     }
@@ -6018,7 +6058,7 @@ RouteResponse route_request(
             root, "support_url", json_string(kSupportUrl));
         json_object_set_new(root, "billing_status", json_string("free_beta"));
         json_object_set_new(root, "uptime_sla", json_null());
-        json_object_set_new(root, "artifact_retention_days", json_integer(90));
+        json_object_set_new(root, "artifact_retention_days", json_integer(14));
         const std::string encoded = json_dump_line(root);
         json_decref(root);
         RouteResponse response = json_response(200, encoded);
@@ -6043,16 +6083,26 @@ RouteResponse route_request(
         const bool storage_ok = !data_root.empty() &&
             statvfs(data_root.c_str(), &disk) == 0 &&
             access(data_root.c_str(), W_OK) == 0;
-        const bool ready = database_ok && generator_ok && packs_ok && storage_ok;
+        unsigned long long disk_free = 0;
+        unsigned long long disk_reserve = 0;
+        const bool generation_capacity = storage_ok &&
+            disk_generation_capacity(
+                data_root, disk_free, disk_reserve);
+        const bool ready = database_ok && generator_ok && packs_ok &&
+            storage_ok && generation_capacity;
         json_t* body = json_object();
         json_object_set_new(body, "status", json_string(ready ? "ready" : "not_ready"));
         json_object_set_new(body, "database", json_boolean(database_ok));
         json_object_set_new(body, "generator", json_boolean(generator_ok));
         json_object_set_new(body, "pack_catalog", json_boolean(packs_ok));
         json_object_set_new(body, "artifact_store", json_boolean(storage_ok));
+        json_object_set_new(
+            body, "generation_capacity", json_boolean(generation_capacity));
         if (storage_ok) {
             json_object_set_new(body, "disk_free_bytes", json_integer(
-                static_cast<json_int_t>(disk.f_bavail) * disk.f_frsize));
+                static_cast<json_int_t>(disk_free)));
+            json_object_set_new(body, "disk_reserve_bytes", json_integer(
+                static_cast<json_int_t>(disk_reserve)));
         }
         const std::string encoded = json_dump_line(body);
         json_decref(body);
@@ -7540,6 +7590,30 @@ RouteResponse route_request(
                 selected_pack_fingerprint = pack.pack_fingerprint;
             }
             UsageSummary usage;
+            unsigned long long disk_free = 0;
+            unsigned long long disk_reserve = 0;
+            if (!data_root.empty() && !disk_generation_capacity(
+                    data_root, disk_free, disk_reserve)) {
+                json_t* root = json_object();
+                json_t* value = json_object();
+                json_object_set_new(
+                    value, "code", json_string("artifact_storage_pressure"));
+                json_object_set_new(
+                    value, "message",
+                    json_string(
+                        "Generation is temporarily paused to preserve server disk space. "
+                        "Retry after retained artifacts are cleaned up."));
+                json_object_set_new(
+                    value, "disk_free_bytes",
+                    json_integer(static_cast<json_int_t>(disk_free)));
+                json_object_set_new(
+                    value, "disk_reserve_bytes",
+                    json_integer(static_cast<json_int_t>(disk_reserve)));
+                json_object_set_new(root, "error", value);
+                const std::string body = json_dump_line(root);
+                json_decref(root);
+                return json_response(507, body);
+            }
             const QuotaStatus job_quota = metadata_store->check_job_quota(
                 authenticated_identity, usage, error
             );
@@ -7804,7 +7878,8 @@ RouteResponse route_request(
             return response;
         }
         if (!action.empty()) {
-            if (method != "POST" || (action != "cancel" && action != "retry")) {
+            if (method != "POST" || (action != "cancel" &&
+                action != "retry" && action != "rebuild")) {
                 return json_response(
                     404,
                     "{\"error\":{\"code\":\"route_not_found\","
@@ -7820,11 +7895,75 @@ RouteResponse route_request(
             }
             std::string error;
             std::string new_job_id;
+            if (action == "rebuild") {
+                JobRecord original;
+                const RecordLookupStatus lookup = metadata_store->find_job(
+                    job_id, authenticated_identity, original, error);
+                if (lookup == RecordLookupStatus::not_found) {
+                    return json_response(
+                        404, "{\"error\":{\"code\":\"job_not_found\","
+                        "\"message\":\"The requested job does not exist.\"}}\n");
+                }
+                if (lookup == RecordLookupStatus::storage_error) {
+                    RouteResponse response = json_response(
+                        503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                        "\"message\":\"Job storage is unavailable.\"}}\n");
+                    response.internal_error = error;
+                    return response;
+                }
+                if (original.status != "succeeded" ||
+                    !original.package_id.empty()) {
+                    return json_response(
+                        409, "{\"error\":{\"code\":\"exact_rebuild_invalid_state\","
+                        "\"message\":\"Exact rebuild is available only after a "
+                        "succeeded job's cached artifact expires.\"}}\n");
+                }
+                const std::string recipes = data_root + "/recipes";
+                const std::string releases =
+                    data_root + "/generator_releases/";
+                const bool valid_identity =
+                    original.generator_build_identity.size() == 71 &&
+                    original.generator_build_identity.compare(
+                        0, 7, "sha256:") == 0;
+                const std::string release_cli = valid_identity
+                    ? releases + original.generator_build_identity.substr(7) +
+                        "/signal-synth"
+                    : std::string();
+                if (original.source_pack_path.size() <= recipes.size() ||
+                    original.source_pack_path.compare(
+                        0, recipes.size(), recipes) != 0 ||
+                    original.source_pack_path[recipes.size()] != '/' ||
+                    !regular_file_without_symlink(original.source_pack_path)) {
+                    return json_response(
+                        409, "{\"error\":{\"code\":\"rebuild_recipe_unavailable\","
+                        "\"message\":\"This historical job predates immutable "
+                        "pack recipes and cannot be rebuilt safely.\"}}\n");
+                }
+                if (!valid_identity ||
+                    !regular_file_without_symlink(release_cli)) {
+                    return json_response(
+                        409, "{\"error\":{\"code\":\"historical_generator_unavailable\","
+                        "\"message\":\"The exact historical generator build is "
+                        "not available; Synsigra will not substitute a newer build.\"}}\n");
+                }
+                unsigned long long disk_free = 0;
+                unsigned long long disk_reserve = 0;
+                if (!disk_generation_capacity(
+                        data_root, disk_free, disk_reserve)) {
+                    return json_response(
+                        507, "{\"error\":{\"code\":\"artifact_storage_pressure\","
+                        "\"message\":\"Exact rebuild is paused to preserve "
+                        "server disk space.\"}}\n");
+                }
+            }
             const JobLifecycleStatus lifecycle = action == "cancel"
                 ? metadata_store->cancel_job(
                     job_id, authenticated_identity, error)
-                : metadata_store->retry_job(
-                    job_id, authenticated_identity, new_job_id, error);
+                : (action == "retry"
+                    ? metadata_store->retry_job(
+                        job_id, authenticated_identity, new_job_id, error)
+                    : metadata_store->rebuild_job_exact(
+                        job_id, authenticated_identity, new_job_id, error));
             if (lifecycle == JobLifecycleStatus::not_found) {
                 return json_response(
                     404,
@@ -7849,11 +7988,13 @@ RouteResponse route_request(
                 response.internal_error = error;
                 return response;
             }
-            if (action == "retry") {
+            if (action == "retry" || action == "rebuild") {
                 return json_response(
                     202,
                     std::string("{\"job_id\":\"") + new_job_id +
-                    "\",\"retry_of\":\"" + job_id +
+                    (action == "retry"
+                        ? "\",\"retry_of\":\""
+                        : "\",\"exact_rebuild_of\":\"") + job_id +
                     "\",\"status\":\"queued\"}\n"
                 );
             }

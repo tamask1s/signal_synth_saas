@@ -16,4 +16,6 @@ sudo tar -C "$work" -xzf "$backup/packages.tar.gz"
 sudo /usr/local/bin/syn_sig_ra_admin list-api-keys "$work/db.sqlite3" >/dev/null
 sudo test -d "$work/packages"
 sudo test -d "$work/custom_packs"
+sudo test -d "$work/recipes"
+sudo test -d "$work/generator_releases"
 printf 'status=restore-drill-succeeded\nbackup=%s\n' "$backup"

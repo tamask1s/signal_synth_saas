@@ -155,7 +155,7 @@ int main() {
         syn_sig_ra::route_request("GET", "/syn_sig_ra/v1/legal");
     require(
         legal_metadata.status == 200 &&
-            legal_metadata.body.find("private-beta-2026-07-11") !=
+            legal_metadata.body.find("private-beta-2026-07-11-r2") !=
                 std::string::npos &&
             legal_metadata.body.find("\"billing_status\":\"free_beta\"") !=
                 std::string::npos &&
@@ -221,6 +221,8 @@ int main() {
             ui_js.body.find("jobsNextOffset") != std::string::npos &&
             ui_js.body.find("cleanEcgTemplate") != std::string::npos &&
             ui_js.body.find("Verification kit ZIP") != std::string::npos &&
+            ui_js.body.find("Advanced artifact downloads") != std::string::npos &&
+            ui_js.body.find("Rebuild exact package") != std::string::npos &&
             ui_js.body.find("Detection templates ZIP") != std::string::npos &&
             ui_js.body.find("Reproducibility details") != std::string::npos &&
             ui_js.body.find("renderVerificationRunbook") != std::string::npos &&
@@ -381,7 +383,7 @@ int main() {
             "\"password\":\"long-enough-password\","
             "\"display_name\":\"New User\","
             "\"accept_terms\":true,"
-            "\"terms_version\":\"private-beta-2026-07-11\"}",
+            "\"terms_version\":\"private-beta-2026-07-11-r2\"}",
             "",
             "",
             "",

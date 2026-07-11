@@ -271,6 +271,10 @@ curl -fsS "$BASE_URL/readyz" >"$WORK_ROOT/ready.json" ||
     fail "readiness request failed"
 grep -q '"status":"ready"' "$WORK_ROOT/ready.json" ||
     fail "readiness endpoint did not report ready"
+grep -q '"generation_capacity":true' "$WORK_ROOT/ready.json" ||
+    fail "readiness endpoint did not report generation disk capacity"
+grep -q '"disk_reserve_bytes":' "$WORK_ROOT/ready.json" ||
+    fail "readiness endpoint did not report disk reserve"
 
 curl -fsS "$BASE_URL" >"$WORK_ROOT/ui.html" ||
     fail "web UI HTML request failed"
@@ -307,6 +311,8 @@ curl -fsS "$BASE_URL/ui/app.js" >"$WORK_ROOT/app.js" ||
 if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q '/v1/jobs' "$WORK_ROOT/app.js" ||
     ! grep -q 'renderVerificationRunbook' "$WORK_ROOT/app.js" ||
+    ! grep -q 'Advanced artifact downloads' "$WORK_ROOT/app.js" ||
+    ! grep -q 'Rebuild exact package' "$WORK_ROOT/app.js" ||
     ! grep -q 'selectPackForGeneration' "$WORK_ROOT/app.js" ||
     ! grep -q 'renderCustomPackReview' "$WORK_ROOT/app.js" ||
     ! grep -q 'conditionEditorHtml' "$WORK_ROOT/app.js" ||
@@ -315,7 +321,7 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q 'saveResponseAsFile' "$WORK_ROOT/app.js" ||
     ! grep -q 'showToast' "$WORK_ROOT/app.js" ||
     ! grep -q 'safeNextPage' "$WORK_ROOT/app.js" ||
-    ! grep -q 'private-beta-2026-07-11' "$WORK_ROOT/app.js" ||
+    ! grep -q 'private-beta-2026-07-11-r2' "$WORK_ROOT/app.js" ||
     ! grep -q 'navigateTo("packs", { welcome: "1" }, { replace: true })' "$WORK_ROOT/app.js" ||
     ! grep -q 'navigateTo("jobs", { job_id: body.job_id })' "$WORK_ROOT/app.js" ||
     ! grep -q 'focusJobId' "$WORK_ROOT/app.js" ||
@@ -332,7 +338,7 @@ curl -fsS "$BASE_URL/v1/packs" >"$WORK_ROOT/packs.json" ||
 
 curl -fsS "$BASE_URL/v1/legal" >"$WORK_ROOT/legal.json" ||
     fail "legal metadata request failed"
-grep -q '"terms_version":"private-beta-2026-07-11"' "$WORK_ROOT/legal.json" ||
+grep -q '"terms_version":"private-beta-2026-07-11-r2"' "$WORK_ROOT/legal.json" ||
     fail "legal metadata did not expose current terms"
 grep -q '"billing_status":"free_beta"' "$WORK_ROOT/legal.json" ||
     fail "legal metadata did not expose beta billing status"
@@ -353,7 +359,7 @@ REGISTER_HTTP=$(
         -o "$WORK_ROOT/register.json" \
         -w '%{http_code}' \
         -H "Content-Type: application/json" \
-        -d '{"email":"browser@example.com","password":"browser-test-password","display_name":"Browser User","accept_terms":true,"terms_version":"private-beta-2026-07-11"}' \
+        -d '{"email":"browser@example.com","password":"browser-test-password","display_name":"Browser User","accept_terms":true,"terms_version":"private-beta-2026-07-11-r2"}' \
         "$BASE_URL/v1/auth/register"
 )
 if [ "$REGISTER_HTTP" != "202" ]; then

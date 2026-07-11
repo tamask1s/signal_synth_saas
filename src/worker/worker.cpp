@@ -6,12 +6,15 @@
 #include "syn_sig_ra/sha256.h"
 
 #include <poll.h>
+#include <dirent.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include <cerrno>
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <map>
@@ -30,6 +33,145 @@ bool directory_exists(const std::string& path) {
     struct stat information;
     return lstat(path.c_str(), &information) == 0 &&
            S_ISDIR(information.st_mode);
+}
+
+bool read_binary_file(
+    const std::string& path,
+    std::string& content,
+    std::string& error
+);
+
+bool path_below(const std::string& path, const std::string& root) {
+    return path.size() > root.size() &&
+        path.compare(0, root.size(), root) == 0 &&
+        path[root.size()] == '/';
+}
+
+bool ensure_directory(
+    const std::string& path,
+    mode_t mode,
+    std::string& error
+) {
+    if (mkdir(path.c_str(), mode) == 0 || errno == EEXIST) {
+        return directory_exists(path);
+    }
+    error = "unable to create immutable execution storage";
+    return false;
+}
+
+bool write_binary_file(
+    const std::string& path,
+    const std::string& content,
+    mode_t mode,
+    std::string& error
+) {
+    std::ofstream output(
+        path.c_str(), std::ios::binary | std::ios::trunc);
+    output.write(content.data(), static_cast<std::streamsize>(content.size()));
+    output.close();
+    if (!output || chmod(path.c_str(), mode) != 0) {
+        error = "unable to preserve immutable generator release";
+        return false;
+    }
+    return true;
+}
+
+bool copy_regular_file(
+    const std::string& source,
+    const std::string& destination,
+    mode_t mode,
+    std::string& error
+) {
+    std::string content;
+    if (!read_binary_file(source, content, error)) return false;
+    return write_binary_file(destination, content, mode, error);
+}
+
+bool copy_tree(
+    const std::string& source,
+    const std::string& destination,
+    std::string& error
+) {
+    struct stat information;
+    if (lstat(source.c_str(), &information) != 0 ||
+        S_ISLNK(information.st_mode)) {
+        error = "pack recipe contains an unsafe path";
+        return false;
+    }
+    if (S_ISREG(information.st_mode)) {
+        return copy_regular_file(source, destination, 0440, error);
+    }
+    if (!S_ISDIR(information.st_mode) ||
+        !ensure_directory(destination, 0750, error)) {
+        error = "pack recipe contains an unsupported object";
+        return false;
+    }
+    DIR* directory = opendir(source.c_str());
+    if (directory == nullptr) {
+        error = "unable to read pack recipe";
+        return false;
+    }
+    bool succeeded = true;
+    for (dirent* entry = readdir(directory);
+         entry != nullptr; entry = readdir(directory)) {
+        const std::string name(entry->d_name);
+        if (name != "." && name != ".." &&
+            !copy_tree(
+                source + "/" + name,
+                destination + "/" + name,
+                error)) {
+            succeeded = false;
+            break;
+        }
+    }
+    closedir(directory);
+    if (succeeded && chmod(destination.c_str(), 0550) != 0) {
+        error = "unable to lock pack recipe";
+        succeeded = false;
+    }
+    return succeeded;
+}
+
+bool remove_tree(const std::string& path) {
+    struct stat information;
+    if (lstat(path.c_str(), &information) != 0) return errno == ENOENT;
+    if (S_ISLNK(information.st_mode)) return false;
+    if (S_ISDIR(information.st_mode)) {
+        chmod(path.c_str(), 0700);
+        DIR* directory = opendir(path.c_str());
+        if (directory == nullptr) return false;
+        bool succeeded = true;
+        for (dirent* entry = readdir(directory);
+             entry != nullptr; entry = readdir(directory)) {
+            const std::string name(entry->d_name);
+            if (name != "." && name != ".." &&
+                !remove_tree(path + "/" + name)) {
+                succeeded = false;
+                break;
+            }
+        }
+        closedir(directory);
+        return succeeded && rmdir(path.c_str()) == 0;
+    }
+    return S_ISREG(information.st_mode) && unlink(path.c_str()) == 0;
+}
+
+bool disk_has_generation_reserve(
+    const std::string& data_root,
+    unsigned long long* free_bytes = nullptr,
+    unsigned long long* reserve_bytes = nullptr
+) {
+    struct statvfs disk;
+    if (statvfs(data_root.c_str(), &disk) != 0) return false;
+    const unsigned long long available =
+        static_cast<unsigned long long>(disk.f_bavail) * disk.f_frsize;
+    const unsigned long long total =
+        static_cast<unsigned long long>(disk.f_blocks) * disk.f_frsize;
+    const unsigned long long reserve =
+        std::max(1024ull * 1024ull * 1024ull, total / 10ull);
+    if (free_bytes != nullptr) *free_bytes = available;
+    if (reserve_bytes != nullptr) *reserve_bytes = reserve;
+    return available > reserve;
 }
 
 bool valid_fingerprint(const std::string& value) {
@@ -83,6 +225,7 @@ bool run_cli(
     const std::string& cli,
     const std::string& pack,
     const std::string& output_directory,
+    const std::string& data_root,
     int& exit_code,
     std::string& stdout_text,
     std::string& stderr_text,
@@ -130,8 +273,14 @@ bool run_cli(
         descriptors[1].fd = stderr_pipe[0];
         descriptors[1].events = stderr_open ? POLLIN | POLLHUP : 0;
         descriptors[1].revents = 0;
-        if (poll(descriptors, 2, -1) < 0 && errno != EINTR) {
+        const int polled = poll(descriptors, 2, 250);
+        if (polled < 0 && errno != EINTR) {
             error = "unable to poll CLI output";
+            break;
+        }
+        if (!disk_has_generation_reserve(data_root)) {
+            error = "DISK_PRESSURE";
+            kill(child, SIGKILL);
             break;
         }
         if (stdout_open && descriptors[0].revents != 0) {
@@ -154,6 +303,97 @@ bool run_cli(
         return false;
     }
     exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : 128;
+    return true;
+}
+
+bool archive_generator_release(
+    const std::string& data_root,
+    const std::string& source_cli,
+    std::string& identity,
+    std::string& release_cli,
+    std::string& error
+) {
+    std::string binary;
+    std::string hash;
+    if (!read_binary_file(source_cli, binary, error) ||
+        !syn_sig_ra::sha256_hex(binary, hash, error)) {
+        return false;
+    }
+    identity = "sha256:" + hash;
+    const std::string releases = data_root + "/generator_releases";
+    const std::string release = releases + "/" + hash;
+    release_cli = release + "/signal-synth";
+    if (!ensure_directory(releases, 0750, error) ||
+        !ensure_directory(release, 0750, error)) {
+        return false;
+    }
+    if (!regular_file(release_cli) &&
+        !write_binary_file(release_cli, binary, 0550, error)) {
+        return false;
+    }
+    std::string preserved;
+    std::string preserved_hash;
+    if (!read_binary_file(release_cli, preserved, error) ||
+        !syn_sig_ra::sha256_hex(preserved, preserved_hash, error) ||
+        preserved_hash != hash) {
+        error = "preserved generator release hash mismatch";
+        return false;
+    }
+    chmod(release.c_str(), 0550);
+    return true;
+}
+
+bool resolve_generator_release(
+    const std::string& data_root,
+    const std::string& identity,
+    std::string& release_cli
+) {
+    if (!valid_fingerprint(identity)) return false;
+    release_cli =
+        data_root + "/generator_releases/" + identity.substr(7) +
+        "/signal-synth";
+    std::string binary;
+    std::string hash;
+    std::string error;
+    return regular_file(release_cli) &&
+        read_binary_file(release_cli, binary, error) &&
+        syn_sig_ra::sha256_hex(binary, hash, error) &&
+        hash == identity.substr(7);
+}
+
+bool snapshot_pack_recipe(
+    const std::string& data_root,
+    const std::string& job_id,
+    const std::string& source_pack,
+    std::string& snapshot_pack,
+    std::string& error
+) {
+    const std::string recipes = data_root + "/recipes";
+    const std::string recipe = recipes + "/" + job_id;
+    if (!ensure_directory(recipes, 0750, error) ||
+        !ensure_directory(recipe, 0750, error)) {
+        return false;
+    }
+    snapshot_pack = recipe + "/pack.json";
+    if (!copy_regular_file(source_pack, snapshot_pack, 0440, error)) {
+        remove_tree(recipe);
+        return false;
+    }
+    const std::string::size_type separator = source_pack.rfind('/');
+    const std::string source_root = source_pack.substr(0, separator);
+    if (directory_exists(source_root + "/scenarios") &&
+        !copy_tree(
+            source_root + "/scenarios",
+            recipe + "/scenarios",
+            error)) {
+        remove_tree(recipe);
+        return false;
+    }
+    if (chmod(recipe.c_str(), 0550) != 0) {
+        error = "unable to lock pack recipe";
+        remove_tree(recipe);
+        return false;
+    }
     return true;
 }
 
@@ -275,29 +515,75 @@ WorkerRunStatus run_worker_once(
         return WorkerRunStatus::worker_error;
     }
     job_id = job.job_id;
+    const bool pinned_execution = !job.generator_build_identity.empty();
     const std::string built_in_pack =
         config.pack_root + "/" + job.selected_pack_id + ".json";
     const std::string custom_pack =
         config.data_root + "/custom_packs/" + job.selected_pack_id +
         "/pack.json";
-    const bool pack_path_allowed =
+    const bool current_pack_path_allowed =
         job.source_pack_path == built_in_pack ||
         (job.selected_pack_id.compare(0, 12, "custom_pack_") == 0 &&
          job.source_pack_path == custom_pack);
-    const std::string expected_pack = job.source_pack_path;
+    std::string expected_pack = job.source_pack_path;
+    std::string execution_cli;
+    std::string generator_identity = job.generator_build_identity;
     const std::string output_directory =
         config.data_root + "/work/" + job.job_id;
     std::string failure_code;
     std::string failure_message;
 
-    if (!regular_file(config.signal_synth_cli) ||
-        !regular_file(expected_pack) ||
-        !pack_path_allowed ||
-        !directory_exists(config.data_root + "/work") ||
+    if (!directory_exists(config.data_root + "/work") ||
+        !directory_exists(config.data_root + "/packages") ||
         directory_exists(output_directory) ||
         regular_file(output_directory)) {
         failure_code = "WORKER_CONFIG_INVALID";
         failure_message = "Worker paths are invalid.";
+    }
+    if (failure_code.empty() && !disk_has_generation_reserve(config.data_root)) {
+        failure_code = "DISK_PRESSURE";
+        failure_message =
+            "Generation is paused to preserve the server disk reserve.";
+    }
+    if (failure_code.empty() && pinned_execution) {
+        if (!path_below(
+                expected_pack, config.data_root + "/recipes") ||
+            !regular_file(expected_pack) ||
+            !resolve_generator_release(
+                config.data_root,
+                generator_identity,
+                execution_cli)) {
+            failure_code = "HISTORICAL_INPUT_UNAVAILABLE";
+            failure_message =
+                "The exact pack recipe or generator release is unavailable.";
+        }
+    }
+    if (failure_code.empty() && !pinned_execution) {
+        const std::string source_pack = expected_pack;
+        if (!regular_file(config.signal_synth_cli) ||
+            !regular_file(expected_pack) ||
+            !current_pack_path_allowed ||
+            !archive_generator_release(
+                config.data_root,
+                config.signal_synth_cli,
+                generator_identity,
+                execution_cli,
+                error) ||
+            !snapshot_pack_recipe(
+                config.data_root,
+                job.job_id,
+                source_pack,
+                expected_pack,
+                error) ||
+            !store.pin_job_inputs(
+                job.job_id,
+                expected_pack,
+                generator_identity,
+                error)) {
+            failure_code = "EXECUTION_INPUT_SNAPSHOT_FAILED";
+            failure_message =
+                "Immutable generator and pack inputs could not be preserved.";
+        }
     }
 
     int exit_code = 0;
@@ -305,16 +591,21 @@ WorkerRunStatus run_worker_once(
     std::string stderr_text;
     if (failure_code.empty() &&
         !run_cli(
-            config.signal_synth_cli,
+            execution_cli,
             expected_pack,
             output_directory,
+            config.data_root,
             exit_code,
             stdout_text,
             stderr_text,
             error
         )) {
-        failure_code = "WORKER_EXECUTION_FAILED";
-        failure_message = "Generator execution could not be completed.";
+        failure_code = error == "DISK_PRESSURE"
+            ? "DISK_PRESSURE"
+            : "WORKER_EXECUTION_FAILED";
+        failure_message = error == "DISK_PRESSURE"
+            ? "Generation stopped before exhausting the server disk reserve."
+            : "Generator execution could not be completed.";
     }
     if (failure_code.empty() && exit_code != 0) {
         failure_code = stable_cli_error(stderr_text);
@@ -329,12 +620,16 @@ WorkerRunStatus run_worker_once(
     }
     if (failure_code.empty() &&
         (challenge.output_directory != output_directory ||
-         challenge.pack_fingerprint != job.pack_fingerprint)) {
+         challenge.pack_fingerprint != job.pack_fingerprint ||
+         (!job.package_fingerprint.empty() &&
+          challenge.package_fingerprint != job.package_fingerprint))) {
         failure_code = "GENERATOR_OUTPUT_MISMATCH";
-        failure_message = "Generator output did not match the claimed job.";
+        failure_message =
+            "Exact rebuild output did not match the preserved job identity.";
     }
 
     if (!failure_code.empty()) {
+        remove_tree(output_directory);
         std::string storage_error;
         if (!store.fail_job(
                 job.job_id,
@@ -349,22 +644,8 @@ WorkerRunStatus run_worker_once(
         return WorkerRunStatus::failed_job;
     }
 
-    std::string generator_binary;
-    std::string generator_hash;
-    if (!read_binary_file(config.signal_synth_cli, generator_binary, error) ||
-        !sha256_hex(generator_binary, generator_hash, error)) {
-        std::string ignored;
-        store.fail_job(
-            job.job_id,
-            "GENERATOR_IDENTITY_FAILED",
-            "Generator build identity could not be recorded.",
-            ignored
-        );
-        return WorkerRunStatus::worker_error;
-    }
-    generator_hash = "sha256:" + generator_hash;
     const std::string normalized_command =
-        config.signal_synth_cli + " pack challenge " + expected_pack +
+        execution_cli + " pack challenge " + expected_pack +
         " --out " + output_directory;
     StoredPackage package;
     if (!directory_exists(config.data_root + "/packages") ||
@@ -388,7 +669,7 @@ WorkerRunStatus run_worker_once(
             package.package_id,
             challenge.package_fingerprint,
             "signal_synth-cli",
-            generator_hash,
+            generator_identity,
             normalized_command,
             package.manifest_hash,
             package.package_directory,

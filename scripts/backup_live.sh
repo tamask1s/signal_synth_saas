@@ -11,7 +11,7 @@ trap 'sudo systemctl start syn_sig_ra_worker.service' EXIT HUP INT TERM
 sudo /usr/local/bin/syn_sig_ra_admin backup-db \
   /var/lib/syn_sig_ra/db.sqlite3 "$destination/db.sqlite3"
 sudo tar -C /var/lib/syn_sig_ra -czf "$destination/packages.tar.gz" \
-  packages custom_packs
+  packages custom_packs recipes generator_releases
 sudo sha256sum "$destination/db.sqlite3" "$destination/packages.tar.gz" |
   sudo tee "$destination/SHA256SUMS" >/dev/null
 sudo systemctl start syn_sig_ra_worker.service

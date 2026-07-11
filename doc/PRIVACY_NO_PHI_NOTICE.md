@@ -1,7 +1,7 @@
 # Synsigra Privacy and No-PHI Notice
 
 Effective date: 2026-07-11
-Notice version: `private-beta-2026-07-11`
+Notice version: `private-beta-2026-07-11-r2`
 
 ## Scope and operator contact
 
@@ -52,7 +52,7 @@ associate service and no business-associate agreement is provided.
 
 ## Retention
 
-Generated artifacts are normally retained for 90 days and may be removed
+Generated artifacts are normally cached for 14 days and may be removed
 immediately after a user deletes the related job. Reproducibility metadata may
 remain after artifact expiry. Account and security records are retained while
 the account is active and as reasonably needed for security, abuse prevention,

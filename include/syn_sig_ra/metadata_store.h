@@ -404,6 +404,13 @@ public:
         std::string& error
     );
 
+    JobLifecycleStatus rebuild_job_exact(
+        const std::string& job_id,
+        const ApiKeyIdentity& owner,
+        std::string& new_job_id,
+        std::string& error
+    );
+
     JobDeleteStatus delete_job(
         const std::string& job_id,
         const ApiKeyIdentity& owner,
@@ -412,6 +419,13 @@ public:
 
     RecordLookupStatus claim_next_job(
         JobRecord& job,
+        std::string& error
+    );
+
+    bool pin_job_inputs(
+        const std::string& job_id,
+        const std::string& source_pack_path,
+        const std::string& generator_build_identity,
         std::string& error
     );
 

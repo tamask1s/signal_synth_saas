@@ -10,6 +10,7 @@ reset_db=0
 [ "${1:-}" = "--reset-db" ] && reset_db=1
 
 cmake -S "$signal_synth_root" -B "$signal_synth_build_dir" \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
   -DSIGNAL_SYNTH_BUILD_TESTS=OFF \
   -DSIGNAL_SYNTH_BUILD_CLI=ON
 cmake --build "$signal_synth_build_dir" --target signal_synth_cli -j2
@@ -23,15 +24,15 @@ if [ -f /opt/signal_synth/bin/signal-synth ]; then
   sudo cp /opt/signal_synth/bin/signal-synth \
     "/opt/signal_synth/bin/signal-synth.before-$timestamp"
 fi
-sudo install -m 0755 "$signal_synth_build_dir/signal-synth" \
+sudo install -s -m 0755 "$signal_synth_build_dir/signal-synth" \
   /opt/signal_synth/bin/signal-synth
 sudo cp /usr/local/apache2/modules/mod_syn_sig_ra.so \
   "/usr/local/apache2/modules/mod_syn_sig_ra.so.before-$timestamp"
-sudo install -m 0755 "$build_dir/mod_syn_sig_ra.so" \
+sudo install -s -m 0755 "$build_dir/mod_syn_sig_ra.so" \
   /usr/local/apache2/modules/mod_syn_sig_ra.so
-sudo install -m 0755 "$build_dir/syn_sig_ra_admin" \
+sudo install -s -m 0755 "$build_dir/syn_sig_ra_admin" \
   /usr/local/bin/syn_sig_ra_admin
-sudo install -m 0755 "$build_dir/syn_sig_ra_worker" \
+sudo install -s -m 0755 "$build_dir/syn_sig_ra_worker" \
   /usr/local/bin/syn_sig_ra_worker
 sudo install -d -m 0755 /opt/signal_synth_saas/packs
 sudo tar -C /opt/signal_synth_saas -czf \
@@ -49,7 +50,9 @@ sudo find /opt/signal_synth_saas/downloads/verifier -maxdepth 1 -type f -delete
 sudo install -m 0644 "$repo_dir"/downloads/verifier/* \
   /opt/signal_synth_saas/downloads/verifier/
 sudo install -d -o apache -g nogroup -m 0750 \
-  /var/lib/syn_sig_ra/custom_packs
+  /var/lib/syn_sig_ra/custom_packs \
+  /var/lib/syn_sig_ra/recipes \
+  /var/lib/syn_sig_ra/generator_releases
 
 if [ "$reset_db" = 1 ]; then
   sudo cp /var/lib/syn_sig_ra/db.sqlite3 \

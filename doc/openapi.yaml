@@ -189,13 +189,13 @@ paths:
                 type: object
                 required: [terms_version, terms_url, privacy_url, support_url, billing_status, uptime_sla, artifact_retention_days]
                 properties:
-                  terms_version: {type: string, example: private-beta-2026-07-11}
+                  terms_version: {type: string, example: private-beta-2026-07-11-r2}
                   terms_url: {type: string}
                   privacy_url: {type: string}
                   support_url: {type: string, format: uri}
                   billing_status: {type: string, enum: [free_beta]}
                   uptime_sla: {type: string, nullable: true}
-                  artifact_retention_days: {type: integer, example: 90}
+                  artifact_retention_days: {type: integer, example: 14}
   /healthz:
     get:
       summary: Liveness
@@ -325,7 +325,7 @@ paths:
                   description: Must be true.
                 terms_version:
                   type: string
-                  enum: [private-beta-2026-07-11]
+                  enum: [private-beta-2026-07-11-r2]
               additionalProperties: false
       responses:
         '202': {description: Verification required or generic accepted response}
@@ -507,6 +507,7 @@ paths:
       responses:
         '202': {description: Job queued}
         '429': {description: Job quota exceeded}
+        '507': {description: Generation paused to preserve disk reserve}
   /v1/jobs/{job_id}:
     parameters:
       - {in: path, name: job_id, required: true, schema: {type: string}}
@@ -540,6 +541,17 @@ paths:
       responses:
         '202': {description: New job queued}
         '409': {description: Invalid state}
+  /v1/jobs/{job_id}/rebuild:
+    post:
+      summary: Queue an exact-version rebuild for an expired succeeded job
+      description: Uses the immutable pack recipe and SHA-256-addressed historical generator release. A newer generator is never substituted and a package fingerprint mismatch fails the new job.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {in: path, name: job_id, required: true, schema: {type: string}}
+      responses:
+        '202': {description: Exact-version rebuild queued as a new job}
+        '409': {description: Invalid state, recipe unavailable, or historical generator unavailable}
+        '507': {description: Rebuild paused to preserve disk reserve}
   /v1/jobs/{job_id}/detection-templates.zip:
     get:
       summary: Download detector-output templates for a completed curated job

@@ -26,7 +26,7 @@ https://www.timeonion.com/syn_sig_ra
 - API keys are created from the account panel for scripts and CI; each secret is shown once and only a SHA-256 hash is retained server-side.
 - E-mail ownership verification and forgotten-password recovery are implemented with expiring, single-use links. New registration is available when the deployment has a transactional SMTP provider configured.
 - The current curated beta catalog is imported from `signal_synth/examples/catalog/curated_pack_metadata_v1.json` and contains ECG, HRV, PPG, signal-quality and wearable stress packs, not only the R-peak smoke pack.
-- Generated packages are immutable while retained. Default artifact retention is 90 days.
+- Generated packages are immutable while cached. Default artifact cache retention is 14 days.
 - Registration requires explicit acceptance of the versioned Private Beta Terms
   and Privacy & No-PHI Notice. The accepted version and UTC timestamp are stored.
 - The private beta is free, has no payment method or automatic paid conversion,
@@ -45,7 +45,8 @@ Synsigra SaaS is for offline-first algorithm verification:
 
 1. Select or compose a deterministic synthetic challenge pack.
 2. Generate a package in the SaaS worker.
-3. Download `manifest.json` and `package.zip`.
+3. Download the single **Verification kit ZIP**, which contains the package,
+   manifest, capability/boundary notices, and detector templates when applicable.
 4. Run your algorithm locally against the package files.
 5. Verify local detector outputs against packaged ground truth using the Synsigra local verifier.
 6. Archive the package, manifest, provenance bundle, detector build/configuration, detections, and verification reports together.
@@ -123,10 +124,10 @@ Run the algorithm against whichever generated format it supports:
 
 The **Choose pack** page and `/v1/packs` show which targets are locally scoreable and which are reference-only before you create a job. For a completed curated job, the **Verify locally** runbook shows exact filenames, recommended threshold profile, output directory, accepted detection folder shape, copyable commands, and archive guidance.
 
-Click **Verification kit ZIP** on the completed job for a single starter bundle,
-or use **Detection templates ZIP** if you only need a `README.md` plus one
-template file per scoreable case/target. The same template-only archive is
-available from:
+Click **Verification kit ZIP** on the completed job for the normal complete
+bundle. Individual manifests, package ZIPs, and a template-only ZIP are
+available under **Advanced artifact downloads** and through the API for custom
+integrations. The template-only endpoint is:
 
 ```http
 GET /v1/jobs/{job_id}/detection-templates.zip
@@ -433,14 +434,25 @@ queued → cancelled
 
 A retry creates a new queued job and preserves the original. Deletion is a soft delete.
 
-Default artifact retention is 90 days. A soft-deleted job becomes immediately eligible for cleanup. After expiry:
+Default artifact cache retention is 14 days. A soft-deleted job becomes immediately eligible for cleanup. After expiry:
 
 - job metadata remains;
 - lifecycle timestamps remain;
 - pack/package fingerprints remain;
 - generator identity remains;
-- downloads return `404`;
+- direct artifact downloads return `404`;
 - the UI/API reports `artifact_status: expired`.
+
+Jobs created by the current worker also preserve a compact immutable pack
+recipe and the exact generator executable addressed by its SHA-256 build
+identity. From an expired job, **Rebuild exact package** creates a new queued
+job that uses those pinned inputs and rejects any package-fingerprint change.
+If either historical input is absent, the rebuild fails explicitly; the latest
+generator is never substituted.
+
+The normal user-facing download is **Verification kit ZIP**. Individual
+`manifest.json`, `package.zip`, and template-only downloads remain under the
+runbook's **Advanced artifact downloads** section and in the API.
 
 ## Package contents
 

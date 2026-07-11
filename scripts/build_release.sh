@@ -7,6 +7,7 @@ build_dir=${BUILD_DIR:-"$repo_dir/build/e2e"}
 "$repo_dir/scripts/build_verifier_downloads.sh" "$repo_dir/downloads/verifier"
 
 cmake -S "$repo_dir" -B "$build_dir" \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
   -DSIGNAL_SYNTH_ROOT="$repo_dir/../signal_synth" \
   -DAPXS_EXECUTABLE=/usr/local/apache2/bin/apxs \
   -DSYN_SIG_RA_ENABLE_INTEGRATION_TESTS=ON \

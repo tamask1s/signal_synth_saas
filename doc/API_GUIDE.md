@@ -153,5 +153,8 @@ resource existence from that response.
   columns, units, selected profile, and the generated per-case report.
 - If `synsigra-verify` exits `2`, start from the completed-job command in the
   UI or the template ZIP `README.md`; this is a CLI usage error.
-- If artifacts expired, regenerate from the same pack version and archive the
-  new package locally.
+- If an artifact cache expired, request `POST /v1/jobs/{job_id}/rebuild`.
+  Synsigra queues a new job using the preserved immutable recipe and exact
+  historical generator release, and rejects a package-fingerprint mismatch.
+  Historical jobs without those inputs return an explicit `409`; a newer
+  generator is never silently substituted.

@@ -27,6 +27,8 @@ void print_usage(const char* executable) {
         << " backup-db <database-path> <destination-path>\n"
         << "  " << executable
         << " cleanup-retention <database-path> <data-root> <days> [--apply]\n"
+        << "  " << executable
+        << " compact-artifacts <data-root> [--apply]\n"
         << "\ncreate-api-key reads the plaintext API key as one line from stdin.\n";
 }
 
@@ -67,6 +69,62 @@ bool remove_tree(const std::string& path, std::string& error) {
         return false;
     }
     return true;
+}
+
+bool regular_file_without_symlink(const std::string& path) {
+    struct stat information;
+    return lstat(path.c_str(), &information) == 0 &&
+        S_ISREG(information.st_mode);
+}
+
+bool compact_artifacts(
+    const std::string& data_root,
+    bool apply,
+    int& candidates,
+    int& compacted,
+    std::string& error
+) {
+    candidates = 0;
+    compacted = 0;
+    const std::string packages_root = data_root + "/packages";
+    DIR* packages = opendir(packages_root.c_str());
+    if (packages == nullptr) {
+        error = "unable to open package store";
+        return false;
+    }
+    bool succeeded = true;
+    for (dirent* entry = readdir(packages);
+         entry != nullptr; entry = readdir(packages)) {
+        const std::string name(entry->d_name);
+        if (name == "." || name == "..") continue;
+        const std::string package_root = packages_root + "/" + name;
+        const std::string extracted = package_root + "/extracted";
+        struct stat information;
+        if (lstat(extracted.c_str(), &information) != 0) {
+            if (errno == ENOENT) continue;
+            error = "unable to inspect extracted package tree";
+            succeeded = false;
+            break;
+        }
+        if (!S_ISDIR(information.st_mode) ||
+            !regular_file_without_symlink(package_root + "/manifest.json") ||
+            !regular_file_without_symlink(package_root + "/package.zip")) {
+            error = "package is not safe to compact";
+            succeeded = false;
+            break;
+        }
+        ++candidates;
+        std::cout << "candidate=" << name << '\n';
+        if (apply) {
+            if (!remove_tree(extracted, error)) {
+                succeeded = false;
+                break;
+            }
+            ++compacted;
+        }
+    }
+    closedir(packages);
+    return succeeded;
 }
 
 }  // namespace
@@ -206,6 +264,29 @@ int main(int argc, char** argv) {
         std::cout << "status=" << (apply ? "retention-applied" : "retention-dry-run")
                   << "\ncandidates=" << candidates.size()
                   << "\nremoved=" << removed << '\n';
+        return EXIT_SUCCESS;
+    }
+
+    if ((argc == 3 || argc == 4) &&
+        std::string(argv[1]) == "compact-artifacts") {
+        const bool apply = argc == 4 && std::string(argv[3]) == "--apply";
+        if (argc == 4 && !apply) {
+            print_usage(argv[0]);
+            return EXIT_FAILURE;
+        }
+        int candidates = 0;
+        int compacted = 0;
+        std::string error;
+        if (!compact_artifacts(
+                argv[2], apply, candidates, compacted, error)) {
+            std::cerr << "error=artifact-compaction-failed message="
+                      << error << '\n';
+            return EXIT_FAILURE;
+        }
+        std::cout << "status=artifact-compaction-"
+                  << (apply ? "applied" : "dry-run")
+                  << "\ncandidates=" << candidates
+                  << "\ncompacted=" << compacted << '\n';
         return EXIT_SUCCESS;
     }
 

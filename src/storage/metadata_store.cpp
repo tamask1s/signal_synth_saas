@@ -1884,6 +1884,84 @@ JobLifecycleStatus MetadataStore::retry_job(
     return JobLifecycleStatus::succeeded;
 }
 
+JobLifecycleStatus MetadataStore::rebuild_job_exact(
+    const std::string& job_id,
+    const ApiKeyIdentity& owner,
+    std::string& new_job_id,
+    std::string& error
+) {
+    JobRecord existing;
+    const RecordLookupStatus lookup = find_job(job_id, owner, existing, error);
+    if (lookup == RecordLookupStatus::not_found) {
+        return JobLifecycleStatus::not_found;
+    }
+    if (lookup != RecordLookupStatus::found) {
+        return JobLifecycleStatus::storage_error;
+    }
+    if (existing.status != "succeeded" || !existing.package_id.empty() ||
+        existing.source_pack_path.empty() ||
+        existing.pack_fingerprint.empty() ||
+        existing.package_fingerprint.empty() ||
+        existing.generator_build_identity.empty()) {
+        return JobLifecycleStatus::invalid_state;
+    }
+    if (!random_id("job_", new_job_id, error) ||
+        !execute("BEGIN IMMEDIATE;", error)) {
+        return JobLifecycleStatus::storage_error;
+    }
+    sqlite3_stmt* insert = nullptr;
+    const char* insert_sql =
+        "INSERT INTO jobs "
+        "(id, organization_id, project_id, user_id, status, request_json, "
+        "selected_pack_id, source_pack_path, pack_fingerprint, "
+        "package_fingerprint, generator_version, generator_build_identity) "
+        "VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?7, ?8, ?9, ?10, ?11);";
+    bool succeeded =
+        sqlite3_prepare_v2(database_, insert_sql, -1, &insert, nullptr) ==
+            SQLITE_OK &&
+        bind_text(insert, 1, new_job_id) &&
+        bind_text(insert, 2, owner.organization_id) &&
+        bind_text(insert, 3, existing.project_id) &&
+        bind_text(insert, 4, owner.user_id) &&
+        bind_text(insert, 5, existing.request_json) &&
+        bind_text(insert, 6, existing.selected_pack_id) &&
+        bind_text(insert, 7, existing.source_pack_path) &&
+        bind_text(insert, 8, existing.pack_fingerprint) &&
+        bind_text(insert, 9, existing.package_fingerprint) &&
+        bind_text(insert, 10, existing.generator_version) &&
+        bind_text(insert, 11, existing.generator_build_identity) &&
+        sqlite3_step(insert) == SQLITE_DONE;
+    sqlite3_finalize(insert);
+
+    sqlite3_stmt* audit = nullptr;
+    const char* audit_sql =
+        "INSERT INTO audit_events "
+        "(organization_id, user_id, api_key_id, event_type, "
+        "subject_type, subject_id, details_json) "
+        "VALUES (?1, ?2, ?3, 'artifact.exact_rebuild_requested', "
+        "'job', ?4, ?5);";
+    const std::string details =
+        std::string("{\"source_job_id\":\"") + job_id + "\"}";
+    succeeded = succeeded &&
+        sqlite3_prepare_v2(database_, audit_sql, -1, &audit, nullptr) ==
+            SQLITE_OK &&
+        bind_text(audit, 1, owner.organization_id) &&
+        bind_text(audit, 2, owner.user_id) &&
+        bind_text(audit, 3, owner.api_key_id) &&
+        bind_text(audit, 4, new_job_id) &&
+        bind_text(audit, 5, details) &&
+        sqlite3_step(audit) == SQLITE_DONE;
+    sqlite3_finalize(audit);
+
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (error.empty()) error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return JobLifecycleStatus::storage_error;
+    }
+    return JobLifecycleStatus::succeeded;
+}
+
 JobDeleteStatus MetadataStore::delete_job(
     const std::string& job_id,
     const ApiKeyIdentity& owner,
@@ -2019,7 +2097,8 @@ RecordLookupStatus MetadataStore::claim_next_job(
     sqlite3_stmt* select = nullptr;
     const char* select_sql =
         "SELECT id, organization_id, project_id, user_id, request_json, "
-        "selected_pack_id, source_pack_path, pack_fingerprint, created_at "
+        "selected_pack_id, source_pack_path, pack_fingerprint, created_at, "
+        "package_fingerprint, generator_build_identity "
         "FROM jobs WHERE status = 'queued' AND deleted_at IS NULL "
         "ORDER BY created_at, id LIMIT 1;";
     if (sqlite3_prepare_v2(
@@ -2058,6 +2137,8 @@ RecordLookupStatus MetadataStore::claim_next_job(
     claimed.source_pack_path = column_text(select, 6);
     claimed.pack_fingerprint = column_text(select, 7);
     claimed.created_at = column_text(select, 8);
+    claimed.package_fingerprint = column_text(select, 9);
+    claimed.generator_build_identity = column_text(select, 10);
     sqlite3_finalize(select);
 
     sqlite3_stmt* update = nullptr;
@@ -2083,6 +2164,30 @@ RecordLookupStatus MetadataStore::claim_next_job(
     claimed.status = "running";
     job = claimed;
     return RecordLookupStatus::found;
+}
+
+bool MetadataStore::pin_job_inputs(
+    const std::string& job_id,
+    const std::string& source_pack_path,
+    const std::string& generator_build_identity,
+    std::string& error
+) {
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE jobs SET source_pack_path=?2, generator_version="
+        "'signal_synth-cli', generator_build_identity=?3 "
+        "WHERE id=?1 AND status='running' AND deleted_at IS NULL;";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, job_id) &&
+        bind_text(statement, 2, source_pack_path) &&
+        bind_text(statement, 3, generator_build_identity) &&
+        sqlite3_step(statement) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    if (!succeeded) error = sqlite3_errmsg(database_);
+    sqlite3_finalize(statement);
+    return succeeded;
 }
 
 bool MetadataStore::complete_job(
