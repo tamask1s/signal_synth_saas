@@ -61,7 +61,12 @@ bool remove_tree(const std::string& path, std::string& error) {
             }
         }
         closedir(directory);
-        return succeeded && rmdir(path.c_str()) == 0;
+        if (!succeeded) return false;
+        if (rmdir(path.c_str()) != 0) {
+            error = "unable to remove retention directory";
+            return false;
+        }
+        return true;
     }
     chmod(path.c_str(), 0600);
     if (unlink(path.c_str()) != 0) {
@@ -116,7 +121,13 @@ bool compact_artifacts(
         ++candidates;
         std::cout << "candidate=" << name << '\n';
         if (apply) {
-            if (!remove_tree(extracted, error)) {
+            if (chmod(package_root.c_str(), 0700) != 0 ||
+                !remove_tree(extracted, error) ||
+                chmod(package_root.c_str(), 0550) != 0) {
+                if (error.empty()) {
+                    error = "unable to unlock or relock package directory";
+                }
+                chmod(package_root.c_str(), 0550);
                 succeeded = false;
                 break;
             }
