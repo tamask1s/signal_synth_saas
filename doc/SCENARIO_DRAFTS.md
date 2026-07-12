@@ -21,11 +21,18 @@ Create or replace a draft:
 ```json
 {
   "name": "My synthetic ECG",
+  "target_intent": ["r_peak"],
   "scenario": {
     "schema_version": 2
   }
 }
 ```
+
+`target_intent` records what the user's algorithm is expected to output. It is
+not part of the core scenario JSON or its fingerprint. The browser starts with
+this goal, shows compatible templates and curated cases, and saves it beside
+the canonical draft. Custom pack composition inherits the union of the selected
+draft intents; an Advanced override remains available for deliberate expert use.
 
 The `scenario` object must follow the authoritative `signal_synth` scenario
 schema. Valid documents are canonicalized and receive a SHA-256 document
@@ -33,7 +40,7 @@ fingerprint. Invalid documents are still saved as editable drafts and return
 HTTP 422 with `code`, JSON `path`, and `message` validation entries plus the
 new or updated draft ID.
 
-The authoring helper routes expose core-owned metadata for the grouped browser
+The target-first authoring flow uses core-owned metadata for the grouped browser
 form: field labels, ranges, units, defaults, enum options, visibility rules,
 condition and artifact catalogs, repeatable-item schemas, target support, and
 complete valid templates. Conditions, artifacts, PPG perfusion episodes,
@@ -44,7 +51,10 @@ targets, channel count, sample count, estimated package size, peak memory, and
 compatibility messages. Validation paths focus the corresponding form control
 where possible. Advanced JSON remains synchronized for expert use. The
 curated-scenario route returns source scenario JSON for clone/fork into an
-editable draft.
+editable draft. **Show all starting points** and **Advanced JSON editor** keep
+the complete core feature set available when the guided recommendations are too
+narrow. Missing PPG, HRV duration/modulation, artifact, and morphology
+requirements can be applied to the current draft in one action before preview.
 
 Drafts are scoped to the exact organization/user identity. Another user,
 including one in the same organization, receives 404. Viewer-role keys can

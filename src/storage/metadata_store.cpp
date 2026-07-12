@@ -11,7 +11,7 @@
 
 namespace {
 
-const int kSchemaVersion = 9;
+const int kSchemaVersion = 10;
 const int kRequestLimitPerMinute = 120;
 const int kConcurrentJobLimit = 2;
 const int kMonthlyJobLimit = 100;
@@ -203,6 +203,7 @@ CREATE TABLE IF NOT EXISTS scenario_drafts (
     status TEXT NOT NULL CHECK (status IN ('valid','invalid')),
     document_json TEXT NOT NULL,
     document_fingerprint TEXT,
+    target_intent_json TEXT NOT NULL DEFAULT '["r_peak"]',
     validation_errors_json TEXT NOT NULL DEFAULT '[]',
     created_at TEXT NOT NULL DEFAULT (
         strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
@@ -337,9 +338,10 @@ syn_sig_ra::ScenarioDraftRecord scenario_draft_columns(
     draft.status = column_text(statement, 4);
     draft.document_json = column_text(statement, 5);
     draft.document_fingerprint = column_text(statement, 6);
-    draft.validation_errors_json = column_text(statement, 7);
-    draft.created_at = column_text(statement, 8);
-    draft.updated_at = column_text(statement, 9);
+    draft.target_intent_json = column_text(statement, 7);
+    draft.validation_errors_json = column_text(statement, 8);
+    draft.created_at = column_text(statement, 9);
+    draft.updated_at = column_text(statement, 10);
     return draft;
 }
 
@@ -434,7 +436,7 @@ bool MetadataStore::initialize(std::string& error) {
         : -1;
     sqlite3_finalize(version_statement);
 
-    if (schema_version != 0 && schema_version != 8 &&
+    if (schema_version != 0 && schema_version != 8 && schema_version != 9 &&
         schema_version != kSchemaVersion) {
         error = "SQLite metadata schema is obsolete; reset the pre-beta database";
         return false;
@@ -452,11 +454,16 @@ bool MetadataStore::initialize(std::string& error) {
             execute("UPDATE users SET email_verified=1, "
                     "email_verified_at=COALESCE(email_verified_at,created_at);", error);
     }
+    if (succeeded && (schema_version == 8 || schema_version == 9)) {
+        succeeded = execute(
+            "ALTER TABLE scenario_drafts ADD COLUMN target_intent_json "
+            "TEXT NOT NULL DEFAULT '[\"r_peak\"]';", error);
+    }
     if (succeeded) {
         succeeded = execute(kSchemaSql, error);
     }
     if (succeeded) {
-        succeeded = execute("PRAGMA user_version = 9;", error);
+        succeeded = execute("PRAGMA user_version = 10;", error);
     }
     if (!succeeded || !execute("COMMIT;", error)) {
         std::string rollback_error;
@@ -2609,7 +2616,7 @@ RecordLookupStatus MetadataStore::find_scenario_draft(
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "SELECT id,organization_id,user_id,name,status,document_json,"
-        "COALESCE(document_fingerprint,''),validation_errors_json,"
+        "COALESCE(document_fingerprint,''),target_intent_json,validation_errors_json,"
         "created_at,updated_at FROM scenario_drafts "
         "WHERE id=?1 AND organization_id=?2 AND user_id=?3;";
     if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
@@ -2641,6 +2648,7 @@ bool MetadataStore::create_scenario_draft(
     const std::string& status,
     const std::string& document_json,
     const std::string& document_fingerprint,
+    const std::string& target_intent_json,
     const std::string& validation_errors_json,
     ScenarioDraftRecord& draft,
     std::string& error
@@ -2653,8 +2661,8 @@ bool MetadataStore::create_scenario_draft(
     const char* sql =
         "INSERT INTO scenario_drafts "
         "(id,organization_id,user_id,name,status,document_json,"
-        "document_fingerprint,validation_errors_json) "
-        "VALUES (?1,?2,?3,?4,?5,?6,NULLIF(?7,''),?8);";
+        "document_fingerprint,target_intent_json,validation_errors_json) "
+        "VALUES (?1,?2,?3,?4,?5,?6,NULLIF(?7,''),?8,?9);";
     const bool succeeded =
         sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
         bind_text(statement, 1, scenario_id) &&
@@ -2664,7 +2672,8 @@ bool MetadataStore::create_scenario_draft(
         bind_text(statement, 5, status) &&
         bind_text(statement, 6, document_json) &&
         bind_text(statement, 7, document_fingerprint) &&
-        bind_text(statement, 8, validation_errors_json) &&
+        bind_text(statement, 8, target_intent_json) &&
+        bind_text(statement, 9, validation_errors_json) &&
         sqlite3_step(statement) == SQLITE_DONE;
     if (!succeeded) error = sqlite3_errmsg(database_);
     sqlite3_finalize(statement);
@@ -2683,7 +2692,7 @@ bool MetadataStore::list_scenario_drafts(
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "SELECT id,organization_id,user_id,name,status,document_json,"
-        "COALESCE(document_fingerprint,''),validation_errors_json,"
+        "COALESCE(document_fingerprint,''),target_intent_json,validation_errors_json,"
         "created_at,updated_at FROM scenario_drafts "
         "WHERE organization_id=?1 AND user_id=?2 "
         "ORDER BY updated_at DESC,id DESC;";
@@ -2716,6 +2725,7 @@ RecordLookupStatus MetadataStore::update_scenario_draft(
     const std::string& status,
     const std::string& document_json,
     const std::string& document_fingerprint,
+    const std::string& target_intent_json,
     const std::string& validation_errors_json,
     ScenarioDraftRecord& draft,
     std::string& error
@@ -2724,7 +2734,8 @@ RecordLookupStatus MetadataStore::update_scenario_draft(
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "UPDATE scenario_drafts SET name=?4,status=?5,document_json=?6,"
-        "document_fingerprint=NULLIF(?7,''),validation_errors_json=?8,"
+        "document_fingerprint=NULLIF(?7,''),target_intent_json=?8,"
+        "validation_errors_json=?9,"
         "updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') "
         "WHERE id=?1 AND organization_id=?2 AND user_id=?3;";
     if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
@@ -2735,7 +2746,8 @@ RecordLookupStatus MetadataStore::update_scenario_draft(
         !bind_text(statement, 5, status) ||
         !bind_text(statement, 6, document_json) ||
         !bind_text(statement, 7, document_fingerprint) ||
-        !bind_text(statement, 8, validation_errors_json) ||
+        !bind_text(statement, 8, target_intent_json) ||
+        !bind_text(statement, 9, validation_errors_json) ||
         sqlite3_step(statement) != SQLITE_DONE) {
         error = sqlite3_errmsg(database_);
         sqlite3_finalize(statement);

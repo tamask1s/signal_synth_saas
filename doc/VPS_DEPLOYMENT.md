@@ -408,10 +408,11 @@ sudo stat -c '%U:%G %a %n' \
   /var/lib/syn_sig_ra/packages
 ```
 
-The pre-beta module deliberately does not migrate obsolete schema versions.
-Before a schema-changing deployment, stop the worker, back up and remove
-`/var/lib/syn_sig_ra/db.sqlite3`, initialize a fresh database, and provision a
-new API key. This keeps schema development clean while there are no users.
+The module accepts the immediately preceding pre-beta schema where an explicit
+in-place upgrade is implemented. Older obsolete schema versions should be reset:
+stop the worker, remove `/var/lib/syn_sig_ra/db.sqlite3`, initialize a fresh
+database, and register again. There is no customer-data migration commitment
+during the private beta.
 
 ## Rollback
 

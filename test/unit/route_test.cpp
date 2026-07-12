@@ -121,6 +121,10 @@ int main() {
             ui.body.find("load-scenario-template") != std::string::npos &&
             ui.body.find("verifier-downloads") != std::string::npos &&
             ui.body.find("scenario-template-select") != std::string::npos &&
+            ui.body.find("What should your algorithm detect or measure?") != std::string::npos &&
+            ui.body.find("show-all-scenario-sources") != std::string::npos &&
+            ui.body.find("inherited-pack-targets") != std::string::npos &&
+            ui.body.find("Advanced target override") != std::string::npos &&
             ui.body.find("Advanced JSON editor") != std::string::npos &&
             ui.body.find("custom-pack-review") != std::string::npos &&
             ui.body.find("custom-pack-scenario-search") != std::string::npos &&
@@ -231,6 +235,9 @@ int main() {
             ui_js.body.find("renderVerificationRunbook") != std::string::npos &&
             ui_js.body.find("selectPackForGeneration") != std::string::npos &&
             ui_js.body.find("renderCustomPackReview") != std::string::npos &&
+            ui_js.body.find("applyMissingTargetRequirements") != std::string::npos &&
+            ui_js.body.find("syncInheritedPackTargets") != std::string::npos &&
+            ui_js.body.find("target_intent: targetIntent") != std::string::npos &&
             ui_js.body.find("groupValidationErrors") != std::string::npos &&
             ui_js.body.find("saveResponseAsFile") != std::string::npos &&
             ui_js.body.find("showToast") != std::string::npos &&

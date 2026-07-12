@@ -1113,7 +1113,17 @@ json_t* scenario_draft_json_object(
     json_t* validation_errors = json_loads(
         draft.validation_errors_json.c_str(), JSON_REJECT_DUPLICATES, &parse_error
     );
+    json_t* target_intent = json_loads(
+        draft.target_intent_json.c_str(), JSON_REJECT_DUPLICATES, &parse_error
+    );
     json_object_set_new(root, "scenario", document == nullptr ? json_null() : document);
+    json_object_set_new(
+        root, "target_intent",
+        json_is_array(target_intent) ? target_intent : json_array()
+    );
+    if (target_intent != nullptr && !json_is_array(target_intent)) {
+        json_decref(target_intent);
+    }
     json_object_set_new(
         root, "validation_errors",
         validation_errors == nullptr ? json_array() : validation_errors
@@ -1806,31 +1816,48 @@ const char kUiHtml[] = R"HTML(<!doctype html>
           <button id="new-scenario" class="secondary">New draft</button>
         </div>
       </div>
-      <p class="muted">Choose one starting source, adjust supported fields, preview compatibility, then save the reusable scenario. Raw JSON remains available for advanced edits.</p>
+      <div class="wizard-progress" aria-label="Scenario workflow">
+        <span class="active"><strong>1</strong> Goal</span><span><strong>2</strong> Starting point</span><span><strong>3</strong> Tune &amp; validate</span><span><strong>4</strong> Compose pack</span>
+      </div>
+      <p class="muted">First choose what your algorithm outputs. Synsigra then narrows the starting points and form controls without removing any advanced capability.</p>
       <p class="verify-note"><strong>No PHI:</strong> use synthetic engineering scenarios only. Do not enter patient identifiers, clinical notes, personal data, or diagnostic claims.</p>
-      <div class="authoring-grid">
+      <section class="wizard-step">
+        <span class="eyebrow">Step 1</span>
+        <h3>What should your algorithm detect or measure?</h3>
+        <p class="muted compact">Choose every output you want this scenario to exercise. This intent is saved with the draft and inherited by its custom pack.</p>
+        <div id="scenario-targets" class="target-selector"></div>
+        <div id="scenario-target-guidance" class="selected-pack muted">Choose at least one target to see compatible starting points.</div>
+      </section>
+      <section id="scenario-source-step" class="wizard-step" hidden>
+        <span class="eyebrow">Step 2</span>
+        <h3>Choose a starting point</h3>
+        <p class="muted compact">A template is a general-purpose recipe. A curated case is a proven example copied from a released challenge pack. Either becomes your independent editable draft.</p>
+        <label class="advanced-toggle"><input id="show-all-scenario-sources" type="checkbox"> Show all core starting points, including ones that need adaptation</label>
+        <div class="authoring-grid">
         <div>
-          <h3>Start from a guided template</h3>
-          <p class="muted compact">Use a generic core-supported starting structure such as ECG, HRV, or PPG.</p>
-          <label for="scenario-template-select">Guided template</label>
+          <h4>Guided template</h4>
+          <p class="muted compact">Best for building a new scenario with form controls.</p>
+          <label for="scenario-template-select">Compatible templates</label>
           <select id="scenario-template-select"></select>
           <button id="apply-scenario-template" class="secondary">Apply template</button>
         </div>
         <div>
-          <h3>Or copy a proven curated case</h3>
-          <p class="muted compact">Pack and case only choose the source example. The saved draft is independent.</p>
-          <label for="curated-clone-pack">Source pack</label>
+          <h4>Proven curated case</h4>
+          <p class="muted compact">Best for adapting a case already used in a released pack.</p>
+          <label for="curated-clone-pack">Released pack</label>
           <select id="curated-clone-pack"></select>
-          <label for="curated-clone-case">Source case</label>
+          <label for="curated-clone-case">Compatible case</label>
           <select id="curated-clone-case"></select>
           <button id="clone-curated-scenario" class="secondary">Clone into draft</button>
         </div>
-      </div>
-      <h3>Preview target compatibility <span class="muted">(not saved in the scenario)</span></h3>
-      <p class="muted compact">These choices only ask “could this scenario support this verification target?”. The actual pack targets are selected and saved later in Custom Packs.</p>
-      <div id="scenario-targets" class="target-selector"></div>
-      <div id="scenario-form" class="scenario-groups"></div>
-      <div id="scenario-preview" class="selected-pack muted">Select a template or edit JSON to preview package output.</div>
+        </div>
+      </section>
+      <section class="wizard-step">
+        <span class="eyebrow">Step 3</span>
+        <h3>Tune and validate</h3>
+        <div id="scenario-form" class="scenario-groups"></div>
+        <div id="scenario-preview" class="selected-pack muted">Choose a target and starting point to preview package output.</div>
+      </section>
       <label for="scenario-name">Name</label>
       <input id="scenario-name" type="text" maxlength="100" placeholder="Scenario name">
       <details id="scenario-json-details" class="meta">
@@ -1842,7 +1869,8 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <div class="actions">
         <button id="load-scenario-template" class="secondary">Load clean ECG example</button>
         <button id="format-scenario-json" class="secondary">Format JSON</button>
-        <button id="save-scenario" class="primary" disabled>Validate and save</button>
+        <button id="make-scenario-compatible" class="secondary" hidden>Apply missing target requirements</button>
+        <button id="save-scenario" class="primary" disabled>Save and continue to pack</button>
       </div>
       <pre id="scenario-output" class="output"></pre>
       <div id="scenarios" class="jobs"></div>
@@ -1855,19 +1883,27 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         </div>
         <button id="refresh-custom-packs" class="secondary">Refresh</button>
       </div>
+      <div class="wizard-progress compact" aria-label="Custom pack workflow">
+        <span><strong>1</strong> Goal</span><span><strong>2</strong> Scenario</span><span class="active"><strong>3</strong> Pack</span><span><strong>4</strong> Generate</span>
+      </div>
       <p class="verify-note"><strong>No PHI:</strong> pack names and descriptions must not contain patient data, personal identifiers, clinical notes, or diagnostic-use claims.</p>
-      <label for="custom-pack-name">Pack name</label>
-      <input id="custom-pack-name" type="text" maxlength="100" placeholder="My validation pack">
-      <label for="custom-pack-description">Description</label>
-      <input id="custom-pack-description" type="text" placeholder="What this pack tests">
-      <h3>1. Choose verification targets <span class="muted">(saved in this pack)</span></h3>
-      <div id="custom-pack-targets" class="target-selector"></div>
-      <h3>2. Choose scenario drafts</h3>
+      <h3>1. Choose scenario drafts</h3>
       <label for="custom-pack-scenario-search">Search scenarios</label>
       <input id="custom-pack-scenario-search" type="search" placeholder="Filter by draft name, scenario ID, or tag">
       <p class="muted compact">Select at least one valid draft. The resulting pack snapshots its scenarios; later draft edits do not alter it.</p>
       <div id="pack-scenario-options" class="cards"></div>
+      <h3>2. Inherited verification goal</h3>
+      <div id="inherited-pack-targets" class="selected-pack muted">Select a scenario to inherit its verification targets.</div>
+      <details id="custom-pack-target-override" class="meta">
+        <summary>Advanced target override</summary>
+        <p class="muted compact">Normally the pack inherits the intent saved with its scenarios. Override only when you deliberately need a different combined contract.</p>
+        <div id="custom-pack-targets" class="target-selector"></div>
+      </details>
       <h3>3. Review and create</h3>
+      <label for="custom-pack-name">Pack name</label>
+      <input id="custom-pack-name" type="text" maxlength="100" placeholder="My validation pack">
+      <label for="custom-pack-description">Description</label>
+      <input id="custom-pack-description" type="text" placeholder="What this pack tests">
       <div id="custom-pack-review" class="selected-pack">Select scenarios and targets to preview coverage.</div>
       <button id="create-custom-pack" class="primary" disabled>Create immutable custom pack</button>
       <pre id="custom-pack-output" class="output"></pre>
@@ -2443,6 +2479,46 @@ label { display: block; margin: 10px 0 5px; font-weight: 600; }
   gap: 16px;
   margin-bottom: 12px;
 }
+.wizard-progress {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 4px 0 18px;
+}
+.wizard-progress span {
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+.wizard-progress span.active {
+  border-color: rgba(111, 124, 255, .72);
+  background: rgba(111, 124, 255, .16);
+  color: var(--text);
+}
+.wizard-progress strong { margin-right: 5px; }
+.wizard-progress.compact { margin-top: 0; }
+.wizard-step {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(7, 17, 31, .32);
+}
+.wizard-step h3 { margin: 4px 0 5px; }
+.eyebrow {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.advanced-toggle { color: var(--muted); font-weight: 500; }
+.advanced-toggle input { width: auto; margin-right: 7px; }
+.target-option.recommended { border-color: rgba(111, 124, 255, .62); }
+.target-option.incompatible { opacity: .7; }
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -2820,6 +2896,7 @@ details.meta summary { cursor: pointer; font-weight: 700; }
   .side-nav { position: static; }
   .row { align-items: stretch; flex-direction: column; }
   .meta-grid { grid-template-columns: 1fr; }
+  .wizard-progress { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Synsigra landing-aligned application shell */
@@ -3150,6 +3227,7 @@ const char kUiJs[] = R"JS((() => {
     authoringSchema: null,
     authoringTemplates: [],
     scenarioTargets: [],
+    showAllScenarioSources: false,
     scenarioPreviewTimer: null,
     scenarioPreview: null,
     projects: [],
@@ -3548,10 +3626,35 @@ const char kUiJs[] = R"JS((() => {
   }
 
   function currentScenarioTargets() {
-    const selected = [...document.querySelectorAll("[data-scenario-target]:checked")]
+    const inputs = [...document.querySelectorAll("[data-scenario-target]")];
+    const selected = inputs.filter((input) => input.checked)
       .map((input) => input.value);
-    if (selected.length) return selected;
-    return state.scenarioTargets.length ? state.scenarioTargets : ["r_peak"];
+    if (inputs.length) return selected;
+    return [...state.scenarioTargets];
+  }
+
+  const targetCopy = {
+    r_peak: ["R-peak detection", "ECG beat timing with local precision/recall scoring"],
+    ppg_systolic_peak: ["PPG systolic peaks", "Pulse-peak timing with local scoring"],
+    ppg_pulse_onset: ["PPG pulse onset", "Pulse-foot timing with local scoring"],
+    ecg_beat_classification: ["ECG beat classification", "Beat labels such as normal, PAC, PVC, or paced"],
+    hrv: ["Heart-rate variability (HRV)", "Five-minute HRV metric verification"],
+    signal_quality: ["Signal quality / artifacts", "Reference labels for noise and artifact intervals"],
+    morphology_assertions: ["ECG morphology", "Reference assertions for morphology and conditions"],
+    ecg_ppg_alignment: ["ECG–PPG alignment", "Reference timing between cardiac and pulse channels"]
+  };
+
+  function targetTitle(name) {
+    return (targetCopy[name] || [name])[0];
+  }
+
+  function targetDescription(name) {
+    return (targetCopy[name] || [name, name])[1];
+  }
+
+  function sourceMatchesTargets(sourceTargets, selectedTargets) {
+    const available = new Set(sourceTargets || []);
+    return selectedTargets.every((target) => available.has(target));
   }
 
   function formatSeconds(seconds) {
@@ -4001,45 +4104,89 @@ const char kUiJs[] = R"JS((() => {
 
   function renderAuthoringTemplates() {
     const select = $("scenario-template-select");
-    const options = state.authoringTemplates.map((template) => `
-      <option value="${escapeHtml(template.template_id)}">${escapeHtml(template.name)} · ${escapeHtml(template.difficulty)}</option>
+    const current = select.value;
+    const selectedTargets = currentScenarioTargets();
+    const visible = state.authoringTemplates.filter((template) =>
+      state.showAllScenarioSources || sourceMatchesTargets(template.targets, selectedTargets));
+    const options = visible.map((template) => `
+      <option value="${escapeHtml(template.template_id)}">${escapeHtml(template.name)} · ${escapeHtml(template.difficulty)}${sourceMatchesTargets(template.targets, selectedTargets) ? " · recommended" : " · adaptation needed"}</option>
     `).join("");
-    select.innerHTML = state.authoringTemplates.length
-      ? `<option value="">Choose a core template…</option>${options}`
-      : "<option value=\"\">No templates available</option>";
+    select.innerHTML = visible.length
+      ? `<option value="">Choose a ${state.showAllScenarioSources ? "core" : "compatible"} template…</option>${options}`
+      : "<option value=\"\">No template covers every selected target — show all starting points or choose fewer targets</option>";
+    if (visible.some((template) => template.template_id === current)) select.value = current;
   }
 
   function renderCuratedCloneOptions() {
     const packSelect = $("curated-clone-pack");
     const current = packSelect.value;
-    packSelect.innerHTML = state.packs.map((pack) => `
+    const selectedTargets = currentScenarioTargets();
+    const packs = state.packs.filter((pack) => state.showAllScenarioSources ||
+      (pack.scenarios || []).some((scenario) => sourceMatchesTargets([
+        ...(scenario.scoreable_targets || []),
+        ...(scenario.reference_only_targets || []),
+        ...(scenario.targets || [])
+      ], selectedTargets)));
+    packSelect.innerHTML = packs.map((pack) => `
       <option value="${escapeHtml(pack.pack_id)}">${escapeHtml(pack.display_name || pack.pack_id)}</option>
-    `).join("") || "<option>No curated packs</option>";
-    if (state.packs.some((pack) => pack.pack_id === current)) packSelect.value = current;
+    `).join("") || "<option value=\"\">No released pack covers every selected target</option>";
+    if (packs.some((pack) => pack.pack_id === current)) packSelect.value = current;
     renderCuratedCaseOptions();
   }
 
   function renderCuratedCaseOptions() {
     const pack = state.packs.find((item) => item.pack_id === $("curated-clone-pack").value);
     const caseSelect = $("curated-clone-case");
-    caseSelect.innerHTML = ((pack && pack.scenarios) || []).map((scenario) => `
-      <option value="${escapeHtml(scenario.scenario_id)}">${escapeHtml(scenario.scenario_id)} · score ${escapeHtml((scenario.scoreable_targets || []).join(", ") || "none")} · ref ${escapeHtml((scenario.reference_only_targets || []).join(", ") || "none")}</option>
+    const selectedTargets = currentScenarioTargets();
+    const cases = ((pack && pack.scenarios) || []).filter((scenario) =>
+      state.showAllScenarioSources || sourceMatchesTargets([
+        ...(scenario.scoreable_targets || []),
+        ...(scenario.reference_only_targets || []),
+        ...(scenario.targets || [])
+      ], selectedTargets));
+    caseSelect.innerHTML = cases.map((scenario) => `
+      <option value="${escapeHtml(scenario.scenario_id)}">${escapeHtml(scenario.scenario_id)} · ${escapeHtml(uniqueSorted([...(scenario.scoreable_targets || []), ...(scenario.reference_only_targets || []), ...(scenario.targets || [])]).map(targetTitle).join(", ") || "general case")}</option>
     `).join("") || "<option>No cases</option>";
   }
 
   function renderScenarioTargets() {
     const targets = (state.authoringSchema && state.authoringSchema.targets) || [];
-    const selected = new Set(state.scenarioTargets.length ? state.scenarioTargets : ["r_peak"]);
+    const selected = new Set(state.scenarioTargets);
     $("scenario-targets").innerHTML = targets.map((target) => `
       <label class="target-option">
         <input type="checkbox" data-scenario-target value="${escapeHtml(target.name)}" ${selected.has(target.name) ? "checked" : ""}>
         <span>
-          <strong>${escapeHtml(target.name)}</strong>
-          <small>${escapeHtml(target.support === "local_scoring" ? "Local automated scoring" : "Reference ground truth only")}</small>
+          <strong>${escapeHtml(targetTitle(target.name))}</strong>
+          <small>${escapeHtml(targetDescription(target.name))}</small>
+          <small class="${target.support === "local_scoring" ? "ok" : "warning"}">${escapeHtml(target.support === "local_scoring" ? "Automated local scoring" : "Reference ground truth only")}</small>
           <small>${escapeHtml(targetRequirementText(target))}</small>
         </span>
       </label>
     `).join("") || "<span class=\"muted\">Targets load after sign-in.</span>";
+    renderScenarioTargetGuidance();
+  }
+
+  function renderScenarioTargetGuidance() {
+    const selectedTargets = currentScenarioTargets();
+    const sourceStep = $("scenario-source-step");
+    sourceStep.hidden = !selectedTargets.length;
+    if (!selectedTargets.length) {
+      $("scenario-target-guidance").textContent = "Choose at least one target to see compatible starting points.";
+      $("make-scenario-compatible").hidden = true;
+      return;
+    }
+    const scenario = readScenarioJson(true) || {};
+    const metadata = (state.authoringSchema && state.authoringSchema.targets) || [];
+    const missing = uniqueSorted(selectedTargets.flatMap((name) => {
+      const target = metadata.find((item) => item.name === name);
+      return ((target && target.requires) || []).filter((requirement) =>
+        !requirementSatisfied(requirement, scenario));
+    }));
+    $("scenario-target-guidance").innerHTML = `
+      <strong>${escapeHtml(selectedTargets.map(targetTitle).join(" + "))}</strong>
+      <p class="muted compact">${missing.length ? `The current draft still needs: ${escapeHtml(missing.map((item) => targetRequirementText({ requires: [item] })).join("; "))}.` : "The current draft satisfies the visible target requirements."}</p>
+    `;
+    $("make-scenario-compatible").hidden = !Object.keys(scenario).length || !missing.length;
   }
 
   function targetRequirementText(target) {
@@ -4065,6 +4212,53 @@ const char kUiJs[] = R"JS((() => {
         getPathValue(scenario, "$.ecg.conditions").length > 0;
     }
     return true;
+  }
+
+  function templateScenarioForRequirement(requirement) {
+    return state.authoringTemplates
+      .map((template) => template.scenario)
+      .find((scenario) => requirementSatisfied(requirement, scenario || {}));
+  }
+
+  function applyMissingTargetRequirements() {
+    const scenario = readScenarioJson();
+    if (!scenario) return;
+    const metadata = (state.authoringSchema && state.authoringSchema.targets) || [];
+    const requirements = uniqueSorted(currentScenarioTargets().flatMap((name) => {
+      const target = metadata.find((item) => item.name === name);
+      return (target && target.requires) || [];
+    }));
+    const applied = [];
+    requirements.forEach((requirement) => {
+      if (requirementSatisfied(requirement, scenario)) return;
+      const donor = templateScenarioForRequirement(requirement) || {};
+      if (requirement === "duration_seconds>=300") {
+        scenario.duration_seconds = Math.max(300, Number(scenario.duration_seconds || 0));
+      } else if (requirement === "ppg.enabled") {
+        if (!scenario.ppg && donor.ppg) scenario.ppg = JSON.parse(JSON.stringify(donor.ppg));
+        if (!scenario.ppg) scenario.ppg = {};
+        scenario.ppg.enabled = true;
+      } else if (requirement === "hrv.enabled") {
+        if (!scenario.hrv && donor.hrv) scenario.hrv = JSON.parse(JSON.stringify(donor.hrv));
+        if (!scenario.hrv) scenario.hrv = {};
+        scenario.hrv.enabled = true;
+      } else if (requirement === "artifacts.length>0") {
+        scenario.artifacts = donor.artifacts
+          ? JSON.parse(JSON.stringify(donor.artifacts))
+          : [defaultArrayItem("$.artifacts", scenario)];
+      } else if (requirement === "ecg.conditions") {
+        if (!scenario.ecg) scenario.ecg = {};
+        scenario.ecg.conditions = [{ code: "NORM", severity: 1 }];
+      }
+      applied.push(requirement);
+    });
+    writeScenarioJson(scenario);
+    renderScenarioForm();
+    renderScenarioTargetGuidance();
+    scheduleScenarioPreview();
+    $("scenario-output").textContent = applied.length
+      ? `Applied ${applied.length} target requirement${applied.length === 1 ? "" : "s"}. Review the highlighted settings and preflight.`
+      : "The current draft already satisfies the selected targets.";
   }
 
   function editableFieldPaths() {
@@ -4465,7 +4659,6 @@ const char kUiJs[] = R"JS((() => {
     scenario.scenario_id = `${template.template_id}_${suffix}`;
     scenario.name = template.name;
     state.selectedScenarioId = "";
-    state.scenarioTargets = [...(template.targets || ["r_peak"])];
     $("scenario-name").value = template.name;
     writeScenarioJson(scenario);
     renderScenarioTargets();
@@ -4484,13 +4677,8 @@ const char kUiJs[] = R"JS((() => {
       const suffix = Date.now().toString(36).slice(-6);
       scenario.scenario_id = `${scenario.scenario_id || caseId}_${suffix}`;
       scenario.name = `${scenario.name || caseId} clone`;
-      const pack = state.packs.find((item) => item.pack_id === packId);
-      const packCase = ((pack && pack.scenarios) || []).find((item) => item.scenario_id === caseId);
       state.selectedScenarioId = "";
       $("scenario-template-select").value = "";
-      state.scenarioTargets = [...new Set([...(packCase ? packCase.scoreable_targets || [] : []), ...(packCase ? packCase.reference_only_targets || [] : [])])];
-      if (!state.scenarioTargets.length && packCase) state.scenarioTargets = [...(packCase.targets || [])];
-      if (!state.scenarioTargets.length) state.scenarioTargets = ["r_peak"];
       $("scenario-name").value = scenario.name;
       writeScenarioJson(scenario);
       renderScenarioTargets();
@@ -4509,13 +4697,22 @@ const char kUiJs[] = R"JS((() => {
 
   async function refreshScenarioPreview() {
     if (!state.authenticated) return;
+    renderScenarioTargetGuidance();
+    if (!currentScenarioTargets().length) {
+      state.scenarioPreview = null;
+      $("save-scenario").disabled = true;
+      $("scenario-preview").innerHTML = "<p class=\"warning\">Choose at least one algorithm output in Step 1.</p>";
+      return;
+    }
     const scenario = readScenarioJson(true);
     if (!scenario) {
       state.scenarioPreview = null;
+      $("save-scenario").disabled = true;
       $("scenario-preview").innerHTML = "<p class=\"error\">JSON is not parseable yet.</p>";
       return;
     }
     if (!Object.keys(scenario).length) {
+      $("save-scenario").disabled = true;
       $("scenario-preview").textContent = "Select a template, clone a curated case, or paste scenario JSON to preview package output.";
       return;
     }
@@ -4528,6 +4725,7 @@ const char kUiJs[] = R"JS((() => {
       renderScenarioPreview(preview);
     } catch (error) {
       state.scenarioPreview = null;
+      $("save-scenario").disabled = true;
       if (error.body && error.body.validation_errors) {
         const groups = groupValidationErrors(error.body.validation_errors);
         $("scenario-preview").innerHTML = `
@@ -4605,6 +4803,7 @@ const char kUiJs[] = R"JS((() => {
       const missing = (target.requires || []).filter((item) => !requirementSatisfied(item, scenario));
       return `<li class="${missing.length ? "error" : "ok"}"><strong>${escapeHtml(name)}</strong> — ${missing.length ? `missing: ${escapeHtml(missing.map((item) => targetRequirementText({ requires: [item] })).join(", "))}` : "requirements satisfied"} · ${escapeHtml(target.support === "reference_only" ? "reference-only output" : "locally scoreable")}</li>`;
     }).join("");
+    $("save-scenario").disabled = !(preview.success && canWrite() && selectedTargets.length);
     $("scenario-preview").innerHTML = `
       <h3>Preflight ${preview.success ? "<span class=\"ok\">safe to save</span>" : "<span class=\"error\">needs attention</span>"}</h3>
       <p>${preview.success ? "<span class=\"badge succeeded\">safe to compose pack</span>" : "<span class=\"badge failed\">not ready for pack composition</span>"}</p>
@@ -4680,6 +4879,7 @@ const char kUiJs[] = R"JS((() => {
             <span class="badge ${escapeHtml(draft.status)}">${escapeHtml(draft.status)}</span>
           </div>
           <p class="muted">Updated ${escapeHtml(formatDate(draft.updated_at))}</p>
+          <p><strong>Verification goal</strong>${targetTags((draft.target_intent || []).map((target) => targetTitle(target)), "mode")}</p>
           <span class="fingerprint">${escapeHtml(draft.document_fingerprint || "No fingerprint until valid")}</span>
           ${(draft.validation_errors || []).length ? `
             <details class="meta">
@@ -4708,19 +4908,19 @@ const char kUiJs[] = R"JS((() => {
 
   function renderCustomPackTargets() {
     const selected = new Set(requestedCustomPackTargets());
-    if (!selected.size) selected.add("r_peak");
     const targets = (state.authoringSchema && state.authoringSchema.targets) || [];
     $("custom-pack-targets").innerHTML = targets.map((target) => `
       <label class="target-option">
         <input type="checkbox" data-custom-pack-target value="${escapeHtml(target.name)}" ${selected.has(target.name) ? "checked" : ""}>
         <span>
-          <strong>${escapeHtml(target.name)}</strong>
+          <strong>${escapeHtml(targetTitle(target.name))}</strong>
           <small>${escapeHtml(target.support === "local_scoring" ? "Automated local scoring" : "Reference ground truth; no local score")}</small>
           <small>${escapeHtml(targetRequirementText(target))}</small>
         </span>
       </label>
     `).join("") || "<p class=\"muted\">Target catalog loads after sign-in.</p>";
     state.customPackAnalysis = {};
+    syncInheritedPackTargets();
     renderCustomPackReview();
   }
 
@@ -4737,11 +4937,13 @@ const char kUiJs[] = R"JS((() => {
         <strong>${escapeHtml(draft.name)}</strong>
         <span class="muted">${escapeHtml(draft.scenario && draft.scenario.scenario_id ? draft.scenario.scenario_id : "scenario")}</span>
         <span class="badge ${draft.status === "valid" ? "succeeded" : "failed"}">${escapeHtml(draft.status)}</span>
+        <span class="muted">Goal: ${escapeHtml((draft.target_intent || []).map(targetTitle).join(", ") || "not set")}</span>
         <span class="fingerprint">${escapeHtml(draft.document_fingerprint || "")}</span>
         ${draft.status !== "valid" ? `<span class="error">Fix this draft in the scenario editor before adding it to a pack.</span>` : ""}
       </label>
     `).join("") || "<p class=\"muted\">Create at least one valid scenario draft first.</p>";
     filterPackScenarioOptions();
+    syncInheritedPackTargets();
     renderCustomPackReview();
   }
 
@@ -4756,6 +4958,40 @@ const char kUiJs[] = R"JS((() => {
     return [...document.querySelectorAll("[data-pack-scenario]:checked")]
       .map((input) => input.getAttribute("data-pack-scenario"))
       .filter(Boolean);
+  }
+
+  function inheritedTargetsForScenarioIds(scenarioIds) {
+    return uniqueSorted(scenarioIds.flatMap((id) => {
+      const draft = state.scenarios.find((item) => item.scenario_id === id);
+      return (draft && draft.target_intent) || [];
+    }));
+  }
+
+  function setCustomPackTargets(targets) {
+    const selected = new Set(targets);
+    document.querySelectorAll("[data-custom-pack-target]").forEach((input) => {
+      input.checked = selected.has(input.value);
+    });
+    state.customPackAnalysis = {};
+  }
+
+  function syncInheritedPackTargets() {
+    const scenarioIds = selectedCustomPackScenarioIds();
+    const inherited = inheritedTargetsForScenarioIds(scenarioIds);
+    const override = $("custom-pack-target-override");
+    if (!override.open) setCustomPackTargets(inherited);
+    $("inherited-pack-targets").innerHTML = inherited.length
+      ? `<strong>Inherited from ${escapeHtml(scenarioIds.length)} scenario${scenarioIds.length === 1 ? "" : "s"}</strong>${targetTags(inherited.map(targetTitle), "mode")}<p class="muted compact">These are the goals selected during scenario authoring. Open Advanced target override only for a deliberate different contract.</p>`
+      : "Select a scenario to inherit its verification targets.";
+  }
+
+  function preselectScenarioForPack(scenarioId) {
+    document.querySelectorAll("[data-pack-scenario]").forEach((input) => {
+      input.checked = input.getAttribute("data-pack-scenario") === scenarioId;
+    });
+    $("custom-pack-target-override").open = false;
+    syncInheritedPackTargets();
+    renderCustomPackReview();
   }
 
   function requestedCustomPackTargets() {
@@ -4952,6 +5188,8 @@ const char kUiJs[] = R"JS((() => {
       $("custom-pack-description").value = "";
       document.querySelectorAll("[data-pack-scenario]:checked")
         .forEach((input) => { input.checked = false; });
+      $("custom-pack-target-override").open = false;
+      syncInheritedPackTargets();
       await loadCustomPacks();
       renderCustomPackReview();
       $("pack-select").value = pack.pack_id;
@@ -4975,12 +5213,16 @@ const char kUiJs[] = R"JS((() => {
 
   function newScenario() {
     state.selectedScenarioId = "";
-    state.scenarioTargets = ["r_peak"];
+    state.scenarioTargets = [];
+    state.showAllScenarioSources = false;
+    $("show-all-scenario-sources").checked = false;
     $("scenario-template-select").value = "";
     $("scenario-name").value = "";
     $("scenario-json").value = "{}";
     $("scenario-output").textContent = "";
     renderScenarioTargets();
+    renderAuthoringTemplates();
+    renderCuratedCloneOptions();
     renderScenarioForm();
     scheduleScenarioPreview();
   }
@@ -4993,6 +5235,8 @@ const char kUiJs[] = R"JS((() => {
     $("scenario-json").value = JSON.stringify(cleanEcgTemplate, null, 2);
     $("scenario-output").textContent = "Example loaded. Review it, then validate and save.";
     renderScenarioTargets();
+    renderAuthoringTemplates();
+    renderCuratedCloneOptions();
     renderScenarioForm();
     scheduleScenarioPreview();
   }
@@ -5013,10 +5257,14 @@ const char kUiJs[] = R"JS((() => {
     const draft = state.scenarios.find((item) => item.scenario_id === id);
     if (!draft) return;
     state.selectedScenarioId = id;
+    state.scenarioTargets = [...(draft.target_intent || [])];
     $("scenario-template-select").value = "";
     $("scenario-name").value = draft.name;
     $("scenario-json").value = JSON.stringify(draft.scenario, null, 2);
     $("scenario-output").textContent = draft.status;
+    renderScenarioTargets();
+    renderAuthoringTemplates();
+    renderCuratedCloneOptions();
     renderScenarioForm();
     scheduleScenarioPreview();
   }
@@ -5030,8 +5278,13 @@ const char kUiJs[] = R"JS((() => {
       return;
     }
     const name = $("scenario-name").value.trim();
+    const targetIntent = currentScenarioTargets();
     if (!name) {
       $("scenario-output").textContent = "Enter a draft name.";
+      return;
+    }
+    if (!targetIntent.length) {
+      $("scenario-output").textContent = "Choose at least one algorithm output in Step 1.";
       return;
     }
     const path = state.selectedScenarioId
@@ -5040,7 +5293,7 @@ const char kUiJs[] = R"JS((() => {
     try {
       const saved = await api(path, {
         method: state.selectedScenarioId ? "PUT" : "POST",
-        json: { name, scenario }
+        json: { name, scenario, target_intent: targetIntent }
       });
       state.selectedScenarioId = saved.scenario_id;
       $("scenario-output").textContent = `Saved: ${saved.status}`;
@@ -5050,6 +5303,14 @@ const char kUiJs[] = R"JS((() => {
           : "Scenario draft saved. Resolve validation findings before packaging.",
         saved.status === "valid" ? "success" : "notice"
       );
+      if (saved.status === "valid") {
+        await loadScenarios();
+        await loadCustomPacks();
+        preselectScenarioForPack(saved.scenario_id);
+        navigateTo("custom-packs");
+        showToast("Scenario saved. Its verification goal is inherited below; name the pack and review it.", "success");
+        return;
+      }
     } catch (error) {
       $("scenario-output").textContent = error.message;
       if (error.body && error.body.draft) {
@@ -6013,7 +6274,15 @@ const char kUiJs[] = R"JS((() => {
   $("clone-curated-scenario").addEventListener("click", cloneCuratedScenario);
   $("scenario-targets").addEventListener("change", () => {
     state.scenarioTargets = currentScenarioTargets();
+    renderAuthoringTemplates();
+    renderCuratedCloneOptions();
+    renderScenarioTargetGuidance();
     scheduleScenarioPreview();
+  });
+  $("show-all-scenario-sources").addEventListener("change", () => {
+    state.showAllScenarioSources = $("show-all-scenario-sources").checked;
+    renderAuthoringTemplates();
+    renderCuratedCloneOptions();
   });
   $("scenario-form").addEventListener("change", (event) => {
     const target = event.target;
@@ -6059,15 +6328,23 @@ const char kUiJs[] = R"JS((() => {
   });
   $("load-scenario-template").addEventListener("click", loadScenarioTemplate);
   $("format-scenario-json").addEventListener("click", formatScenarioJson);
+  $("make-scenario-compatible").addEventListener("click", applyMissingTargetRequirements);
   $("save-scenario").addEventListener("click", saveScenario);
   $("create-custom-pack").addEventListener("click", createCustomPack);
   $("refresh-custom-packs").addEventListener("click", loadCustomPacks);
-  $("pack-scenario-options").addEventListener("change", renderCustomPackReview);
+  $("pack-scenario-options").addEventListener("change", () => {
+    syncInheritedPackTargets();
+    renderCustomPackReview();
+  });
   $("custom-pack-scenario-search").addEventListener("input", filterPackScenarioOptions);
   $("custom-pack-name").addEventListener("input", renderCustomPackReview);
   $("custom-pack-description").addEventListener("input", renderCustomPackReview);
   $("custom-pack-targets").addEventListener("change", () => {
     state.customPackAnalysis = {};
+    renderCustomPackReview();
+  });
+  $("custom-pack-target-override").addEventListener("toggle", () => {
+    if (!$("custom-pack-target-override").open) syncInheritedPackTargets();
     renderCustomPackReview();
   });
   $("custom-packs").addEventListener("click", (event) => {
@@ -7425,15 +7702,41 @@ RouteResponse route_request(
             ? nullptr : json_object_get(submitted, "name");
         json_t* scenario = submitted == nullptr
             ? nullptr : json_object_get(submitted, "scenario");
-        if (!json_is_object(submitted) || json_object_size(submitted) != 2 ||
+        json_t* target_intent = submitted == nullptr
+            ? nullptr : json_object_get(submitted, "target_intent");
+        if (!json_is_object(submitted) || json_object_size(submitted) != 3 ||
             !json_is_string(name) || !json_is_object(scenario) ||
+            !json_is_array(target_intent) || json_array_size(target_intent) == 0 ||
             std::string(json_string_value(name)).empty() ||
             std::string(json_string_value(name)).size() > 100) {
             if (submitted != nullptr) json_decref(submitted);
             return json_response(
                 400, "{\"error\":{\"code\":\"invalid_scenario_request\","
-                "\"message\":\"name and scenario object are required.\"}}\n");
+                "\"message\":\"name, scenario, and a non-empty target_intent are required.\"}}\n");
         }
+        std::set<std::string> unique_target_intent;
+        std::size_t target_index = 0;
+        json_t* target_item = nullptr;
+        bool target_intent_valid = true;
+        json_array_foreach(target_intent, target_index, target_item) {
+            if (!json_is_string(target_item) ||
+                std::string(json_string_value(target_item)).empty() ||
+                !unique_target_intent.insert(json_string_value(target_item)).second) {
+                target_intent_valid = false;
+                break;
+            }
+        }
+        if (!target_intent_valid) {
+            json_decref(submitted);
+            return json_response(
+                400, "{\"error\":{\"code\":\"invalid_scenario_request\","
+                "\"message\":\"target_intent must contain unique non-empty target names.\"}}\n");
+        }
+        char* target_intent_text =
+            json_dumps(target_intent, JSON_COMPACT | JSON_SORT_KEYS);
+        const std::string target_intent_json = target_intent_text == nullptr
+            ? "[]" : target_intent_text;
+        free(target_intent_text);
         std::string status;
         std::string canonical_json;
         std::string fingerprint;
@@ -7449,13 +7752,14 @@ RouteResponse route_request(
         if (create) {
             stored = metadata_store->create_scenario_draft(
                 authenticated_identity, draft_name, status, canonical_json,
-                fingerprint, errors_json, draft, error);
+                fingerprint, target_intent_json, errors_json, draft, error);
         } else {
             const std::string scenario_id =
                 uri.substr(scenarios_path.size() + 1);
             updated = metadata_store->update_scenario_draft(
                 scenario_id, authenticated_identity, draft_name, status,
-                canonical_json, fingerprint, errors_json, draft, error);
+                canonical_json, fingerprint, target_intent_json, errors_json,
+                draft, error);
             stored = updated == RecordLookupStatus::found;
             if (updated == RecordLookupStatus::not_found) {
                 return json_response(

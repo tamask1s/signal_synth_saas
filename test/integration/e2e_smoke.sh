@@ -317,6 +317,9 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q 'validationMessageClass' "$WORK_ROOT/app.js" ||
     ! grep -q 'selectPackForGeneration' "$WORK_ROOT/app.js" ||
     ! grep -q 'renderCustomPackReview' "$WORK_ROOT/app.js" ||
+    ! grep -q 'applyMissingTargetRequirements' "$WORK_ROOT/app.js" ||
+    ! grep -q 'syncInheritedPackTargets' "$WORK_ROOT/app.js" ||
+    ! grep -q 'target_intent: targetIntent' "$WORK_ROOT/app.js" ||
     ! grep -q 'conditionEditorHtml' "$WORK_ROOT/app.js" ||
     ! grep -q 'artifactEditorHtml' "$WORK_ROOT/app.js" ||
     ! grep -q 'renderCustomPackAnalysis' "$WORK_ROOT/app.js" ||
@@ -825,7 +828,7 @@ import json
 import sys
 with open(sys.argv[1], "r", encoding="utf-8") as handle:
     scenario = json.load(handle)
-json.dump({"name": "E2E clean draft", "scenario": scenario}, sys.stdout)
+json.dump({"name": "E2E clean draft", "scenario": scenario, "target_intent": ["r_peak"]}, sys.stdout)
 PY
 curl -fsS \
     -H "Authorization: Bearer $API_KEY" \

@@ -105,12 +105,14 @@ int main() {
             &store,
             config.pack_root,
             "application/json",
-            std::string("{\"name\":\"Clean draft\",\"scenario\":") +
+            std::string("{\"name\":\"Clean draft\",\"target_intent\":[\"r_peak\"],\"scenario\":") +
                 scenario_json + "}"
         );
     require(
         scenario_created.status == 201 &&
             scenario_created.body.find("\"status\":\"valid\"") !=
+                std::string::npos &&
+            scenario_created.body.find("\"target_intent\":[\"r_peak\"]") !=
                 std::string::npos &&
             scenario_created.body.find("sha256:") != std::string::npos,
         "valid scenario draft should be stored with a fingerprint"
@@ -131,7 +133,7 @@ int main() {
             &store,
             config.pack_root,
             "application/json",
-            "{\"name\":\"Incomplete\",\"scenario\":{}}"
+            "{\"name\":\"Incomplete\",\"target_intent\":[\"r_peak\"],\"scenario\":{}}"
         );
     require(
         invalid_scenario.status == 422 &&
@@ -291,7 +293,7 @@ int main() {
             &store,
             config.pack_root,
             "application/json",
-            std::string("{\"name\":\"Updated clean\",\"scenario\":") +
+            std::string("{\"name\":\"Updated clean\",\"target_intent\":[\"r_peak\"],\"scenario\":") +
                 scenario_json + "}"
         );
     require(

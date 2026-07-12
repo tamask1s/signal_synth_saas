@@ -121,6 +121,7 @@ struct ScenarioDraftRecord {
     std::string status;
     std::string document_json;
     std::string document_fingerprint;
+    std::string target_intent_json;
     std::string validation_errors_json;
     std::string created_at;
     std::string updated_at;
@@ -499,6 +500,7 @@ public:
         const std::string& status,
         const std::string& document_json,
         const std::string& document_fingerprint,
+        const std::string& target_intent_json,
         const std::string& validation_errors_json,
         ScenarioDraftRecord& draft,
         std::string& error
@@ -524,6 +526,7 @@ public:
         const std::string& status,
         const std::string& document_json,
         const std::string& document_fingerprint,
+        const std::string& target_intent_json,
         const std::string& validation_errors_json,
         ScenarioDraftRecord& draft,
         std::string& error

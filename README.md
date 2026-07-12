@@ -356,6 +356,10 @@ The scenario editor supports creating, validating, updating, listing, and deleti
 
 Key properties:
 
+- Authoring starts by asking what the user's algorithm detects or measures; friendly target names explain local scoring versus reference-only ground truth.
+- The chosen target intent is stored beside the draft, drives compatible template/curated-case filtering, and is inherited by custom pack composition.
+- **Show all core starting points** and the Advanced JSON editor preserve access to the full core feature set.
+- **Apply missing target requirements** can add required PPG/HRV sections, minimum HRV duration, artifacts, or ECG conditions, followed by authoritative core preflight.
 - Core-provided templates can create valid drafts without hand-writing JSON.
 - The grouped form renderer uses core authoring metadata for labels, ranges, units, defaults, enum options, visibility rules, and item-editor schemas.
 - Conditions use a searchable core catalog with severity controls. Artifacts expose type, timing, severity, seed, and channel selection. PPG perfusion episodes and controlled-randomization envelopes have repeatable form editors, and tags use a chip editor.
@@ -381,10 +385,10 @@ The composer accepts:
 
 - pack name;
 - description;
-- target list;
+- target list inherited from the selected scenario drafts, with an explicit Advanced override;
 - selected valid scenario drafts.
 
-The UI provides target cards, searchable valid/invalid draft selection, and a scenario-by-target coverage matrix. Before enabling creation it calls the authoritative core preview for every selected scenario, then summarizes scoreable and reference-only targets, total duration, samples, estimated package size, peak memory, and compatibility messages.
+The UI asks for scenarios first, automatically unions their saved target intents, and keeps manual target cards under **Advanced target override**. It provides searchable valid/invalid draft selection and a scenario-by-target coverage matrix. Before enabling creation it calls the authoritative core preview for every selected scenario, then summarizes scoreable and reference-only targets, total duration, samples, estimated package size, peak memory, and compatibility messages.
 
 The API repeats authoritative pack analysis before writing a snapshot. It returns HTTP 422 for incompatible scenario-target combinations, so bypassing the browser cannot create a pack that the core has rejected.
 
@@ -547,7 +551,7 @@ Authorization: Bearer <api-key>
 | `POST` | `/v1/jobs/{id}/cancel` | Cancel queued job | Developer+ |
 | `POST` | `/v1/jobs/{id}/retry` | Retry failed/cancelled job | Developer+ |
 | `GET` | `/v1/jobs/{id}/detection-templates.zip` | Download detector-output templates | Organization |
-| `GET` | `/v1/jobs/{id}/verification-kit.zip` | Download README, manifest, package ZIP, and templates | Organization |
+| `GET` | `/v1/jobs/{id}/verification-kit.zip` | Download one flat kit with challenge files and verification helpers | Organization |
 | `GET` | `/v1/artifacts/{package_id}/manifest.json` | Download manifest | Organization |
 | `GET` | `/v1/artifacts/{package_id}/package.zip` | Download ZIP | Organization |
 | `GET` | `/v1/usage` | Usage and limits | Authenticated |
