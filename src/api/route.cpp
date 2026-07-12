@@ -20,19 +20,21 @@
 #include <cerrno>
 #include <cstdint>
 #include <cstdlib>
+#include <dirent.h>
 #include <fstream>
 #include <map>
 #include <set>
 #include <sstream>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <string>
 #include <vector>
 
 namespace {
 
-const char kTermsVersion[] = "private-beta-2026-07-11-r2";
+const char kTermsVersion[] = "private-beta-2026-07-12-r3";
 const char kSupportUrl[] =
     "https://github.com/tamask1s/signal_synth_saas/issues/new";
 
@@ -333,7 +335,7 @@ struct ZipEntry {
 };
 
 const char kPackageUseNotice[] = R"NOTICE(Synsigra private-beta package use notice
-Version: private-beta-2026-07-11-r2
+Version: private-beta-2026-07-12-r3
 
 PERMITTED USE
 This synthetic package and its verifier reports may be used, reproduced and
@@ -357,11 +359,11 @@ by law. Full terms: https://www.timeonion.com/syn_sig_ra/legal/terms
 )NOTICE";
 
 const char kSupportAndTermsNotice[] = R"NOTICE(Synsigra private-beta support and service notice
-Version: private-beta-2026-07-11-r2
+Version: private-beta-2026-07-12-r3
 
 The private beta is free, collects no payment method, has no automatic paid
 conversion, and is provided on a best-effort basis without an uptime or
-response-time SLA. Generated artifacts are normally cached for 14 days; keep
+response-time SLA. Generated artifacts are normally cached for 7 days; keep
 local copies of evidence you need.
 
 Support: https://github.com/tamask1s/signal_synth_saas/issues/new
@@ -498,6 +500,141 @@ std::string zip_store_archive(const std::vector<ZipEntry>& entries) {
     append_u32(output, central_offset);
     append_u16(output, 0);
     return output;
+}
+
+bool remove_temporary_tree(const std::string& path) {
+    struct stat information;
+    if (lstat(path.c_str(), &information) != 0) return errno == ENOENT;
+    if (S_ISLNK(information.st_mode)) return false;
+    if (S_ISDIR(information.st_mode)) {
+        DIR* directory = opendir(path.c_str());
+        if (directory == nullptr) return false;
+        bool succeeded = true;
+        for (dirent* entry = readdir(directory);
+             entry != nullptr; entry = readdir(directory)) {
+            const std::string name(entry->d_name);
+            if (name != "." && name != ".." &&
+                !remove_temporary_tree(path + "/" + name)) {
+                succeeded = false;
+                break;
+            }
+        }
+        closedir(directory);
+        return succeeded && rmdir(path.c_str()) == 0;
+    }
+    return S_ISREG(information.st_mode) && unlink(path.c_str()) == 0;
+}
+
+bool write_kit_entry(
+    const std::string& root,
+    const ZipEntry& entry,
+    std::string& error
+) {
+    if (entry.path.empty() || entry.path[0] == '/' ||
+        entry.path.find("..") != std::string::npos) {
+        error = "verification kit entry path is unsafe";
+        return false;
+    }
+    std::string::size_type separator = entry.path.find('/');
+    while (separator != std::string::npos) {
+        const std::string directory =
+            root + "/" + entry.path.substr(0, separator);
+        if (mkdir(directory.c_str(), 0700) != 0 && errno != EEXIST) {
+            error = "unable to create verification kit directory";
+            return false;
+        }
+        separator = entry.path.find('/', separator + 1);
+    }
+    std::ofstream output(
+        (root + "/" + entry.path).c_str(),
+        std::ios::binary | std::ios::trunc);
+    output.write(
+        entry.content.data(),
+        static_cast<std::streamsize>(entry.content.size()));
+    if (!output) {
+        error = "unable to write verification kit entry";
+        return false;
+    }
+    return true;
+}
+
+bool append_entries_to_package_zip(
+    const std::string& package,
+    const std::vector<ZipEntry>& entries,
+    bool has_detection_templates,
+    std::string& zip,
+    std::string& error
+) {
+    char temporary[] = "/tmp/synsigra-verification-kit-XXXXXX";
+    char* created = mkdtemp(temporary);
+    if (created == nullptr) {
+        error = "unable to allocate verification kit workspace";
+        return false;
+    }
+    const std::string root(created);
+    const std::string archive = root + "/verification-kit.zip";
+    ZipEntry package_entry;
+    package_entry.path = "verification-kit.zip";
+    package_entry.content = package;
+    bool succeeded = write_kit_entry(root, package_entry, error);
+    for (std::vector<ZipEntry>::const_iterator it = entries.begin();
+         succeeded && it != entries.end(); ++it) {
+        succeeded = write_kit_entry(root, *it, error);
+    }
+    if (succeeded) {
+        const pid_t child = fork();
+        if (child < 0) {
+            error = "unable to fork verification kit archiver";
+            succeeded = false;
+        } else if (child == 0) {
+            if (chdir(root.c_str()) != 0) _exit(126);
+            if (has_detection_templates) {
+                execl(
+                    "/usr/bin/zip", "/usr/bin/zip", "-q", "-r",
+                    "verification-kit.zip",
+                    "SYNSIGRA_README.md",
+                    "PACKAGE_USE_NOTICE.txt",
+                    "SUPPORT_AND_TERMS.txt",
+                    "PLATFORM_CAPABILITIES.md",
+                    "detections",
+                    static_cast<char*>(nullptr));
+            } else {
+                execl(
+                    "/usr/bin/zip", "/usr/bin/zip", "-q",
+                    "verification-kit.zip",
+                    "SYNSIGRA_README.md",
+                    "PACKAGE_USE_NOTICE.txt",
+                    "SUPPORT_AND_TERMS.txt",
+                    "PLATFORM_CAPABILITIES.md",
+                    static_cast<char*>(nullptr));
+            }
+            _exit(127);
+        } else {
+            int status = 0;
+            while (waitpid(child, &status, 0) < 0 && errno == EINTR) {
+            }
+            if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+                error = "verification kit archive update failed";
+                succeeded = false;
+            }
+        }
+    }
+    if (succeeded) {
+        std::ifstream input(archive.c_str(), std::ios::binary);
+        std::ostringstream buffer;
+        buffer << input.rdbuf();
+        if (!input.good() && !input.eof()) {
+            error = "unable to read complete verification kit";
+            succeeded = false;
+        } else {
+            zip = buffer.str();
+        }
+    }
+    if (!remove_temporary_tree(root) && succeeded) {
+        error = "unable to remove verification kit workspace";
+        succeeded = false;
+    }
+    return succeeded;
 }
 
 std::string detection_template_extension(const syn_sig_ra::PackTargetSummary& target) {
@@ -642,16 +779,17 @@ std::string verification_kit_readme(
            << "This ZIP is a convenience bundle for local algorithm QA. It "
            << "does not contain the C++ generator or generator source.\n\n"
            << "## Included files\n\n"
-           << "- `package.zip`: downloaded challenge package.\n"
-           << "- `manifest.json`: package identity and file contract.\n"
+           << "- Challenge files such as `manifest.json`, `cases/`, "
+           << "`provenance.json`, reports, and interchange formats are "
+           << "present directly in this extracted directory.\n"
            << "- `PACKAGE_USE_NOTICE.txt`: private-beta package permission "
            << "and prohibited-use boundary.\n"
            << "- `SUPPORT_AND_TERMS.txt`: support, availability, retention "
            << "and billing expectations.\n"
            << "- `PLATFORM_CAPABILITIES.md`: the wider authoring surface, so "
            << "this pack is not mistaken for the platform limit.\n"
-           << "- The nested `package.zip` contains `provenance.json` and "
-           << "`ENGINEERING_CLAIM_BOUNDARY.txt` for generator identity, "
+           << "- `provenance.json` and `ENGINEERING_CLAIM_BOUNDARY.txt` "
+           << "record generator identity, "
            << "contract identity, fingerprints and the engineering QA claim "
            << "boundary.\n";
     if (has_detection_templates) {
@@ -671,7 +809,7 @@ std::string verification_kit_readme(
     if (has_detection_templates) {
         output << "## Run verification\n\n"
                << "```sh\n"
-               << "synsigra-verify package.zip detections/ verification-results "
+               << "synsigra-verify . detections/ verification-results "
                << "--profile " << profile << " --force\n"
                << "```\n\n"
                << "Outputs are written to `verification-results/`, including "
@@ -682,7 +820,7 @@ std::string verification_kit_readme(
                << "scoring/threshold failure, and `2` means invalid CLI usage.\n";
     } else {
         output << "## Reference/manual QA workflow\n\n"
-               << "Inspect `package.zip`, `manifest.json`, `provenance.json` "
+               << "Inspect `manifest.json`, `provenance.json` "
                << "and `ENGINEERING_CLAIM_BOUNDARY.txt` locally. If the "
                << "package manifest declares scoreable targets, follow that "
                << "manifest contract to create detector outputs and run "
@@ -698,8 +836,8 @@ bool build_verification_kit_zip(
     std::string& zip,
     std::string& error
 ) {
-    std::string manifest;
     std::string package;
+    std::string manifest;
     if (!read_file_to_string(package_directory + "/manifest.json", manifest, error) ||
         !read_file_to_string(package_directory + "/package.zip", package, error)) {
         return false;
@@ -713,21 +851,13 @@ bool build_verification_kit_zip(
     }
     std::vector<ZipEntry> entries;
     ZipEntry readme;
-    readme.path = "README.md";
+    readme.path = "SYNSIGRA_README.md";
     readme.content = verification_kit_readme(job, pack, has_templates);
     entries.push_back(readme);
     append_beta_notices(entries);
-    ZipEntry manifest_entry;
-    manifest_entry.path = "manifest.json";
-    manifest_entry.content = manifest;
-    entries.push_back(manifest_entry);
-    ZipEntry package_entry;
-    package_entry.path = "package.zip";
-    package_entry.content = package;
-    entries.push_back(package_entry);
     entries.insert(entries.end(), templates.begin(), templates.end());
-    zip = zip_store_archive(entries);
-    return true;
+    return append_entries_to_package_zip(
+        package, entries, has_templates, zip, error);
 }
 
 json_t* job_json_object(
@@ -1512,7 +1642,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
             <input id="register-password" type="password" minlength="12" maxlength="128" autocomplete="new-password">
             <label class="terms-consent" for="register-terms">
               <input id="register-terms" type="checkbox">
-              <span>I accept the <a href="/syn_sig_ra/legal/terms" target="_blank" rel="noopener">Private Beta Terms</a> and <a href="/syn_sig_ra/legal/privacy" target="_blank" rel="noopener">Privacy &amp; No-PHI Notice</a> (version <code>private-beta-2026-07-11-r2</code>).</span>
+              <span>I accept the <a href="/syn_sig_ra/legal/terms" target="_blank" rel="noopener">Private Beta Terms</a> and <a href="/syn_sig_ra/legal/privacy" target="_blank" rel="noopener">Privacy &amp; No-PHI Notice</a> (version <code>private-beta-2026-07-12-r3</code>).</span>
             </label>
             <button id="register" class="primary" disabled>Create account</button>
           </div>
@@ -1676,25 +1806,28 @@ const char kUiHtml[] = R"HTML(<!doctype html>
           <button id="new-scenario" class="secondary">New draft</button>
         </div>
       </div>
-      <p class="muted">Start from a core template, clone a curated case, adjust supported fields, preview package impact, then save. Raw JSON remains available for advanced edits.</p>
+      <p class="muted">Choose one starting source, adjust supported fields, preview compatibility, then save the reusable scenario. Raw JSON remains available for advanced edits.</p>
       <p class="verify-note"><strong>No PHI:</strong> use synthetic engineering scenarios only. Do not enter patient identifiers, clinical notes, personal data, or diagnostic claims.</p>
       <div class="authoring-grid">
         <div>
-          <h3>Template-assisted authoring</h3>
-          <label for="scenario-template-select">Core template</label>
+          <h3>Start from a guided template</h3>
+          <p class="muted compact">Use a generic core-supported starting structure such as ECG, HRV, or PPG.</p>
+          <label for="scenario-template-select">Guided template</label>
           <select id="scenario-template-select"></select>
           <button id="apply-scenario-template" class="secondary">Apply template</button>
         </div>
         <div>
-          <h3>Clone curated case</h3>
-          <label for="curated-clone-pack">Curated pack</label>
+          <h3>Or copy a proven curated case</h3>
+          <p class="muted compact">Pack and case only choose the source example. The saved draft is independent.</p>
+          <label for="curated-clone-pack">Source pack</label>
           <select id="curated-clone-pack"></select>
-          <label for="curated-clone-case">Case</label>
+          <label for="curated-clone-case">Source case</label>
           <select id="curated-clone-case"></select>
           <button id="clone-curated-scenario" class="secondary">Clone into draft</button>
         </div>
       </div>
-      <h3>Package targets</h3>
+      <h3>Preview target compatibility <span class="muted">(not saved in the scenario)</span></h3>
+      <p class="muted compact">These choices only ask “could this scenario support this verification target?”. The actual pack targets are selected and saved later in Custom Packs.</p>
       <div id="scenario-targets" class="target-selector"></div>
       <div id="scenario-form" class="scenario-groups"></div>
       <div id="scenario-preview" class="selected-pack muted">Select a template or edit JSON to preview package output.</div>
@@ -1727,7 +1860,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <input id="custom-pack-name" type="text" maxlength="100" placeholder="My validation pack">
       <label for="custom-pack-description">Description</label>
       <input id="custom-pack-description" type="text" placeholder="What this pack tests">
-      <h3>1. Choose package targets</h3>
+      <h3>1. Choose verification targets <span class="muted">(saved in this pack)</span></h3>
       <div id="custom-pack-targets" class="target-selector"></div>
       <h3>2. Choose scenario drafts</h3>
       <label for="custom-pack-scenario-search">Search scenarios</label>
@@ -1790,11 +1923,13 @@ const char kQuickstartHtml[] = R"HTML(<!doctype html>
         <li>Open the completed job's <a href="/syn_sig_ra/verify">verification runbook</a>. Download <code>verification-kit.zip</code>, or download <code>manifest.json</code>, <code>package.zip</code>, and <code>detection-templates.zip</code> separately.</li>
         <li>Unzip the verification kit, then replace example rows under <code>detections/</code> with your algorithm output. Keep <code>provenance.json</code> and <code>ENGINEERING_CLAIM_BOUNDARY.txt</code> from the package with your evidence archive.</li>
         <li>Download the verifier bundle or wheel from the runbook page and install it locally without cloning the generator repository.</li>
-        <li>Copy the exact <code>synsigra-verify</code> command from the runbook and run it next to the downloaded package.</li>
+        <li>Copy the exact <code>synsigra-verify</code> command from the runbook. The extracted kit directory itself is the challenge package.</li>
         <li>Inspect <code>verification_summary.json</code>, <code>verification_summary.csv</code>, and <code>verification_report.html</code>.</li>
       </ol>
       <pre class="output">python -m pip install synsigra-wheel.whl
-synsigra-verify "pkg_123-package.zip" detections/ "verification-pkg_123" --profile stress --force</pre>
+unzip "job_123-verification-kit.zip" -d synsigra-kit
+cd synsigra-kit
+synsigra-verify . detections/ verification-results --profile stress --force</pre>
       <p>Exit code <code>0</code> means pass, <code>1</code> means verification/input/scoring/threshold failure, and <code>2</code> means invalid CLI usage.</p>
       <p><a href="/syn_sig_ra/docs/api">Rendered API reference</a> · <a href="/syn_sig_ra/docs/troubleshooting">Troubleshooting</a> · <a href="/syn_sig_ra/">Back to app</a></p>
     </section>
@@ -1909,7 +2044,7 @@ const char kTroubleshootingHtml[] = R"HTML(<!doctype html>
           <tr><td><code>429 concurrent_job_limit</code></td><td>Wait for queued/running jobs to finish. Current limit is 2 active jobs per organization.</td></tr>
           <tr><td><code>429 monthly_job_limit</code></td><td>Monthly job quota is exhausted. Use existing packages or contact the operator.</td></tr>
           <tr><td>Failed job</td><td>Open the job card and read the error. If it is a generator/catalog issue, keep the job ID and report it.</td></tr>
-          <tr><td>Expired artifact</td><td>Use <strong>Rebuild exact package</strong>. Synsigra requires the preserved recipe and SHA-256-addressed historical generator, then verifies the package fingerprint. Historical jobs without those inputs fail explicitly.</td></tr>
+          <tr><td>Expired artifact</td><td>Click <strong>Download verification kit</strong> normally. The UI prepares the exact version in the background, verifies the package fingerprint, and starts the download. Historical jobs without preserved inputs fail explicitly.</td></tr>
           <tr><td>Verifier exit <code>1</code></td><td>Check package path, detection filenames, required columns, units, selected profile, and per-case report.</td></tr>
           <tr><td>Verifier exit <code>2</code></td><td>Fix CLI arguments. Start from the command in the completed-job recipe panel.</td></tr>
         </tbody>
@@ -1933,7 +2068,7 @@ const char kTermsHtml[] = R"HTML(<!doctype html>
 <body>
   <main class="shell legal-document">
     <section class="panel">
-      <p class="eyebrow">Private beta · version private-beta-2026-07-11-r2</p>
+      <p class="eyebrow">Private beta · version private-beta-2026-07-12-r3</p>
       <h1>Synsigra Private Beta Terms</h1>
       <p class="lede">Effective 11 July 2026. These terms define a synthetic engineering-QA evaluation service, not a medical or clinical product.</p>
       <h2>Permitted use</h2>
@@ -1947,7 +2082,7 @@ const char kTermsHtml[] = R"HTML(<!doctype html>
       <h2>Package use permission</h2>
       <p>During the beta, the account holder receives a non-exclusive, non-transferable, revocable permission to use, reproduce and archive packages and reports internally for the permitted purposes. Do not sell, sublicense or publish packages as a standalone dataset, use them to identify or model a real person, or represent them as clinical evidence. Keep manifests, fingerprints, provenance and claim-boundary notices with archived evidence.</p>
       <h2>Availability, support and billing</h2>
-      <p>The beta is best-effort and has no uptime or response-time SLA. Generated artifacts are normally cached for 14 days; keep local copies. Newer jobs preserve an immutable recipe and exact generator release for an explicit verified rebuild after cache expiry. The current beta is free, collects no payment method and never converts automatically to a paid plan. Any future paid plan requires notice, pricing and explicit opt-in.</p>
+      <p>The beta is best-effort and has no uptime or response-time SLA. Generated artifacts are normally cached for 7 days; keep local copies. Newer jobs preserve an immutable recipe and exact generator release for a verified rebuild after cache expiry. The current beta is free, collects no payment method and never converts automatically to a paid plan. Any future paid plan requires notice, pricing and explicit opt-in.</p>
       <h2>As-is beta</h2>
       <p>To the extent permitted by law, the service and generated materials are provided as-is and as-available without warranties of uninterrupted availability, fitness for a particular purpose or suitability for regulated or clinical use. Nothing excludes liability that cannot lawfully be excluded.</p>
       <h2>Support</h2>
@@ -1980,7 +2115,7 @@ const char kPrivacyHtml[] = R"HTML(<!doctype html>
       <h2>No-PHI rule</h2>
       <p>Do not submit PHI, real patient data, patient identifiers, medical records, clinical notes, real-person waveforms or annotations, or another person's personal data. The beta is not offered as a HIPAA business-associate service and no BAA is provided.</p>
       <h2>Retention and infrastructure</h2>
-      <p>Generated artifacts are normally cached for 14 days. Reproducibility metadata, immutable pack recipes, and exact generator releases may remain after expiry so the user can explicitly request a fingerprint-verified rebuild. Account and security records are retained while needed to operate and protect the beta. Data is processed on the service VPS and by required hosting, DNS and Gmail SMTP providers. Essential secure session cookies are used; advertising and cross-site tracking cookies are not.</p>
+      <p>Generated artifacts are normally cached for 7 days. Reproducibility metadata, immutable pack recipes, and exact generator releases may remain after expiry so Synsigra can prepare a fingerprint-verified rebuild when the user downloads again. Account and security records are retained while needed to operate and protect the beta. Data is processed on the service VPS and by required hosting, DNS and Gmail SMTP providers. Essential secure session cookies are used; advertising and cross-site tracking cookies are not.</p>
       <h2>Requests and support</h2>
       <p>Eligible jobs, drafts, custom packs and API keys can be deleted in the product. Account access, correction or deletion requests may be started through the <a href="https://github.com/tamask1s/signal_synth_saas/issues/new" target="_blank" rel="noopener">public support tracker</a>. Use only the minimum account identifier needed to arrange a non-public follow-up; never post sensitive information.</p>
       <p><a href="/syn_sig_ra/legal/terms">Private Beta Terms</a> · <a href="/syn_sig_ra/legal/support">Support &amp; service expectations</a> · <a href="/syn_sig_ra/account">Back to account</a></p>
@@ -2677,6 +2812,7 @@ details.meta summary { cursor: pointer; font-weight: 700; }
 }
 
 .error { color: var(--danger); }
+.warning { color: var(--warn); }
 .ok { color: var(--ok); }
 
 @media (max-width: 820px) {
@@ -2996,7 +3132,7 @@ th, td { border-color: var(--border); }
 
 const char kUiJs[] = R"JS((() => {
   const base = "/syn_sig_ra";
-  const termsVersion = "private-beta-2026-07-11-r2";
+  const termsVersion = "private-beta-2026-07-12-r3";
   const state = {
     currentPage: "workspace",
     authenticated: false,
@@ -3030,6 +3166,7 @@ const char kUiJs[] = R"JS((() => {
     jobsNextOffset: null,
     focusJobId: "",
     focusJobHandled: false,
+    preparingKits: new Set(),
     toastTimer: null
   };
 
@@ -4444,6 +4581,16 @@ const char kUiJs[] = R"JS((() => {
     return message;
   }
 
+  function validationMessageClass(item) {
+    if (item.severity === "error" || item.code === "TARGET_INCOMPATIBLE") {
+      return "error";
+    }
+    if (item.severity === "warning" || item.code === "REFERENCE_ONLY_TARGET") {
+      return "warning";
+    }
+    return "muted";
+  }
+
   function renderScenarioPreview(preview) {
     const scenario = readScenarioJson(true) || {};
     const summary = preview.summary || {};
@@ -4477,7 +4624,7 @@ const char kUiJs[] = R"JS((() => {
         <details class="meta" open>
           <summary>${escapeHtml(messages.length)} preview message(s)</summary>
           <ul>${messages.map((item) => `
-            <li class="${item.severity === "error" ? "error" : "muted"}"><button class="validation-link" data-validation-path="${escapeHtml(item.path)}">${escapeHtml(item.code)}</button>: ${escapeHtml(userValidationMessage(item))}</li>
+            <li class="${validationMessageClass(item)}"><button class="validation-link" data-validation-path="${escapeHtml(item.path)}">${escapeHtml(item.code)}</button>: ${escapeHtml(userValidationMessage(item))}</li>
           `).join("")}</ul>
         </details>
       ` : ""}
@@ -4723,7 +4870,7 @@ const char kUiJs[] = R"JS((() => {
       </div>
       <p><strong>Locally scoreable</strong>${targetTags(scoreable, "scoreable")}</p>
       <p><strong>Reference-only</strong>${targetTags(referenceOnly, "reference")}</p>
-      ${messages.length ? `<details class="meta" open><summary>${escapeHtml(messages.length)} core message(s)</summary><ul>${messages.map((item) => `<li class="${item.severity === "error" ? "error" : "muted"}"><strong>${escapeHtml(item.draftName)}</strong>: ${escapeHtml(userValidationMessage(item))}</li>`).join("")}</ul></details>` : `<p class="ok">All selected scenario–target combinations passed core analysis.</p>`}
+      ${messages.length ? `<details class="meta" open><summary>${escapeHtml(messages.length)} core message(s)</summary><ul>${messages.map((item) => `<li class="${validationMessageClass(item)}"><strong>${escapeHtml(item.draftName)}</strong>: ${escapeHtml(item.code)} — ${escapeHtml(userValidationMessage(item))}</li>`).join("")}</ul></details>` : `<p class="ok">All selected scenario–target combinations passed core analysis.</p>`}
       <div class="table-wrap"><table>
         <thead><tr><th>Scenario snapshot</th>${targets.map((target) => `<th>${escapeHtml(target)}</th>`).join("")}</tr></thead>
         <tbody>${rows}</tbody>
@@ -5029,20 +5176,22 @@ const char kUiJs[] = R"JS((() => {
     const packageFile = `${job.package_id}-package.zip`;
     const manifestFile = `${job.package_id}-manifest.json`;
     const kitFile = `${job.job_id}-verification-kit.zip`;
+    const kitDir = `${job.job_id}-verification-kit`;
     const templatesFile = `${job.job_id}-detection-templates.zip`;
-    const outputDir = `verification-${job.package_id}`;
+    const outputDir = "verification-results";
     const scoreable = scoreableTargets(pack);
     const referenceOnly = referenceTargets(pack);
     const profile = (pack && pack.recommended_profile) || "regression";
-    const command = `synsigra-verify ${shellQuote(packageFile)} detections/ ${shellQuote(outputDir)} --profile ${profile} --force`;
+    const command = `unzip ${shellQuote(kitFile)} -d ${shellQuote(kitDir)}\ncd ${shellQuote(kitDir)}\nsynsigra-verify . detections/ ${shellQuote(outputDir)} --profile ${profile} --force`;
     const filtered = scoreable.length
-      ? `synsigra-verify ${shellQuote(packageFile)} detections/ ${shellQuote(outputDir)} --profile ${profile} --target ${scoreable[0]} --force`
+      ? `synsigra-verify . detections/ ${shellQuote(outputDir)} --profile ${profile} --target ${scoreable[0]} --force`
       : "";
     return {
       pack,
       packageFile,
       manifestFile,
       kitFile,
+      kitDir,
       templatesFile,
       outputDir,
       scoreable,
@@ -5158,7 +5307,7 @@ const char kUiJs[] = R"JS((() => {
     const scoreableSteps = scoreable.length ? `
       <li>
         <strong>Replace detector templates.</strong>
-        <p>Unzip <code>${escapeHtml(context.kitFile)}</code>, edit files under <code>detections/</code>, and keep the expected filenames.</p>
+            <p>Unzip <code>${escapeHtml(context.kitFile)}</code> into <code>${escapeHtml(context.kitDir)}/</code>, edit files under its <code>detections/</code>, and keep the expected filenames.</p>
         <pre class="output">${escapeHtml(detectionShape(pack))}</pre>
       </li>
       <li>
@@ -5216,7 +5365,7 @@ const char kUiJs[] = R"JS((() => {
           ${scoreableSteps}
           <li>
             <strong>Archive evidence.</strong>
-            <p>Keep <code>package.zip</code>, <code>manifest.json</code>, nested <code>provenance.json</code>, <code>ENGINEERING_CLAIM_BOUNDARY.txt</code>, detector build/config, detections, verifier reports, and this job ID.</p>
+            <p>Keep the extracted kit or original kit ZIP, <code>manifest.json</code>, <code>provenance.json</code>, <code>ENGINEERING_CLAIM_BOUNDARY.txt</code>, detector build/config, detections, verifier reports, and this job ID.</p>
           </li>
         </ol>
       </article>
@@ -5308,7 +5457,7 @@ const char kUiJs[] = R"JS((() => {
         <button class="primary" data-open-runbook="${escapeHtml(job.job_id)}">Open verification runbook</button>
         <button class="secondary" data-download-kit="${escapeHtml(job.job_id)}">Verification kit ZIP</button>
       ` : job.status === "succeeded" && job.artifact_status === "expired" ? `
-        <button class="primary" data-job-action="rebuild" data-job-id="${escapeHtml(job.job_id)}">Rebuild exact package</button>
+        <button class="primary" data-prepare-kit="${escapeHtml(job.job_id)}" ${state.preparingKits.has(job.job_id) ? "disabled" : ""}>${state.preparingKits.has(job.job_id) ? "Preparing exact package…" : "Download verification kit"}</button>
       ` : "";
       const artifactExpired = job.artifact_status === "expired"
         ? `<p class="muted">Cached package expired. Synsigra can rebuild it only from the preserved recipe and exact historical generator; it will never substitute the latest generator.</p>`
@@ -5452,6 +5601,38 @@ const char kUiJs[] = R"JS((() => {
       await saveResponseAsFile(response, `${jobId}-verification-kit.zip`);
     } catch (error) {
       showToast(error.message, "error");
+    }
+  }
+
+  async function prepareVerificationKit(jobId) {
+    if (state.preparingKits.has(jobId)) return;
+    state.preparingKits.add(jobId);
+    renderJobs();
+    try {
+      const queued = await api(`/v1/jobs/${encodeURIComponent(jobId)}/rebuild`, {
+        method: "POST"
+      });
+      showToast("The cached package expired. Preparing the exact version for download.", "notice");
+      let rebuilt = null;
+      for (let attempt = 0; attempt < 180; attempt += 1) {
+        rebuilt = await api(`/v1/jobs/${encodeURIComponent(queued.job_id)}`);
+        if (rebuilt.status === "succeeded" || rebuilt.status === "failed") break;
+        await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      }
+      if (!rebuilt || rebuilt.status !== "succeeded") {
+        const detail = rebuilt && rebuilt.error
+          ? `${rebuilt.error.code}: ${rebuilt.error.message}`
+          : "Exact package preparation timed out.";
+        throw new Error(detail);
+      }
+      await loadJobs({ force: true });
+      await downloadVerificationKit(rebuilt.job_id);
+      showToast("Exact package rebuilt and download started.", "notice");
+    } catch (error) {
+      showToast(error.message, "error");
+    } finally {
+      state.preparingKits.delete(jobId);
+      renderJobs();
     }
   }
 
@@ -5734,6 +5915,11 @@ const char kUiJs[] = R"JS((() => {
     const kitJobId = target.getAttribute("data-download-kit");
     if (kitJobId) {
       downloadVerificationKit(kitJobId);
+      return true;
+    }
+    const prepareJobId = target.getAttribute("data-prepare-kit");
+    if (prepareJobId) {
+      prepareVerificationKit(prepareJobId);
       return true;
     }
     const templateJobId = target.getAttribute("data-download-templates");
@@ -6058,7 +6244,7 @@ RouteResponse route_request(
             root, "support_url", json_string(kSupportUrl));
         json_object_set_new(root, "billing_status", json_string("free_beta"));
         json_object_set_new(root, "uptime_sla", json_null());
-        json_object_set_new(root, "artifact_retention_days", json_integer(14));
+        json_object_set_new(root, "artifact_retention_days", json_integer(7));
         const std::string encoded = json_dump_line(root);
         json_decref(root);
         RouteResponse response = json_response(200, encoded);

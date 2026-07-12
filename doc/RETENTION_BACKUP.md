@@ -2,7 +2,7 @@
 
 ## Retention policy
 
-Private-beta artifact cache retention is 14 days. A soft-deleted job's package is
+Private-beta artifact cache retention is 7 days. A soft-deleted job's package is
 eligible immediately. Run a dry-run before applying cleanup:
 
 ```sh
@@ -17,7 +17,7 @@ identity, timestamps, and safe error metadata remain. Its API representation
 uses `artifact_status: expired`; artifact downloads return 404.
 
 Published packages are immutable while cached. Cleanup never modifies their
-contents. Current plans share the same 14-day window; plan-specific windows can
+contents. Current plans share the same 7-day window; plan-specific windows can
 be introduced when billing plans exist.
 
 New packages store only the root manifest and ZIP; the temporary extracted

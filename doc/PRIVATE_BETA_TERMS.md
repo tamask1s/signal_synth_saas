@@ -1,7 +1,7 @@
 # Synsigra Private Beta Terms
 
 Effective date: 2026-07-11
-Document version: `private-beta-2026-07-11-r2`
+Document version: `private-beta-2026-07-12-r3`
 
 These terms govern access to the Synsigra private-beta service at
 `timeonion.com`. By creating an account, the user confirms that they have read
@@ -86,7 +86,7 @@ charges begin.
 
 ## 7. Retention and beta changes
 
-Generated artifacts are normally cached for 14 days. Users must download and
+Generated artifacts are normally cached for 7 days. Users must download and
 archive evidence they need. Job metadata and reproducibility identifiers may
 remain after an artifact expires. Beta databases may be reset when necessary for
 development, security or schema changes.

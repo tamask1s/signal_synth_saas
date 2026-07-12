@@ -2,7 +2,7 @@
 set -eu
 
 mode=${1:-}
-days=${RETENTION_DAYS:-14}
+days=${RETENTION_DAYS:-7}
 case "$mode" in
   --dry-run)
     sudo -u apache /usr/local/bin/syn_sig_ra_admin cleanup-retention \

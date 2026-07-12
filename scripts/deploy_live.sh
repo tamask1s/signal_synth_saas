@@ -49,6 +49,8 @@ sudo install -d -m 0755 /opt/signal_synth_saas/downloads/verifier
 sudo find /opt/signal_synth_saas/downloads/verifier -maxdepth 1 -type f -delete
 sudo install -m 0644 "$repo_dir"/downloads/verifier/* \
   /opt/signal_synth_saas/downloads/verifier/
+sudo install -m 0644 "$repo_dir/ops/apache/synsigra-apache22.logrotate" \
+  /etc/logrotate.d/synsigra-apache22
 sudo install -d -o apache -g nogroup -m 0750 \
   /var/lib/syn_sig_ra/custom_packs \
   /var/lib/syn_sig_ra/recipes \

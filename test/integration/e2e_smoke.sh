@@ -312,7 +312,9 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q '/v1/jobs' "$WORK_ROOT/app.js" ||
     ! grep -q 'renderVerificationRunbook' "$WORK_ROOT/app.js" ||
     ! grep -q 'Advanced artifact downloads' "$WORK_ROOT/app.js" ||
-    ! grep -q 'Rebuild exact package' "$WORK_ROOT/app.js" ||
+    ! grep -q 'prepareVerificationKit' "$WORK_ROOT/app.js" ||
+    ! grep -q 'Preparing exact package' "$WORK_ROOT/app.js" ||
+    ! grep -q 'validationMessageClass' "$WORK_ROOT/app.js" ||
     ! grep -q 'selectPackForGeneration' "$WORK_ROOT/app.js" ||
     ! grep -q 'renderCustomPackReview' "$WORK_ROOT/app.js" ||
     ! grep -q 'conditionEditorHtml' "$WORK_ROOT/app.js" ||
@@ -321,7 +323,7 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q 'saveResponseAsFile' "$WORK_ROOT/app.js" ||
     ! grep -q 'showToast' "$WORK_ROOT/app.js" ||
     ! grep -q 'safeNextPage' "$WORK_ROOT/app.js" ||
-    ! grep -q 'private-beta-2026-07-11-r2' "$WORK_ROOT/app.js" ||
+    ! grep -q 'private-beta-2026-07-12-r3' "$WORK_ROOT/app.js" ||
     ! grep -q 'navigateTo("packs", { welcome: "1" }, { replace: true })' "$WORK_ROOT/app.js" ||
     ! grep -q 'navigateTo("jobs", { job_id: body.job_id })' "$WORK_ROOT/app.js" ||
     ! grep -q 'focusJobId' "$WORK_ROOT/app.js" ||
@@ -338,7 +340,7 @@ curl -fsS "$BASE_URL/v1/packs" >"$WORK_ROOT/packs.json" ||
 
 curl -fsS "$BASE_URL/v1/legal" >"$WORK_ROOT/legal.json" ||
     fail "legal metadata request failed"
-grep -q '"terms_version":"private-beta-2026-07-11-r2"' "$WORK_ROOT/legal.json" ||
+grep -q '"terms_version":"private-beta-2026-07-12-r3"' "$WORK_ROOT/legal.json" ||
     fail "legal metadata did not expose current terms"
 grep -q '"billing_status":"free_beta"' "$WORK_ROOT/legal.json" ||
     fail "legal metadata did not expose beta billing status"
@@ -359,7 +361,7 @@ REGISTER_HTTP=$(
         -o "$WORK_ROOT/register.json" \
         -w '%{http_code}' \
         -H "Content-Type: application/json" \
-        -d '{"email":"browser@example.com","password":"browser-test-password","display_name":"Browser User","accept_terms":true,"terms_version":"private-beta-2026-07-11-r2"}' \
+        -d '{"email":"browser@example.com","password":"browser-test-password","display_name":"Browser User","accept_terms":true,"terms_version":"private-beta-2026-07-12-r3"}' \
         "$BASE_URL/v1/auth/register"
 )
 if [ "$REGISTER_HTTP" != "202" ]; then
@@ -676,9 +678,10 @@ import zipfile
 
 kit_path, package_path = sys.argv[1], sys.argv[2]
 expected = {
-    "README.md",
+    "SYNSIGRA_README.md",
     "manifest.json",
-    "package.zip",
+    "provenance.json",
+    "ENGINEERING_CLAIM_BOUNDARY.txt",
     "PACKAGE_USE_NOTICE.txt",
     "SUPPORT_AND_TERMS.txt",
     "PLATFORM_CAPABILITIES.md",
@@ -695,8 +698,10 @@ with zipfile.ZipFile(kit_path) as archive:
     missing = expected - names
     if missing:
         raise SystemExit("verification kit missing: " + ", ".join(sorted(missing)))
-    readme = archive.read("README.md").decode("utf-8")
-    if "synsigra-verify package.zip detections/" not in readme:
+    if "package.zip" in names:
+        raise SystemExit("verification kit still contains a redundant nested package ZIP")
+    readme = archive.read("SYNSIGRA_README.md").decode("utf-8")
+    if "synsigra-verify . detections/" not in readme:
         raise SystemExit("verification kit README lacks first-run command")
     support = archive.read("SUPPORT_AND_TERMS.txt").decode("utf-8")
     if "no automatic paid" not in support or "without an uptime" not in support:
@@ -704,20 +709,18 @@ with zipfile.ZipFile(kit_path) as archive:
     capabilities = archive.read("PLATFORM_CAPABILITIES.md").decode("utf-8")
     if "starter pack" not in capabilities or "24 hours" not in capabilities:
         raise SystemExit("verification kit lacks wider platform context")
-    nested_package = archive.read("package.zip")
-with open(package_path, "rb") as handle:
-    if nested_package != handle.read():
-        raise SystemExit("verification kit package.zip differs from artifact download")
-with zipfile.ZipFile(__import__("io").BytesIO(nested_package)) as package_zip:
+    kit_info = {item.filename: item for item in archive.infolist()}
+with zipfile.ZipFile(package_path) as package_zip:
     bad_member = package_zip.testzip()
     if bad_member is not None:
-        raise SystemExit("nested package zip member failed CRC: " + bad_member)
-    if "manifest.json" not in set(package_zip.namelist()):
-        raise SystemExit("nested package zip does not contain manifest.json")
-    if "provenance.json" not in set(package_zip.namelist()):
-        raise SystemExit("nested package zip does not contain provenance.json")
-    if "ENGINEERING_CLAIM_BOUNDARY.txt" not in set(package_zip.namelist()):
-        raise SystemExit("nested package zip does not contain claim boundary")
+        raise SystemExit("source package zip member failed CRC: " + bad_member)
+    original = {item.filename: item for item in package_zip.infolist()}
+    missing_original = set(original) - set(kit_info)
+    if missing_original:
+        raise SystemExit("flattened kit lost package members: " + ", ".join(sorted(missing_original)))
+    for name, item in original.items():
+        if item.CRC != kit_info[name].CRC or item.file_size != kit_info[name].file_size:
+            raise SystemExit("flattened kit changed package member: " + name)
 PY
     fail "verification kit archive failed validation"
 

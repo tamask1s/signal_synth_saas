@@ -5,6 +5,11 @@ server runs the old custom Apache 2.2 installation from `/usr/local/apache2`.
 Keep using that runtime for now; do not switch traffic to the packaged Apache
 2.4 service until the existing `mod_ts` site behavior is migrated and tested.
 
+The deploy script installs `ops/apache/synsigra-apache22.logrotate` under
+`/etc/logrotate.d/`. It rotates the custom Apache access/error logs daily or
+at 10 MiB, keeps seven compressed revisions, and uses `copytruncate` because
+this legacy Apache service does not use the distribution log paths.
+
 All public SaaS routes must stay below:
 
 ```text

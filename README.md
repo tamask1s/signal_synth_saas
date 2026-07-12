@@ -26,7 +26,7 @@ https://www.timeonion.com/syn_sig_ra
 - API keys are created from the account panel for scripts and CI; each secret is shown once and only a SHA-256 hash is retained server-side.
 - E-mail ownership verification and forgotten-password recovery are implemented with expiring, single-use links. New registration is available when the deployment has a transactional SMTP provider configured.
 - The current curated beta catalog is imported from `signal_synth/examples/catalog/curated_pack_metadata_v1.json` and contains ECG, HRV, PPG, signal-quality and wearable stress packs, not only the R-peak smoke pack.
-- Generated packages are immutable while cached. Default artifact cache retention is 14 days.
+- Generated packages are immutable while cached. Default artifact cache retention is 7 days.
 - Registration requires explicit acceptance of the versioned Private Beta Terms
   and Privacy & No-PHI Notice. The accepted version and UTC timestamp are stored.
 - The private beta is free, has no payment method or automatic paid conversion,
@@ -100,9 +100,11 @@ For each experiment, preserve at least:
 - `package.zip`.
 
 The fastest path is the completed job's **Verification kit ZIP**. It contains
-`README.md`, `manifest.json`, `package.zip`, `PACKAGE_USE_NOTICE.txt`,
-`SUPPORT_AND_TERMS.txt`, `PLATFORM_CAPABILITIES.md`, and detector-output templates when the pack has locally
-scoreable targets. The notice files state the permitted internal engineering
+`SYNSIGRA_README.md`, `manifest.json`, `provenance.json`, the challenge
+`cases/` directory, `PACKAGE_USE_NOTICE.txt`, `SUPPORT_AND_TERMS.txt`,
+`PLATFORM_CAPABILITIES.md`, and detector-output templates when the pack has
+locally scoreable targets. There is no redundant nested package ZIP: unzip the
+kit once and use that directory directly with the verifier. The notice files state the permitted internal engineering
 use, prohibited clinical claims, support channel, no-SLA status, retention and
 free-beta billing boundary.
 
@@ -127,7 +129,17 @@ The **Choose pack** page and `/v1/packs` show which targets are locally scoreabl
 Click **Verification kit ZIP** on the completed job for the normal complete
 bundle. Individual manifests, package ZIPs, and a template-only ZIP are
 available under **Advanced artifact downloads** and through the API for custom
-integrations. The template-only endpoint is:
+integrations.
+
+After downloading the normal kit:
+
+```sh
+unzip job_REPLACE_ME-verification-kit.zip -d synsigra-kit
+cd synsigra-kit
+synsigra-verify . detections/ verification-results --profile regression --force
+```
+
+The template-only endpoint is:
 
 ```http
 GET /v1/jobs/{job_id}/detection-templates.zip
@@ -434,7 +446,7 @@ queued → cancelled
 
 A retry creates a new queued job and preserves the original. Deletion is a soft delete.
 
-Default artifact cache retention is 14 days. A soft-deleted job becomes immediately eligible for cleanup. After expiry:
+Default artifact cache retention is 7 days. A soft-deleted job becomes immediately eligible for cleanup. After expiry:
 
 - job metadata remains;
 - lifecycle timestamps remain;
@@ -445,8 +457,10 @@ Default artifact cache retention is 14 days. A soft-deleted job becomes immediat
 
 Jobs created by the current worker also preserve a compact immutable pack
 recipe and the exact generator executable addressed by its SHA-256 build
-identity. From an expired job, **Rebuild exact package** creates a new queued
-job that uses those pinned inputs and rejects any package-fingerprint change.
+identity. When a user downloads an expired job again, the UI transparently
+queues a new exact-version job, waits for it, and starts the download. The API
+exposes the same operation as `POST /v1/jobs/{job_id}/rebuild`. The rebuild
+uses pinned inputs and rejects any package-fingerprint change.
 If either historical input is absent, the rebuild fails explicitly; the latest
 generator is never substituted.
 

@@ -189,13 +189,13 @@ paths:
                 type: object
                 required: [terms_version, terms_url, privacy_url, support_url, billing_status, uptime_sla, artifact_retention_days]
                 properties:
-                  terms_version: {type: string, example: private-beta-2026-07-11-r2}
+                  terms_version: {type: string, example: private-beta-2026-07-12-r3}
                   terms_url: {type: string}
                   privacy_url: {type: string}
                   support_url: {type: string, format: uri}
                   billing_status: {type: string, enum: [free_beta]}
                   uptime_sla: {type: string, nullable: true}
-                  artifact_retention_days: {type: integer, example: 14}
+                  artifact_retention_days: {type: integer, example: 7}
   /healthz:
     get:
       summary: Liveness
@@ -325,7 +325,7 @@ paths:
                   description: Must be true.
                 terms_version:
                   type: string
-                  enum: [private-beta-2026-07-11-r2]
+                  enum: [private-beta-2026-07-12-r3]
               additionalProperties: false
       responses:
         '202': {description: Verification required or generic accepted response}
@@ -572,7 +572,7 @@ paths:
   /v1/jobs/{job_id}/verification-kit.zip:
     get:
       summary: Download a job-local verification starter kit
-      description: Returns README.md, manifest.json, package.zip, and curated detector-output templates when available. The kit does not include the generator or verifier wheel.
+      description: Returns the challenge package directly as one ZIP, augmented with SYNSIGRA_README.md, notices, and curated detector-output templates when available. After one unzip, the extracted directory can be passed directly to synsigra-verify; there is no nested package ZIP. The kit does not include the generator or verifier wheel.
       security: [{cookieAuth: []}, {bearerAuth: []}]
       parameters:
         - {in: path, name: job_id, required: true, schema: {type: string}}
