@@ -236,7 +236,7 @@ The default browser UI is a multi-page guided workspace:
 | Route | Purpose |
 |---|---|
 | `/syn_sig_ra/workspace` | Start page and next-action prompt. |
-| `/syn_sig_ra/packs` | Goal-based pack chooser and comparison table. |
+| `/syn_sig_ra/packs` | Goal-first pack recommendation with optional advanced filters. |
 | `/syn_sig_ra/generate` | Project/pack confirmation and job creation. |
 | `/syn_sig_ra/jobs` | Job status, polling, lifecycle actions, downloads, and runbook entry points. |
 | `/syn_sig_ra/verify` | Completed-job verification runbook plus verifier downloads. |
@@ -310,12 +310,11 @@ Jobs belong to projects. The UI lists available projects and lets owners/admins 
 
 The **Choose pack** page lets users start from an algorithm-development goal instead of a pack ID:
 
-- detector target;
-- workflow intent: smoke, regression, stress, benchmark, or reference inspection;
-- scoring mode;
-- difficulty/stress tags.
+- friendly primary algorithm output;
+- workflow intent: first smoke test, regression, stress, benchmark, or reference inspection;
+- optional scoring mode and difficulty constraints under **Advanced pack filters**.
 
-The page shows a recommended pack, a comparison table, and detailed cards. The curated catalog fields include:
+The page shows one explained recommendation and lists the remaining matches as alternatives, so the same pack is not repeated as a recommendation, comparison row, and card. **Help me choose** and **Reset all choices** retain an obvious route back to the complete curated catalog. The catalog fields include:
 
 - stable pack ID;
 - semantic version;
@@ -407,7 +406,7 @@ The UI supports:
 - downloading `manifest.json`, `package.zip`, and curated-job detection-template ZIPs;
 - opening the completed-job verification runbook as the primary success action;
 - viewing project, lifecycle timestamps, generator identity, build identity, and package fingerprint;
-- showing completed-job local verification recipes with copyable commands;
+- showing completed-job local verification recipes with copyable commands, collapsed by default to keep long job lists scannable;
 - displaying `queued`, `running`, `succeeded`, `failed`, `cancelled`, and artifact-expired states.
 
 Running jobs cannot currently be force-cancelled. The API returns `409` because terminating the external generator is not yet considered safe.

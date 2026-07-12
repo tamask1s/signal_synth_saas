@@ -1697,33 +1697,31 @@ const char kUiHtml[] = R"HTML(<!doctype html>
           <strong>A pack is a validated slice, not the platform ceiling.</strong>
           <p class="muted compact">Start with a curated pack for a fast, scoreable baseline. For different duration, sampling, physiology, frequency/amplitude modulation, noise, artifacts, or target combinations, clone a case in the <a href="/syn_sig_ra/scenarios">scenario editor</a> and compose a custom pack.</p>
         </aside>
-        <div class="filter-row">
-          <label>
-            Detector target
-            <select id="pack-target-filter"></select>
-          </label>
-          <label>
-            Workflow intent
-            <select id="pack-intent-filter">
-              <option value="">Any intent</option>
-              <option value="smoke">First smoke test</option>
-              <option value="regression">Regression suite</option>
-              <option value="stress">Stress / robustness</option>
-              <option value="benchmark">Benchmark comparison</option>
-              <option value="reference">Reference-only inspection</option>
-            </select>
-          </label>
-          <label>
-            Scoring mode
-            <select id="pack-scoring-filter"></select>
-          </label>
-          <label>
-            Difficulty
-            <select id="pack-difficulty-filter"></select>
-          </label>
+        <div class="wizard-progress compact" aria-label="Pack selection workflow">
+          <span class="active"><strong>1</strong> Algorithm output</span><span><strong>2</strong> Test intent</span><span><strong>3</strong> Recommendation</span><span><strong>4</strong> Generate</span>
         </div>
+        <section class="wizard-step">
+          <span class="eyebrow">Step 1</span>
+          <h3>What does your algorithm output?</h3>
+          <p class="muted compact">Choose one primary output. Synsigra prioritizes packs with local automated scoring over reference-only coverage.</p>
+          <div id="pack-target-goals" class="target-selector"></div>
+        </section>
+        <section class="wizard-step">
+          <span class="eyebrow">Step 2</span>
+          <h3>How do you want to test it?</h3>
+          <div id="pack-intent-goals" class="target-selector"></div>
+        </section>
+        <details id="advanced-pack-filters" class="meta">
+          <summary>Advanced pack filters</summary>
+          <p class="muted compact">Optional technical constraints. Leave these open-ended unless you already know the scoring contract or difficulty you need.</p>
+          <div class="filter-row">
+            <label>Scoring mode<select id="pack-scoring-filter"></select></label>
+            <label>Difficulty<select id="pack-difficulty-filter"></select></label>
+          </div>
+          <button id="reset-pack-filters" class="secondary">Reset all choices</button>
+        </details>
         <div id="pack-recommendation" class="selected-pack">Loading recommendation…</div>
-        <div id="pack-comparison" class="table-wrap"></div>
+        <h3 id="alternative-packs-heading">Other matching packs</h3>
         <div id="packs" class="cards"></div>
       </div>
     </section>
@@ -3219,7 +3217,7 @@ const char kUiJs[] = R"JS((() => {
     role: "",
     packs: [],
     packTargetFilter: "",
-    packIntentFilter: "",
+    packIntentFilter: "smoke",
     packScoringFilter: "",
     packDifficultyFilter: "",
     runbookJobId: "",
@@ -3644,6 +3642,15 @@ const char kUiJs[] = R"JS((() => {
     ecg_ppg_alignment: ["ECG–PPG alignment", "Reference timing between cardiac and pulse channels"]
   };
 
+  const packIntentCopy = {
+    smoke: ["First smoke test", "Fast feedback with a compact baseline pack"],
+    regression: ["Regression suite", "Repeatable coverage for changes between algorithm versions"],
+    stress: ["Stress / robustness", "Noise, artifacts, harder physiology, and edge cases"],
+    benchmark: ["Benchmark comparison", "Broader evidence for comparing algorithms or releases"],
+    reference: ["Reference inspection", "Ground-truth-rich manual or contract QA"],
+    any: ["Explore all test styles", "Do not narrow the catalog by workflow intent"]
+  };
+
   function targetTitle(name) {
     return (targetCopy[name] || [name])[0];
   }
@@ -3674,8 +3681,6 @@ const char kUiJs[] = R"JS((() => {
   }
 
   function renderPackFilters() {
-    const targetSelect = $("pack-target-filter");
-    const intentSelect = $("pack-intent-filter");
     const scoringSelect = $("pack-scoring-filter");
     const difficultySelect = $("pack-difficulty-filter");
     const selectedTarget = state.packTargetFilter;
@@ -3688,14 +3693,22 @@ const char kUiJs[] = R"JS((() => {
     ]));
     const scoringModes = uniqueSorted(state.packs.map((pack) => pack.scoring_mode || ""));
     const difficulties = uniqueSorted(state.packs.flatMap((pack) => pack.difficulty || []));
-    targetSelect.innerHTML = `<option value="">Any target</option>` +
-      targets.map((target) => `<option value="${escapeHtml(target)}">${escapeHtml(target)}</option>`).join("");
+    $("pack-target-goals").innerHTML = ["", ...targets].map((target) => `
+      <label class="target-option ${target === selectedTarget ? "recommended" : ""}">
+        <input type="radio" name="pack-target-goal" value="${escapeHtml(target)}" ${target === selectedTarget ? "checked" : ""}>
+        <span><strong>${escapeHtml(target ? targetTitle(target) : "Help me choose")}</strong><small>${escapeHtml(target ? targetDescription(target) : "Show the best general-purpose starting point")}</small></span>
+      </label>
+    `).join("");
+    $("pack-intent-goals").innerHTML = Object.entries(packIntentCopy).map(([intent, copy]) => `
+      <label class="target-option ${intent === selectedIntent ? "recommended" : ""}">
+        <input type="radio" name="pack-intent-goal" value="${escapeHtml(intent)}" ${intent === selectedIntent ? "checked" : ""}>
+        <span><strong>${escapeHtml(copy[0])}</strong><small>${escapeHtml(copy[1])}</small></span>
+      </label>
+    `).join("");
     scoringSelect.innerHTML = `<option value="">Any scoring mode</option>` +
       scoringModes.map((mode) => `<option value="${escapeHtml(mode)}">${escapeHtml(mode)}</option>`).join("");
     difficultySelect.innerHTML = `<option value="">All difficulties</option>` +
       difficulties.map((difficulty) => `<option value="${escapeHtml(difficulty)}">${escapeHtml(difficulty)}</option>`).join("");
-    if (targets.includes(selectedTarget)) targetSelect.value = selectedTarget;
-    if (["", "smoke", "regression", "stress", "benchmark", "reference"].includes(selectedIntent)) intentSelect.value = selectedIntent;
     if (scoringModes.includes(selectedScoring)) scoringSelect.value = selectedScoring;
     if (difficulties.includes(selectedDifficulty)) difficultySelect.value = selectedDifficulty;
   }
@@ -3765,53 +3778,26 @@ const char kUiJs[] = R"JS((() => {
     }
     const scoreable = targetNames(pack.scoreable_targets);
     const referenceOnly = targetNames(pack.reference_only_targets);
+    const targetReason = state.packTargetFilter
+      ? `${targetTitle(state.packTargetFilter)} is ${scoreable.includes(state.packTargetFilter) ? "locally scoreable" : "available as reference ground truth"}.`
+      : "This is the strongest compact general-purpose match.";
+    const intentReason = packIntentCopy[state.packIntentFilter]
+      ? packIntentCopy[state.packIntentFilter][0]
+      : "Flexible evaluation";
     node.innerHTML = `
       <div class="job-header">
         <div>
-          <strong>Recommended next pack: ${escapeHtml(pack.display_name || pack.pack_id)}</strong>
+          <span class="eyebrow">Recommended for ${escapeHtml(intentReason)}</span>
+          <h3>${escapeHtml(pack.display_name || pack.pack_id)}</h3>
+          <p class="muted compact">${escapeHtml(pack.description || "")}</p>
           <p class="muted compact">${packFacts(pack)}</p>
         </div>
         <button class="primary" data-select-pack="${escapeHtml(pack.pack_id)}">Use this pack</button>
       </div>
-      <p class="compact">${scoreable.length ? "Scoreable locally: " + escapeHtml(scoreable.join(", ")) : "Reference-only / no local scoring command."}</p>
-      ${referenceOnly.length ? `<p class="muted compact">Reference-only targets: ${escapeHtml(referenceOnly.join(", "))}</p>` : ""}
-    `;
-  }
-
-  function renderPackComparison(visible) {
-    if (!visible.length) {
-      $("pack-comparison").innerHTML = "";
-      return;
-    }
-    $("pack-comparison").innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>Pack</th>
-            <th>Targets</th>
-            <th>Use case</th>
-            <th>Size / duration</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${visible.map((pack) => `
-            <tr>
-              <td>
-                <strong>${escapeHtml(pack.display_name || pack.pack_id)}</strong><br>
-                <span class="muted">${escapeHtml(pack.version || "")} · ${escapeHtml(pack.release_status || "unknown")} · ${escapeHtml(pack.scoring_mode || "unknown")}</span>
-              </td>
-              <td>
-                <div><strong>Scoreable</strong>${targetTags(pack.scoreable_targets, "scoreable")}</div>
-                <div><strong>Reference</strong>${targetTags(pack.reference_only_targets, "reference")}</div>
-              </td>
-              <td>${escapeHtml((pack.recommended_for || []).slice(0, 2).join("; ") || pack.description || "n/a")}</td>
-              <td>${packFacts(pack)}</td>
-              <td><button class="secondary" data-select-pack="${escapeHtml(pack.pack_id)}">Use</button></td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
+      <p class="compact"><strong>Why this match:</strong> ${escapeHtml(targetReason)}</p>
+      <p class="compact">${scoreable.length ? "Scoreable locally: " + escapeHtml(scoreable.map(targetTitle).join(", ")) : "Reference-only / no local scoring command."}</p>
+      ${referenceOnly.length ? `<p class="muted compact">Reference-only: ${escapeHtml(referenceOnly.map(targetTitle).join(", "))}</p>` : ""}
+      <details><summary>Pack scope and recommended use</summary><p><strong>Use for:</strong> ${escapeHtml((pack.recommended_for || []).join("; ") || "n/a")}</p><p><strong>Avoid for:</strong> ${escapeHtml((pack.not_recommended_for || []).join("; ") || "n/a")}</p></details>
     `;
   }
 
@@ -3829,9 +3815,13 @@ const char kUiJs[] = R"JS((() => {
 
   function renderPacks() {
     const visible = state.packs.filter(packMatchesFilters);
+    const recommendation = recommendedPack(visible);
+    const alternatives = recommendation
+      ? visible.filter((pack) => pack.pack_id !== recommendation.pack_id)
+      : visible;
     renderPackRecommendation(visible);
-    renderPackComparison(visible);
-    $("packs").innerHTML = visible.map((pack) => `
+    $("alternative-packs-heading").hidden = !alternatives.length;
+    $("packs").innerHTML = alternatives.map((pack) => `
       <article class="card">
         <h3>${escapeHtml(pack.display_name || pack.pack_id)}</h3>
         <p class="muted">Version ${escapeHtml(pack.version || "")} · released ${escapeHtml(formatDate(pack.released_at))}</p>
@@ -3872,7 +3862,9 @@ const char kUiJs[] = R"JS((() => {
         </details>
         <span class="fingerprint">${escapeHtml(pack.pack_fingerprint || "")}</span>
       </article>
-    `).join("") || "<p class=\"muted\">No packs match the current filters.</p>";
+    `).join("") || (visible.length
+      ? "<p class=\"muted\">The recommendation above is the only matching curated pack.</p>"
+      : "<p class=\"muted\">No packs match these choices. Reset the filters or build a custom scenario.</p>");
   }
 
   function selectedPack() {
@@ -5487,7 +5479,7 @@ const char kUiJs[] = R"JS((() => {
       `;
     }
     return `
-      <details class="verify-note" open>
+      <details class="verify-note">
         <summary>First-run local verification recipe</summary>
         <p><strong>Scoreable targets:</strong> ${escapeHtml(scoreable.join(", "))}</p>
         <p><strong>Reference-only targets:</strong> ${escapeHtml(referenceOnly.join(", ") || "none")}</p>
@@ -6223,12 +6215,18 @@ const char kUiJs[] = R"JS((() => {
   });
 
   $("refresh-packs").addEventListener("click", loadPacks);
-  $("pack-target-filter").addEventListener("change", () => {
-    state.packTargetFilter = $("pack-target-filter").value;
+  $("pack-target-goals").addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    state.packTargetFilter = target.value;
+    renderPackFilters();
     renderPacks();
   });
-  $("pack-intent-filter").addEventListener("change", () => {
-    state.packIntentFilter = $("pack-intent-filter").value;
+  $("pack-intent-goals").addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    state.packIntentFilter = target.value;
+    renderPackFilters();
     renderPacks();
   });
   $("pack-scoring-filter").addEventListener("change", () => {
@@ -6239,13 +6237,16 @@ const char kUiJs[] = R"JS((() => {
     state.packDifficultyFilter = $("pack-difficulty-filter").value;
     renderPacks();
   });
-  $("packs").addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    const packId = target.getAttribute("data-select-pack");
-    if (packId) selectPackForGeneration(packId);
+  $("reset-pack-filters").addEventListener("click", () => {
+    state.packTargetFilter = "";
+    state.packIntentFilter = "any";
+    state.packScoringFilter = "";
+    state.packDifficultyFilter = "";
+    $("advanced-pack-filters").open = false;
+    renderPackFilters();
+    renderPacks();
   });
-  $("pack-comparison").addEventListener("click", (event) => {
+  $("packs").addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const packId = target.getAttribute("data-select-pack");

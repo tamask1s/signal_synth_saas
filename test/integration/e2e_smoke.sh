@@ -302,6 +302,10 @@ curl -fsS "$BASE_URL/packs" >"$WORK_ROOT/ui-packs.html" ||
     fail "pack chooser route request failed"
 grep -q 'Choose a challenge pack' "$WORK_ROOT/ui-packs.html" ||
     fail "pack chooser route did not serve the guided UI"
+grep -q 'What does your algorithm output?' "$WORK_ROOT/ui-packs.html" ||
+    fail "pack chooser route did not expose the goal-first step"
+grep -q 'Advanced pack filters' "$WORK_ROOT/ui-packs.html" ||
+    fail "pack chooser route did not retain advanced filters"
 curl -fsS "$BASE_URL/verify" >"$WORK_ROOT/ui-verify.html" ||
     fail "verification route request failed"
 grep -q 'Verification runbook' "$WORK_ROOT/ui-verify.html" ||
@@ -316,6 +320,7 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q 'Preparing exact package' "$WORK_ROOT/app.js" ||
     ! grep -q 'validationMessageClass' "$WORK_ROOT/app.js" ||
     ! grep -q 'selectPackForGeneration' "$WORK_ROOT/app.js" ||
+    ! grep -q 'packIntentCopy' "$WORK_ROOT/app.js" ||
     ! grep -q 'renderCustomPackReview' "$WORK_ROOT/app.js" ||
     ! grep -q 'applyMissingTargetRequirements' "$WORK_ROOT/app.js" ||
     ! grep -q 'syncInheritedPackTargets' "$WORK_ROOT/app.js" ||

@@ -111,8 +111,10 @@ int main() {
             ui.body.find("74</strong><span>authoring fields") !=
                 std::string::npos &&
             ui.body.find("A pack is a validated slice") != std::string::npos &&
-            ui.body.find("pack-intent-filter") != std::string::npos &&
-            ui.body.find("pack-comparison") != std::string::npos &&
+            ui.body.find("pack-target-goals") != std::string::npos &&
+            ui.body.find("pack-intent-goals") != std::string::npos &&
+            ui.body.find("Advanced pack filters") != std::string::npos &&
+            ui.body.find("pack-comparison") == std::string::npos &&
             ui.body.find("verification-runbook") != std::string::npos &&
             ui.body.find("runbook-job-select") != std::string::npos &&
             ui.body.find("readiness-status") != std::string::npos &&
@@ -234,6 +236,9 @@ int main() {
             ui_js.body.find("Reproducibility details") != std::string::npos &&
             ui_js.body.find("renderVerificationRunbook") != std::string::npos &&
             ui_js.body.find("selectPackForGeneration") != std::string::npos &&
+            ui_js.body.find("packIntentCopy") != std::string::npos &&
+            ui_js.body.find("First-run local verification recipe") != std::string::npos &&
+            ui_js.body.find("<details class=\"verify-note\" open>\n        <summary>First-run local verification recipe") == std::string::npos &&
             ui_js.body.find("renderCustomPackReview") != std::string::npos &&
             ui_js.body.find("applyMissingTargetRequirements") != std::string::npos &&
             ui_js.body.find("syncInheritedPackTargets") != std::string::npos &&
