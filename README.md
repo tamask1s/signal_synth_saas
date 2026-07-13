@@ -512,6 +512,7 @@ Authorization: Bearer <api-key>
 |---|---|---|---|
 | `GET` | `/healthz` | Liveness/build | Public |
 | `GET` | `/readyz` | Component readiness/disk | Public |
+| `GET` | `/openapi.yaml` | Complete live machine-readable API contract | Public |
 | `GET` | `/v1/legal` | Current terms version, legal/support URLs, retention and billing status | Public |
 | `GET` | `/v1/packs` | Curated pack list | Public |
 | `GET` | `/v1/packs/{pack_id}` | Curated pack detail | Public |
@@ -640,8 +641,10 @@ The current deployment uses nginx as the public TLS edge and a custom Apache bac
 
 - In-app [one-page quickstart](https://www.timeonion.com/syn_sig_ra/docs/quickstart)
 - In-app [rendered API reference](https://www.timeonion.com/syn_sig_ra/docs/api)
+- [Live self-describing OpenAPI contract](https://www.timeonion.com/syn_sig_ra/openapi.yaml)
 - In-app [troubleshooting guide](https://www.timeonion.com/syn_sig_ra/docs/troubleshooting)
 - [Customer API guide](doc/API_GUIDE.md)
+- [Codex natural-language API client guide](doc/CODEX_API_CLIENT_GUIDE.md)
 - [Raw OpenAPI reference](doc/openapi.yaml)
 - [Scenario drafts](doc/SCENARIO_DRAFTS.md)
 - [Custom packs](doc/CUSTOM_PACKS.md)

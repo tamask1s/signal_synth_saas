@@ -87,6 +87,13 @@ configure_file(
     @ONLY
 )
 
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/doc/openapi.yaml" SYN_SIG_RA_OPENAPI_YAML)
+configure_file(
+    include/syn_sig_ra/openapi_document.h.in
+    generated/syn_sig_ra/openapi_document.h
+    @ONLY
+)
+
 set(SIGNAL_SYNTH_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(SIGNAL_SYNTH_BUILD_CLI OFF CACHE BOOL "" FORCE)
 set(SIGNAL_SYNTH_INSTALL OFF CACHE BOOL "" FORCE)

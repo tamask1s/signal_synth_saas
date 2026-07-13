@@ -177,6 +177,17 @@ components:
         install: {type: array, items: {type: string}}
         verify_example: {type: string}
 paths:
+  /openapi.yaml:
+    get:
+      summary: Download this complete live machine-readable API contract
+      description: The document is embedded from the same repository revision as the running Apache module. Dynamic signal-authoring fields, enum catalogs, templates, and target requirements are exposed by the authenticated authoring endpoints referenced below.
+      responses:
+        '200':
+          description: OpenAPI 3.0 YAML
+          content:
+            application/yaml:
+              schema: {type: string}
+        '405': {description: Method not allowed}
   /v1/legal:
     get:
       summary: Current private-beta legal, support, retention and billing metadata

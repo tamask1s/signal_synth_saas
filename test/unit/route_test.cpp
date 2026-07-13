@@ -88,6 +88,22 @@ int main() {
         "health response should include build metadata"
     );
 
+    const syn_sig_ra::RouteResponse openapi =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/openapi.yaml");
+    require(
+        openapi.status == 200 &&
+            openapi.content_type.find("application/yaml") != std::string::npos &&
+            openapi.cache_control == "public, max-age=300" &&
+            openapi.body.find("openapi: 3.0.3") != std::string::npos &&
+            openapi.body.find("/v1/authoring/schema:") != std::string::npos &&
+            openapi.body.find("/v1/jobs:") != std::string::npos,
+        "live OpenAPI route should expose the complete embedded API contract"
+    );
+    require(
+        syn_sig_ra::route_request("POST", "/syn_sig_ra/openapi.yaml").status == 405,
+        "live OpenAPI route should be read-only"
+    );
+
     const syn_sig_ra::RouteResponse wrong_method =
         syn_sig_ra::route_request("POST", "/syn_sig_ra/healthz");
     require(

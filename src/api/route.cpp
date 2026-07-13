@@ -4,6 +4,7 @@
 #include "syn_sig_ra/build_info.h"
 #include "syn_sig_ra/job_request.h"
 #include "syn_sig_ra/metadata_store.h"
+#include "syn_sig_ra/openapi_document.h"
 #include "syn_sig_ra/pack_catalog.h"
 #include "syn_sig_ra/password_auth.h"
 #include "syn_sig_ra/random_id.h"
@@ -1917,7 +1918,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <p><a href="/syn_sig_ra/legal/privacy">Privacy &amp; No-PHI Notice</a></p>
       <p><a href="/syn_sig_ra/legal/support">Support, availability &amp; billing</a></p>
       <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/README.md" target="_blank" rel="noopener">Full user manual</a></p>
-      <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/doc/openapi.yaml" target="_blank" rel="noopener">Raw OpenAPI YAML</a></p>
+      <p><a href="/syn_sig_ra/openapi.yaml" data-no-spa>Live OpenAPI YAML</a></p>
     </section>
       </div>
     </div>
@@ -2044,7 +2045,7 @@ req = urllib.request.Request(base + "/v1/jobs", data=json.dumps({
     "Content-Type": "application/json",
 })
 print(urllib.request.urlopen(req).read().decode())</pre>
-      <p>Raw machine-readable contract: <a href="https://github.com/tamask1s/signal_synth_saas/blob/master/doc/openapi.yaml" target="_blank" rel="noopener">OpenAPI YAML</a>.</p>
+      <p>Raw machine-readable contract: <a href="/syn_sig_ra/openapi.yaml">live OpenAPI YAML</a>.</p>
       <p><a href="/syn_sig_ra/docs/quickstart">Quickstart</a> · <a href="/syn_sig_ra/docs/troubleshooting">Troubleshooting</a> · <a href="/syn_sig_ra/">Back to app</a></p>
     </section>
   </main>
@@ -6527,6 +6528,23 @@ RouteResponse route_request(
         json_decref(root);
         RouteResponse response = json_response(200, encoded);
         response.cache_control = "public, max-age=300";
+        return response;
+    }
+
+    if (uri == public_base_path + "/openapi.yaml") {
+        if (method != "GET") {
+            return json_response(
+                405,
+                "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"The OpenAPI document only accepts GET.\"}}\n"
+            );
+        }
+        RouteResponse response;
+        response.disposition = RouteDisposition::handled;
+        response.status = 200;
+        response.content_type = "application/yaml; charset=utf-8";
+        response.cache_control = "public, max-age=300";
+        response.body = syn_sig_ra::kOpenApiYaml;
         return response;
     }
 

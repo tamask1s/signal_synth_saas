@@ -1,0 +1,9 @@
+#pragma once
+
+namespace syn_sig_ra {
+
+static const char kOpenApiYaml[] = R"SYNSIGRA_OPENAPI(
+@SYN_SIG_RA_OPENAPI_YAML@
+)SYNSIGRA_OPENAPI";
+
+}  // namespace syn_sig_ra

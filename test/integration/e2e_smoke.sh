@@ -306,6 +306,14 @@ grep -q 'What does your algorithm output?' "$WORK_ROOT/ui-packs.html" ||
     fail "pack chooser route did not expose the goal-first step"
 grep -q 'Advanced pack filters' "$WORK_ROOT/ui-packs.html" ||
     fail "pack chooser route did not retain advanced filters"
+curl -fsS "$BASE_URL/openapi.yaml" >"$WORK_ROOT/openapi.yaml" ||
+    fail "live OpenAPI route request failed"
+grep -q '^openapi: 3.0.3' "$WORK_ROOT/openapi.yaml" ||
+    fail "live OpenAPI route did not return an OpenAPI document"
+grep -q '^  /v1/authoring/schema:' "$WORK_ROOT/openapi.yaml" ||
+    fail "live OpenAPI document did not include authoring routes"
+grep -q '^  /v1/jobs:' "$WORK_ROOT/openapi.yaml" ||
+    fail "live OpenAPI document did not include job routes"
 curl -fsS "$BASE_URL/verify" >"$WORK_ROOT/ui-verify.html" ||
     fail "verification route request failed"
 grep -q 'Verification runbook' "$WORK_ROOT/ui-verify.html" ||
