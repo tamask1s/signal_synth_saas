@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07111f">
+  <title>Synsigra Lab · Signal viewer</title>
+  <link rel="icon" href="/assets/img/logo-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="__SYNSIGRA_BASE__/viewer/style.css">
+</head>
+<body data-api-base="__SYNSIGRA_BASE__">
+  <header class="lab-header">
+    <a class="lab-brand" href="/" aria-label="Synsigra home">
+      <span class="lab-mark" aria-hidden="true">S</span>
+      <span><strong>Synsigra Lab</strong><small>Signal viewer</small></span>
+    </a>
+    <nav aria-label="Lab navigation">
+      <a href="__SYNSIGRA_BASE__/workspace">Workspace</a>
+      <a href="__SYNSIGRA_BASE__/jobs">Jobs</a>
+      <a href="__SYNSIGRA_BASE__/account">Account</a>
+    </nav>
+  </header>
+
+  <main class="lab-shell">
+    <aside class="source-panel" aria-label="Signal source controls">
+      <div class="panel-heading">
+        <p class="eyebrow">Viewer source</p>
+        <h1>Explore generated data</h1>
+        <p>Only the visible time range and selected channels are requested from the server.</p>
+      </div>
+
+      <label for="viewer-job">Completed job</label>
+      <select id="viewer-job" disabled>
+        <option>Loading jobs…</option>
+      </select>
+
+      <label for="viewer-case">Signal case</label>
+      <select id="viewer-case" disabled>
+        <option>Select a job first</option>
+      </select>
+
+      <section class="source-summary" id="source-summary" aria-live="polite">
+        Sign in and select a completed job.
+      </section>
+
+      <fieldset class="channel-fieldset" id="channel-fieldset" disabled>
+        <legend>Channels</legend>
+        <div class="channel-actions">
+          <button id="select-all-channels" type="button" class="text-button">All</button>
+          <button id="select-no-channels" type="button" class="text-button">None</button>
+        </div>
+        <div id="channel-list" class="channel-list"></div>
+      </fieldset>
+
+      <fieldset class="layout-fieldset">
+        <legend>Channel layout</legend>
+        <div class="segmented-control" role="group" aria-label="Channel layout">
+          <button id="layout-stacked" type="button" class="active" aria-pressed="true">Stacked</button>
+          <button id="layout-overlay" type="button" aria-pressed="false">Overlay</button>
+        </div>
+      </fieldset>
+
+      <aside class="viewer-note">
+        <strong>Large-file ready</strong>
+        <span>The browser never downloads the complete signal for display. Zoomed-out views use a server-side min/max pyramid.</span>
+      </aside>
+    </aside>
+
+    <section class="viewer-stage" aria-labelledby="viewer-heading">
+      <header class="viewer-toolbar">
+        <div>
+          <p class="eyebrow">Current viewport</p>
+          <h2 id="viewer-heading">No signal selected</h2>
+          <p id="viewport-position" class="viewport-position">—</p>
+        </div>
+        <div class="toolbar-actions">
+          <button id="amplitude-fit" type="button" class="secondary-button" title="Reset vertical scale">Fit amplitude</button>
+          <span id="request-status" class="request-status" role="status" aria-live="polite">Idle</span>
+        </div>
+      </header>
+
+      <div class="canvas-shell" id="canvas-shell">
+        <canvas id="signal-canvas" tabindex="0" aria-label="Interactive biosignal plot. Drag or use Shift plus mouse wheel to pan. Use Control plus mouse wheel to zoom in time."></canvas>
+        <div id="viewer-empty" class="viewer-empty">
+          <strong>Select a completed job</strong>
+          <span>Your generated ECG, PPG, and motion channels will appear here.</span>
+        </div>
+        <div class="amplitude-controls" aria-label="Amplitude zoom">
+          <button id="amplitude-in" type="button" title="Increase displayed amplitude" aria-label="Increase displayed amplitude">+</button>
+          <span>Amplitude</span>
+          <button id="amplitude-out" type="button" title="Decrease displayed amplitude" aria-label="Decrease displayed amplitude">−</button>
+        </div>
+      </div>
+
+      <div class="timeline-controls">
+        <label for="position-slider">Position</label>
+        <input id="position-slider" type="range" min="0" max="0" value="0" step="1" disabled>
+        <div class="time-zoom-controls" aria-label="Time zoom">
+          <button id="time-in" type="button" title="Zoom in: show half as much data" aria-label="Zoom in time">+</button>
+          <button id="time-out" type="button" title="Zoom out: show twice as much data" aria-label="Zoom out time">−</button>
+        </div>
+      </div>
+
+      <footer class="viewer-footer">
+        <span id="viewport-detail">No viewport loaded</span>
+        <span>Drag to pan · Ctrl/⌘ + wheel to zoom · Shift + wheel to pan</span>
+      </footer>
+    </section>
+  </main>
+
+  <script src="__SYNSIGRA_BASE__/viewer/signal-viewer.js"></script>
+  <script src="__SYNSIGRA_BASE__/viewer/app.js"></script>
+</body>
+</html>

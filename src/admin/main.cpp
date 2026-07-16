@@ -1,5 +1,8 @@
 #include "syn_sig_ra/metadata_store.h"
 #include "syn_sig_ra/sha256.h"
+#include "syn_sig_ra/signal_viewer.h"
+
+#include <sqlite3.h>
 
 #include <cstdlib>
 #include <cerrno>
@@ -29,6 +32,10 @@ void print_usage(const char* executable) {
         << " cleanup-retention <database-path> <data-root> <days> [--apply]\n"
         << "  " << executable
         << " compact-artifacts <data-root> [--apply]\n"
+        << "  " << executable
+        << " prepare-viewer-source <extracted-package-root> <viewer-root>\n"
+        << "  " << executable
+        << " list-active-package-paths <database-path>\n"
         << "\ncreate-api-key reads the plaintext API key as one line from stdin.\n";
 }
 
@@ -141,6 +148,71 @@ bool compact_artifacts(
 }  // namespace
 
 int main(int argc, char** argv) {
+    if (argc == 3 &&
+        std::string(argv[1]) == "list-active-package-paths") {
+        sqlite3* database = nullptr;
+        sqlite3_stmt* statement = nullptr;
+        if (sqlite3_open_v2(
+                argv[2], &database, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK ||
+            sqlite3_prepare_v2(
+                database,
+                "SELECT artifact_storage_key FROM packages "
+                "WHERE deleted_at IS NULL ORDER BY id;",
+                -1, &statement, nullptr) != SQLITE_OK) {
+            std::cerr << "error=active-package-list-failed message="
+                      << (database == nullptr ? "unable to open database" :
+                          sqlite3_errmsg(database)) << '\n';
+            sqlite3_finalize(statement);
+            if (database != nullptr) sqlite3_close(database);
+            return EXIT_FAILURE;
+        }
+        for (;;) {
+            const int status = sqlite3_step(statement);
+            if (status == SQLITE_DONE) break;
+            if (status != SQLITE_ROW) {
+                std::cerr << "error=active-package-list-failed message="
+                          << sqlite3_errmsg(database) << '\n';
+                sqlite3_finalize(statement);
+                sqlite3_close(database);
+                return EXIT_FAILURE;
+            }
+            const unsigned char* value = sqlite3_column_text(statement, 0);
+            if (value != nullptr) std::cout << value << '\n';
+        }
+        sqlite3_finalize(statement);
+        sqlite3_close(database);
+        return EXIT_SUCCESS;
+    }
+
+    if (argc == 4 &&
+        std::string(argv[1]) == "prepare-viewer-source") {
+        std::string error;
+        const syn_sig_ra::SignalViewerStatus status =
+            syn_sig_ra::prepare_signal_viewer_source(argv[2], argv[3], error);
+        if (status == syn_sig_ra::SignalViewerStatus::ok) {
+            syn_sig_ra::SignalViewerSource source;
+            if (syn_sig_ra::describe_signal_viewer_source(
+                    argv[3], source, error) !=
+                syn_sig_ra::SignalViewerStatus::ok) {
+                std::cerr << "error=viewer-description-failed message="
+                          << error << '\n';
+                return EXIT_FAILURE;
+            }
+            std::cout << "status=viewer-source-prepared\n"
+                      << "cases=" << source.cases.size() << '\n'
+                      << "viewer_root=" << argv[3] << '\n';
+            return EXIT_SUCCESS;
+        }
+        if (status == syn_sig_ra::SignalViewerStatus::not_found) {
+            std::cout << "status=no-viewable-wfdb-signal\n"
+                      << "message=" << error << '\n';
+            return EXIT_SUCCESS;
+        }
+        std::cerr << "error=viewer-source-prepare-failed message="
+                  << error << '\n';
+        return EXIT_FAILURE;
+    }
+
     if (argc == 3 && std::string(argv[1]) == "init-db") {
         syn_sig_ra::MetadataStore store(argv[2]);
         std::string error;

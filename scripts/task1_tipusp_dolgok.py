@@ -15,6 +15,8 @@ COMMANDS = {
     "status": [["git", "status", "--short", "--branch"], ["git", "diff", "--check"]],
     "quality": [["/bin/bash", "-lc", "RUN_E2E=1 scripts/build_release.sh && git diff --check"]],
     "live-verify": [["scripts/verify_live.sh"]],
+    "viewer-backfill-dry-run": [["scripts/backfill_viewer_sources.sh", "--dry-run"]],
+    "viewer-backfill-apply": [["scripts/backfill_viewer_sources.sh", "--apply"]],
     "mail-status": [["scripts/mail/verify_local_mta.sh"]],
 }
 

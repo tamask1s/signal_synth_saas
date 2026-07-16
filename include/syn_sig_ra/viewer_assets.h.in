@@ -1,0 +1,13 @@
+#ifndef SYN_SIG_RA_VIEWER_ASSETS_H
+#define SYN_SIG_RA_VIEWER_ASSETS_H
+
+namespace syn_sig_ra {
+
+const char kViewerHtml[] = R"SVHTML(@SYN_SIG_RA_VIEWER_HTML@)SVHTML";
+const char kViewerCss[] = R"SVCSS(@SYN_SIG_RA_VIEWER_CSS@)SVCSS";
+const char kSignalViewerJs[] = R"SVLIBJS(@SYN_SIG_RA_SIGNAL_VIEWER_JS@)SVLIBJS";
+const char kViewerAppJs[] = R"SVAPPJS(@SYN_SIG_RA_VIEWER_APP_JS@)SVAPPJS";
+
+}  // namespace syn_sig_ra
+
+#endif

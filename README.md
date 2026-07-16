@@ -67,15 +67,16 @@ Non-goals:
 1. Open `https://www.timeonion.com/syn_sig_ra/`.
 2. Use the persistent **Account** profile action to register with an e-mail address, display name, and a password of at least 12 characters. Read and accept the linked Private Beta Terms and Privacy & No-PHI Notice; the server records the exact accepted version. The registration page stays open with a clear inbox prompt; opening the verification link signs you in and continues directly to **Packs**.
 3. Existing users can sign in directly. When sign-in was requested from another page, Synsigra returns to that validated destination. If you forget the password, choose **Email me a reset link** on Account. The link is single-use, expires after 30 minutes, invalidates older browser sessions, and continues to the Workspace after signing in.
-4. Use the persistent product menu for **Workspace**, **Packs**, **Generate**, **Jobs**, and **Verify**. The secondary navigation groups the guided workflow, custom scenario/pack tools, and developer settings. Workspace also recommends the next useful action based on account and job state.
+4. Use the persistent product menu for **Workspace**, **Packs**, **Generate**, **Jobs**, **Lab**, and **Verify**. The secondary navigation groups the guided workflow, signal inspection, custom scenario/pack tools, and developer settings. Workspace also recommends the next useful action based on account and job state.
 5. Check the service status card:
    - `health` means the Apache application responds;
    - `ready` means the database, generator, pack catalog, and artifact store are available.
 6. Open **Choose pack** (`/syn_sig_ra/packs`) and filter by detector target, workflow intent, scoring mode, and difficulty. Use the recommendation or comparison table if you do not know pack IDs.
 7. Open **Generate job** (`/syn_sig_ra/generate`), select the `Default` project or create another project if your role permits, confirm the pack, and create a job. Successful creation automatically opens **Jobs** and focuses the new job card.
 8. Keep **Jobs** (`/syn_sig_ra/jobs`) open and wait for `succeeded`. Status polling updates only changed content; it does not reload the page.
-9. Open **Verify locally** (`/syn_sig_ra/verify`) from the completed job's **Open verification runbook** action.
-10. Download the verification kit, install the generator-free verifier, replace detection-template rows with algorithm output, copy the exact `synsigra-verify` command, then archive the evidence bundle.
+9. Choose **View signals** on a completed job, or open **Synsigra Lab** (`/syn_sig_ra/viewer`), to inspect cases and channels without downloading the complete waveform into the browser.
+10. Open **Verify locally** (`/syn_sig_ra/verify`) from the completed job's **Open verification runbook** action.
+11. Download the verification kit, install the generator-free verifier, replace detection-template rows with algorithm output, copy the exact `synsigra-verify` command, then archive the evidence bundle.
 
 Successful project, scenario, custom-pack, authentication and job actions show a short
 in-app confirmation. Browser back/forward navigation remains available, and each
@@ -239,6 +240,7 @@ The default browser UI is a multi-page guided workspace:
 | `/syn_sig_ra/packs` | Goal-first pack recommendation with optional advanced filters. |
 | `/syn_sig_ra/generate` | Project/pack confirmation and job creation. |
 | `/syn_sig_ra/jobs` | Job status, polling, lifecycle actions, downloads, and runbook entry points. |
+| `/syn_sig_ra/viewer` | Synsigra Lab signal viewer for retained completed jobs. |
 | `/syn_sig_ra/verify` | Completed-job verification runbook plus verifier downloads. |
 | `/syn_sig_ra/scenarios` | Scenario draft authoring and preview. |
 | `/syn_sig_ra/custom-packs` | Custom pack composition from valid drafts. |
@@ -246,6 +248,36 @@ The default browser UI is a multi-page guided workspace:
 | `/syn_sig_ra/advanced` | Documentation and API references. |
 
 The app keeps stable URLs and browser back/forward behavior. Existing `/syn_sig_ra/` and `/syn_sig_ra/ui` URLs continue to open the workspace.
+
+### Synsigra Lab signal viewer
+
+Every newly generated package that contains supported WFDB `format 16` signals
+gets a server-side viewer source. Open it from a succeeded job's **View signals**
+action or from **Lab**. The viewer supports:
+
+- selecting any retained completed job, case, and subset of channels;
+- stacked or overlaid channel display;
+- a bottom position slider and drag-to-pan canvas;
+- horizontal `+`/`−` time zoom, plus Ctrl/⌘ + wheel zoom around the pointer;
+- vertical `+`/`−` amplitude zoom and **Fit amplitude**;
+- keyboard left/right pan and `+`/`−` time zoom on the focused canvas;
+- physical-unit labels derived from WFDB gain, zero, and unit metadata.
+
+The page does not fetch a complete signal. It requests only the selected
+channels and visible time span as a bounded binary response. Close zoom reads
+raw samples; wide zoom uses exact minimum/maximum buckets from a power-of-two
+pyramid prepared when the job completes. Therefore response memory and transfer
+size depend on canvas width and selected channels, not on whether the source is
+megabytes or gigabytes. Obsolete viewport requests are cancelled while panning.
+Amplitude-only changes redraw locally and make no API request.
+
+The reusable browser component lives under `web/viewer/`: `signal-viewer.js`
+contains the HTTP data-source contract, binary decoder, and canvas renderer;
+`app.js` is only the hosted SaaS/session/job adapter. A future desktop wrapper
+can serve the same prepared filesystem source without copying account or job
+code. `HttpSignalDataSource` accepts custom `describePath` and `windowPath`
+functions, so a local server does not need to imitate SaaS job URLs; it only
+needs to return the same metadata and binary-window contracts.
 
 ### Service status
 
@@ -404,6 +436,7 @@ The UI supports:
 - retrying failed or cancelled jobs as new records;
 - soft-deleting non-running jobs;
 - downloading `manifest.json`, `package.zip`, and curated-job detection-template ZIPs;
+- opening generated WFDB cases in Synsigra Lab with bounded binary viewport reads;
 - opening the completed-job verification runbook as the primary success action;
 - viewing project, lifecycle timestamps, generator identity, build identity, and package fingerprint;
 - showing completed-job local verification recipes with copyable commands, collapsed by default to keep long job lists scannable;
@@ -456,6 +489,7 @@ Default artifact cache retention is 7 days. A soft-deleted job becomes immediate
 - pack/package fingerprints remain;
 - generator identity remains;
 - direct artifact downloads return `404`;
+- viewer data is removed with the cached package;
 - the UI/API reports `artifact_status: expired`.
 
 Jobs created by the current worker also preserve a compact immutable pack
@@ -550,6 +584,9 @@ Authorization: Bearer <api-key>
 | `DELETE` | `/v1/jobs/{id}` | Soft-delete non-running job | Developer+ |
 | `POST` | `/v1/jobs/{id}/cancel` | Cancel queued job | Developer+ |
 | `POST` | `/v1/jobs/{id}/retry` | Retry failed/cancelled job | Developer+ |
+| `POST` | `/v1/jobs/{id}/rebuild` | Queue exact-version rebuild for expired artifact | Developer+ |
+| `GET` | `/v1/jobs/{id}/viewer` | Viewable case/channel metadata | Organization |
+| `GET` | `/v1/jobs/{id}/viewer/window` | Bounded binary signal viewport | Organization |
 | `GET` | `/v1/jobs/{id}/detection-templates.zip` | Download detector-output templates | Organization |
 | `GET` | `/v1/jobs/{id}/verification-kit.zip` | Download one flat kit with challenge files and verification helpers | Organization |
 | `GET` | `/v1/artifacts/{package_id}/manifest.json` | Download manifest | Organization |
@@ -571,6 +608,24 @@ curl -fsS \
 ```
 
 The create-job body accepts exactly `project_id` and `pack_id`; unsupported fields are rejected.
+
+Signal-window example:
+
+```sh
+curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
+  "$BASE/v1/jobs/$JOB_ID/viewer"
+
+curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
+  "$BASE/v1/jobs/$JOB_ID/viewer/window?case_id=clean_70&start_sample=0&sample_count=5000&points=1600&channels=0" \
+  -o viewport.synsigv1
+```
+
+The v1 binary response starts with an 80-byte little-endian header: 8-byte
+`SYNSIGV1` magic, `uint16` version and header size, `uint32` flags, channel and
+bucket counts, five `uint64` sample fields, `float64` sample rate, payload
+offset, and a reserved word. It is followed by selected `uint32` channel indices
+and channel-major signed `int16` minimum/maximum pairs. The live
+`/openapi.yaml` contract is authoritative for parameters and error responses.
 
 ## Operations summary
 

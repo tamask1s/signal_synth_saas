@@ -4,6 +4,7 @@
 #include "syn_sig_ra/worker.h"
 
 #include <sqlite3.h>
+#include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -33,6 +34,26 @@ void write_file(
     output.close();
     require(output.good(), "test file should be written: " + path);
     require(chmod(path.c_str(), mode) == 0, "test file mode should be set");
+}
+
+bool remove_tree(const std::string& path) {
+    struct stat information;
+    if (lstat(path.c_str(), &information) != 0) return true;
+    if (S_ISDIR(information.st_mode)) {
+        chmod(path.c_str(), 0700);
+        DIR* directory = opendir(path.c_str());
+        if (directory == nullptr) return false;
+        bool ok = true;
+        for (dirent* entry = readdir(directory); entry != nullptr;
+             entry = readdir(directory)) {
+            const std::string name(entry->d_name);
+            if (name != "." && name != ".." &&
+                !remove_tree(path + "/" + name)) ok = false;
+        }
+        closedir(directory);
+        return ok && rmdir(path.c_str()) == 0;
+    }
+    return unlink(path.c_str()) == 0;
 }
 
 }  // namespace
@@ -75,8 +96,10 @@ int main() {
     write_file(
         success_cli,
         "#!/bin/sh\n"
-        "mkdir \"$5\"\n"
+        "mkdir -p \"$5/cases/test_case\"\n"
         "echo '{\"schema_version\":1}' > \"$5/manifest.json\"\n"
+        "printf 'test_case 2 500 8\\n# generator=signal_synth test\\n# scenario_id=test_case\\nsignal.dat 16 200(0)/mV 16 0 0 0 0 ECG\\nsignal.dat 16 1000(0)/au 16 0 0 0 0 PPG\\n' > \"$5/cases/test_case/synsigra.hea\"\n"
+        "printf '\\000\\000\\144\\000\\001\\000\\145\\000\\002\\000\\146\\000\\003\\000\\147\\000\\004\\000\\150\\000\\005\\000\\151\\000\\006\\000\\152\\000\\007\\000\\153\\000' > \"$5/cases/test_case/synsigra.dat\"\n"
         "echo status=challenge-rendered\n"
         "echo output_directory=\"$5\"\n"
         "echo package_id=test_pack\n"
@@ -187,6 +210,67 @@ int main() {
             !manifest_download.file_path.empty(),
         "package owner should resolve manifest download"
     );
+    const syn_sig_ra::RouteResponse viewer_description =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/jobs/" + succeeded_job + "/viewer",
+            "/syn_sig_ra",
+            "Bearer worker-secret",
+            &store,
+            packs,
+            "",
+            "",
+            root
+        );
+    require(
+        viewer_description.status == 200 &&
+            viewer_description.body.find("\"case_id\":\"test_case\"") !=
+                std::string::npos &&
+            viewer_description.body.find("\"name\":\"ECG\"") !=
+                std::string::npos &&
+            viewer_description.body.find("binary_http_viewports") !=
+                std::string::npos,
+        "completed WFDB packages should expose signal viewer metadata: " +
+            viewer_description.body + " " + viewer_description.internal_error
+    );
+    const syn_sig_ra::RouteResponse viewer_window =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/jobs/" + succeeded_job + "/viewer/window",
+            "/syn_sig_ra",
+            "Bearer worker-secret",
+            &store,
+            packs,
+            "",
+            "",
+            root,
+            "case_id=test_case&start_sample=0&sample_count=8&points=8&channels=0,1"
+        );
+    require(
+        viewer_window.status == 200 &&
+            viewer_window.content_type ==
+                "application/vnd.synsigra.signal-window.v1" &&
+            viewer_window.body.size() == 152u &&
+            viewer_window.body.compare(0, 8, "SYNSIGV1") == 0,
+        "viewer window endpoint should return a bounded binary viewport"
+    );
+    const syn_sig_ra::RouteResponse invalid_viewer_window =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/jobs/" + succeeded_job + "/viewer/window",
+            "/syn_sig_ra",
+            "Bearer worker-secret",
+            &store,
+            packs,
+            "",
+            "",
+            root,
+            "case_id=test_case&sample_count=8&points=8&channels=0,0"
+        );
+    require(
+        invalid_viewer_window.status == 400,
+        "viewer window endpoint should reject duplicate channel selections"
+    );
     syn_sig_ra::ApiKeyIdentity other_owner;
     other_owner.api_key_id = "worker_other_key";
     other_owner.organization_id = "worker_other_org";
@@ -216,6 +300,22 @@ int main() {
     require(
         isolated_download.status == 404,
         "another owner must not discover package artifacts"
+    );
+    const syn_sig_ra::RouteResponse isolated_viewer =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/jobs/" + succeeded_job + "/viewer",
+            "/syn_sig_ra",
+            "Bearer worker-other-secret",
+            &store,
+            packs,
+            "",
+            "",
+            root
+        );
+    require(
+        isolated_viewer.status == 404,
+        "another organization must not discover signal viewer metadata"
     );
     sqlite3* retention_database = nullptr;
     require(
@@ -350,23 +450,6 @@ int main() {
         "stable CLI error should be persisted"
     );
 
-    const std::string package_root =
-        packages + "/" + successful_package_id;
-    chmod((package_root + "/extracted").c_str(), 0700);
-    chmod(package_root.c_str(), 0700);
-    unlink((package_root + "/extracted/manifest.json").c_str());
-    unlink((package_root + "/manifest.json").c_str());
-    unlink((package_root + "/package.zip").c_str());
-    rmdir((package_root + "/extracted").c_str());
-    rmdir(package_root.c_str());
-    unlink(success_cli.c_str());
-    unlink(failure_cli.c_str());
-    unlink(pack_path.c_str());
-    unlink(database.c_str());
-    rmdir((work + "/" + succeeded_job).c_str());
-    rmdir(work.c_str());
-    rmdir(packs.c_str());
-    rmdir(packages.c_str());
-    rmdir(root.c_str());
+    require(remove_tree(root), "worker test tree should be removed");
     return EXIT_SUCCESS;
 }

@@ -9,7 +9,9 @@
 #include "syn_sig_ra/password_auth.h"
 #include "syn_sig_ra/random_id.h"
 #include "syn_sig_ra/sha256.h"
+#include "syn_sig_ra/signal_viewer.h"
 #include "syn_sig_ra/transactional_email.h"
+#include "syn_sig_ra/viewer_assets.h"
 #include "ecg_pack.h"
 #include "ecg_scenario_json.h"
 #include "scenario_authoring.h"
@@ -20,6 +22,7 @@
 #include <cctype>
 #include <cerrno>
 #include <cstdint>
+#include <climits>
 #include <cstdlib>
 #include <dirent.h>
 #include <fstream>
@@ -1046,6 +1049,161 @@ bool query_integer(
     return true;
 }
 
+bool query_value(
+    const std::string& query,
+    const std::string& name,
+    std::string& value
+) {
+    value.clear();
+    if (query.empty()) return false;
+    const std::string needle = name + "=";
+    std::string::size_type start = 0;
+    while ((start = query.find(needle, start)) != std::string::npos) {
+        if (start == 0 || query[start - 1] == '&') break;
+        start += needle.size();
+    }
+    if (start == std::string::npos) return false;
+    const std::string::size_type value_start = start + needle.size();
+    const std::string::size_type end = query.find('&', value_start);
+    const std::string encoded = query.substr(value_start, end - value_start);
+    value.reserve(encoded.size());
+    for (std::string::size_type index = 0; index < encoded.size(); ++index) {
+        if (encoded[index] == '+') {
+            value.push_back(' ');
+            continue;
+        }
+        if (encoded[index] != '%') {
+            value.push_back(encoded[index]);
+            continue;
+        }
+        if (index + 2u >= encoded.size() ||
+            !std::isxdigit(static_cast<unsigned char>(encoded[index + 1u])) ||
+            !std::isxdigit(static_cast<unsigned char>(encoded[index + 2u]))) {
+            value.clear();
+            return false;
+        }
+        const std::string hex = encoded.substr(index + 1u, 2u);
+        const char decoded = static_cast<char>(std::strtoul(hex.c_str(), nullptr, 16));
+        if (decoded == '\0') {
+            value.clear();
+            return false;
+        }
+        value.push_back(decoded);
+        index += 2u;
+    }
+    return true;
+}
+
+bool query_unsigned_long_long(
+    const std::string& query,
+    const std::string& name,
+    unsigned long long default_value,
+    bool required,
+    unsigned long long& value
+) {
+    std::string encoded;
+    if (!query_value(query, name, encoded)) {
+        value = default_value;
+        return !required;
+    }
+    if (encoded.empty() || encoded[0] == '-') return false;
+    char* end = nullptr;
+    errno = 0;
+    const unsigned long long parsed = std::strtoull(encoded.c_str(), &end, 10);
+    if (errno == ERANGE || end == encoded.c_str() || *end != '\0') return false;
+    value = parsed;
+    return true;
+}
+
+bool query_channel_indices(
+    const std::string& query,
+    std::vector<unsigned int>& channels
+) {
+    channels.clear();
+    std::string encoded;
+    if (!query_value(query, "channels", encoded) || encoded.empty()) return false;
+    std::string::size_type start = 0;
+    while (start <= encoded.size()) {
+        const std::string::size_type end = encoded.find(',', start);
+        const std::string item = encoded.substr(start, end - start);
+        if (item.empty() || item[0] == '-') return false;
+        char* parsed_end = nullptr;
+        errno = 0;
+        const unsigned long parsed = std::strtoul(item.c_str(), &parsed_end, 10);
+        if (errno == ERANGE || parsed_end == item.c_str() ||
+            *parsed_end != '\0' || parsed > UINT_MAX) return false;
+        channels.push_back(static_cast<unsigned int>(parsed));
+        if (end == std::string::npos) break;
+        start = end + 1u;
+    }
+    return !channels.empty();
+}
+
+std::string replace_all(
+    std::string value,
+    const std::string& needle,
+    const std::string& replacement
+) {
+    std::string::size_type offset = 0;
+    while ((offset = value.find(needle, offset)) != std::string::npos) {
+        value.replace(offset, needle.size(), replacement);
+        offset += replacement.size();
+    }
+    return value;
+}
+
+std::string signal_viewer_source_json(
+    const syn_sig_ra::SignalViewerSource& source,
+    const std::string& job_id,
+    const std::string& package_id
+) {
+    json_t* root = json_object();
+    json_object_set_new(root, "schema_version", json_integer(1));
+    json_object_set_new(root, "job_id", json_string(job_id.c_str()));
+    json_object_set_new(root, "package_id", json_string(package_id.c_str()));
+    json_t* cases = json_array();
+    for (std::vector<syn_sig_ra::SignalViewerCase>::const_iterator it =
+             source.cases.begin(); it != source.cases.end(); ++it) {
+        json_t* item = json_object();
+        json_object_set_new(item, "case_id", json_string(it->case_id.c_str()));
+        json_object_set_new(item, "sample_rate_hz", json_real(it->sample_rate_hz));
+        json_object_set_new(
+            item, "sample_count",
+            json_integer(static_cast<json_int_t>(it->sample_count)));
+        json_object_set_new(
+            item, "duration_seconds",
+            json_real(static_cast<double>(it->sample_count) / it->sample_rate_hz));
+        json_t* channels = json_array();
+        for (std::vector<syn_sig_ra::SignalViewerChannel>::const_iterator channel =
+                 it->channels.begin(); channel != it->channels.end(); ++channel) {
+            json_t* encoded = json_object();
+            json_object_set_new(encoded, "index", json_integer(channel->index));
+            json_object_set_new(encoded, "name", json_string(channel->name.c_str()));
+            json_object_set_new(encoded, "unit", json_string(channel->unit.c_str()));
+            json_object_set_new(encoded, "gain", json_real(channel->gain));
+            json_object_set_new(encoded, "adc_zero", json_integer(channel->adc_zero));
+            json_array_append_new(channels, encoded);
+        }
+        json_object_set_new(item, "channels", channels);
+        json_array_append_new(cases, item);
+    }
+    json_object_set_new(root, "cases", cases);
+    json_t* capabilities = json_object();
+    json_object_set_new(
+        capabilities, "transport", json_string("binary_http_viewports"));
+    json_object_set_new(
+        capabilities, "window_media_type",
+        json_string(syn_sig_ra::signal_viewer_binary_content_type()));
+    json_object_set_new(capabilities, "maximum_points", json_integer(16384));
+    json_object_set_new(
+        capabilities, "aggregation", json_string("exact_min_max"));
+    json_object_set_new(capabilities, "channel_selection", json_boolean(true));
+    json_object_set_new(root, "capabilities", capabilities);
+    const std::string output = json_dump_line(root);
+    json_decref(root);
+    return output;
+}
+
 json_t* project_json_object(const syn_sig_ra::ProjectRecord& project) {
     json_t* root = json_object();
     json_object_set_new(
@@ -1516,6 +1674,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <a href="/syn_sig_ra/packs" data-nav-page="packs">Packs</a>
       <a href="/syn_sig_ra/generate" data-nav-page="generate">Generate</a>
       <a href="/syn_sig_ra/jobs" data-nav-page="jobs">Jobs</a>
+      <a href="/syn_sig_ra/viewer" data-no-spa>Lab</a>
       <a href="/syn_sig_ra/verify" data-nav-page="verify">Verify</a>
     </nav>
     <a id="header-account-link" class="profile-link" href="/syn_sig_ra/account" data-nav-page="account">
@@ -1546,6 +1705,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         <a href="/syn_sig_ra/packs" data-nav-page="packs">Choose pack</a>
         <a href="/syn_sig_ra/generate" data-nav-page="generate">Generate job</a>
         <a href="/syn_sig_ra/jobs" data-nav-page="jobs">Jobs</a>
+        <a href="/syn_sig_ra/viewer" data-no-spa>View signals</a>
         <a href="/syn_sig_ra/verify" data-nav-page="verify">Verify locally</a>
         <div class="side-nav-title section-title">Build custom tests</div>
         <a href="/syn_sig_ra/scenarios" data-nav-page="scenarios">Scenario editor</a>
@@ -1955,6 +2115,7 @@ const char kQuickstartHtml[] = R"HTML(<!doctype html>
         <li>Open <a href="/syn_sig_ra/packs">Choose pack</a>. Filter by target, workflow intent, scoring mode, and difficulty; use the recommended pack or comparison table.</li>
         <li>Open <a href="/syn_sig_ra/generate">Generate job</a>. Use the default project or create a project if your role allows it, then create the challenge job.</li>
         <li>Open <a href="/syn_sig_ra/jobs">Jobs</a> and wait for <code>succeeded</code>.</li>
+        <li>Optionally open <a href="/syn_sig_ra/viewer">Synsigra Lab</a> from the completed job to inspect selected signal channels. The viewer transfers only the visible time range, not the complete waveform.</li>
         <li>Open the completed job's <a href="/syn_sig_ra/verify">verification runbook</a>. Download <code>verification-kit.zip</code>, or download <code>manifest.json</code>, <code>package.zip</code>, and <code>detection-templates.zip</code> separately.</li>
         <li>Unzip the verification kit, then replace example rows under <code>detections/</code> with your algorithm output. Keep <code>provenance.json</code> and <code>ENGINEERING_CLAIM_BOUNDARY.txt</code> from the package with your evidence archive.</li>
         <li>Download the verifier bundle or wheel from the runbook page and install it locally without cloning the generator repository.</li>
@@ -2018,8 +2179,10 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>GET/DELETE</td><td><code>/v1/jobs/{job_id}</code></td><td>Read or soft-delete job</td><td>Organization</td></tr>
           <tr><td>POST</td><td><code>/v1/jobs/{job_id}/cancel</code></td><td>Cancel queued job</td><td>Developer+</td></tr>
           <tr><td>POST</td><td><code>/v1/jobs/{job_id}/retry</code></td><td>Retry failed/cancelled job</td><td>Developer+</td></tr>
+          <tr><td>GET</td><td><code>/v1/jobs/{job_id}/viewer</code></td><td>Describe viewable signal cases and channels</td><td>Organization</td></tr>
+          <tr><td>GET</td><td><code>/v1/jobs/{job_id}/viewer/window</code></td><td>Read selected channels for one bounded binary viewport</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/jobs/{job_id}/detection-templates.zip</code></td><td>Detector-output templates for completed curated jobs</td><td>Organization</td></tr>
-          <tr><td>GET</td><td><code>/v1/jobs/{job_id}/verification-kit.zip</code></td><td>README, manifest, package ZIP, and templates</td><td>Organization</td></tr>
+          <tr><td>GET</td><td><code>/v1/jobs/{job_id}/verification-kit.zip</code></td><td>One flat package directory with README, manifest, data, and templates</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/artifacts/{package_id}/manifest.json</code></td><td>Download manifest</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/artifacts/{package_id}/package.zip</code></td><td>Download package ZIP</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/usage</code></td><td>Caller usage and limits</td><td>Authenticated</td></tr>
@@ -5708,6 +5871,7 @@ const char kUiJs[] = R"JS((() => {
     }
     container.innerHTML = state.jobs.map((job) => {
       const artifactActions = job.status === "succeeded" && job.package_id ? `
+        <a class="button-link" href="${base}/viewer?job_id=${encodeURIComponent(job.job_id)}" data-no-spa>View signals</a>
         <button class="primary" data-open-runbook="${escapeHtml(job.job_id)}">Open verification runbook</button>
         <button class="secondary" data-download-kit="${escapeHtml(job.job_id)}">Verification kit ZIP</button>
       ` : job.status === "succeeded" && job.artifact_status === "expired" ? `
@@ -6545,6 +6709,42 @@ RouteResponse route_request(
         response.content_type = "application/yaml; charset=utf-8";
         response.cache_control = "public, max-age=300";
         response.body = syn_sig_ra::kOpenApiYaml;
+        return response;
+    }
+
+    const std::string viewer_path = public_base_path + "/viewer";
+    if (uri == viewer_path || uri == viewer_path + "/" ||
+        uri == viewer_path + "/style.css" ||
+        uri == viewer_path + "/signal-viewer.js" ||
+        uri == viewer_path + "/app.js") {
+        if (method != "GET") {
+            return json_response(
+                405,
+                "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Signal viewer assets only accept GET.\"}}\n"
+            );
+        }
+        RouteResponse response;
+        response.disposition = RouteDisposition::handled;
+        response.status = 200;
+        if (uri == viewer_path || uri == viewer_path + "/") {
+            response.content_type = "text/html; charset=utf-8";
+            response.cache_control = "no-store";
+            response.body = replace_all(
+                kViewerHtml, "__SYNSIGRA_BASE__", public_base_path);
+        } else if (uri == viewer_path + "/style.css") {
+            response.content_type = "text/css; charset=utf-8";
+            response.cache_control = "public, max-age=300";
+            response.body = kViewerCss;
+        } else if (uri == viewer_path + "/signal-viewer.js") {
+            response.content_type = "application/javascript; charset=utf-8";
+            response.cache_control = "public, max-age=300";
+            response.body = kSignalViewerJs;
+        } else {
+            response.content_type = "application/javascript; charset=utf-8";
+            response.cache_control = "public, max-age=300";
+            response.body = kViewerAppJs;
+        }
         return response;
     }
 
@@ -8191,6 +8391,161 @@ RouteResponse route_request(
                 "{\"error\":{\"code\":\"invalid_job_id\","
                 "\"message\":\"The job ID is invalid.\"}}\n"
                 );
+        }
+        if (action == "viewer" || action == "viewer/window") {
+            if (method != "GET") {
+                return json_response(
+                    405,
+                    "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Signal viewer endpoints only accept GET.\"}}\n"
+                );
+            }
+            JobRecord job;
+            std::string error;
+            const RecordLookupStatus lookup = metadata_store->find_job(
+                job_id, authenticated_identity, job, error);
+            if (lookup == RecordLookupStatus::not_found) {
+                return json_response(
+                    404,
+                    "{\"error\":{\"code\":\"job_not_found\","
+                    "\"message\":\"The requested job does not exist.\"}}\n"
+                );
+            }
+            if (lookup == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503,
+                    "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Job storage is unavailable.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            if (job.status != "succeeded" || job.package_id.empty()) {
+                return json_response(
+                    409,
+                    "{\"error\":{\"code\":\"viewer_job_unavailable\","
+                    "\"message\":\"Signals are available after the job succeeds and while its package is retained.\"}}\n"
+                );
+            }
+            PackageRecord package;
+            const RecordLookupStatus package_lookup = metadata_store->find_package(
+                job.package_id, authenticated_identity, package, error);
+            if (package_lookup == RecordLookupStatus::not_found) {
+                return json_response(
+                    404,
+                    "{\"error\":{\"code\":\"artifact_not_found\","
+                    "\"message\":\"The retained package is unavailable.\"}}\n"
+                );
+            }
+            if (package_lookup == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503,
+                    "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Artifact metadata is unavailable.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            const std::string expected_storage =
+                data_root + "/packages/" + job.package_id;
+            if (data_root.empty() ||
+                package.artifact_storage_key != expected_storage) {
+                RouteResponse response = json_response(
+                    500,
+                    "{\"error\":{\"code\":\"artifact_storage_invalid\","
+                    "\"message\":\"Artifact storage is unavailable.\"}}\n"
+                );
+                response.internal_error =
+                    "artifact storage key does not match configured data root";
+                return response;
+            }
+            const std::string viewer_root = expected_storage + "/viewer";
+            if (action == "viewer") {
+                SignalViewerSource source;
+                const SignalViewerStatus viewer_status =
+                    describe_signal_viewer_source(viewer_root, source, error);
+                if (viewer_status == SignalViewerStatus::ok) {
+                    RouteResponse response = json_response(
+                        200, signal_viewer_source_json(
+                            source, job.job_id, job.package_id));
+                    response.cache_control = "private, no-store";
+                    return response;
+                }
+                if (viewer_status == SignalViewerStatus::not_found) {
+                    return json_response(
+                        409,
+                        "{\"error\":{\"code\":\"viewer_source_unavailable\","
+                        "\"message\":\"This retained package predates the signal viewer or contains no supported WFDB signal. Rebuild or regenerate it to view signals.\"}}\n"
+                    );
+                }
+                RouteResponse response = json_response(
+                    viewer_status == SignalViewerStatus::io_error ? 503 : 409,
+                    viewer_status == SignalViewerStatus::io_error
+                        ? "{\"error\":{\"code\":\"viewer_io_unavailable\",\"message\":\"Signal data is temporarily unavailable.\"}}\n"
+                        : "{\"error\":{\"code\":\"viewer_source_invalid\",\"message\":\"The retained signal source is invalid.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+
+            SignalViewerWindowRequest viewer_request;
+            std::string case_id;
+            unsigned long long start_sample = 0;
+            unsigned long long sample_count = 0;
+            int points = 2048;
+            if (!query_value(query_string, "case_id", case_id) ||
+                !query_unsigned_long_long(
+                    query_string, "start_sample", 0, false, start_sample) ||
+                !query_unsigned_long_long(
+                    query_string, "sample_count", 0, true, sample_count) ||
+                !query_integer(query_string, "points", 2048, points) ||
+                points <= 0 || points > 16384 ||
+                !query_channel_indices(
+                    query_string, viewer_request.channel_indices)) {
+                return json_response(
+                    400,
+                    "{\"error\":{\"code\":\"invalid_viewer_window\","
+                    "\"message\":\"Provide a valid case_id, positive sample_count, points (1-16384), and comma-separated channels.\"}}\n"
+                );
+            }
+            viewer_request.case_id = case_id;
+            viewer_request.start_sample = start_sample;
+            viewer_request.sample_count = sample_count;
+            viewer_request.max_points = static_cast<unsigned int>(points);
+            SignalViewerWindow window;
+            const SignalViewerStatus viewer_status = read_signal_viewer_window(
+                viewer_root, viewer_request, window, error);
+            if (viewer_status == SignalViewerStatus::ok) {
+                RouteResponse response;
+                response.disposition = RouteDisposition::handled;
+                response.status = 200;
+                response.content_type = signal_viewer_binary_content_type();
+                response.cache_control = "private, no-store";
+                response.body.swap(window.binary);
+                return response;
+            }
+            if (viewer_status == SignalViewerStatus::invalid_request) {
+                return json_response(
+                    400,
+                    "{\"error\":{\"code\":\"invalid_viewer_window\","
+                    "\"message\":\"The requested signal window, case, or channel selection is invalid.\"}}\n"
+                );
+            }
+            if (viewer_status == SignalViewerStatus::not_found) {
+                return json_response(
+                    409,
+                    "{\"error\":{\"code\":\"viewer_source_unavailable\","
+                    "\"message\":\"This retained package has no prepared signal viewer source.\"}}\n"
+                );
+            }
+            RouteResponse response = json_response(
+                viewer_status == SignalViewerStatus::io_error ? 503 : 409,
+                viewer_status == SignalViewerStatus::io_error
+                    ? "{\"error\":{\"code\":\"viewer_io_unavailable\",\"message\":\"Signal data is temporarily unavailable.\"}}\n"
+                    : "{\"error\":{\"code\":\"viewer_source_invalid\",\"message\":\"The retained signal source is invalid.\"}}\n"
+            );
+            response.internal_error = error;
+            return response;
         }
         if (action == "detection-templates.zip") {
             if (method != "GET") {

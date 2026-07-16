@@ -2,6 +2,7 @@
 
 #include "syn_sig_ra/random_id.h"
 #include "syn_sig_ra/sha256.h"
+#include "syn_sig_ra/signal_viewer.h"
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -239,6 +240,16 @@ bool store_immutable_package(
         return false;
     }
     manifest_hash = "sha256:" + manifest_hash;
+    const SignalViewerStatus viewer_status = prepare_signal_viewer_source(
+        extracted_directory,
+        package_directory + "/viewer",
+        error
+    );
+    if (viewer_status != SignalViewerStatus::ok &&
+        viewer_status != SignalViewerStatus::not_found) {
+        return false;
+    }
+    if (viewer_status == SignalViewerStatus::not_found) error.clear();
     if (!run_zip(
             extracted_directory,
             package_directory + "/package.zip",

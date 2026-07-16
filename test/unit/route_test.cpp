@@ -96,7 +96,11 @@ int main() {
             openapi.cache_control == "public, max-age=300" &&
             openapi.body.find("openapi: 3.0.3") != std::string::npos &&
             openapi.body.find("/v1/authoring/schema:") != std::string::npos &&
-            openapi.body.find("/v1/jobs:") != std::string::npos,
+            openapi.body.find("/v1/jobs:") != std::string::npos &&
+            openapi.body.find("/v1/jobs/{job_id}/viewer/window:") !=
+                std::string::npos &&
+            openapi.body.find("application/vnd.synsigra.signal-window.v1") !=
+                std::string::npos,
         "live OpenAPI route should expose the complete embedded API contract"
     );
     require(
@@ -155,6 +159,7 @@ int main() {
             ui.body.find("/syn_sig_ra/docs/api") != std::string::npos &&
             ui.body.find("No PHI") != std::string::npos &&
             ui.body.find("Evidence path") != std::string::npos &&
+            ui.body.find("/syn_sig_ra/viewer") != std::string::npos &&
             ui.body.find("SynSigRa") == std::string::npos &&
             ui.body.find("Sinsigra") == std::string::npos,
         "web UI route should return HTML"
@@ -212,7 +217,9 @@ int main() {
             docs_api.body.find("/v1/downloads/verifier") != std::string::npos &&
             docs_api.body.find("/v1/authoring/preview") != std::string::npos &&
             docs_api.body.find("detection-templates.zip") != std::string::npos &&
-            docs_api.body.find("verification-kit.zip") != std::string::npos,
+            docs_api.body.find("verification-kit.zip") != std::string::npos &&
+            docs_api.body.find("/v1/jobs/{job_id}/viewer/window") !=
+                std::string::npos,
         "rendered API docs should be served"
     );
     const syn_sig_ra::RouteResponse docs_quickstart =
@@ -286,6 +293,35 @@ int main() {
             ui_css.body.find(".product-bar") != std::string::npos &&
             ui_css.body.find("#07111f") != std::string::npos,
         "web UI stylesheet should expose the landing-aligned application shell"
+    );
+    const syn_sig_ra::RouteResponse viewer_page =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/viewer");
+    const syn_sig_ra::RouteResponse viewer_library =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/viewer/signal-viewer.js");
+    const syn_sig_ra::RouteResponse viewer_app =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/viewer/app.js");
+    const syn_sig_ra::RouteResponse viewer_css =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/viewer/style.css");
+    require(
+        viewer_page.status == 200 &&
+            viewer_page.cache_control == "no-store" &&
+            viewer_page.body.find("Synsigra Lab") != std::string::npos &&
+            viewer_page.body.find("__SYNSIGRA_BASE__") == std::string::npos &&
+            viewer_page.body.find("/syn_sig_ra/viewer/app.js") != std::string::npos &&
+            viewer_library.status == 200 &&
+            viewer_library.body.find("HttpSignalDataSource") != std::string::npos &&
+            viewer_library.body.find("decodeSignalWindow") != std::string::npos &&
+            viewer_library.body.find("options.describePath") != std::string::npos &&
+            viewer_library.body.find("options.windowPath") != std::string::npos &&
+            viewer_app.status == 200 &&
+            viewer_app.body.find("AbortController") != std::string::npos &&
+            viewer_css.status == 200 &&
+            viewer_css.body.find(".amplitude-controls") != std::string::npos,
+        "signal viewer routes should serve the portable viewer and SaaS adapter"
+    );
+    require(
+        syn_sig_ra::route_request("POST", "/syn_sig_ra/viewer").status == 405,
+        "signal viewer assets should be read-only"
     );
     const syn_sig_ra::RouteResponse ui_trailing_slash =
         syn_sig_ra::route_request("GET", "/syn_sig_ra/");

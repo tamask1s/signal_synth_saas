@@ -94,6 +94,16 @@ configure_file(
     @ONLY
 )
 
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/web/viewer/index.html" SYN_SIG_RA_VIEWER_HTML)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/web/viewer/style.css" SYN_SIG_RA_VIEWER_CSS)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/web/viewer/signal-viewer.js" SYN_SIG_RA_SIGNAL_VIEWER_JS)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/web/viewer/app.js" SYN_SIG_RA_VIEWER_APP_JS)
+configure_file(
+    include/syn_sig_ra/viewer_assets.h.in
+    generated/syn_sig_ra/viewer_assets.h
+    @ONLY
+)
+
 set(SIGNAL_SYNTH_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(SIGNAL_SYNTH_BUILD_CLI OFF CACHE BOOL "" FORCE)
 set(SIGNAL_SYNTH_INSTALL OFF CACHE BOOL "" FORCE)
@@ -115,6 +125,7 @@ add_library(syn_sig_ra_core STATIC
     src/job/job_request.cpp
     src/job/random_id.cpp
     src/storage/metadata_store.cpp
+    src/viewer/signal_viewer.cpp
     src/worker/worker.cpp
     src/api/route.cpp
 )
@@ -237,12 +248,18 @@ if(BUILD_TESTING)
     )
     target_link_libraries(syn_sig_ra_worker_test PRIVATE syn_sig_ra_core)
 
+    add_executable(syn_sig_ra_signal_viewer_test
+        test/unit/signal_viewer_test.cpp
+    )
+    target_link_libraries(syn_sig_ra_signal_viewer_test PRIVATE syn_sig_ra_core)
+
     add_test(NAME route_unit COMMAND syn_sig_ra_route_test)
     add_test(NAME runtime_config_unit COMMAND syn_sig_ra_config_test)
     add_test(NAME api_key_auth_unit COMMAND syn_sig_ra_auth_test)
     add_test(NAME pack_catalog_unit COMMAND syn_sig_ra_pack_catalog_test)
     add_test(NAME job_unit COMMAND syn_sig_ra_job_test)
     add_test(NAME worker_unit COMMAND syn_sig_ra_worker_test)
+    add_test(NAME signal_viewer_unit COMMAND syn_sig_ra_signal_viewer_test)
     add_test(
         NAME user_facing_brand
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/test/user_facing_brand_test.sh"

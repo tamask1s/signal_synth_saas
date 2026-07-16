@@ -42,7 +42,7 @@ if grep -RInE "$legacy_pattern" "$tmp_dir" --exclude='*.png'; then
 fi
 
 landing="$tmp_dir/synsigra_main_landing_package/main/index.html"
-grep -q "0.01 seconds to 24 hours" "$landing" ||
+grep -Eq "0\.01 (seconds|s).*(24 hours|24 h)" "$landing" ||
     { echo "landing capability range is missing" >&2; failed=1; }
 if grep -qiE "new front door|landing page is|page intentionally presents" "$landing"; then
     echo "internal landing-page copy found in customer-facing content" >&2
