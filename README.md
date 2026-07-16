@@ -263,13 +263,24 @@ action or from **Lab**. The viewer supports:
 - keyboard left/right pan and `+`/`−` time zoom on the focused canvas;
 - physical-unit labels derived from WFDB gain, zero, and unit metadata.
 
+Stacked lanes do not clamp a channel at its lane boundary. Increasing vertical
+scale may deliberately let a waveform overlap a neighboring lane, preserving
+the real amplitude instead of flattening or cropping it. At wide time scales,
+the renderer joins the exact per-bucket minima and maxima into a continuous,
+lightly filled envelope. It does not invent an averaged center waveform; the
+envelope boundaries and vertical ranges come directly from the retained extrema.
+
 The page does not fetch a complete signal. It requests only the selected
 channels and visible time span as a bounded binary response. Close zoom reads
 raw samples; wide zoom uses exact minimum/maximum buckets from a power-of-two
 pyramid prepared when the job completes. Therefore response memory and transfer
 size depend on canvas width and selected channels, not on whether the source is
 megabytes or gigabytes. Obsolete viewport requests are cancelled while panning.
-Amplitude-only changes redraw locally and make no API request.
+Amplitude-only changes redraw locally and make no API request. Each successful
+read prefetches roughly one viewport on either side. Pan, slider, and time-zoom
+interactions redraw that cache immediately; an uncached or higher-resolution
+read is issued after 140 ms without another interaction. This avoids flooding
+Apache during wheel/drag bursts while still refining the stopped viewport.
 
 The reusable browser component lives under `web/viewer/`: `signal-viewer.js`
 contains the HTTP data-source contract, binary decoder, and canvas renderer;

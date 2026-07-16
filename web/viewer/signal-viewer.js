@@ -129,6 +129,8 @@
       this.amplitudeScale = 1;
       this.caseMetadata = null;
       this.window = null;
+      this.viewportStart = 0;
+      this.viewportCount = 1;
       this.onResize = options && options.onResize;
       this.resizeQueued = false;
       this.resizeObserver = 'ResizeObserver' in global
@@ -170,11 +172,20 @@
     setCase(metadata) {
       this.caseMetadata = metadata;
       this.window = null;
+      this.viewportStart = 0;
+      this.viewportCount = metadata ? metadata.sample_count : 1;
       this.draw();
     }
 
     setWindow(windowData) {
       this.window = windowData;
+      this.draw();
+    }
+
+    setViewport(startSample, sampleCount) {
+      if (!Number.isFinite(startSample) || !Number.isFinite(sampleCount) || sampleCount <= 0) return;
+      this.viewportStart = startSample;
+      this.viewportCount = sampleCount;
       this.draw();
     }
 
@@ -192,9 +203,26 @@
       return (digital - channel.adc_zero) / channel.gain;
     }
 
+    visibleBucketRange(values) {
+      const bucketSize = this.window.samplesPerBucket;
+      const first = Math.max(
+        0,
+        Math.floor((this.viewportStart - this.window.dataStart) / bucketSize) - 1
+      );
+      const past = Math.min(
+        values.minimum.length,
+        Math.ceil(
+          (this.viewportStart + this.viewportCount - this.window.dataStart) /
+          bucketSize
+        ) + 1
+      );
+      return { first, past: Math.max(first, past) };
+    }
+
     channelRange(channel, values) {
       let maximum = 0;
-      for (let bucket = 0; bucket < values.minimum.length; bucket += 1) {
+      const visible = this.visibleBucketRange(values);
+      for (let bucket = visible.first; bucket < visible.past; bucket += 1) {
         maximum = Math.max(
           maximum,
           Math.abs(this.physical(channel, values.minimum[bucket])),
@@ -220,7 +248,7 @@
         ctx.moveTo(x, plot.top);
         ctx.lineTo(x, plot.top + plot.height);
         ctx.stroke();
-        const sample = windowData.requestedStart + windowData.requestedCount * ratio;
+        const sample = this.viewportStart + this.viewportCount * ratio;
         ctx.fillText(niceDuration(sample / windowData.sampleRateHz), x, plot.top + plot.height + 8);
       }
       ctx.restore();
@@ -229,13 +257,14 @@
     drawChannel(ctx, values, channel, color, plot, centerY, halfHeight, overlay) {
       const windowData = this.window;
       const range = this.channelRange(channel, values);
+      const visible = this.visibleBucketRange(values);
       const pixelsPerUnit = halfHeight * 0.82 / range * this.amplitudeScale;
       const xFor = (bucket) => {
         const sample = windowData.dataStart +
           (bucket + 0.5) * windowData.samplesPerBucket;
         return plot.left +
-          (sample - windowData.requestedStart) /
-          windowData.requestedCount * plot.width;
+          (sample - this.viewportStart) /
+          this.viewportCount * plot.width;
       };
       const yFor = (digital) => centerY -
         this.physical(channel, digital) * pixelsPerUnit;
@@ -253,28 +282,50 @@
 
       ctx.strokeStyle = color;
       ctx.globalAlpha = overlay ? 0.84 : 0.96;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
       if (windowData.samplesPerBucket === 1) {
         ctx.lineWidth = 1.3;
         ctx.beginPath();
-        for (let bucket = 0; bucket < windowData.bucketCount; bucket += 1) {
+        for (let bucket = visible.first; bucket < visible.past; bucket += 1) {
           const value = (values.minimum[bucket] + values.maximum[bucket]) / 2;
           const x = xFor(bucket);
-          const y = Math.max(centerY - halfHeight, Math.min(centerY + halfHeight, yFor(value)));
-          if (bucket === 0) ctx.moveTo(x, y);
+          const y = yFor(value);
+          if (bucket === visible.first) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
         ctx.stroke();
       } else {
-        ctx.lineWidth = Math.max(1, Math.min(2, plot.width / windowData.bucketCount * 0.7));
+        const upperY = (bucket) => yFor(values.maximum[bucket]);
+        const lowerY = (bucket) => yFor(values.minimum[bucket]);
+        ctx.fillStyle = color;
+        ctx.globalAlpha = overlay ? 0.08 : 0.12;
         ctx.beginPath();
-        for (let bucket = 0; bucket < windowData.bucketCount; bucket += 1) {
+        for (let bucket = visible.first; bucket < visible.past; bucket += 1) {
           const x = xFor(bucket);
-          const low = Math.max(centerY - halfHeight, Math.min(centerY + halfHeight, yFor(values.maximum[bucket])));
-          const high = Math.max(centerY - halfHeight, Math.min(centerY + halfHeight, yFor(values.minimum[bucket])));
-          ctx.moveTo(x, low);
-          ctx.lineTo(x, high);
+          const y = upperY(bucket);
+          if (bucket === visible.first) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
         }
-        ctx.stroke();
+        for (let bucket = visible.past - 1; bucket >= visible.first; bucket -= 1) {
+          ctx.lineTo(xFor(bucket), lowerY(bucket));
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = overlay ? 0.68 : 0.9;
+        ctx.lineWidth = 1.15;
+        [upperY, lowerY].forEach((edgeY) => {
+          ctx.beginPath();
+          for (let bucket = visible.first; bucket < visible.past; bucket += 1) {
+            const x = xFor(bucket);
+            const y = edgeY(bucket);
+            if (bucket === visible.first) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        });
       }
       ctx.restore();
       return range;

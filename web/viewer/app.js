@@ -28,6 +28,7 @@
     spanSamples: 0,
     amplitudeScale: 1,
     layout: 'stacked',
+    cachedWindow: null,
     requestController: null,
     requestSerial: 0,
     requestTimer: null,
@@ -92,6 +93,7 @@
     const end = (state.startSample + state.spanSamples) / rate;
     const total = state.caseMetadata.sample_count / rate;
     elements.position.textContent = `${library.niceDuration(start)} — ${library.niceDuration(end)} of ${library.niceDuration(total)}`;
+    renderer.setViewport(state.startSample, state.spanSamples);
   }
 
   function renderChannels() {
@@ -111,6 +113,7 @@
 
   function applyCase(caseMetadata, preserveWindow) {
     state.caseMetadata = caseMetadata;
+    state.cachedWindow = null;
     state.selectedChannels = caseMetadata.channels.map((channel) => channel.index);
     const initialSpan = Math.min(
       caseMetadata.sample_count,
@@ -142,6 +145,7 @@
     state.jobId = elements.job.value;
     state.description = null;
     state.caseMetadata = null;
+    state.cachedWindow = null;
     elements.case.disabled = true;
     elements.case.innerHTML = '<option>Loading signal cases…</option>';
     elements.channelFieldset.disabled = true;
@@ -230,9 +234,53 @@
     }
   }
 
-  async function loadWindow() {
+  function selectedChannelIndices(windowData) {
+    return windowData ? windowData.channels.map((channel) => channel.index) : [];
+  }
+
+  function sameChannels(left, right) {
+    return left.length === right.length &&
+      left.every((value, index) => value === right[index]);
+  }
+
+  function expectedBucketSize(span, points) {
+    const desired = Math.max(1, Math.ceil(span / Math.max(1, points)));
+    if (desired < 64) return desired;
+    let power = 64;
+    while (power < desired) power *= 2;
+    return power;
+  }
+
+  function cacheSatisfiesViewport() {
+    const cached = state.cachedWindow;
+    if (!cached ||
+        !sameChannels(selectedChannelIndices(cached), state.selectedChannels)) return false;
+    const visibleEnd = state.startSample + state.spanSamples;
+    const cachedEnd = cached.requestedStart + cached.requestedCount;
+    if (state.startSample < cached.requestedStart || visibleEnd > cachedEnd) return false;
+    return cached.samplesPerBucket <= expectedBucketSize(
+      state.spanSamples, renderer.targetPoints()
+    );
+  }
+
+  function prefetchedRequest() {
+    const total = state.caseMetadata.sample_count;
+    const sampleCount = Math.min(total, Math.max(16, state.spanSamples * 3));
+    const startSample = Math.max(
+      0,
+      Math.min(total - sampleCount, state.startSample - state.spanSamples)
+    );
+    return {
+      startSample: Math.round(startSample),
+      sampleCount: Math.round(sampleCount),
+      points: Math.min(16384, renderer.targetPoints() * 3)
+    };
+  }
+
+  async function loadWindow(forceNetwork) {
     window.clearTimeout(state.requestTimer);
     if (!state.caseMetadata || !state.selectedChannels.length) {
+      state.cachedWindow = null;
       renderer.setWindow(null);
       elements.empty.hidden = false;
       elements.empty.querySelector('strong').textContent = 'Select at least one channel';
@@ -240,26 +288,35 @@
       setStatus('No channels selected', '');
       return;
     }
+    if (!forceNetwork && cacheSatisfiesViewport()) {
+      renderer.setViewport(state.startSample, state.spanSamples);
+      setStatus('Viewport ready · cached', 'ok');
+      return;
+    }
     if (state.requestController) state.requestController.abort();
-    state.requestController = new AbortController();
+    const controller = new AbortController();
+    state.requestController = controller;
     const serial = ++state.requestSerial;
     setStatus('Loading viewport', 'loading');
     try {
+      const request = prefetchedRequest();
       const data = await dataSource.readWindow(state.jobId, {
         caseId: state.caseMetadata.case_id,
-        startSample: state.startSample,
-        sampleCount: state.spanSamples,
-        points: renderer.targetPoints(),
+        startSample: request.startSample,
+        sampleCount: request.sampleCount,
+        points: request.points,
         channels: state.selectedChannels
-      }, state.requestController.signal);
+      }, controller.signal);
       if (serial !== state.requestSerial) return;
+      state.cachedWindow = data;
       renderer.setWindow(data);
+      renderer.setViewport(state.startSample, state.spanSamples);
       elements.empty.hidden = true;
       const mode = data.samplesPerBucket === 1
         ? 'raw samples'
-        : `${data.samplesPerBucket.toLocaleString()} samples/bucket`;
-      elements.detail.textContent = `${data.bucketCount.toLocaleString()} buckets · ${data.channels.length} channels · ${mode} · ${formatBytes(data.byteLength)} transferred`;
-      setStatus('Viewport ready', 'ok');
+        : `exact min/max envelope · ${data.samplesPerBucket.toLocaleString()} samples/bucket`;
+      elements.detail.textContent = `${data.bucketCount.toLocaleString()} cached buckets · ${data.channels.length} channels · ${mode} · ${formatBytes(data.byteLength)} transferred`;
+      setStatus('Viewport ready · prefetched', 'ok');
     } catch (error) {
       if (error.name === 'AbortError') return;
       if (serial !== state.requestSerial) return;
@@ -267,12 +324,22 @@
       elements.empty.querySelector('strong').textContent = 'Could not load viewport';
       elements.empty.querySelector('span').textContent = error.message;
       setStatus(error.message, 'error');
+    } finally {
+      if (state.requestController === controller) state.requestController = null;
     }
   }
 
-  function scheduleWindow(immediate) {
+  function scheduleWindow(immediate, forceNetwork) {
     window.clearTimeout(state.requestTimer);
-    state.requestTimer = window.setTimeout(loadWindow, immediate ? 0 : 70);
+    if (state.requestController) {
+      state.requestController.abort();
+      state.requestController = null;
+      state.requestSerial += 1;
+    }
+    state.requestTimer = window.setTimeout(
+      () => loadWindow(Boolean(forceNetwork)),
+      immediate ? 0 : 140
+    );
   }
 
   function setTimeWindow(span, anchorRatio) {
@@ -283,7 +350,7 @@
     state.spanSamples = Math.max(16, Math.min(state.caseMetadata.sample_count, Math.round(span)));
     state.startSample = clampStart(anchor - state.spanSamples * ratio);
     updatePositionControls();
-    scheduleWindow(true);
+    scheduleWindow(false);
   }
 
   function panBy(samples) {

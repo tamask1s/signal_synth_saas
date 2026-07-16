@@ -313,8 +313,14 @@ int main() {
             viewer_library.body.find("decodeSignalWindow") != std::string::npos &&
             viewer_library.body.find("options.describePath") != std::string::npos &&
             viewer_library.body.find("options.windowPath") != std::string::npos &&
+            viewer_library.body.find("visibleBucketRange") != std::string::npos &&
+            viewer_library.body.find("Math.max(centerY - halfHeight") ==
+                std::string::npos &&
             viewer_app.status == 200 &&
             viewer_app.body.find("AbortController") != std::string::npos &&
+            viewer_app.body.find("cacheSatisfiesViewport") != std::string::npos &&
+            viewer_app.body.find("prefetchedRequest") != std::string::npos &&
+            viewer_app.body.find("immediate ? 0 : 140") != std::string::npos &&
             viewer_css.status == 200 &&
             viewer_css.body.find(".amplitude-controls") != std::string::npos,
         "signal viewer routes should serve the portable viewer and SaaS adapter"

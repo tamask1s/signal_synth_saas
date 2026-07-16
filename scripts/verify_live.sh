@@ -23,7 +23,10 @@ case "$viewer_html" in
   *) echo "signal viewer page is missing" >&2; exit 1 ;;
 esac
 viewer_js=$(curl -fsS "$base/viewer/signal-viewer.js")
-case "$viewer_js" in *decodeSignalWindow*) ;; *) exit 1 ;; esac
+case "$viewer_js" in *decodeSignalWindow*visibleBucketRange*) ;; *) exit 1 ;; esac
+case "$viewer_js" in *"Math.max(centerY - halfHeight"*) exit 1 ;; *) ;; esac
+viewer_app=$(curl -fsS "$base/viewer/app.js")
+case "$viewer_app" in *cacheSatisfiesViewport*prefetchedRequest*) ;; *) exit 1 ;; esac
 openapi=$(curl -fsS "$base/openapi.yaml")
 case "$openapi" in *"/v1/jobs/{job_id}/viewer/window:"*) ;; *) exit 1 ;; esac
 viewer_auth_status=$(curl -sS -o /dev/null -w '%{http_code}' \
@@ -44,9 +47,11 @@ if [ -n "$viewer_job" ]; then
   viewer_case=$1
   viewer_count=$2
   viewer_window=$(mktemp /tmp/synsigra-viewer-verify.XXXXXX)
-  curl -fsS -H "Authorization: Bearer $key" \
+  viewer_timing=$(curl -fsS -H "Authorization: Bearer $key" \
     "$base/v1/jobs/$viewer_job/viewer/window?case_id=$viewer_case&start_sample=0&sample_count=$viewer_count&points=1024&channels=0" \
-    -o "$viewer_window"
+    -o "$viewer_window" \
+    -w 'connect=%{time_connect}s ttfb=%{time_starttransfer}s total=%{time_total}s bytes=%{size_download}')
+  printf 'viewer_window_%s\n' "$viewer_timing"
   python3 -c \
     'import pathlib,sys; data=pathlib.Path(sys.argv[1]).read_bytes(); assert len(data)>=84 and data[:8]==b"SYNSIGV1"' \
     "$viewer_window"
