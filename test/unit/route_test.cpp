@@ -99,6 +99,8 @@ int main() {
             openapi.body.find("/v1/jobs:") != std::string::npos &&
             openapi.body.find("/v1/jobs/{job_id}/viewer/window:") !=
                 std::string::npos &&
+            openapi.body.find("/v1/jobs/{job_id}/viewer/overlays:") !=
+                std::string::npos &&
             openapi.body.find("application/vnd.synsigra.signal-window.v1") !=
                 std::string::npos,
         "live OpenAPI route should expose the complete embedded API contract"
@@ -219,6 +221,8 @@ int main() {
             docs_api.body.find("detection-templates.zip") != std::string::npos &&
             docs_api.body.find("verification-kit.zip") != std::string::npos &&
             docs_api.body.find("/v1/jobs/{job_id}/viewer/window") !=
+                std::string::npos &&
+            docs_api.body.find("/v1/jobs/{job_id}/viewer/overlays") !=
                 std::string::npos,
         "rendered API docs should be served"
     );
@@ -306,6 +310,8 @@ int main() {
         viewer_page.status == 200 &&
             viewer_page.cache_control == "no-store" &&
             viewer_page.body.find("Synsigra Lab") != std::string::npos &&
+            viewer_page.body.find("Ground truth overlays") != std::string::npos &&
+            viewer_page.body.find("Local algorithm output") != std::string::npos &&
             viewer_page.body.find("__SYNSIGRA_BASE__") == std::string::npos &&
             viewer_page.body.find("/syn_sig_ra/viewer/app.js") != std::string::npos &&
             viewer_library.status == 200 &&
@@ -313,12 +319,15 @@ int main() {
             viewer_library.body.find("decodeSignalWindow") != std::string::npos &&
             viewer_library.body.find("options.describePath") != std::string::npos &&
             viewer_library.body.find("options.windowPath") != std::string::npos &&
+            viewer_library.body.find("options.overlayPath") != std::string::npos &&
+            viewer_library.body.find("SignalWindowCache") != std::string::npos &&
             viewer_library.body.find("visibleBucketRange") != std::string::npos &&
             viewer_library.body.find("Math.max(centerY - halfHeight") ==
                 std::string::npos &&
             viewer_app.status == 200 &&
             viewer_app.body.find("AbortController") != std::string::npos &&
-            viewer_app.body.find("cacheSatisfiesViewport") != std::string::npos &&
+            viewer_app.body.find("client cache") != std::string::npos &&
+            viewer_app.body.find("file was not uploaded") != std::string::npos &&
             viewer_app.body.find("prefetchedRequest") != std::string::npos &&
             viewer_app.body.find("immediate ? 0 : 140") != std::string::npos &&
             viewer_css.status == 200 &&

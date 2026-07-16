@@ -117,6 +117,26 @@ int main() {
         }
         require(data.good(), "WFDB data fixture should be written");
     }
+    {
+        std::ofstream annotations((source_case + "/annotations.json").c_str());
+        annotations << "{\"schema_version\":1,"
+                    << "\"generation_fingerprint\":18111945606117766722,"
+                    << "\"beats\":["
+                    << "{\"r_peak_seconds\":2.0,\"beat_class\":\"normal\"},"
+                    << "{\"r_peak_seconds\":246.912,\"beat_class\":\"pvc\"}],"
+                    << "\"ppg_fiducials\":[{\"kind\":\"systolic_peak\","
+                    << "\"source\":\"measurement\",\"sample_index\":1100,"
+                    << "\"time_seconds\":2.2}],"
+                    << "\"episodes\":[{\"kind\":\"psvt\",\"present\":true,"
+                    << "\"start_sample_index\":120000,\"end_sample_index\":130000}],"
+                    << "\"artifact_intervals\":[{\"type\":\"ppg_motion_burst\","
+                    << "\"start_sample_index\":122000,\"end_sample_index\":124000,"
+                    << "\"severity\":0.8,\"channels\":[\"ppg_green\"]}],"
+                    << "\"ppg_pulses\":[{\"low_perfusion\":true,"
+                    << "\"expected_peak_time_seconds\":247.0,"
+                    << "\"intentionally_missing\":false}]}";
+        require(annotations.good(), "annotation fixture should be written");
+    }
 
     std::string error;
     require(
@@ -189,6 +209,56 @@ int main() {
         }
     }
     require(found_spike, "pyramid viewport should preserve extrema");
+
+    syn_sig_ra::SignalViewerOverlayRequest overlay_request;
+    overlay_request.case_id = "large_case";
+    overlay_request.start_sample = 121000u;
+    overlay_request.sample_count = 4000u;
+    overlay_request.max_items = 20u;
+    syn_sig_ra::SignalViewerOverlayWindow overlays;
+    require(
+        syn_sig_ra::read_signal_viewer_overlays(
+            viewer, overlay_request, overlays, error) ==
+                syn_sig_ra::SignalViewerStatus::ok &&
+            overlays.source_sample_count == sample_count &&
+            overlays.available_kinds.size() >= 6u &&
+            overlays.total_matching_items >= 4u,
+        "ground-truth overlay window should be indexed: " + error
+    );
+    bool found_artifact = false;
+    bool found_episode = false;
+    bool found_class = false;
+    for (std::vector<syn_sig_ra::SignalViewerOverlayItem>::const_iterator item =
+             overlays.items.begin(); item != overlays.items.end(); ++item) {
+        found_artifact = found_artifact ||
+            (item->kind == "artifact" && item->interval &&
+             item->label == "ppg_motion_burst" && item->has_value);
+        found_episode = found_episode ||
+            (item->kind == "episode" && item->interval && item->label == "psvt");
+        found_class = found_class ||
+            (item->kind == "beat_class" && item->label == "pvc");
+    }
+    require(
+        found_artifact && found_episode && found_class,
+        "overlay window should preserve interval and event semantics"
+    );
+
+    overlay_request.start_sample = 0u;
+    overlay_request.sample_count = sample_count;
+    overlay_request.max_items = 6u;
+    require(
+        syn_sig_ra::read_signal_viewer_overlays(
+            viewer, overlay_request, overlays, error) ==
+                syn_sig_ra::SignalViewerStatus::ok &&
+            overlays.aggregated && overlays.items.size() <= 6u,
+        "dense overlay responses should remain bounded: " + error
+    );
+    bool found_cluster = false;
+    for (std::vector<syn_sig_ra::SignalViewerOverlayItem>::const_iterator item =
+             overlays.items.begin(); item != overlays.items.end(); ++item) {
+        if (item->count > 1u) found_cluster = true;
+    }
+    require(found_cluster, "dense point overlays should expose cluster counts");
 
     syn_sig_ra::SignalViewerWindowRequest full_request;
     full_request.case_id = "large_case";

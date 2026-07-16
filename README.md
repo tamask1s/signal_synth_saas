@@ -261,7 +261,13 @@ action or from **Lab**. The viewer supports:
 - horizontal `+`/`−` time zoom, plus Ctrl/⌘ + wheel zoom around the pointer;
 - vertical `+`/`−` amplitude zoom and **Fit amplitude**;
 - keyboard left/right pan and `+`/`−` time zoom on the focused canvas;
-- physical-unit labels derived from WFDB gain, zero, and unit metadata.
+- physical-unit labels derived from WFDB gain, zero, and unit metadata;
+- switchable ground-truth R-peak, ECG beat-class, PPG onset/peak,
+  artifact, episode, low-perfusion, and expected-missing-pulse overlays;
+- click-to-inspect sample/time, channel values or min/max buckets, and nearby
+  annotations;
+- local-only CSV v2 or JSON v1 detector overlays. The browser File API parses
+  these files and does not upload them to Synsigra.
 
 Stacked lanes do not clamp a channel at its lane boundary. Increasing vertical
 scale may deliberately let a waveform overlap a neighboring lane, preserving
@@ -281,6 +287,17 @@ read prefetches roughly one viewport on either side. Pan, slider, and time-zoom
 interactions redraw that cache immediately; an uncached or higher-resolution
 read is issued after 140 ms without another interaction. This avoids flooding
 Apache during wheel/drag bursts while still refining the stopped viewport.
+Multiple prefetched viewports and zoom levels remain in a client-side LRU
+cache, so returning to a covered range at a sufficient resolution does not
+request it again. The waveform and overlay payload budgets are 28 MiB and
+4 MiB respectively (32 MiB total); least-recently-used segments are evicted at
+the limit. A higher-resolution zoom is intentionally a different cache entry.
+
+Authoritative overlay data is prepared from each case's generator-produced
+`annotations.json` into a read-only, sample-range-indexed SQLite file next to
+the waveform pyramid. The API reads only the intersecting range. Very dense
+point events are clustered to a bounded response while semantic intervals stay
+explicit, so whole-record views do not load the complete annotation document.
 
 The reusable browser component lives under `web/viewer/`: `signal-viewer.js`
 contains the HTTP data-source contract, binary decoder, and canvas renderer;
@@ -288,7 +305,7 @@ contains the HTTP data-source contract, binary decoder, and canvas renderer;
 can serve the same prepared filesystem source without copying account or job
 code. `HttpSignalDataSource` accepts custom `describePath` and `windowPath`
 functions, so a local server does not need to imitate SaaS job URLs; it only
-needs to return the same metadata and binary-window contracts.
+needs to return the same metadata, binary-window, and overlay contracts.
 
 ### Service status
 
@@ -598,6 +615,7 @@ Authorization: Bearer <api-key>
 | `POST` | `/v1/jobs/{id}/rebuild` | Queue exact-version rebuild for expired artifact | Developer+ |
 | `GET` | `/v1/jobs/{id}/viewer` | Viewable case/channel metadata | Organization |
 | `GET` | `/v1/jobs/{id}/viewer/window` | Bounded binary signal viewport | Organization |
+| `GET` | `/v1/jobs/{id}/viewer/overlays` | Bounded ground-truth events and intervals | Organization |
 | `GET` | `/v1/jobs/{id}/detection-templates.zip` | Download detector-output templates | Organization |
 | `GET` | `/v1/jobs/{id}/verification-kit.zip` | Download one flat kit with challenge files and verification helpers | Organization |
 | `GET` | `/v1/artifacts/{package_id}/manifest.json` | Download manifest | Organization |
@@ -629,6 +647,10 @@ curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
 curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
   "$BASE/v1/jobs/$JOB_ID/viewer/window?case_id=clean_70&start_sample=0&sample_count=5000&points=1600&channels=0" \
   -o viewport.synsigv1
+
+curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
+  "$BASE/v1/jobs/$JOB_ID/viewer/overlays?case_id=clean_70&start_sample=0&sample_count=5000&max_items=4000" \
+  -o overlays.json
 ```
 
 The v1 binary response starts with an 80-byte little-endian header: 8-byte

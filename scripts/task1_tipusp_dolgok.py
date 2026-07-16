@@ -17,6 +17,7 @@ COMMANDS = {
     "live-verify": [["scripts/verify_live.sh"]],
     "viewer-backfill-dry-run": [["scripts/backfill_viewer_sources.sh", "--dry-run"]],
     "viewer-backfill-apply": [["scripts/backfill_viewer_sources.sh", "--apply"]],
+    "viewer-live-verify": [["scripts/verify_viewer_live.sh"]],
     "mail-status": [["scripts/mail/verify_local_mta.sh"]],
 }
 

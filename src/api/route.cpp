@@ -1204,6 +1204,58 @@ std::string signal_viewer_source_json(
     return output;
 }
 
+std::string signal_viewer_overlay_json(
+    const syn_sig_ra::SignalViewerOverlayWindow& window
+) {
+    json_t* root = json_object();
+    json_object_set_new(root, "schema_version", json_integer(1));
+    json_object_set_new(
+        root, "requested_start_sample",
+        json_integer(static_cast<json_int_t>(window.requested_start_sample)));
+    json_object_set_new(
+        root, "requested_sample_count",
+        json_integer(static_cast<json_int_t>(window.requested_sample_count)));
+    json_object_set_new(
+        root, "source_sample_count",
+        json_integer(static_cast<json_int_t>(window.source_sample_count)));
+    json_object_set_new(root, "sample_rate_hz", json_real(window.sample_rate_hz));
+    json_object_set_new(
+        root, "total_matching_items",
+        json_integer(static_cast<json_int_t>(window.total_matching_items)));
+    json_object_set_new(root, "aggregated", json_boolean(window.aggregated));
+    json_t* kinds = json_array();
+    for (std::vector<std::string>::const_iterator kind =
+             window.available_kinds.begin(); kind != window.available_kinds.end(); ++kind) {
+        json_array_append_new(kinds, json_string(kind->c_str()));
+    }
+    json_object_set_new(root, "available_kinds", kinds);
+    json_t* items = json_array();
+    for (std::vector<syn_sig_ra::SignalViewerOverlayItem>::const_iterator item =
+             window.items.begin(); item != window.items.end(); ++item) {
+        json_t* encoded = json_object();
+        json_object_set_new(encoded, "kind", json_string(item->kind.c_str()));
+        json_object_set_new(encoded, "source", json_string(item->source.c_str()));
+        json_object_set_new(encoded, "label", json_string(item->label.c_str()));
+        json_object_set_new(encoded, "channel", json_string(item->channel.c_str()));
+        json_object_set_new(
+            encoded, "start_sample",
+            json_integer(static_cast<json_int_t>(item->start_sample)));
+        json_object_set_new(
+            encoded, "end_sample",
+            json_integer(static_cast<json_int_t>(item->end_sample)));
+        json_object_set_new(encoded, "interval", json_boolean(item->interval));
+        if (item->has_value) {
+            json_object_set_new(encoded, "value", json_real(item->value));
+        }
+        json_object_set_new(encoded, "count", json_integer(item->count));
+        json_array_append_new(items, encoded);
+    }
+    json_object_set_new(root, "items", items);
+    const std::string output = json_dump_line(root);
+    json_decref(root);
+    return output;
+}
+
 json_t* project_json_object(const syn_sig_ra::ProjectRecord& project) {
     json_t* root = json_object();
     json_object_set_new(
@@ -2181,6 +2233,7 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>POST</td><td><code>/v1/jobs/{job_id}/retry</code></td><td>Retry failed/cancelled job</td><td>Developer+</td></tr>
           <tr><td>GET</td><td><code>/v1/jobs/{job_id}/viewer</code></td><td>Describe viewable signal cases and channels</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/jobs/{job_id}/viewer/window</code></td><td>Read selected channels for one bounded binary viewport</td><td>Organization</td></tr>
+          <tr><td>GET</td><td><code>/v1/jobs/{job_id}/viewer/overlays</code></td><td>Read bounded ground-truth events and intervals for one viewport</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/jobs/{job_id}/detection-templates.zip</code></td><td>Detector-output templates for completed curated jobs</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/jobs/{job_id}/verification-kit.zip</code></td><td>One flat package directory with README, manifest, data, and templates</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/artifacts/{package_id}/manifest.json</code></td><td>Download manifest</td><td>Organization</td></tr>
@@ -8392,7 +8445,8 @@ RouteResponse route_request(
                 "\"message\":\"The job ID is invalid.\"}}\n"
                 );
         }
-        if (action == "viewer" || action == "viewer/window") {
+        if (action == "viewer" || action == "viewer/window" ||
+            action == "viewer/overlays") {
             if (method != "GET") {
                 return json_response(
                     405,
@@ -8483,6 +8537,63 @@ RouteResponse route_request(
                     viewer_status == SignalViewerStatus::io_error
                         ? "{\"error\":{\"code\":\"viewer_io_unavailable\",\"message\":\"Signal data is temporarily unavailable.\"}}\n"
                         : "{\"error\":{\"code\":\"viewer_source_invalid\",\"message\":\"The retained signal source is invalid.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+
+            if (action == "viewer/overlays") {
+                SignalViewerOverlayRequest overlay_request;
+                std::string case_id;
+                unsigned long long start_sample = 0;
+                unsigned long long sample_count = 0;
+                int max_items = 4000;
+                if (!query_value(query_string, "case_id", case_id) ||
+                    !query_unsigned_long_long(
+                        query_string, "start_sample", 0, false, start_sample) ||
+                    !query_unsigned_long_long(
+                        query_string, "sample_count", 0, true, sample_count) ||
+                    !query_integer(query_string, "max_items", 4000, max_items) ||
+                    max_items <= 0 || max_items > 10000) {
+                    return json_response(
+                        400,
+                        "{\"error\":{\"code\":\"invalid_viewer_overlays\","
+                        "\"message\":\"Provide a valid case_id, positive sample_count, and max_items (1-10000).\"}}\n"
+                    );
+                }
+                overlay_request.case_id = case_id;
+                overlay_request.start_sample = start_sample;
+                overlay_request.sample_count = sample_count;
+                overlay_request.max_items = static_cast<unsigned int>(max_items);
+                SignalViewerOverlayWindow overlay_window;
+                const SignalViewerStatus overlay_status =
+                    read_signal_viewer_overlays(
+                        viewer_root, overlay_request, overlay_window, error);
+                if (overlay_status == SignalViewerStatus::ok) {
+                    RouteResponse response = json_response(
+                        200, signal_viewer_overlay_json(overlay_window));
+                    response.cache_control = "private, no-store";
+                    return response;
+                }
+                if (overlay_status == SignalViewerStatus::invalid_request) {
+                    return json_response(
+                        400,
+                        "{\"error\":{\"code\":\"invalid_viewer_overlays\","
+                        "\"message\":\"The requested overlay window or case is invalid.\"}}\n"
+                    );
+                }
+                if (overlay_status == SignalViewerStatus::not_found) {
+                    return json_response(
+                        409,
+                        "{\"error\":{\"code\":\"viewer_overlays_unavailable\","
+                        "\"message\":\"This package predates prepared ground-truth overlays. Regenerate it to enable annotations.\"}}\n"
+                    );
+                }
+                RouteResponse response = json_response(
+                    overlay_status == SignalViewerStatus::io_error ? 503 : 409,
+                    overlay_status == SignalViewerStatus::io_error
+                        ? "{\"error\":{\"code\":\"viewer_io_unavailable\",\"message\":\"Overlay data is temporarily unavailable.\"}}\n"
+                        : "{\"error\":{\"code\":\"viewer_source_invalid\",\"message\":\"The retained overlay source is invalid.\"}}\n"
                 );
                 response.internal_error = error;
                 return response;

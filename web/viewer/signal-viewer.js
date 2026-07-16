@@ -66,6 +66,8 @@
         `/v1/jobs/${encodeURIComponent(sourceId)}/viewer`);
       this.windowPath = options.windowPath || ((sourceId) =>
         `/v1/jobs/${encodeURIComponent(sourceId)}/viewer/window`);
+      this.overlayPath = options.overlayPath || ((sourceId) =>
+        `/v1/jobs/${encodeURIComponent(sourceId)}/viewer/overlays`);
     }
 
     async request(path, options) {
@@ -105,6 +107,114 @@
       );
       return decodeSignalWindow(await response.arrayBuffer());
     }
+
+    async readOverlays(jobId, request, signal) {
+      const query = new URLSearchParams({
+        case_id: request.caseId,
+        start_sample: String(Math.trunc(request.startSample)),
+        sample_count: String(Math.trunc(request.sampleCount)),
+        max_items: String(Math.trunc(request.maxItems || 4000))
+      });
+      const response = await this.request(
+        `${this.overlayPath(jobId)}?${query}`, { signal }
+      );
+      return response.json();
+    }
+  }
+
+  class BoundedLruCache {
+    constructor(maxBytes) {
+      this.maxBytes = Math.max(1024, Number(maxBytes) || 32 * 1024 * 1024);
+      this.entries = new Map();
+      this.bytes = 0;
+    }
+
+    get(key) {
+      const entry = this.entries.get(key);
+      if (!entry) return null;
+      this.entries.delete(key);
+      this.entries.set(key, entry);
+      return entry.value;
+    }
+
+    set(key, value, byteLength) {
+      const bytes = Math.max(0, Number(byteLength) || 0);
+      const previous = this.entries.get(key);
+      if (previous) {
+        this.bytes -= previous.bytes;
+        this.entries.delete(key);
+      }
+      if (bytes > this.maxBytes) return false;
+      this.entries.set(key, { value, bytes });
+      this.bytes += bytes;
+      while (this.bytes > this.maxBytes && this.entries.size) {
+        const oldestKey = this.entries.keys().next().value;
+        const oldest = this.entries.get(oldestKey);
+        this.entries.delete(oldestKey);
+        this.bytes -= oldest.bytes;
+      }
+      return true;
+    }
+
+    deleteWhere(predicate) {
+      Array.from(this.entries.entries()).forEach(([key, entry]) => {
+        if (!predicate(key, entry.value)) return;
+        this.entries.delete(key);
+        this.bytes -= entry.bytes;
+      });
+    }
+
+    values() {
+      return Array.from(this.entries.values()).map((entry) => entry.value);
+    }
+
+    summary() {
+      return { bytes: this.bytes, maxBytes: this.maxBytes, entries: this.entries.size };
+    }
+  }
+
+  class SignalWindowCache {
+    constructor(maxBytes) {
+      this.cache = new BoundedLruCache(maxBytes);
+    }
+
+    sourceKey(sourceId, caseId, channels) {
+      return `${sourceId}|${caseId}|${channels.join(',')}`;
+    }
+
+    add(sourceId, caseId, windowData) {
+      const channels = windowData.channels.map((channel) => channel.index);
+      const key = `${this.sourceKey(sourceId, caseId, channels)}|${windowData.requestedStart}|${windowData.requestedCount}|${windowData.samplesPerBucket}`;
+      this.cache.set(key, { sourceId, caseId, channels, windowData }, windowData.byteLength);
+    }
+
+    find(sourceId, caseId, channels, startSample, sampleCount, maximumBucketSize) {
+      const endSample = startSample + sampleCount;
+      let best = null;
+      let bestKey = '';
+      this.cache.entries.forEach((entry, key) => {
+        const candidate = entry.value;
+        const windowData = candidate.windowData;
+        const windowEnd = windowData.requestedStart + windowData.requestedCount;
+        if (candidate.sourceId !== sourceId || candidate.caseId !== caseId ||
+            candidate.channels.length !== channels.length ||
+            !candidate.channels.every((value, index) => value === channels[index]) ||
+            windowData.requestedStart > startSample || windowEnd < endSample ||
+            windowData.samplesPerBucket > maximumBucketSize) return;
+        if (!best || windowData.samplesPerBucket > best.samplesPerBucket ||
+            (windowData.samplesPerBucket === best.samplesPerBucket &&
+             windowData.requestedCount < best.requestedCount)) {
+          best = windowData;
+          bestKey = key;
+        }
+      });
+      if (bestKey) this.cache.get(bestKey);
+      return best;
+    }
+
+    summary() {
+      return this.cache.summary();
+    }
   }
 
   function niceDuration(seconds, precision) {
@@ -129,6 +239,9 @@
       this.amplitudeScale = 1;
       this.caseMetadata = null;
       this.window = null;
+      this.overlayWindow = null;
+      this.localEvents = [];
+      this.enabledOverlayKinds = new Set();
       this.viewportStart = 0;
       this.viewportCount = 1;
       this.onResize = options && options.onResize;
@@ -172,6 +285,8 @@
     setCase(metadata) {
       this.caseMetadata = metadata;
       this.window = null;
+      this.overlayWindow = null;
+      this.localEvents = [];
       this.viewportStart = 0;
       this.viewportCount = metadata ? metadata.sample_count : 1;
       this.draw();
@@ -179,6 +294,21 @@
 
     setWindow(windowData) {
       this.window = windowData;
+      this.draw();
+    }
+
+    setOverlays(overlayWindow) {
+      this.overlayWindow = overlayWindow;
+      this.draw();
+    }
+
+    setLocalEvents(events) {
+      this.localEvents = Array.isArray(events) ? events : [];
+      this.draw();
+    }
+
+    setEnabledOverlayKinds(kinds) {
+      this.enabledOverlayKinds = new Set(kinds || []);
       this.draw();
     }
 
@@ -197,6 +327,73 @@
     setAmplitudeScale(scale) {
       this.amplitudeScale = Math.max(0.125, Math.min(32, scale));
       this.draw();
+    }
+
+    plotRect() {
+      const ratio = Math.min(global.devicePixelRatio || 1, 2.5);
+      const width = this.canvas.width / ratio;
+      const height = this.canvas.height / ratio;
+      return {
+        left: 92,
+        top: 18,
+        width: Math.max(100, width - 132),
+        height: Math.max(100, height - 58)
+      };
+    }
+
+    sampleAtClientX(clientX) {
+      const bounds = this.canvas.getBoundingClientRect();
+      const plot = this.plotRect();
+      const x = (clientX - bounds.left) / bounds.width * (this.canvas.width /
+        Math.min(global.devicePixelRatio || 1, 2.5));
+      const ratio = Math.max(0, Math.min(1, (x - plot.left) / plot.width));
+      return Math.max(0, Math.min(
+        this.caseMetadata ? this.caseMetadata.sample_count - 1 : Number.MAX_SAFE_INTEGER,
+        Math.round(this.viewportStart + ratio * this.viewportCount)
+      ));
+    }
+
+    inspectSample(sample) {
+      if (!this.window || !this.caseMetadata) return null;
+      const result = {
+        sample,
+        timeSeconds: sample / this.caseMetadata.sample_rate_hz,
+        channels: [],
+        annotations: []
+      };
+      const bucket = Math.floor(
+        (sample - this.window.dataStart) / this.window.samplesPerBucket);
+      const metadata = new Map(
+        this.caseMetadata.channels.map((channel) => [channel.index, channel]));
+      if (bucket >= 0 && bucket < this.window.bucketCount) {
+        this.window.channels.forEach((values) => {
+          const channel = metadata.get(values.index);
+          if (!channel) return;
+          result.channels.push({
+            name: channel.name,
+            unit: channel.unit,
+            minimum: this.physical(channel, values.minimum[bucket]),
+            maximum: this.physical(channel, values.maximum[bucket]),
+            exact: this.window.samplesPerBucket === 1
+          });
+        });
+      }
+      const tolerance = Math.max(1, Math.ceil(this.viewportCount / 180));
+      const overlays = this.overlayWindow && Array.isArray(this.overlayWindow.items)
+        ? this.overlayWindow.items : [];
+      overlays.forEach((item) => {
+        if (!this.enabledOverlayKinds.has(item.kind)) return;
+        const hit = item.interval
+          ? sample >= item.start_sample && sample < item.end_sample
+          : sample >= item.start_sample - tolerance && sample <= item.end_sample + tolerance;
+        if (hit) result.annotations.push(item);
+      });
+      this.localEvents.forEach((item) => {
+        if (Math.abs(sample - item.sample) <= tolerance) {
+          result.annotations.push({ ...item, kind: 'local_detection', source: 'local file' });
+        }
+      });
+      return result;
     }
 
     physical(channel, digital) {
@@ -331,6 +528,141 @@
       return range;
     }
 
+    xForSample(sample, plot) {
+      return plot.left + (sample - this.viewportStart) /
+        this.viewportCount * plot.width;
+    }
+
+    visibleOverlayItems(interval) {
+      if (!this.overlayWindow || !Array.isArray(this.overlayWindow.items)) return [];
+      return this.overlayWindow.items.filter((item) =>
+        Boolean(item.interval) === interval &&
+        this.enabledOverlayKinds.has(item.kind) &&
+        item.end_sample >= this.viewportStart &&
+        item.start_sample <= this.viewportStart + this.viewportCount
+      );
+    }
+
+    drawIntervalOverlays(ctx, plot) {
+      const styles = {
+        artifact: { fill: 'rgba(255, 183, 77, 0.13)', stroke: '#ffbf69' },
+        episode: { fill: 'rgba(177, 132, 255, 0.12)', stroke: '#b991ff' },
+        missing_pulse: { fill: 'rgba(255, 109, 145, 0.10)', stroke: '#ff759a' }
+      };
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(plot.left, plot.top, plot.width, plot.height);
+      ctx.clip();
+      this.visibleOverlayItems(true).forEach((item, index) => {
+        const style = styles[item.kind] || styles.artifact;
+        const left = this.xForSample(
+          Math.max(this.viewportStart, item.start_sample), plot);
+        const right = this.xForSample(
+          Math.min(this.viewportStart + this.viewportCount, item.end_sample), plot);
+        ctx.fillStyle = style.fill;
+        ctx.fillRect(left, plot.top, Math.max(2, right - left), plot.height);
+        ctx.strokeStyle = style.stroke;
+        ctx.globalAlpha = 0.72;
+        ctx.setLineDash(item.kind === 'episode' ? [8, 5] : [3, 4]);
+        ctx.strokeRect(left, plot.top + 1, Math.max(2, right - left), plot.height - 2);
+        if (right - left > 54 && index < 20) {
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 0.9;
+          ctx.fillStyle = style.stroke;
+          ctx.font = '10px ui-sans-serif, system-ui, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.fillText(item.label, left + 5, plot.top + 5);
+        }
+      });
+      ctx.restore();
+    }
+
+    drawMarkerShape(ctx, kind, x, y, color, local) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = local ? '#060e1a' : color;
+      ctx.lineWidth = local ? 2 : 1.4;
+      ctx.beginPath();
+      if (kind === 'r_peak') {
+        ctx.moveTo(x, y - 6); ctx.lineTo(x - 5, y + 3); ctx.lineTo(x + 5, y + 3); ctx.closePath();
+      } else if (kind === 'ppg_onset') {
+        ctx.moveTo(x, y - 5); ctx.lineTo(x - 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x + 5, y); ctx.closePath();
+      } else if (kind === 'ppg_peak') {
+        ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+      } else if (kind === 'low_perfusion') {
+        ctx.moveTo(x - 5, y - 5); ctx.lineTo(x + 5, y + 5);
+        ctx.moveTo(x + 5, y - 5); ctx.lineTo(x - 5, y + 5);
+      } else {
+        ctx.rect(x - 4.5, y - 4.5, 9, 9);
+      }
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    drawEventOverlays(ctx, plot) {
+      const styles = {
+        r_peak: '#4ee4ff',
+        beat_class: '#d4a4ff',
+        ppg_onset: '#64e6ad',
+        ppg_peak: '#ffd16f',
+        low_perfusion: '#ff9e62'
+      };
+      const items = this.visibleOverlayItems(false).map((item) => ({ ...item, local: false }));
+      this.localEvents.forEach((item) => {
+        if (item.sample >= this.viewportStart &&
+            item.sample <= this.viewportStart + this.viewportCount) {
+          items.push({
+            ...item,
+            kind: item.target === 'ppg_systolic_peak' ? 'ppg_peak' :
+              item.target === 'ppg_pulse_onset' ? 'ppg_onset' :
+              item.target === 'ecg_beat_classification' ? 'beat_class' : 'r_peak',
+            start_sample: item.sample,
+            end_sample: item.sample,
+            source: 'local file',
+            local: true,
+            count: 1
+          });
+        }
+      });
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(plot.left, plot.top, plot.width, plot.height);
+      ctx.clip();
+      items.forEach((item, index) => {
+        const color = item.local ? '#ff6f91' : (styles[item.kind] || '#d5deef');
+        const sample = item.count > 1
+          ? (item.start_sample + item.end_sample) / 2
+          : item.start_sample;
+        const x = this.xForSample(sample, plot);
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = item.local ? 0.92 : 0.56;
+        ctx.lineWidth = item.local ? 1.5 : 1;
+        ctx.setLineDash(item.local ? [6, 4] :
+          item.source === 'construction' ? [2, 4] : []);
+        ctx.beginPath();
+        ctx.moveTo(x, plot.top + 14);
+        ctx.lineTo(x, plot.top + plot.height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        this.drawMarkerShape(ctx, item.kind, x, plot.top + 11, color, item.local);
+        const meaningfulClass = item.kind === 'beat_class' && item.label &&
+          item.label !== 'normal';
+        if ((item.count > 1 || item.local || meaningfulClass) && index < 120) {
+          const label = item.count > 1 ? `${item.label} ×${item.count}` :
+            (item.label || (item.local ? 'local' : item.kind));
+          ctx.fillStyle = color;
+          ctx.globalAlpha = 0.96;
+          ctx.font = '10px ui-sans-serif, system-ui, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.fillText(label, x + 6, plot.top + 18 + (index % 3) * 12);
+        }
+      });
+      ctx.restore();
+    }
+
     draw() {
       const ctx = this.context;
       if (!ctx) return;
@@ -342,8 +674,9 @@
       ctx.fillRect(0, 0, width, height);
       if (!this.window || !this.caseMetadata) return;
 
-      const plot = { left: 92, top: 18, width: Math.max(100, width - 132), height: Math.max(100, height - 58) };
+      const plot = this.plotRect();
       this.drawGrid(ctx, plot, this.window);
+      this.drawIntervalOverlays(ctx, plot);
       const metadataByIndex = new Map(this.caseMetadata.channels.map((channel) => [channel.index, channel]));
       const visible = this.window.channels
         .map((values) => ({ values, channel: metadataByIndex.get(values.index) }))
@@ -381,12 +714,15 @@
           ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
         });
       }
+      this.drawEventOverlays(ctx, plot);
     }
   }
 
   global.SynsigraSignalViewer = Object.freeze({
     COLORS,
     HttpSignalDataSource,
+    BoundedLruCache,
+    SignalWindowCache,
     SignalCanvasRenderer,
     decodeSignalWindow,
     niceDuration

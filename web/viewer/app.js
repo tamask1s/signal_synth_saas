@@ -16,8 +16,15 @@
     status: document.querySelector('#request-status'),
     slider: document.querySelector('#position-slider'),
     canvas: document.querySelector('#signal-canvas'),
-    empty: document.querySelector('#viewer-empty')
+    empty: document.querySelector('#viewer-empty'),
+    overlayFieldset: document.querySelector('#overlay-fieldset'),
+    overlayList: document.querySelector('#overlay-list'),
+    detectionFile: document.querySelector('#local-detection-file'),
+    detectionStatus: document.querySelector('#local-detection-status'),
+    cursor: document.querySelector('#cursor-inspector')
   };
+  const signalCache = new library.SignalWindowCache(28 * 1024 * 1024);
+  const overlayCache = new library.BoundedLruCache(4 * 1024 * 1024);
   const state = {
     jobs: [],
     jobId: '',
@@ -28,11 +35,25 @@
     spanSamples: 0,
     amplitudeScale: 1,
     layout: 'stacked',
-    cachedWindow: null,
+    currentWindow: null,
+    currentOverlays: null,
+    enabledOverlayKinds: new Set(),
+    localEvents: [],
     requestController: null,
     requestSerial: 0,
     requestTimer: null,
     dragging: null
+  };
+
+  const OVERLAY_LABELS = {
+    artifact: 'Artifacts and signal quality',
+    episode: 'Clinical episodes',
+    r_peak: 'ECG R peaks',
+    beat_class: 'ECG beat classes',
+    ppg_onset: 'PPG pulse onsets',
+    ppg_peak: 'PPG systolic peaks',
+    low_perfusion: 'Low-perfusion pulses',
+    missing_pulse: 'Expected missing pulses'
   };
 
   const renderer = new library.SignalCanvasRenderer(elements.canvas, {
@@ -113,7 +134,10 @@
 
   function applyCase(caseMetadata, preserveWindow) {
     state.caseMetadata = caseMetadata;
-    state.cachedWindow = null;
+    state.currentWindow = null;
+    state.currentOverlays = null;
+    state.localEvents = [];
+    state.enabledOverlayKinds = new Set();
     state.selectedChannels = caseMetadata.channels.map((channel) => channel.index);
     const initialSpan = Math.min(
       caseMetadata.sample_count,
@@ -129,6 +153,13 @@
     state.amplitudeScale = 1;
     renderer.setAmplitudeScale(1);
     renderer.setCase(caseMetadata);
+    renderer.setLocalEvents([]);
+    renderer.setEnabledOverlayKinds([]);
+    elements.overlayList.innerHTML = '<p class="control-hint">Loading available annotations…</p>';
+    elements.overlayFieldset.disabled = true;
+    elements.detectionFile.value = '';
+    elements.detectionStatus.textContent = 'No local detector output loaded.';
+    elements.cursor.innerHTML = '<strong>Cursor inspector</strong><span>Click the plot to inspect an exact sample and nearby annotations.</span>';
     elements.heading.textContent = caseMetadata.case_id;
     elements.sourceSummary.className = 'source-summary';
     elements.sourceSummary.innerHTML = `<strong>${escapeHtml(caseMetadata.case_id)}</strong>
@@ -145,7 +176,8 @@
     state.jobId = elements.job.value;
     state.description = null;
     state.caseMetadata = null;
-    state.cachedWindow = null;
+    state.currentWindow = null;
+    state.currentOverlays = null;
     elements.case.disabled = true;
     elements.case.innerHTML = '<option>Loading signal cases…</option>';
     elements.channelFieldset.disabled = true;
@@ -234,15 +266,6 @@
     }
   }
 
-  function selectedChannelIndices(windowData) {
-    return windowData ? windowData.channels.map((channel) => channel.index) : [];
-  }
-
-  function sameChannels(left, right) {
-    return left.length === right.length &&
-      left.every((value, index) => value === right[index]);
-  }
-
   function expectedBucketSize(span, points) {
     const desired = Math.max(1, Math.ceil(span / Math.max(1, points)));
     if (desired < 64) return desired;
@@ -251,16 +274,40 @@
     return power;
   }
 
-  function cacheSatisfiesViewport() {
-    const cached = state.cachedWindow;
-    if (!cached ||
-        !sameChannels(selectedChannelIndices(cached), state.selectedChannels)) return false;
-    const visibleEnd = state.startSample + state.spanSamples;
-    const cachedEnd = cached.requestedStart + cached.requestedCount;
-    if (state.startSample < cached.requestedStart || visibleEnd > cachedEnd) return false;
-    return cached.samplesPerBucket <= expectedBucketSize(
-      state.spanSamples, renderer.targetPoints()
-    );
+  function overlayCacheKey(jobId, caseId, data) {
+    return `${jobId}|${caseId}|${data.requested_start_sample}|${data.requested_sample_count}`;
+  }
+
+  function findCachedOverlays(startSample, sampleCount) {
+    const end = startSample + sampleCount;
+    let match = null;
+    let matchKey = '';
+    overlayCache.entries.forEach((entry, key) => {
+      const candidate = entry.value;
+      const candidateEnd = candidate.data.requested_start_sample +
+        candidate.data.requested_sample_count;
+      if (candidate.jobId === state.jobId &&
+          candidate.caseId === state.caseMetadata.case_id &&
+          candidate.data.requested_start_sample <= startSample &&
+          candidateEnd >= end &&
+          (!match || candidate.data.requested_sample_count <
+            match.requested_sample_count)) {
+        match = candidate.data;
+        matchKey = key;
+      }
+    });
+    if (matchKey) overlayCache.get(matchKey);
+    return match;
+  }
+
+  function cacheSummary() {
+    const signal = signalCache.summary();
+    const overlays = overlayCache.summary();
+    return {
+      bytes: signal.bytes + overlays.bytes,
+      maxBytes: signal.maxBytes + overlays.maxBytes,
+      entries: signal.entries + overlays.entries
+    };
   }
 
   function prefetchedRequest() {
@@ -277,10 +324,54 @@
     };
   }
 
-  async function loadWindow(forceNetwork) {
+  function renderOverlayControls(availableKinds) {
+    const available = Array.isArray(availableKinds) ? availableKinds : [];
+    const previous = new Set(state.enabledOverlayKinds);
+    state.enabledOverlayKinds = new Set(available.filter((kind) =>
+      previous.size ? previous.has(kind) : true
+    ));
+    elements.overlayList.innerHTML = available.length ? available.map((kind) => `
+      <label class="overlay-option overlay-${escapeHtml(kind)}">
+        <input type="checkbox" value="${escapeHtml(kind)}"${state.enabledOverlayKinds.has(kind) ? ' checked' : ''}>
+        <span class="overlay-symbol" aria-hidden="true"></span>
+        <span>${escapeHtml(OVERLAY_LABELS[kind] || kind)}</span>
+      </label>
+    `).join('') : '<p class="control-hint">This case has no compatible ground-truth annotations.</p>';
+    elements.overlayFieldset.disabled = !available.length;
+    renderer.setEnabledOverlayKinds(Array.from(state.enabledOverlayKinds));
+  }
+
+  function applyLoadedData(windowData, overlayData, source) {
+    if (windowData) {
+      state.currentWindow = windowData;
+      renderer.setWindow(windowData);
+    }
+    if (overlayData) {
+      state.currentOverlays = overlayData;
+      renderer.setOverlays(overlayData);
+      renderOverlayControls(overlayData.available_kinds);
+    } else if (!state.currentOverlays) {
+      renderOverlayControls([]);
+    }
+    renderer.setViewport(state.startSample, state.spanSamples);
+    elements.empty.hidden = !state.currentWindow;
+    if (!state.currentWindow) return;
+    const data = state.currentWindow;
+    const mode = data.samplesPerBucket === 1
+      ? 'raw samples'
+      : `exact min/max envelope · ${data.samplesPerBucket.toLocaleString()} samples/bucket`;
+    const cache = cacheSummary();
+    const overlayDetail = state.currentOverlays
+      ? ` · ${state.currentOverlays.items.length.toLocaleString()} overlay items${state.currentOverlays.aggregated ? ' (clustered)' : ''}`
+      : '';
+    elements.detail.textContent = `${data.bucketCount.toLocaleString()} buckets · ${data.channels.length} channels · ${mode}${overlayDetail} · client cache ${formatBytes(cache.bytes)} / ${formatBytes(cache.maxBytes)} (${cache.entries} segments)`;
+    setStatus(`Viewport ready · ${source}`, 'ok');
+  }
+
+  async function loadWindow() {
     window.clearTimeout(state.requestTimer);
     if (!state.caseMetadata || !state.selectedChannels.length) {
-      state.cachedWindow = null;
+      state.currentWindow = null;
       renderer.setWindow(null);
       elements.empty.hidden = false;
       elements.empty.querySelector('strong').textContent = 'Select at least one channel';
@@ -288,11 +379,17 @@
       setStatus('No channels selected', '');
       return;
     }
-    if (!forceNetwork && cacheSatisfiesViewport()) {
-      renderer.setViewport(state.startSample, state.spanSamples);
-      setStatus('Viewport ready · cached', 'ok');
-      return;
+    const maximumBucket = expectedBucketSize(
+      state.spanSamples, renderer.targetPoints());
+    const cachedSignal = signalCache.find(
+      state.jobId, state.caseMetadata.case_id, state.selectedChannels,
+      state.startSample, state.spanSamples, maximumBucket);
+    const cachedOverlays = findCachedOverlays(
+      state.startSample, state.spanSamples);
+    if (cachedSignal || cachedOverlays) {
+      applyLoadedData(cachedSignal, cachedOverlays, 'client cache');
     }
+    if (cachedSignal && cachedOverlays) return;
     if (state.requestController) state.requestController.abort();
     const controller = new AbortController();
     state.requestController = controller;
@@ -300,23 +397,37 @@
     setStatus('Loading viewport', 'loading');
     try {
       const request = prefetchedRequest();
-      const data = await dataSource.readWindow(state.jobId, {
-        caseId: state.caseMetadata.case_id,
-        startSample: request.startSample,
-        sampleCount: request.sampleCount,
-        points: request.points,
-        channels: state.selectedChannels
-      }, controller.signal);
+      const signalPromise = cachedSignal ? Promise.resolve(cachedSignal) :
+        dataSource.readWindow(state.jobId, {
+          caseId: state.caseMetadata.case_id,
+          startSample: request.startSample,
+          sampleCount: request.sampleCount,
+          points: request.points,
+          channels: state.selectedChannels
+        }, controller.signal);
+      const overlayPromise = cachedOverlays ? Promise.resolve(cachedOverlays) :
+        dataSource.readOverlays(state.jobId, {
+          caseId: state.caseMetadata.case_id,
+          startSample: request.startSample,
+          sampleCount: request.sampleCount,
+          maxItems: 6000
+        }, controller.signal).catch((error) => {
+          if (error.name === 'AbortError') throw error;
+          if (error.status === 409) return null;
+          throw error;
+        });
+      const [data, overlays] = await Promise.all([signalPromise, overlayPromise]);
       if (serial !== state.requestSerial) return;
-      state.cachedWindow = data;
-      renderer.setWindow(data);
-      renderer.setViewport(state.startSample, state.spanSamples);
-      elements.empty.hidden = true;
-      const mode = data.samplesPerBucket === 1
-        ? 'raw samples'
-        : `exact min/max envelope · ${data.samplesPerBucket.toLocaleString()} samples/bucket`;
-      elements.detail.textContent = `${data.bucketCount.toLocaleString()} cached buckets · ${data.channels.length} channels · ${mode} · ${formatBytes(data.byteLength)} transferred`;
-      setStatus('Viewport ready · prefetched', 'ok');
+      if (!cachedSignal) signalCache.add(
+        state.jobId, state.caseMetadata.case_id, data);
+      if (!cachedOverlays && overlays) {
+        const bytes = new Blob([JSON.stringify(overlays)]).size * 2;
+        overlayCache.set(
+          overlayCacheKey(state.jobId, state.caseMetadata.case_id, overlays),
+          { jobId: state.jobId, caseId: state.caseMetadata.case_id, data: overlays },
+          bytes);
+      }
+      applyLoadedData(data, overlays, 'network + prefetch');
     } catch (error) {
       if (error.name === 'AbortError') return;
       if (serial !== state.requestSerial) return;
@@ -337,7 +448,7 @@
       state.requestSerial += 1;
     }
     state.requestTimer = window.setTimeout(
-      () => loadWindow(Boolean(forceNetwork)),
+      () => loadWindow(),
       immediate ? 0 : 140
     );
   }
@@ -365,6 +476,145 @@
     renderer.setAmplitudeScale(state.amplitudeScale);
   }
 
+  function parseCsv(text) {
+    const rows = [];
+    let row = [];
+    let cell = '';
+    let quoted = false;
+    for (let index = 0; index < text.length; index += 1) {
+      const character = text[index];
+      if (quoted) {
+        if (character === '"' && text[index + 1] === '"') {
+          cell += '"';
+          index += 1;
+        } else if (character === '"') quoted = false;
+        else cell += character;
+      } else if (character === '"') quoted = true;
+      else if (character === ',') {
+        row.push(cell);
+        cell = '';
+      } else if (character === '\n') {
+        row.push(cell.replace(/\r$/, ''));
+        if (row.some((value) => value.length)) rows.push(row);
+        row = [];
+        cell = '';
+      } else cell += character;
+    }
+    if (quoted) throw new Error('CSV contains an unterminated quoted value.');
+    row.push(cell.replace(/\r$/, ''));
+    if (row.some((value) => value.length)) rows.push(row);
+    if (!rows.length) throw new Error('The detection file is empty.');
+    const headers = rows[0].map((value) => value.trim());
+    if (!headers.includes('time_seconds')) {
+      throw new Error('Detection CSV must contain a time_seconds column.');
+    }
+    return rows.slice(1).map((values) => Object.fromEntries(
+      headers.map((header, index) => [header, values[index] === undefined ? '' : values[index].trim()])
+    ));
+  }
+
+  function normalizeDetectionTarget(value, filename) {
+    const target = String(value || '').trim();
+    if (target === 'r_peak' || target === 'ppg_systolic_peak' ||
+        target === 'ppg_pulse_onset' || target === 'ecg_beat_classification') return target;
+    if (target) throw new Error(`Unsupported local detection target: ${target}.`);
+    const lower = filename.toLowerCase();
+    if (lower.includes('class')) return 'ecg_beat_classification';
+    if (lower.includes('ppg') && lower.includes('onset')) return 'ppg_pulse_onset';
+    if (lower.includes('ppg')) return 'ppg_systolic_peak';
+    return 'r_peak';
+  }
+
+  function normalizeLocalEvents(document, filename) {
+    const target = normalizeDetectionTarget(document.target, filename);
+    const input = Array.isArray(document.events) ? document.events : [];
+    if (!input.length) throw new Error('The detection file contains no events.');
+    if (input.length > 250000) {
+      throw new Error('The local overlay is limited to 250,000 events per file.');
+    }
+    const rate = state.caseMetadata.sample_rate_hz;
+    return input.map((item, index) => {
+      const seconds = Number(item.time_seconds);
+      const suppliedSample = item.sample_index === '' || item.sample_index === undefined ||
+        item.sample_index === null ? null : Number(item.sample_index);
+      const confidence = item.confidence === '' || item.confidence === undefined ||
+        item.confidence === null ? null : Number(item.confidence);
+      if (!Number.isFinite(seconds) || seconds < 0) {
+        throw new Error(`Event ${index + 1} has an invalid time_seconds value.`);
+      }
+      if (suppliedSample !== null && (!Number.isSafeInteger(suppliedSample) || suppliedSample < 0)) {
+        throw new Error(`Event ${index + 1} has an invalid sample_index value.`);
+      }
+      if (confidence !== null && (!Number.isFinite(confidence) || confidence < 0 || confidence > 1)) {
+        throw new Error(`Event ${index + 1} has confidence outside 0–1.`);
+      }
+      const sample = suppliedSample === null ? Math.round(seconds * rate) : suppliedSample;
+      if (sample >= state.caseMetadata.sample_count) {
+        throw new Error(`Event ${index + 1} lies outside the selected case.`);
+      }
+      return {
+        sample,
+        timeSeconds: seconds,
+        target,
+        channel: String(item.channel || ''),
+        label: String(item.label || 'local detection'),
+        confidence
+      };
+    }).sort((left, right) => left.sample - right.sample);
+  }
+
+  async function loadLocalDetections(file) {
+    if (!file || !state.caseMetadata) return;
+    if (file.size > 16 * 1024 * 1024) {
+      elements.detectionStatus.textContent = 'Local overlay files are limited to 16 MiB.';
+      elements.detectionStatus.className = 'local-status error';
+      return;
+    }
+    try {
+      const text = await file.text();
+      let document;
+      if (text.trimStart().startsWith('{')) {
+        document = JSON.parse(text);
+        if (!document || typeof document !== 'object' || !Array.isArray(document.events)) {
+          throw new Error('Detection JSON must be an object with an events array.');
+        }
+      } else {
+        document = { events: parseCsv(text) };
+      }
+      state.localEvents = normalizeLocalEvents(document, file.name);
+      renderer.setLocalEvents(state.localEvents);
+      const target = state.localEvents[0].target;
+      elements.detectionStatus.textContent = `${state.localEvents.length.toLocaleString()} ${target} events loaded locally. The file was not uploaded.`;
+      elements.detectionStatus.className = 'local-status ok';
+    } catch (error) {
+      state.localEvents = [];
+      renderer.setLocalEvents([]);
+      elements.detectionStatus.textContent = error.message;
+      elements.detectionStatus.className = 'local-status error';
+    }
+  }
+
+  function renderCursorInspection(sample) {
+    const inspection = renderer.inspectSample(sample);
+    if (!inspection) return;
+    const channelRows = inspection.channels.map((channel) => {
+      const value = channel.exact
+        ? `${channel.minimum.toPrecision(6)} ${channel.unit}`
+        : `${channel.minimum.toPrecision(5)}…${channel.maximum.toPrecision(5)} ${channel.unit}`;
+      return `<dt>${escapeHtml(channel.name)}</dt><dd>${escapeHtml(value)}${channel.exact ? '' : ' <small>min–max bucket</small>'}</dd>`;
+    }).join('');
+    const annotations = inspection.annotations.length
+      ? `<ul>${inspection.annotations.slice(0, 20).map((item) =>
+          `<li><strong>${escapeHtml(item.label || item.kind)}</strong> <span>${escapeHtml(item.source || '')}${item.channel ? ` · ${escapeHtml(item.channel)}` : ''}${item.interval ? ` · samples ${Number(item.start_sample).toLocaleString()}–${Number(item.end_sample).toLocaleString()}` : ''}${item.value !== undefined ? ` · value ${Number(item.value).toPrecision(4)}` : ''}${item.count > 1 ? ` · ${Number(item.count).toLocaleString()} clustered events` : ''}</span></li>`
+        ).join('')}</ul>`
+      : '<p>No enabled annotation at this sample.</p>';
+    elements.cursor.innerHTML = `
+      <div><strong>Sample ${inspection.sample.toLocaleString()}</strong><span>${library.niceDuration(inspection.timeSeconds, 6)}</span></div>
+      <dl>${channelRows}</dl>
+      ${annotations}
+    `;
+  }
+
   elements.job.addEventListener('change', loadDescription);
   elements.case.addEventListener('change', () => applyCase(selectedCase(), false));
   elements.channelList.addEventListener('change', () => {
@@ -372,6 +622,27 @@
       elements.channelList.querySelectorAll('input:checked')
     ).map((input) => Number(input.value));
     scheduleWindow(true);
+  });
+  elements.overlayList.addEventListener('change', () => {
+    state.enabledOverlayKinds = new Set(Array.from(
+      elements.overlayList.querySelectorAll('input:checked')
+    ).map((input) => input.value));
+    renderer.setEnabledOverlayKinds(Array.from(state.enabledOverlayKinds));
+  });
+  elements.detectionFile.addEventListener('change', () => {
+    loadLocalDetections(elements.detectionFile.files[0]);
+  });
+  document.querySelector('.file-button').addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    elements.detectionFile.click();
+  });
+  document.querySelector('#clear-local-detections').addEventListener('click', () => {
+    state.localEvents = [];
+    elements.detectionFile.value = '';
+    elements.detectionStatus.textContent = 'No local detector output loaded.';
+    elements.detectionStatus.className = 'local-status';
+    renderer.setLocalEvents([]);
   });
   document.querySelector('#select-all-channels').addEventListener('click', () => {
     state.selectedChannels = state.caseMetadata.channels.map((channel) => channel.index);
@@ -423,12 +694,13 @@
 
   elements.canvas.addEventListener('pointerdown', (event) => {
     if (!state.caseMetadata) return;
-    state.dragging = { x: event.clientX, start: state.startSample };
+    state.dragging = { x: event.clientX, start: state.startSample, moved: false };
     elements.canvas.classList.add('dragging');
     elements.canvas.setPointerCapture(event.pointerId);
   });
   elements.canvas.addEventListener('pointermove', (event) => {
     if (!state.dragging) return;
+    if (Math.abs(event.clientX - state.dragging.x) > 3) state.dragging.moved = true;
     const width = elements.canvas.getBoundingClientRect().width;
     state.startSample = clampStart(
       state.dragging.start - (event.clientX - state.dragging.x) / width * state.spanSamples
@@ -436,14 +708,17 @@
     updatePositionControls();
     scheduleWindow(false);
   });
-  function endDrag() {
+  function endDrag(event) {
     if (!state.dragging) return;
+    const wasClick = !state.dragging.moved;
     state.dragging = null;
     elements.canvas.classList.remove('dragging');
-    scheduleWindow(true);
+    if (wasClick && event && Number.isFinite(event.clientX)) {
+      renderCursorInspection(renderer.sampleAtClientX(event.clientX));
+    } else scheduleWindow(true);
   }
   elements.canvas.addEventListener('pointerup', endDrag);
-  elements.canvas.addEventListener('pointercancel', endDrag);
+  elements.canvas.addEventListener('pointercancel', () => endDrag());
   elements.canvas.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       event.preventDefault();

@@ -260,6 +260,14 @@ if(BUILD_TESTING)
     add_test(NAME job_unit COMMAND syn_sig_ra_job_test)
     add_test(NAME worker_unit COMMAND syn_sig_ra_worker_test)
     add_test(NAME signal_viewer_unit COMMAND syn_sig_ra_signal_viewer_test)
+    find_program(NODE_EXECUTABLE NAMES node nodejs)
+    if(NODE_EXECUTABLE)
+        add_test(
+            NAME viewer_client_unit
+            COMMAND "${NODE_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/test/unit/viewer_client_test.js"
+        )
+    endif()
     add_test(
         NAME user_facing_brand
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/test/user_facing_brand_test.sh"

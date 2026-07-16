@@ -52,6 +52,22 @@
         <div id="channel-list" class="channel-list"></div>
       </fieldset>
 
+      <fieldset class="overlay-fieldset" id="overlay-fieldset" disabled>
+        <legend>Ground truth overlays</legend>
+        <div id="overlay-list" class="overlay-list">
+          <p class="control-hint">Select a signal case first.</p>
+        </div>
+      </fieldset>
+
+      <fieldset class="local-detection-fieldset">
+        <legend>Local algorithm output</legend>
+        <p class="control-hint">Compare CSV v2 or JSON v1 detections visually. Processing stays in this browser; the file is never uploaded.</p>
+        <label class="file-button" for="local-detection-file" tabindex="0" role="button">Choose CSV or JSON</label>
+        <input id="local-detection-file" type="file" accept=".csv,.json,text/csv,application/json">
+        <button id="clear-local-detections" type="button" class="text-button">Clear local overlay</button>
+        <p id="local-detection-status" class="local-status" role="status">No local detector output loaded.</p>
+      </fieldset>
+
       <fieldset class="layout-fieldset">
         <legend>Channel layout</legend>
         <div class="segmented-control" role="group" aria-label="Channel layout">
@@ -62,7 +78,7 @@
 
       <aside class="viewer-note">
         <strong>Large-file ready</strong>
-        <span>The browser never downloads the complete signal for display. Zoomed-out views use a server-side min/max pyramid.</span>
+        <span>The browser never downloads the complete signal for display. Zoomed-out views use a server-side min/max pyramid; a 32 MiB LRU keeps recently visited viewports.</span>
       </aside>
     </aside>
 
@@ -101,6 +117,11 @@
         </div>
       </div>
 
+      <section id="cursor-inspector" class="cursor-inspector" aria-live="polite">
+        <strong>Cursor inspector</strong>
+        <span>Click the plot to inspect an exact sample and nearby annotations.</span>
+      </section>
+
       <footer class="viewer-footer">
         <span id="viewport-detail">No viewport loaded</span>
         <span>Drag to pan · Ctrl/⌘ + wheel to zoom · Shift + wheel to pan</span>
@@ -108,7 +129,7 @@
     </section>
   </main>
 
-  <script src="__SYNSIGRA_BASE__/viewer/signal-viewer.js?v=2"></script>
-  <script src="__SYNSIGRA_BASE__/viewer/app.js?v=2"></script>
+  <script src="__SYNSIGRA_BASE__/viewer/signal-viewer.js?v=3"></script>
+  <script src="__SYNSIGRA_BASE__/viewer/app.js?v=3"></script>
 </body>
 </html>

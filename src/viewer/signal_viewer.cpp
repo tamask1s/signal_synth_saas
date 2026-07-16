@@ -1,5 +1,8 @@
 #include "syn_sig_ra/signal_viewer.h"
 
+#include <jansson.h>
+#include <sqlite3.h>
+
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -22,6 +25,7 @@ namespace {
 const unsigned long long kPyramidBaseBlock = 64u;
 const unsigned int kMaximumChannels = 64u;
 const unsigned int kMaximumPoints = 16384u;
+const unsigned int kMaximumOverlayItems = 10000u;
 
 struct ParsedWfdb {
     std::string data_file;
@@ -29,6 +33,294 @@ struct ParsedWfdb {
     unsigned long long sample_count;
     std::vector<syn_sig_ra::SignalViewerChannel> channels;
 };
+
+bool regular_file(const std::string& path, long long* size);
+
+const char* json_text(json_t* object, const char* key, const char* fallback = "") {
+    json_t* value = json_is_object(object) ? json_object_get(object, key) : nullptr;
+    return json_is_string(value) ? json_string_value(value) : fallback;
+}
+
+bool json_bool(json_t* object, const char* key, bool fallback = false) {
+    json_t* value = json_is_object(object) ? json_object_get(object, key) : nullptr;
+    return json_is_boolean(value) ? json_is_true(value) : fallback;
+}
+
+bool json_number(json_t* object, const char* key, double& output) {
+    json_t* value = json_is_object(object) ? json_object_get(object, key) : nullptr;
+    if (!json_is_number(value)) return false;
+    output = json_number_value(value);
+    return std::isfinite(output);
+}
+
+bool json_index(json_t* object, const char* key, unsigned long long& output) {
+    json_t* value = json_is_object(object) ? json_object_get(object, key) : nullptr;
+    if (json_is_integer(value) && json_integer_value(value) >= 0) {
+        output = static_cast<unsigned long long>(json_integer_value(value));
+        return true;
+    }
+    if (!json_is_real(value)) return false;
+    const double number = json_real_value(value);
+    if (!std::isfinite(number) || number < 0.0 ||
+        number > 9007199254740991.0 || std::floor(number) != number) return false;
+    output = static_cast<unsigned long long>(number);
+    return true;
+}
+
+unsigned long long sample_at_seconds(
+    double seconds,
+    const ParsedWfdb& metadata,
+    bool allow_past_end = false
+) {
+    if (!std::isfinite(seconds) || seconds <= 0.0) return 0u;
+    const long double scaled = static_cast<long double>(seconds) *
+        static_cast<long double>(metadata.sample_rate_hz);
+    unsigned long long sample = scaled >= static_cast<long double>(
+        std::numeric_limits<unsigned long long>::max())
+        ? std::numeric_limits<unsigned long long>::max()
+        : static_cast<unsigned long long>(std::llround(scaled));
+    const unsigned long long maximum = allow_past_end
+        ? metadata.sample_count
+        : metadata.sample_count - 1u;
+    return std::min(sample, maximum);
+}
+
+std::string json_string_list(json_t* value) {
+    if (!json_is_array(value)) return "";
+    std::ostringstream joined;
+    for (std::size_t index = 0; index < json_array_size(value); ++index) {
+        json_t* item = json_array_get(value, index);
+        if (!json_is_string(item)) continue;
+        if (joined.tellp() > 0) joined << ',';
+        joined << json_string_value(item);
+    }
+    return joined.str();
+}
+
+bool execute_sql(sqlite3* database, const char* sql, std::string& error) {
+    char* message = nullptr;
+    if (sqlite3_exec(database, sql, nullptr, nullptr, &message) == SQLITE_OK) {
+        return true;
+    }
+    error = message == nullptr ? sqlite3_errmsg(database) : message;
+    sqlite3_free(message);
+    return false;
+}
+
+bool insert_overlay(
+    sqlite3_stmt* statement,
+    const char* kind,
+    const char* source,
+    const std::string& label,
+    const std::string& channel,
+    unsigned long long start_sample,
+    unsigned long long end_sample,
+    bool interval,
+    bool has_value,
+    double value,
+    std::string& error
+) {
+    sqlite3_reset(statement);
+    sqlite3_clear_bindings(statement);
+    const bool bound =
+        sqlite3_bind_text(statement, 1, kind, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_text(statement, 2, source, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_text(statement, 3, label.c_str(), -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_text(statement, 4, channel.c_str(), -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_int64(statement, 5, static_cast<sqlite3_int64>(start_sample)) == SQLITE_OK &&
+        sqlite3_bind_int64(statement, 6, static_cast<sqlite3_int64>(end_sample)) == SQLITE_OK &&
+        sqlite3_bind_int(statement, 7, interval ? 1 : 0) == SQLITE_OK &&
+        (has_value
+            ? sqlite3_bind_double(statement, 8, value) == SQLITE_OK
+            : sqlite3_bind_null(statement, 8) == SQLITE_OK);
+    if (bound && sqlite3_step(statement) == SQLITE_DONE) return true;
+    error = sqlite3_errmsg(sqlite3_db_handle(statement));
+    return false;
+}
+
+bool build_overlay_database(
+    const std::string& annotations_path,
+    const std::string& database_path,
+    const ParsedWfdb& metadata,
+    std::string& error
+) {
+    sqlite3* database = nullptr;
+    sqlite3_stmt* insert = nullptr;
+    if (sqlite3_open_v2(
+            database_path.c_str(), &database,
+            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
+            nullptr) != SQLITE_OK) {
+        error = database == nullptr ? "unable to create overlay index" :
+            sqlite3_errmsg(database);
+        if (database != nullptr) sqlite3_close(database);
+        return false;
+    }
+    const char* schema =
+        "PRAGMA journal_mode=OFF;"
+        "PRAGMA synchronous=OFF;"
+        "PRAGMA temp_store=MEMORY;"
+        "CREATE TABLE overlays("
+        "id INTEGER PRIMARY KEY,kind TEXT NOT NULL,source TEXT NOT NULL,"
+        "label TEXT NOT NULL,channel TEXT NOT NULL,start_sample INTEGER NOT NULL,"
+        "end_sample INTEGER NOT NULL,is_interval INTEGER NOT NULL,value REAL);"
+        "CREATE INDEX overlays_point_range ON overlays(is_interval,start_sample);"
+        "CREATE INDEX overlays_interval_range ON overlays(is_interval,start_sample,end_sample);"
+        "PRAGMA user_version=1;"
+        "BEGIN IMMEDIATE;";
+    const char* insert_sql =
+        "INSERT INTO overlays(kind,source,label,channel,start_sample,end_sample,is_interval,value) "
+        "VALUES(?1,?2,?3,?4,?5,?6,?7,?8);";
+    bool succeeded = execute_sql(database, schema, error) &&
+        sqlite3_prepare_v2(database, insert_sql, -1, &insert, nullptr) == SQLITE_OK;
+    if (!succeeded && error.empty()) error = sqlite3_errmsg(database);
+
+    json_t* root = nullptr;
+    if (succeeded && regular_file(annotations_path, nullptr)) {
+        json_error_t json_error;
+        root = json_load_file(
+            annotations_path.c_str(),
+            JSON_REJECT_DUPLICATES | JSON_DECODE_INT_AS_REAL,
+            &json_error);
+        if (!json_is_object(root)) {
+            std::ostringstream message;
+            message << "annotations.json is invalid at line " << json_error.line
+                    << ", column " << json_error.column << ": "
+                    << json_error.text;
+            error = message.str();
+            succeeded = false;
+        }
+    }
+
+    if (succeeded && root != nullptr) {
+        json_t* beats = json_object_get(root, "beats");
+        for (std::size_t index = 0;
+             succeeded && json_is_array(beats) && index < json_array_size(beats);
+             ++index) {
+            json_t* beat = json_array_get(beats, index);
+            double seconds = 0.0;
+            if (!json_number(beat, "r_peak_seconds", seconds)) continue;
+            const unsigned long long sample = sample_at_seconds(seconds, metadata);
+            succeeded = insert_overlay(
+                insert, "r_peak", "ground_truth", "R peak", "ecg",
+                sample, sample, false, false, 0.0, error);
+            if (succeeded) {
+                succeeded = insert_overlay(
+                    insert, "beat_class", "ground_truth",
+                    json_text(beat, "beat_class", "unknown"), "ecg",
+                    sample, sample, false, false, 0.0, error);
+            }
+        }
+
+        json_t* ppg = json_object_get(root, "ppg_fiducials");
+        for (std::size_t index = 0;
+             succeeded && json_is_array(ppg) && index < json_array_size(ppg);
+             ++index) {
+            json_t* fiducial = json_array_get(ppg, index);
+            const std::string kind(json_text(fiducial, "kind"));
+            const char* overlay_kind = kind == "pulse_onset" ? "ppg_onset" :
+                kind == "systolic_peak" ? "ppg_peak" : nullptr;
+            double seconds = 0.0;
+            if (overlay_kind == nullptr ||
+                !json_number(fiducial, "time_seconds", seconds)) continue;
+            unsigned long long sample = 0;
+            if (!json_index(fiducial, "sample_index", sample)) {
+                sample = sample_at_seconds(seconds, metadata);
+            }
+            sample = std::min(sample, metadata.sample_count - 1u);
+            succeeded = insert_overlay(
+                insert, overlay_kind, json_text(fiducial, "source", "ground_truth"),
+                kind, "ppg_green", sample, sample, false, false, 0.0, error);
+        }
+
+        json_t* episodes = json_object_get(root, "episodes");
+        for (std::size_t index = 0;
+             succeeded && json_is_array(episodes) && index < json_array_size(episodes);
+             ++index) {
+            json_t* episode = json_array_get(episodes, index);
+            if (!json_bool(episode, "present", true)) continue;
+            unsigned long long start = 0, end = 0;
+            double start_seconds = 0.0, end_seconds = 0.0;
+            if (!json_index(episode, "start_sample_index", start) &&
+                json_number(episode, "start_seconds", start_seconds)) {
+                start = sample_at_seconds(start_seconds, metadata, true);
+            }
+            if (!json_index(episode, "end_sample_index", end) &&
+                json_number(episode, "end_seconds", end_seconds)) {
+                end = sample_at_seconds(end_seconds, metadata, true);
+            }
+            start = std::min(start, metadata.sample_count);
+            end = std::min(end, metadata.sample_count);
+            if (end <= start) continue;
+            succeeded = insert_overlay(
+                insert, "episode", "ground_truth", json_text(episode, "kind", "episode"),
+                "ecg", start, end, true, false, 0.0, error);
+        }
+
+        json_t* artifacts = json_object_get(root, "artifact_intervals");
+        for (std::size_t index = 0;
+             succeeded && json_is_array(artifacts) && index < json_array_size(artifacts);
+             ++index) {
+            json_t* artifact = json_array_get(artifacts, index);
+            unsigned long long start = 0, end = 0;
+            double start_seconds = 0.0, end_seconds = 0.0;
+            if (!json_index(artifact, "start_sample_index", start) &&
+                json_number(artifact, "start_seconds", start_seconds)) {
+                start = sample_at_seconds(start_seconds, metadata, true);
+            }
+            if (!json_index(artifact, "end_sample_index", end) &&
+                json_number(artifact, "end_seconds", end_seconds)) {
+                end = sample_at_seconds(end_seconds, metadata, true);
+            }
+            start = std::min(start, metadata.sample_count);
+            end = std::min(end, metadata.sample_count);
+            if (end <= start) continue;
+            double severity = 0.0;
+            const bool has_severity = json_number(artifact, "severity", severity);
+            succeeded = insert_overlay(
+                insert, "artifact", "ground_truth", json_text(artifact, "type", "artifact"),
+                json_string_list(json_object_get(artifact, "channels")),
+                start, end, true, has_severity, severity, error);
+        }
+
+        json_t* pulses = json_object_get(root, "ppg_pulses");
+        for (std::size_t index = 0;
+             succeeded && json_is_array(pulses) && index < json_array_size(pulses);
+             ++index) {
+            json_t* pulse = json_array_get(pulses, index);
+            double peak_seconds = 0.0;
+            if (json_bool(pulse, "low_perfusion") &&
+                json_number(pulse, "expected_peak_time_seconds", peak_seconds)) {
+                const unsigned long long sample = sample_at_seconds(peak_seconds, metadata);
+                succeeded = insert_overlay(
+                    insert, "low_perfusion", "ground_truth", "Low perfusion pulse",
+                    "ppg_green", sample, sample, false, false, 0.0, error);
+            }
+            double onset_seconds = 0.0, offset_seconds = 0.0;
+            if (succeeded && json_bool(pulse, "intentionally_missing") &&
+                json_number(pulse, "expected_onset_time_seconds", onset_seconds) &&
+                json_number(pulse, "expected_offset_time_seconds", offset_seconds)) {
+                const unsigned long long start = sample_at_seconds(onset_seconds, metadata, true);
+                const unsigned long long end = sample_at_seconds(offset_seconds, metadata, true);
+                if (end > start) {
+                    succeeded = insert_overlay(
+                        insert, "missing_pulse", "ground_truth", "Expected missing pulse",
+                        "ppg_green", start, end, true, false, 0.0, error);
+                }
+            }
+        }
+    }
+
+    if (root != nullptr) json_decref(root);
+    sqlite3_finalize(insert);
+    if (succeeded) succeeded = execute_sql(database, "COMMIT;PRAGMA optimize;", error);
+    else execute_sql(database, "ROLLBACK;", error);
+    if (sqlite3_close(database) != SQLITE_OK && succeeded) {
+        error = "unable to finalize overlay index";
+        succeeded = false;
+    }
+    if (!succeeded) unlink(database_path.c_str());
+    return succeeded;
+}
 
 bool safe_component(const std::string& value) {
     if (value.empty() || value.size() > 128u || value == "." || value == "..") {
@@ -567,6 +859,15 @@ SignalViewerStatus prepare_signal_viewer_source(
             remove_tree(viewer_root);
             return SignalViewerStatus::io_error;
         }
+        if (!build_overlay_database(
+                source_case + "/annotations.json",
+                destination_case + "/overlays.sqlite3",
+                metadata,
+                error)) {
+            error = "case " + *it + ": " + error;
+            remove_tree(viewer_root);
+            return SignalViewerStatus::invalid_source;
+        }
         ++prepared;
     }
     if (prepared == 0u) {
@@ -787,6 +1088,304 @@ SignalViewerStatus read_signal_viewer_window(
             append_i16(fresh.binary, maximum[channel][bucket]);
         }
     }
+    window = fresh;
+    return SignalViewerStatus::ok;
+}
+
+namespace {
+
+std::string overlay_column_text(sqlite3_stmt* statement, int column) {
+    const unsigned char* value = sqlite3_column_text(statement, column);
+    return value == nullptr ? std::string() :
+        std::string(reinterpret_cast<const char*>(value));
+}
+
+SignalViewerOverlayItem overlay_row(
+    sqlite3_stmt* statement,
+    bool interval,
+    unsigned int count = 1u
+) {
+    SignalViewerOverlayItem item;
+    item.kind = overlay_column_text(statement, 0);
+    item.source = overlay_column_text(statement, 1);
+    item.label = overlay_column_text(statement, 2);
+    item.channel = overlay_column_text(statement, 3);
+    item.start_sample = static_cast<unsigned long long>(
+        std::max<sqlite3_int64>(0, sqlite3_column_int64(statement, 4)));
+    item.end_sample = static_cast<unsigned long long>(
+        std::max<sqlite3_int64>(0, sqlite3_column_int64(statement, 5)));
+    item.interval = interval;
+    item.has_value = sqlite3_column_type(statement, 6) != SQLITE_NULL;
+    item.value = item.has_value ? sqlite3_column_double(statement, 6) : 0.0;
+    item.count = count;
+    return item;
+}
+
+bool bind_overlay_range(
+    sqlite3_stmt* statement,
+    unsigned long long start,
+    unsigned long long end
+) {
+    return sqlite3_bind_int64(statement, 1, static_cast<sqlite3_int64>(start)) == SQLITE_OK &&
+        sqlite3_bind_int64(statement, 2, static_cast<sqlite3_int64>(end)) == SQLITE_OK;
+}
+
+bool query_exact_overlays(
+    sqlite3* database,
+    unsigned long long start,
+    unsigned long long end,
+    unsigned int maximum,
+    std::vector<SignalViewerOverlayItem>& output,
+    std::string& error
+) {
+    const char* sql =
+        "SELECT kind,source,label,channel,start_sample,end_sample,value,is_interval "
+        "FROM overlays WHERE "
+        "(is_interval=0 AND start_sample>=?1 AND start_sample<?2) OR "
+        "(is_interval=1 AND start_sample<?2 AND end_sample>?1) "
+        "ORDER BY start_sample,id LIMIT ?3;";
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_overlay_range(statement, start, end) ||
+        sqlite3_bind_int(statement, 3, static_cast<int>(maximum)) != SQLITE_OK) {
+        error = sqlite3_errmsg(database);
+        sqlite3_finalize(statement);
+        return false;
+    }
+    for (;;) {
+        const int status = sqlite3_step(statement);
+        if (status == SQLITE_DONE) break;
+        if (status != SQLITE_ROW) {
+            error = sqlite3_errmsg(database);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        output.push_back(overlay_row(
+            statement, sqlite3_column_int(statement, 7) != 0));
+    }
+    sqlite3_finalize(statement);
+    return true;
+}
+
+bool query_intervals(
+    sqlite3* database,
+    unsigned long long start,
+    unsigned long long end,
+    unsigned int maximum,
+    std::vector<SignalViewerOverlayItem>& output,
+    std::string& error
+) {
+    const char* sql =
+        "SELECT kind,source,label,channel,start_sample,end_sample,value "
+        "FROM overlays WHERE is_interval=1 AND start_sample<?2 AND end_sample>?1 "
+        "ORDER BY start_sample,id LIMIT ?3;";
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_overlay_range(statement, start, end) ||
+        sqlite3_bind_int(statement, 3, static_cast<int>(maximum)) != SQLITE_OK) {
+        error = sqlite3_errmsg(database);
+        sqlite3_finalize(statement);
+        return false;
+    }
+    for (;;) {
+        const int status = sqlite3_step(statement);
+        if (status == SQLITE_DONE) break;
+        if (status != SQLITE_ROW) {
+            error = sqlite3_errmsg(database);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        output.push_back(overlay_row(statement, true));
+    }
+    sqlite3_finalize(statement);
+    return true;
+}
+
+bool query_clustered_points(
+    sqlite3* database,
+    unsigned long long start,
+    unsigned long long end,
+    unsigned long long bucket_size,
+    unsigned int maximum,
+    std::vector<SignalViewerOverlayItem>& output,
+    bool& overflow,
+    std::string& error
+) {
+    const char* sql =
+        "SELECT kind,source,label,channel,MIN(start_sample),MAX(start_sample),AVG(value),COUNT(*) "
+        "FROM overlays WHERE is_interval=0 AND start_sample>=?1 AND start_sample<?2 "
+        "GROUP BY kind,source,label,channel,CAST((start_sample-?1)/?3 AS INTEGER) "
+        "ORDER BY MIN(start_sample),kind,label LIMIT ?4;";
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_overlay_range(statement, start, end) ||
+        sqlite3_bind_int64(statement, 3, static_cast<sqlite3_int64>(bucket_size)) != SQLITE_OK ||
+        sqlite3_bind_int(statement, 4, static_cast<int>(maximum + 1u)) != SQLITE_OK) {
+        error = sqlite3_errmsg(database);
+        sqlite3_finalize(statement);
+        return false;
+    }
+    std::vector<SignalViewerOverlayItem> fresh;
+    for (;;) {
+        const int status = sqlite3_step(statement);
+        if (status == SQLITE_DONE) break;
+        if (status != SQLITE_ROW) {
+            error = sqlite3_errmsg(database);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        const sqlite3_int64 count = sqlite3_column_int64(statement, 7);
+        fresh.push_back(overlay_row(
+            statement, false,
+            static_cast<unsigned int>(std::min<sqlite3_int64>(
+                count, std::numeric_limits<unsigned int>::max()))));
+    }
+    sqlite3_finalize(statement);
+    overflow = fresh.size() > maximum;
+    if (overflow) fresh.resize(maximum);
+    output.insert(output.end(), fresh.begin(), fresh.end());
+    return true;
+}
+
+}  // namespace
+
+SignalViewerStatus read_signal_viewer_overlays(
+    const std::string& viewer_root,
+    const SignalViewerOverlayRequest& request,
+    SignalViewerOverlayWindow& window,
+    std::string& error
+) {
+    error.clear();
+    if (request.sample_count == 0u || request.max_items == 0u ||
+        request.max_items > kMaximumOverlayItems) {
+        error = "overlay viewport size or item bound is invalid";
+        return SignalViewerStatus::invalid_request;
+    }
+    SignalViewerCase metadata;
+    const SignalViewerStatus case_status =
+        load_case(viewer_root, request.case_id, metadata, error);
+    if (case_status != SignalViewerStatus::ok) return case_status;
+    if (request.start_sample >= metadata.sample_count) {
+        error = "overlay viewport starts outside the signal";
+        return SignalViewerStatus::invalid_request;
+    }
+    const unsigned long long span = std::min(
+        request.sample_count, metadata.sample_count - request.start_sample);
+    const unsigned long long end = request.start_sample + span;
+    const std::string database_path = viewer_root + "/cases/" +
+        request.case_id + "/overlays.sqlite3";
+    if (!regular_file(database_path)) {
+        error = "viewer overlay index is unavailable";
+        return SignalViewerStatus::not_found;
+    }
+    sqlite3* database = nullptr;
+    if (sqlite3_open_v2(
+            database_path.c_str(), &database,
+            SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nullptr) != SQLITE_OK) {
+        error = database == nullptr ? "unable to open overlay index" :
+            sqlite3_errmsg(database);
+        if (database != nullptr) sqlite3_close(database);
+        return SignalViewerStatus::io_error;
+    }
+    sqlite3_busy_timeout(database, 1000);
+
+    SignalViewerOverlayWindow fresh;
+    fresh.requested_start_sample = request.start_sample;
+    fresh.requested_sample_count = span;
+    fresh.source_sample_count = metadata.sample_count;
+    fresh.sample_rate_hz = metadata.sample_rate_hz;
+    fresh.total_matching_items = 0u;
+    fresh.aggregated = false;
+
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(
+            database,
+            "SELECT DISTINCT kind FROM overlays ORDER BY kind;",
+            -1, &statement, nullptr) != SQLITE_OK) {
+        error = sqlite3_errmsg(database);
+        sqlite3_close(database);
+        return SignalViewerStatus::invalid_source;
+    }
+    for (;;) {
+        const int status = sqlite3_step(statement);
+        if (status == SQLITE_DONE) break;
+        if (status != SQLITE_ROW) {
+            error = sqlite3_errmsg(database);
+            sqlite3_finalize(statement);
+            sqlite3_close(database);
+            return SignalViewerStatus::invalid_source;
+        }
+        fresh.available_kinds.push_back(overlay_column_text(statement, 0));
+    }
+    sqlite3_finalize(statement);
+
+    const char* count_sql =
+        "SELECT COUNT(*) FROM overlays WHERE "
+        "(is_interval=0 AND start_sample>=?1 AND start_sample<?2) OR "
+        "(is_interval=1 AND start_sample<?2 AND end_sample>?1);";
+    if (sqlite3_prepare_v2(database, count_sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_overlay_range(statement, request.start_sample, end) ||
+        sqlite3_step(statement) != SQLITE_ROW) {
+        error = sqlite3_errmsg(database);
+        sqlite3_finalize(statement);
+        sqlite3_close(database);
+        return SignalViewerStatus::invalid_source;
+    }
+    fresh.total_matching_items = static_cast<unsigned long long>(
+        std::max<sqlite3_int64>(0, sqlite3_column_int64(statement, 0)));
+    sqlite3_finalize(statement);
+
+    bool succeeded = true;
+    if (fresh.total_matching_items <= request.max_items) {
+        succeeded = query_exact_overlays(
+            database, request.start_sample, end, request.max_items,
+            fresh.items, error);
+    } else {
+        fresh.aggregated = true;
+        succeeded = query_intervals(
+            database, request.start_sample, end, request.max_items,
+            fresh.items, error);
+        const unsigned int remaining = fresh.items.size() >= request.max_items
+            ? 0u
+            : request.max_items - static_cast<unsigned int>(fresh.items.size());
+        if (succeeded && remaining > 0u) {
+            unsigned long long bucket_size = std::max<unsigned long long>(
+                1u, (span + std::max(remaining, 1u) - 1u) /
+                    std::max(remaining, 1u));
+            bool overflow = true;
+            while (succeeded && overflow) {
+                std::vector<SignalViewerOverlayItem> points;
+                succeeded = query_clustered_points(
+                    database, request.start_sample, end, bucket_size,
+                    remaining, points, overflow, error);
+                if (!overflow) {
+                    fresh.items.insert(
+                        fresh.items.end(), points.begin(), points.end());
+                    break;
+                }
+                if (bucket_size >= span) {
+                    // A pathological number of distinct labels is still kept
+                    // bounded deterministically by the SQL limit.
+                    fresh.items.insert(
+                        fresh.items.end(), points.begin(), points.end());
+                    overflow = false;
+                    break;
+                }
+                bucket_size = std::min(span, bucket_size * 2u);
+            }
+        }
+        std::sort(
+            fresh.items.begin(), fresh.items.end(),
+            [](const SignalViewerOverlayItem& left,
+               const SignalViewerOverlayItem& right) {
+                if (left.start_sample != right.start_sample) {
+                    return left.start_sample < right.start_sample;
+                }
+                return left.kind < right.kind;
+            });
+    }
+    sqlite3_close(database);
+    if (!succeeded) return SignalViewerStatus::invalid_source;
     window = fresh;
     return SignalViewerStatus::ok;
 }

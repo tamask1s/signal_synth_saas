@@ -53,6 +53,37 @@ struct SignalViewerWindow {
     std::string binary;
 };
 
+struct SignalViewerOverlayRequest {
+    std::string case_id;
+    unsigned long long start_sample;
+    unsigned long long sample_count;
+    unsigned int max_items;
+};
+
+struct SignalViewerOverlayItem {
+    std::string kind;
+    std::string source;
+    std::string label;
+    std::string channel;
+    unsigned long long start_sample;
+    unsigned long long end_sample;
+    bool interval;
+    bool has_value;
+    double value;
+    unsigned int count;
+};
+
+struct SignalViewerOverlayWindow {
+    unsigned long long requested_start_sample;
+    unsigned long long requested_sample_count;
+    unsigned long long source_sample_count;
+    double sample_rate_hz;
+    unsigned long long total_matching_items;
+    bool aggregated;
+    std::vector<std::string> available_kinds;
+    std::vector<SignalViewerOverlayItem> items;
+};
+
 // Build a portable, random-access viewer source from an extracted Synsigra
 // package. The output contains only WFDB signal data and compact min/max
 // pyramid levels. `not_found` means the package has no viewable WFDB cases.
@@ -77,6 +108,16 @@ SignalViewerStatus read_signal_viewer_window(
     const std::string& viewer_root,
     const SignalViewerWindowRequest& request,
     SignalViewerWindow& window,
+    std::string& error
+);
+
+// Read ground-truth events and intervals prepared from the generator's
+// authoritative annotations.json. Results are time-window bounded; dense
+// event streams are aggregated instead of returning an unbounded document.
+SignalViewerStatus read_signal_viewer_overlays(
+    const std::string& viewer_root,
+    const SignalViewerOverlayRequest& request,
+    SignalViewerOverlayWindow& window,
     std::string& error
 );
 
