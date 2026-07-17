@@ -89,6 +89,11 @@ Successful artifacts are registered under `/opt/signal_synth_saas/releases/`;
 `current-release`, `previous-release`, and `last-rollback` are symlinks, not
 mutable copies.
 
+Rollback verification intentionally uses the stable runtime baseline
+(`SYN_SIG_RA_BASELINE_ONLY=1`): health/readiness, authenticated project access,
+and all three services. It does not require endpoints introduced by the failed
+new release, because a valid older release cannot satisfy a newer contract.
+
 Explicit rollback restores the last successful pre-deploy snapshot, verifies
 the live product, and retains a roll-forward snapshot:
 

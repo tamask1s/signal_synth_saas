@@ -22,16 +22,25 @@ case "$landing" in
 esac
 curl -fsS -H "Authorization: Bearer $key" "$base/v1/projects"
 printf '\n'
+if [ "${SYN_SIG_RA_BASELINE_ONLY:-0}" = 1 ]; then
+  sudo systemctl is-active apache22
+  sudo systemctl is-active nginx.service
+  sudo systemctl is-active syn_sig_ra_worker.service
+  printf 'status=runtime-baseline-verified\n'
+  exit 0
+fi
 curl -fsS -H "Authorization: Bearer $key" "$base/v1/usage"
 printf '\n'
 curl -fsS -H "Authorization: Bearer $key" "$base/v1/downloads/verifier"
 printf '\n'
 curl -fsS -H "Authorization: Bearer $key" "$base/v1/metrics"
 printf '\n'
+printf 'check=audit\n'
 audit=$(curl -fsS -H "Authorization: Bearer $key" \
   "$base/v1/audit-events?limit=10")
 printf '%s' "$audit" | python3 -c \
   'import json,sys; x=json.load(sys.stdin); assert x["count"]>=1; assert all("api_key" not in e.get("details",{}) for e in x["audit_events"])'
+printf 'check=viewer-assets\n'
 viewer_html=$(curl -fsS "$base/viewer")
 case "$viewer_html" in
   *"Synsigra Lab"*"$base"*) ;;
@@ -43,6 +52,7 @@ case "$viewer_js" in *decodeSignalWindow*visibleBucketRange*) ;; *) exit 1 ;; es
 case "$viewer_js" in *"Math.max(centerY - halfHeight"*) exit 1 ;; *) ;; esac
 viewer_app=$(curl -fsS "$base/viewer/app.js")
 case "$viewer_app" in *"signalCache.find"*prefetchedRequest*setEmptyState*) ;; *) exit 1 ;; esac
+printf 'check=openapi\n'
 openapi=$(curl -fsS "$base/openapi.yaml")
 case "$openapi" in
   *"/v1/jobs/{job_id}/viewer/window:"*"/v1/account/export:"*) ;;
@@ -54,6 +64,7 @@ viewer_auth_status=$(curl -sS -o /dev/null -w '%{http_code}' \
   echo "signal viewer API auth check returned $viewer_auth_status" >&2
   exit 1
 }
+printf 'check=jobs-and-viewer\n'
 jobs=$(curl -fsS -H "Authorization: Bearer $key" \
   "$base/v1/jobs?limit=100&offset=0")
 printf '%s' "$jobs" | python3 -c \
@@ -78,6 +89,7 @@ if [ -n "$viewer_job" ]; then
     "$viewer_window"
   rm -f "$viewer_window"
 fi
+printf 'check=artifact-delivery\n'
 artifact_pair=$(printf '%s' "$jobs" | python3 -c \
   'import json,sys; jobs=json.load(sys.stdin)["jobs"]; j=next((j for j in jobs if j.get("status")=="succeeded" and j.get("package_id") and j.get("artifact_status")!="expired"), {}); print(j.get("job_id",""), j.get("package_id",""))')
 set -- $artifact_pair
@@ -107,6 +119,8 @@ if [ -n "$artifact_job" ] && [ -n "$artifact_package" ]; then
   rm -f "$artifact_headers" "$artifact_range"
   trap - EXIT HUP INT TERM
 fi
+printf 'check=services\n'
 sudo systemctl is-active apache22
 sudo systemctl is-active nginx.service
 sudo systemctl is-active syn_sig_ra_worker.service
+printf 'status=live-release-verified\n'
