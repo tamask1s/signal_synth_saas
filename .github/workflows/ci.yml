@@ -39,5 +39,5 @@ jobs:
           BUILD_JOBS: "2"
           RUN_E2E: "1"
           SIGNAL_SYNTH_CLI: ${{ github.workspace }}/build/core/signal-synth
-          SYN_SIG_RA_E2E_LOAD_MODULES: mpm_prefork_module=/usr/lib/apache2/modules/mod_mpm_prefork.so
+          SYN_SIG_RA_E2E_LOAD_MODULES: mpm_prefork_module=/usr/lib/apache2/modules/mod_mpm_prefork.so authn_core_module=/usr/lib/apache2/modules/mod_authn_core.so
         run: scripts/build_release.sh
