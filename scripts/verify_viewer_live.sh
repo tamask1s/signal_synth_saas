@@ -33,8 +33,16 @@ print("aggregated="+str(bool(data.get("aggregated"))).lower())'
 page=$(curl -fsS "$base/viewer")
 printf '%s' "$page" | grep -q 'Ground truth overlays'
 printf '%s' "$page" | grep -q 'Local algorithm output'
+printf '%s' "$page" | grep -q 'id="spacing-in"'
+printf '%s' "$page" | grep -q 'style.css?v=4'
 library=$(curl -fsS "$base/viewer/signal-viewer.js")
 printf '%s' "$library" | grep -q 'SignalWindowCache'
+printf '%s' "$library" | grep -q 'setChannelSpacing'
 application=$(curl -fsS "$base/viewer/app.js")
 printf '%s' "$application" | grep -q 'file was not uploaded'
+printf '%s' "$application" | grep -q 'setEmptyState'
+printf '%s' "$application" | grep -q "available.includes('r_peak')"
+stylesheet=$(curl -fsS "$base/viewer/style.css")
+printf '%s' "$stylesheet" | grep -q 'height: calc(100dvh - 76px)'
+printf '%s' "$stylesheet" | grep -q 'position: sticky'
 printf 'status=viewer-ui-ok\njob_id=%s\ncase_id=%s\n' "$job_id" "$case_id"

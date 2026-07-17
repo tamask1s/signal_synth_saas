@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#07111f">
   <title>Synsigra Lab · Signal viewer</title>
   <link rel="icon" href="/assets/img/logo-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="__SYNSIGRA_BASE__/viewer/style.css">
+  <link rel="stylesheet" href="__SYNSIGRA_BASE__/viewer/style.css?v=4">
 </head>
 <body data-api-base="__SYNSIGRA_BASE__">
   <header class="lab-header">
@@ -97,14 +97,21 @@
 
       <div class="canvas-shell" id="canvas-shell">
         <canvas id="signal-canvas" tabindex="0" aria-label="Interactive biosignal plot. Drag or use Shift plus mouse wheel to pan. Use Control plus mouse wheel to zoom in time."></canvas>
-        <div id="viewer-empty" class="viewer-empty">
+        <div id="viewer-empty" class="viewer-empty is-visible" aria-hidden="false">
           <strong>Select a completed job</strong>
           <span>Your generated ECG, PPG, and motion channels will appear here.</span>
         </div>
-        <div class="amplitude-controls" aria-label="Amplitude zoom">
-          <button id="amplitude-in" type="button" title="Increase displayed amplitude" aria-label="Increase displayed amplitude">+</button>
-          <span>Amplitude</span>
-          <button id="amplitude-out" type="button" title="Decrease displayed amplitude" aria-label="Decrease displayed amplitude">−</button>
+        <div class="vertical-controls">
+          <div class="vertical-control-group amplitude-controls" aria-label="Amplitude zoom">
+            <button id="amplitude-in" type="button" title="Increase displayed amplitude" aria-label="Increase displayed amplitude">+</button>
+            <span>Amplitude</span>
+            <button id="amplitude-out" type="button" title="Decrease displayed amplitude" aria-label="Decrease displayed amplitude">−</button>
+          </div>
+          <div class="vertical-control-group spacing-controls" aria-label="Channel spacing">
+            <button id="spacing-in" type="button" title="Increase distance between stacked channels" aria-label="Increase channel spacing" disabled>+</button>
+            <span id="spacing-value">Spacing 100%</span>
+            <button id="spacing-out" type="button" title="Compress stacked channels" aria-label="Decrease channel spacing">−</button>
+          </div>
         </div>
       </div>
 
@@ -129,7 +136,7 @@
     </section>
   </main>
 
-  <script src="__SYNSIGRA_BASE__/viewer/signal-viewer.js?v=3"></script>
-  <script src="__SYNSIGRA_BASE__/viewer/app.js?v=3"></script>
+  <script src="__SYNSIGRA_BASE__/viewer/signal-viewer.js?v=4"></script>
+  <script src="__SYNSIGRA_BASE__/viewer/app.js?v=4"></script>
 </body>
 </html>

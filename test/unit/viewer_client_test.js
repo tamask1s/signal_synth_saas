@@ -8,6 +8,24 @@ require('../../web/viewer/signal-viewer.js');
 const library = global.SynsigraSignalViewer;
 assert(library, 'viewer library should be exported');
 
+global.addEventListener = () => {};
+const canvasContext = {
+  setTransform() {},
+  fillRect() {}
+};
+const canvas = {
+  width: 0,
+  height: 0,
+  getContext: () => canvasContext,
+  getBoundingClientRect: () => ({ width: 800, height: 400 })
+};
+const renderer = new library.SignalCanvasRenderer(canvas);
+assert.strictEqual(renderer.channelSpacing, 1, 'stacked channels should fill the viewer by default');
+renderer.setChannelSpacing(0.25);
+assert.strictEqual(renderer.channelSpacing, 0.5, 'channel spacing should retain a readable lower bound');
+renderer.setChannelSpacing(1.5);
+assert.strictEqual(renderer.channelSpacing, 1, 'channel spacing must not grow beyond the fitted layout');
+
 const bounded = new library.BoundedLruCache(1024);
 assert.strictEqual(bounded.set('first', { id: 1 }, 700), true);
 assert.strictEqual(bounded.set('second', { id: 2 }, 500), true);

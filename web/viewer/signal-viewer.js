@@ -237,6 +237,7 @@
       this.context = canvas.getContext('2d', { alpha: false });
       this.layout = 'stacked';
       this.amplitudeScale = 1;
+      this.channelSpacing = 1;
       this.caseMetadata = null;
       this.window = null;
       this.overlayWindow = null;
@@ -326,6 +327,11 @@
 
     setAmplitudeScale(scale) {
       this.amplitudeScale = Math.max(0.125, Math.min(32, scale));
+      this.draw();
+    }
+
+    setChannelSpacing(scale) {
+      this.channelSpacing = Math.max(0.5, Math.min(1, scale));
       this.draw();
     }
 
@@ -699,8 +705,11 @@
         });
       } else {
         const laneHeight = plot.height / visible.length;
+        const lanePitch = laneHeight * this.channelSpacing;
+        const occupiedHeight = lanePitch * visible.length;
+        const firstCenter = plot.top + (plot.height - occupiedHeight) / 2 + lanePitch / 2;
         visible.forEach((item, index) => {
-          const center = plot.top + laneHeight * (index + 0.5);
+          const center = firstCenter + lanePitch * index;
           const color = COLORS[item.channel.index % COLORS.length];
           const range = this.drawChannel(
             ctx, item.values, item.channel, color, plot, center, laneHeight * 0.46, false

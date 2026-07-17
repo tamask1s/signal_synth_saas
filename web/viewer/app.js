@@ -21,7 +21,10 @@
     overlayList: document.querySelector('#overlay-list'),
     detectionFile: document.querySelector('#local-detection-file'),
     detectionStatus: document.querySelector('#local-detection-status'),
-    cursor: document.querySelector('#cursor-inspector')
+    cursor: document.querySelector('#cursor-inspector'),
+    spacingValue: document.querySelector('#spacing-value'),
+    spacingIn: document.querySelector('#spacing-in'),
+    spacingOut: document.querySelector('#spacing-out')
   };
   const signalCache = new library.SignalWindowCache(28 * 1024 * 1024);
   const overlayCache = new library.BoundedLruCache(4 * 1024 * 1024);
@@ -34,13 +37,16 @@
     startSample: 0,
     spanSamples: 0,
     amplitudeScale: 1,
+    channelSpacing: 1,
     layout: 'stacked',
     currentWindow: null,
     currentOverlays: null,
     enabledOverlayKinds: new Set(),
+    overlaySelectionInitialized: false,
     localEvents: [],
     requestController: null,
     requestSerial: 0,
+    metadataSerial: 0,
     requestTimer: null,
     dragging: null
   };
@@ -69,6 +75,14 @@
   function setStatus(message, kind) {
     elements.status.textContent = message;
     elements.status.className = `request-status ${kind || ''}`;
+  }
+
+  function setEmptyState(visible, title, message) {
+    elements.empty.classList.toggle('is-visible', Boolean(visible));
+    elements.empty.hidden = !visible;
+    elements.empty.setAttribute('aria-hidden', String(!visible));
+    if (title !== undefined) elements.empty.querySelector('strong').textContent = title;
+    if (message !== undefined) elements.empty.querySelector('span').textContent = message;
   }
 
   function formatBytes(bytes) {
@@ -138,6 +152,7 @@
     state.currentOverlays = null;
     state.localEvents = [];
     state.enabledOverlayKinds = new Set();
+    state.overlaySelectionInitialized = false;
     state.selectedChannels = caseMetadata.channels.map((channel) => channel.index);
     const initialSpan = Math.min(
       caseMetadata.sample_count,
@@ -151,7 +166,9 @@
       state.startSample = clampStart(state.startSample);
     }
     state.amplitudeScale = 1;
+    state.channelSpacing = 1;
     renderer.setAmplitudeScale(1);
+    setChannelSpacing(1);
     renderer.setCase(caseMetadata);
     renderer.setLocalEvents([]);
     renderer.setEnabledOverlayKinds([]);
@@ -165,7 +182,7 @@
     elements.sourceSummary.innerHTML = `<strong>${escapeHtml(caseMetadata.case_id)}</strong>
       ${caseMetadata.channels.length} channels · ${caseMetadata.sample_rate_hz.toLocaleString()} Hz ·
       ${library.niceDuration(caseMetadata.sample_count / caseMetadata.sample_rate_hz)}`;
-    elements.empty.hidden = true;
+    setEmptyState(true, 'Loading viewport', 'Fetching signal samples…');
     renderChannels();
     updatePositionControls();
     updateLocation();
@@ -173,20 +190,43 @@
   }
 
   async function loadDescription() {
+    const metadataSerial = ++state.metadataSerial;
+    window.clearTimeout(state.requestTimer);
+    if (state.requestController) state.requestController.abort();
+    state.requestController = null;
+    state.requestSerial += 1;
     state.jobId = elements.job.value;
     state.description = null;
     state.caseMetadata = null;
     state.currentWindow = null;
     state.currentOverlays = null;
+    state.localEvents = [];
+    state.enabledOverlayKinds = new Set();
+    state.overlaySelectionInitialized = false;
+    renderer.setWindow(null);
+    renderer.setOverlays(null);
+    renderer.setLocalEvents([]);
+    renderer.setEnabledOverlayKinds([]);
     elements.case.disabled = true;
     elements.case.innerHTML = '<option>Loading signal cases…</option>';
     elements.channelFieldset.disabled = true;
-    elements.empty.hidden = false;
-    elements.empty.querySelector('strong').textContent = 'Loading signal source';
-    elements.empty.querySelector('span').textContent = 'Preparing case and channel metadata…';
+    elements.overlayFieldset.disabled = true;
+    elements.overlayList.innerHTML = '<p class="control-hint">Loading available annotations…</p>';
+    elements.detectionFile.value = '';
+    elements.detectionStatus.textContent = 'No local detector output loaded.';
+    elements.detectionStatus.className = 'local-status';
+    elements.heading.textContent = 'Loading signal…';
+    elements.position.textContent = 'Preparing case metadata';
+    elements.sourceSummary.className = 'source-summary';
+    elements.sourceSummary.textContent = 'Loading the selected generated package…';
+    setEmptyState(
+      true,
+      'Loading signal source',
+      'Preparing case and channel metadata…');
     setStatus('Loading metadata', 'loading');
     try {
       const description = await dataSource.describe(state.jobId);
+      if (metadataSerial !== state.metadataSerial) return;
       state.description = description;
       elements.case.innerHTML = description.cases.map((item) =>
         `<option value="${escapeHtml(item.case_id)}">${escapeHtml(item.case_id)}</option>`
@@ -199,13 +239,15 @@
       applyCase(selectedCase(), false);
       setStatus('Ready', 'ok');
     } catch (error) {
+      if (metadataSerial !== state.metadataSerial) return;
       elements.case.innerHTML = '<option>Viewer unavailable</option>';
+      elements.heading.textContent = 'Signal viewer unavailable';
+      elements.position.textContent = 'Select another completed job or generate a new package.';
       elements.sourceSummary.className = 'source-summary error';
       elements.sourceSummary.innerHTML = error.status === 401
         ? `Sign in to view generated data. <a href="${apiBase}/account">Open account</a>`
         : `${escapeHtml(error.message)} Generate the pack again if it predates the signal viewer.`;
-      elements.empty.querySelector('strong').textContent = 'Signal viewer unavailable';
-      elements.empty.querySelector('span').textContent = error.message;
+      setEmptyState(true, 'Signal viewer unavailable', error.message);
       setStatus(error.message, 'error');
     }
   }
@@ -241,8 +283,10 @@
       if (!state.jobs.length) {
         elements.job.innerHTML = '<option>No retained completed jobs</option>';
         elements.sourceSummary.innerHTML = `Generate a package first. <a href="${apiBase}/packs">Choose a pack</a>`;
-        elements.empty.querySelector('strong').textContent = 'No completed package yet';
-        elements.empty.querySelector('span').textContent = 'Choose a pack and generate a job to inspect its signals.';
+        setEmptyState(
+          true,
+          'No completed package yet',
+          'Choose a pack and generate a job to inspect its signals.');
         setStatus('No source', '');
         return;
       }
@@ -262,6 +306,7 @@
       elements.sourceSummary.innerHTML = error.status === 401
         ? `Sign in to view your data. <a href="${apiBase}/account">Open account</a>`
         : escapeHtml(error.message);
+      setEmptyState(true, 'Signal viewer unavailable', error.message);
       setStatus(error.message, 'error');
     }
   }
@@ -327,9 +372,15 @@
   function renderOverlayControls(availableKinds) {
     const available = Array.isArray(availableKinds) ? availableKinds : [];
     const previous = new Set(state.enabledOverlayKinds);
-    state.enabledOverlayKinds = new Set(available.filter((kind) =>
-      previous.size ? previous.has(kind) : true
-    ));
+    if (!state.overlaySelectionInitialized) {
+      const preferred = available.includes('r_peak') ? 'r_peak' :
+        available.includes('beat_class') ? 'beat_class' : available[0];
+      state.enabledOverlayKinds = new Set(preferred ? [preferred] : []);
+      state.overlaySelectionInitialized = true;
+    } else {
+      state.enabledOverlayKinds = new Set(
+        available.filter((kind) => previous.has(kind)));
+    }
     elements.overlayList.innerHTML = available.length ? available.map((kind) => `
       <label class="overlay-option overlay-${escapeHtml(kind)}">
         <input type="checkbox" value="${escapeHtml(kind)}"${state.enabledOverlayKinds.has(kind) ? ' checked' : ''}>
@@ -350,12 +401,13 @@
       state.currentOverlays = overlayData;
       renderer.setOverlays(overlayData);
       renderOverlayControls(overlayData.available_kinds);
-    } else if (!state.currentOverlays) {
-      renderOverlayControls([]);
     }
     renderer.setViewport(state.startSample, state.spanSamples);
-    elements.empty.hidden = !state.currentWindow;
-    if (!state.currentWindow) return;
+    if (!state.currentWindow) {
+      setEmptyState(true, 'Loading viewport', 'Fetching signal samples…');
+      return;
+    }
+    setEmptyState(false);
     const data = state.currentWindow;
     const mode = data.samplesPerBucket === 1
       ? 'raw samples'
@@ -373,9 +425,10 @@
     if (!state.caseMetadata || !state.selectedChannels.length) {
       state.currentWindow = null;
       renderer.setWindow(null);
-      elements.empty.hidden = false;
-      elements.empty.querySelector('strong').textContent = 'Select at least one channel';
-      elements.empty.querySelector('span').textContent = 'The API only returns channels selected for display.';
+      setEmptyState(
+        true,
+        'Select at least one channel',
+        'The API only returns channels selected for display.');
       setStatus('No channels selected', '');
       return;
     }
@@ -427,13 +480,12 @@
           { jobId: state.jobId, caseId: state.caseMetadata.case_id, data: overlays },
           bytes);
       }
+      if (!overlays && !cachedOverlays) renderOverlayControls([]);
       applyLoadedData(data, overlays, 'network + prefetch');
     } catch (error) {
       if (error.name === 'AbortError') return;
       if (serial !== state.requestSerial) return;
-      elements.empty.hidden = false;
-      elements.empty.querySelector('strong').textContent = 'Could not load viewport';
-      elements.empty.querySelector('span').textContent = error.message;
+      setEmptyState(true, 'Could not load viewport', error.message);
       setStatus(error.message, 'error');
     } finally {
       if (state.requestController === controller) state.requestController = null;
@@ -474,6 +526,14 @@
   function setAmplitude(scale) {
     state.amplitudeScale = Math.max(0.125, Math.min(32, scale));
     renderer.setAmplitudeScale(state.amplitudeScale);
+  }
+
+  function setChannelSpacing(scale) {
+    state.channelSpacing = Math.max(0.5, Math.min(1, scale));
+    renderer.setChannelSpacing(state.channelSpacing);
+    elements.spacingValue.textContent = `Spacing ${Math.round(state.channelSpacing * 100)}%`;
+    elements.spacingIn.disabled = state.layout !== 'stacked' || state.channelSpacing >= 0.999;
+    elements.spacingOut.disabled = state.layout !== 'stacked' || state.channelSpacing <= 0.501;
   }
 
   function parseCsv(text) {
@@ -664,6 +724,7 @@
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', String(active));
     });
+    setChannelSpacing(state.channelSpacing);
   }
   document.querySelector('#layout-stacked').addEventListener('click', () => setLayout('stacked'));
   document.querySelector('#layout-overlay').addEventListener('click', () => setLayout('overlay'));
@@ -672,6 +733,8 @@
   document.querySelector('#amplitude-in').addEventListener('click', () => setAmplitude(state.amplitudeScale * 2));
   document.querySelector('#amplitude-out').addEventListener('click', () => setAmplitude(state.amplitudeScale / 2));
   document.querySelector('#amplitude-fit').addEventListener('click', () => setAmplitude(1));
+  elements.spacingIn.addEventListener('click', () => setChannelSpacing(state.channelSpacing + 0.125));
+  elements.spacingOut.addEventListener('click', () => setChannelSpacing(state.channelSpacing - 0.125));
 
   elements.slider.addEventListener('input', () => {
     state.startSample = clampStart(Number(elements.slider.value));
