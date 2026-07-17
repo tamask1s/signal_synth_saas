@@ -74,4 +74,23 @@ fi
 sudo /usr/local/apache2/bin/httpd -t
 sudo systemctl start apache22
 sudo systemctl start syn_sig_ra_worker.service
+
+nginx_enabled=/etc/nginx/sites-enabled/timeonion.conf
+nginx_target=$nginx_enabled
+if [ -L "$nginx_enabled" ]; then
+  nginx_target=$(readlink -f "$nginx_enabled")
+fi
+if [ -f "$nginx_target" ]; then
+  sudo cp "$nginx_target" "$nginx_target.before-$timestamp"
+fi
+sudo install -m 0644 "$repo_dir/ops/nginx/timeonion.conf" "$nginx_target"
+if ! sudo nginx -t; then
+  if [ -f "$nginx_target.before-$timestamp" ]; then
+    sudo cp "$nginx_target.before-$timestamp" "$nginx_target"
+    sudo nginx -t
+  fi
+  echo "nginx configuration rejected; previous configuration restored" >&2
+  exit 1
+fi
+sudo systemctl reload nginx.service
 "$repo_dir/scripts/verify_live.sh"

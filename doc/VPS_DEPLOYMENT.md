@@ -45,7 +45,9 @@ the custom Apache 2.2 backend. Apache is deliberately inaccessible from the
 network.
 
 The versioned nginx configuration is
-`ops/nginx/timeonion.conf`. HTTP serves only ACME challenges and redirects all
+`ops/nginx/timeonion.conf`; deployment installs it through the active
+`/etc/nginx/sites-enabled/timeonion.conf` target, validates it, restores the
+previous file on validation failure, and reloads nginx. HTTP serves only ACME challenges and redirects all
 other requests to the canonical `https://www.timeonion.com` origin. The apex
 HTTPS origin redirects there as well, which keeps future login cookies on one
 origin. Unknown hostnames are rejected. The edge also limits request bodies to
