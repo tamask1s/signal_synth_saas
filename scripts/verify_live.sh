@@ -26,7 +26,7 @@ viewer_js=$(curl -fsS "$base/viewer/signal-viewer.js")
 case "$viewer_js" in *decodeSignalWindow*visibleBucketRange*) ;; *) exit 1 ;; esac
 case "$viewer_js" in *"Math.max(centerY - halfHeight"*) exit 1 ;; *) ;; esac
 viewer_app=$(curl -fsS "$base/viewer/app.js")
-case "$viewer_app" in *cacheSatisfiesViewport*prefetchedRequest*) ;; *) exit 1 ;; esac
+case "$viewer_app" in *"signalCache.find"*prefetchedRequest*setEmptyState*) ;; *) exit 1 ;; esac
 openapi=$(curl -fsS "$base/openapi.yaml")
 case "$openapi" in *"/v1/jobs/{job_id}/viewer/window:"*) ;; *) exit 1 ;; esac
 viewer_auth_status=$(curl -sS -o /dev/null -w '%{http_code}' \
@@ -38,7 +38,7 @@ viewer_auth_status=$(curl -sS -o /dev/null -w '%{http_code}' \
 jobs=$(curl -fsS -H "Authorization: Bearer $key" \
   "$base/v1/jobs?limit=100&offset=0")
 viewer_job=$(printf '%s' "$jobs" | python3 -c \
-  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; print(next((j["job_id"] for j in jobs if j.get("status")=="succeeded" and j.get("package_id")), ""))')
+  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; print(next((j["job_id"] for j in jobs if j.get("status")=="succeeded" and j.get("package_id") and j.get("artifact_status")!="expired"), ""))')
 if [ -n "$viewer_job" ]; then
   viewer_metadata=$(curl -fsS -H "Authorization: Bearer $key" \
     "$base/v1/jobs/$viewer_job/viewer")
