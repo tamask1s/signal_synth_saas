@@ -215,6 +215,8 @@ PY
 )
 fi
 BASE_URL="http://127.0.0.1:$PORT/syn_sig_ra"
+SERVER_USER=${SYN_SIG_RA_E2E_USER:-$(id -un)}
+SERVER_GROUP=${SYN_SIG_RA_E2E_GROUP:-$(id -gn)}
 EXTRA_MODULE_LOADS=
 for module_spec in ${SYN_SIG_RA_E2E_LOAD_MODULES:-}; do
     module_name=${module_spec%%=*}
@@ -233,6 +235,8 @@ cat > "$HTTPD_CONF" <<EOF
 ServerRoot "$SERVER_ROOT"
 ServerName 127.0.0.1:$PORT
 Listen 127.0.0.1:$PORT
+User "$SERVER_USER"
+Group "$SERVER_GROUP"
 PidFile "$RUN_ROOT/httpd.pid"
 ErrorLog "$APACHE_ERROR_LOG"
 LogLevel warn
