@@ -900,6 +900,101 @@ std::string job_list_json(
     return output;
 }
 
+std::string csv_cell(const std::string& value) {
+    bool quote = false;
+    for (std::string::const_iterator it = value.begin(); it != value.end(); ++it) {
+        if (*it == ',' || *it == '"' || *it == '\n' || *it == '\r') {
+            quote = true;
+            break;
+        }
+    }
+    if (!quote) return value;
+    std::string escaped("\"");
+    for (std::string::const_iterator it = value.begin(); it != value.end(); ++it) {
+        if (*it == '"') escaped.push_back('"');
+        escaped.push_back(*it);
+    }
+    escaped.push_back('"');
+    return escaped;
+}
+
+std::string audit_event_list_json(
+    const std::vector<syn_sig_ra::AuditEventRecord>& events,
+    int limit,
+    int offset
+) {
+    json_t* root = json_object();
+    json_t* items = json_array();
+    for (std::vector<syn_sig_ra::AuditEventRecord>::const_iterator it =
+             events.begin(); it != events.end(); ++it) {
+        json_t* item = json_object();
+        json_object_set_new(item, "id", json_integer(it->audit_event_id));
+        json_object_set_new(
+            item, "created_at", json_string(it->created_at.c_str()));
+        json_object_set_new(
+            item, "event_type", json_string(it->event_type.c_str()));
+        json_object_set_new(
+            item, "user_id", json_string(it->user_id.c_str()));
+        json_object_set_new(
+            item, "api_key_id", json_string(it->api_key_id.c_str()));
+        json_object_set_new(
+            item, "subject_type", json_string(it->subject_type.c_str()));
+        json_object_set_new(
+            item, "subject_id", json_string(it->subject_id.c_str()));
+        json_error_t parse_error;
+        json_t* details = json_loads(
+            it->details_json.c_str(), JSON_REJECT_DUPLICATES, &parse_error);
+        json_object_set_new(
+            item, "details", details == nullptr ? json_object() : details);
+        json_array_append_new(items, item);
+    }
+    json_object_set_new(root, "audit_events", items);
+    json_object_set_new(root, "limit", json_integer(limit));
+    json_object_set_new(root, "offset", json_integer(offset));
+    json_object_set_new(root, "count", json_integer(events.size()));
+    if (events.size() == static_cast<std::size_t>(limit)) {
+        json_object_set_new(root, "next_offset", json_integer(offset + limit));
+    }
+    const std::string output = json_dump_line(root);
+    json_decref(root);
+    return output;
+}
+
+std::string audit_event_list_csv(
+    const std::vector<syn_sig_ra::AuditEventRecord>& events
+) {
+    std::ostringstream output;
+    output << "id,created_at,event_type,user_id,api_key_id,subject_type,subject_id,details_json\r\n";
+    for (std::vector<syn_sig_ra::AuditEventRecord>::const_iterator it =
+             events.begin(); it != events.end(); ++it) {
+        output << it->audit_event_id << ','
+               << csv_cell(it->created_at) << ','
+               << csv_cell(it->event_type) << ','
+               << csv_cell(it->user_id) << ','
+               << csv_cell(it->api_key_id) << ','
+               << csv_cell(it->subject_type) << ','
+               << csv_cell(it->subject_id) << ','
+               << csv_cell(it->details_json) << "\r\n";
+    }
+    return output.str();
+}
+
+void record_nonblocking_audit(
+    syn_sig_ra::MetadataStore& store,
+    const syn_sig_ra::ApiKeyIdentity& actor,
+    const std::string& event_type,
+    const std::string& subject_type,
+    const std::string& subject_id,
+    const std::string& details_json,
+    syn_sig_ra::RouteResponse& response
+) {
+    std::string error;
+    if (!store.record_audit_event(
+            actor, event_type, subject_type, subject_id, details_json, error)) {
+        response.internal_error = "audit write failed: " + error;
+    }
+}
+
 bool query_integer(
     const std::string& query,
     const std::string& name,
@@ -1822,6 +1917,19 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         </div>
         <pre id="api-key-secret" class="output"></pre>
         <div id="api-keys" class="jobs"></div>
+        <section id="security-audit-panel">
+          <div class="panel-heading">
+            <div>
+              <h3>Security &amp; audit</h3>
+              <p class="muted compact">Review organization security, job, and artifact actions. Export up to 1,000 events per CSV page.</p>
+            </div>
+            <div class="row">
+              <button id="refresh-audit" class="secondary">Refresh</button>
+              <a class="button-link" href="/syn_sig_ra/v1/audit-events?format=csv&amp;limit=1000" download="synsigra-audit-events.csv" data-no-spa>Download CSV</a>
+            </div>
+          </div>
+          <div id="audit-events" class="jobs"></div>
+        </section>
       </div>
       <p id="auth-output" class="muted" aria-live="polite"></p>
     </section>
@@ -2148,6 +2256,8 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>POST</td><td><code>/v1/auth/logout</code></td><td>End browser session</td><td>Session</td></tr>
           <tr><td>GET/POST</td><td><code>/v1/projects</code></td><td>List/create projects</td><td>Authenticated</td></tr>
           <tr><td>GET/POST/DELETE</td><td><code>/v1/api-keys</code></td><td>Manage personal API keys</td><td>Authenticated</td></tr>
+          <tr><td>POST</td><td><code>/v1/api-keys/{api_key_id}/rotate</code></td><td>Atomically replace a key and return the replacement secret once</td><td>Authenticated</td></tr>
+          <tr><td>GET</td><td><code>/v1/audit-events</code></td><td>Organization-scoped JSON/CSV audit export</td><td>Owner/admin</td></tr>
           <tr><td>GET</td><td><code>/v1/downloads/verifier</code></td><td>Verifier download metadata</td><td>Authenticated</td></tr>
           <tr><td>GET</td><td><code>/v1/downloads/verifier/{filename}</code></td><td>Download generator-free verifier bundle or wheel</td><td>Authenticated</td></tr>
           <tr><td>GET</td><td><code>/v1/authoring/schema</code></td><td>Core scenario-authoring schema metadata</td><td>Authenticated</td></tr>
@@ -3360,6 +3470,7 @@ const char kUiJs[] = R"JS((() => {
     account: null,
     pendingVerificationEmail: "",
     apiKeys: [],
+    auditEvents: [],
     role: "",
     packs: [],
     packTargetFilter: "",
@@ -6105,7 +6216,8 @@ const char kUiJs[] = R"JS((() => {
       loadScenarios(),
       loadCustomPacks(),
       loadJobs({ force: true }),
-      loadApiKeys()
+      loadApiKeys(),
+      loadAuditEvents()
     ]);
   }
 
@@ -6244,6 +6356,7 @@ const char kUiJs[] = R"JS((() => {
     state.authenticated = false;
     state.role = "";
     state.apiKeys = [];
+    state.auditEvents = [];
     await refreshAuthenticatedData();
     renderAuthState();
     navigateTo("account");
@@ -6262,7 +6375,7 @@ const char kUiJs[] = R"JS((() => {
           <span class="badge ${key.active ? "succeeded" : "failed"}">${key.active ? "active" : "revoked"}</span>
         </div>
         <p class="muted">Created ${escapeHtml(formatDate(key.created_at))}${key.last_used_at ? ` · last used ${escapeHtml(formatDate(key.last_used_at))}` : ""}</p>
-        ${key.active ? `<button class="danger" data-revoke-api-key="${escapeHtml(key.api_key_id)}">Revoke</button>` : ""}
+        ${key.active ? `<div class="row"><button class="secondary" data-rotate-api-key="${escapeHtml(key.api_key_id)}">Rotate</button><button class="danger" data-revoke-api-key="${escapeHtml(key.api_key_id)}">Revoke</button></div>` : ""}
       </article>
     `).join("") || "<p class=\"muted\">No personal API keys.</p>";
   }
@@ -6313,6 +6426,53 @@ const char kUiJs[] = R"JS((() => {
       showToast("API key revoked.", "notice");
     } catch (error) {
       showToast(error.message, "error");
+    }
+  }
+
+  async function rotateApiKey(keyId) {
+    if (!confirm("Rotate this API key? The current secret will stop working immediately.")) return;
+    try {
+      const created = await api(`/v1/api-keys/${encodeURIComponent(keyId)}/rotate`, {
+        method: "POST"
+      });
+      $("api-key-secret").textContent =
+        `Replacement key created. Copy it now; it will not be shown again:\n${created.api_key}`;
+      await Promise.all([loadApiKeys(), loadAuditEvents()]);
+      showToast("API key rotated. Update the integration with the replacement secret.");
+    } catch (error) {
+      showToast(error.message, "error");
+    }
+  }
+
+  function renderAuditEvents() {
+    const panel = $("security-audit-panel");
+    const permitted = state.authenticated && ["owner", "admin"].includes(state.role);
+    panel.hidden = !permitted;
+    if (!permitted) return;
+    $("audit-events").innerHTML = state.auditEvents.map((event) => `
+      <article class="job">
+        <div class="job-header">
+          <div><h3>${escapeHtml(event.event_type)}</h3><span class="fingerprint">${escapeHtml(event.subject_type || "service")}${event.subject_id ? ` · ${escapeHtml(event.subject_id)}` : ""}</span></div>
+          <span class="muted">${escapeHtml(formatDate(event.created_at))}</span>
+        </div>
+        <p class="muted compact">Actor ${escapeHtml(event.user_id || "system")}${event.api_key_id ? ` · key ${escapeHtml(event.api_key_id)}` : ""}</p>
+      </article>
+    `).join("") || "<p class=\"muted\">No audit events yet.</p>";
+  }
+
+  async function loadAuditEvents() {
+    if (!state.authenticated || !["owner", "admin"].includes(state.role)) {
+      state.auditEvents = [];
+      renderAuditEvents();
+      return;
+    }
+    try {
+      const body = await api("/v1/audit-events?limit=25");
+      state.auditEvents = body.audit_events || [];
+      renderAuditEvents();
+    } catch (error) {
+      $("security-audit-panel").hidden = false;
+      $("audit-events").innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
     }
   }
 
@@ -6376,11 +6536,14 @@ const char kUiJs[] = R"JS((() => {
   $("complete-password-reset").addEventListener("click", completePasswordReset);
   $("logout").addEventListener("click", logout);
   $("create-api-key").addEventListener("click", createApiKey);
+  $("refresh-audit").addEventListener("click", loadAuditEvents);
   $("api-keys").addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const keyId = target.getAttribute("data-revoke-api-key");
     if (keyId) revokeApiKey(keyId);
+    const rotateKeyId = target.getAttribute("data-rotate-api-key");
+    if (rotateKeyId) rotateApiKey(rotateKeyId);
   });
 
   $("refresh-packs").addEventListener("click", loadPacks);
@@ -6641,6 +6804,7 @@ bool route_requires_authentication(
            path_at_or_below(uri, public_base_path + "/v1/projects") ||
            path_at_or_below(uri, public_base_path + "/v1/usage") ||
            path_at_or_below(uri, public_base_path + "/v1/metrics") ||
+           path_at_or_below(uri, public_base_path + "/v1/audit-events") ||
            path_at_or_below(uri, public_base_path + "/v1/api-keys") ||
            path_at_or_below(uri, public_base_path + "/v1/downloads") ||
            path_at_or_below(uri, public_base_path + "/v1/authoring") ||
@@ -7293,8 +7457,69 @@ RouteResponse route_request(
             response.cache_control = "no-store";
             return response;
         }
-        if (!collection && method == "DELETE") {
-            const std::string key_id = uri.substr(api_keys_path.size() + 1);
+        const std::string key_action = collection
+            ? std::string() : uri.substr(api_keys_path.size() + 1);
+        const std::string rotate_suffix = "/rotate";
+        const bool rotation = key_action.size() > rotate_suffix.size() &&
+            key_action.compare(
+                key_action.size() - rotate_suffix.size(),
+                rotate_suffix.size(), rotate_suffix) == 0;
+        if (!collection && method == "POST" && rotation) {
+            const std::string key_id = key_action.substr(
+                0, key_action.size() - rotate_suffix.size());
+            if (key_id.empty() || key_id.find('/') != std::string::npos) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_api_key_id\","
+                    "\"message\":\"The API key ID is invalid.\"}}\n");
+            }
+            std::string replacement_id;
+            std::string token;
+            std::string key_hash;
+            std::string error;
+            ApiKeyRecord replacement;
+            if (!random_id("key_", replacement_id, error) ||
+                !random_id("ssk_", token, error) ||
+                !sha256_hex(token, key_hash, error)) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"key_generation_failed\","
+                    "\"message\":\"Unable to generate the replacement key.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            const RecordLookupStatus status =
+                metadata_store->rotate_personal_api_key(
+                    authenticated_identity, key_id, replacement_id,
+                    key_hash, replacement, error);
+            if (status == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Unable to rotate the API key.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            if (status == RecordLookupStatus::not_found) {
+                return json_response(404, "{\"error\":{\"code\":\"api_key_not_found\","
+                    "\"message\":\"Active API key not found.\"}}\n");
+            }
+            json_t* body = json_object();
+            json_object_set_new(
+                body, "api_key_id", json_string(replacement_id.c_str()));
+            json_object_set_new(body, "api_key", json_string(token.c_str()));
+            json_object_set_new(
+                body, "label", json_string(replacement.label.c_str()));
+            json_object_set_new(
+                body, "rotated_api_key_id", json_string(key_id.c_str()));
+            const std::string encoded = json_dump_line(body);
+            json_decref(body);
+            RouteResponse response = json_response(201, encoded);
+            response.cache_control = "no-store";
+            return response;
+        }
+        if (!collection && method == "DELETE" && !rotation) {
+            const std::string key_id = key_action;
+            if (key_id.empty() || key_id.find('/') != std::string::npos) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_api_key_id\","
+                    "\"message\":\"The API key ID is invalid.\"}}\n");
+            }
             std::string error;
             const RecordLookupStatus status =
                 metadata_store->revoke_personal_api_key(
@@ -7313,6 +7538,54 @@ RouteResponse route_request(
         }
         return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
             "\"message\":\"Unsupported API key operation.\"}}\n");
+    }
+
+    const std::string audit_path = public_base_path + "/v1/audit-events";
+    if (uri == audit_path) {
+        if (method != "GET") {
+            return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Audit export only accepts GET.\"}}\n");
+        }
+        if (authenticated_identity.role != "owner" &&
+            authenticated_identity.role != "admin") {
+            return json_response(403, "{\"error\":{\"code\":\"forbidden\","
+                "\"message\":\"Owner or admin role is required for audit export.\"}}\n");
+        }
+        int limit = 100;
+        int offset = 0;
+        std::string format;
+        query_value(query_string, "format", format);
+        if (!query_integer(query_string, "limit", 100, limit) ||
+            !query_integer(query_string, "offset", 0, offset) ||
+            limit < 1 || limit > 1000 ||
+            (!format.empty() && format != "json" && format != "csv")) {
+            return json_response(400, "{\"error\":{\"code\":\"invalid_audit_export\","
+                "\"message\":\"Use limit 1-1000, a non-negative offset, and format json or csv.\"}}\n");
+        }
+        std::vector<AuditEventRecord> events;
+        std::string error;
+        if (!metadata_store->list_audit_events(
+                authenticated_identity, limit, offset, events, error)) {
+            RouteResponse response = json_response(
+                503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                "\"message\":\"Audit storage is unavailable.\"}}\n");
+            response.internal_error = error;
+            return response;
+        }
+        RouteResponse response;
+        if (format == "csv") {
+            response.disposition = RouteDisposition::handled;
+            response.status = 200;
+            response.content_type = "text/csv; charset=utf-8";
+            response.content_disposition =
+                "attachment; filename=\"synsigra-audit-events.csv\"";
+            response.body = audit_event_list_csv(events);
+        } else {
+            response = json_response(
+                200, audit_event_list_json(events, limit, offset));
+        }
+        response.cache_control = "no-store";
+        return response;
     }
 
     const std::string downloads_path = public_base_path + "/v1/downloads";
@@ -8379,7 +8652,11 @@ RouteResponse route_request(
             json_object_set_new(created, "status", json_string("queued"));
             const std::string body = json_dump_line(created);
             json_decref(created);
-            return json_response(202, body);
+            RouteResponse response = json_response(202, body);
+            record_nonblocking_audit(
+                *metadata_store, authenticated_identity, "job.created",
+                "job", job_id, "{}", response);
+            return response;
         }
 
         const std::string job_resource = uri.substr(jobs_path.size() + 1);
@@ -8685,6 +8962,10 @@ RouteResponse route_request(
                 "attachment; filename=\"" + job.package_id +
                 "-detection-templates.zip\"";
             response.cache_control = "no-store";
+            record_nonblocking_audit(
+                *metadata_store, authenticated_identity,
+                "artifact.downloaded", "package", job.package_id,
+                "{\"kind\":\"detection_templates\"}", response);
             return response;
         }
         if (action == "verification-kit.zip") {
@@ -8801,7 +9082,7 @@ RouteResponse route_request(
                 response.internal_error = error;
                 return response;
             }
-            return immutable_artifact_response(
+            RouteResponse response = immutable_artifact_response(
                 method,
                 artifact,
                 "application/zip",
@@ -8809,6 +9090,15 @@ RouteResponse route_request(
                 range_header,
                 package.expires_at
             );
+            record_nonblocking_audit(
+                *metadata_store, authenticated_identity,
+                method == "HEAD" ? "artifact.inspected" : "artifact.downloaded",
+                "package", job.package_id,
+                range_header.empty()
+                    ? "{\"kind\":\"verification_kit\",\"range\":false}"
+                    : "{\"kind\":\"verification_kit\",\"range\":true}",
+                response);
+            return response;
         }
         if (!action.empty()) {
             if (method != "POST" || (action != "cancel" &&
@@ -8922,7 +9212,7 @@ RouteResponse route_request(
                 return response;
             }
             if (action == "retry" || action == "rebuild") {
-                return json_response(
+                RouteResponse response = json_response(
                     202,
                     std::string("{\"job_id\":\"") + new_job_id +
                     (action == "retry"
@@ -8930,12 +9220,24 @@ RouteResponse route_request(
                         : "\",\"exact_rebuild_of\":\"") + job_id +
                     "\",\"status\":\"queued\"}\n"
                 );
+                if (action == "retry") {
+                    record_nonblocking_audit(
+                        *metadata_store, authenticated_identity,
+                        "job.retried", "job", new_job_id,
+                        std::string("{\"source_job_id\":\"") + job_id + "\"}",
+                        response);
+                }
+                return response;
             }
-            return json_response(
+            RouteResponse response = json_response(
                 200,
                 std::string("{\"job_id\":\"") + job_id +
                 "\",\"status\":\"cancelled\"}\n"
             );
+            record_nonblocking_audit(
+                *metadata_store, authenticated_identity,
+                "job.cancelled", "job", job_id, "{}", response);
+            return response;
         }
         if (method == "DELETE") {
             if (authenticated_identity.role == "viewer") {
@@ -9105,7 +9407,7 @@ RouteResponse route_request(
             response.internal_error = error;
             return response;
         }
-        return immutable_artifact_response(
+        RouteResponse response = immutable_artifact_response(
             method,
             artifact,
             filename == "manifest.json" ? "application/json" : "application/zip",
@@ -9113,6 +9415,14 @@ RouteResponse route_request(
             range_header,
             package.expires_at
         );
+        const std::string details = std::string("{\"kind\":\"") +
+            (filename == "manifest.json" ? "manifest" : "package_zip") +
+            "\",\"range\":" + (range_header.empty() ? "false" : "true") + "}";
+        record_nonblocking_audit(
+            *metadata_store, authenticated_identity,
+            method == "HEAD" ? "artifact.inspected" : "artifact.downloaded",
+            "package", package_id, details, response);
+        return response;
     }
 
     if (is_ui_page_route(uri, public_base_path)) {

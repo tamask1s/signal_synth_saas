@@ -38,6 +38,8 @@ Public beta documents:
 - [Private Beta Terms](doc/PRIVATE_BETA_TERMS.md)
 - [Privacy and No-PHI Notice](doc/PRIVACY_NO_PHI_NOTICE.md)
 - [Support, availability, and billing expectations](doc/PRIVATE_BETA_SUPPORT.md)
+- [Security baseline and incident checklist](doc/SECURITY_BASELINE.md)
+- [Secret rotation runbook](doc/SECRET_ROTATION.md)
 
 ## Product boundary
 
@@ -611,6 +613,8 @@ Authorization: Bearer <api-key>
 | `GET` | `/v1/api-keys` | List personal API keys | Authenticated |
 | `POST` | `/v1/api-keys` | Create one-time API key secret | Authenticated |
 | `DELETE` | `/v1/api-keys/{id}` | Revoke personal API key | Authenticated |
+| `POST` | `/v1/api-keys/{id}/rotate` | Atomically replace a personal key; return the new secret once | Authenticated |
+| `GET` | `/v1/audit-events?format=json\|csv` | Organization security audit export | Owner/admin |
 | `GET` | `/v1/downloads/verifier` | Verifier download metadata | Authenticated |
 | `GET` | `/v1/downloads/verifier/{filename}` | Download generator-free verifier bundle/wheel | Authenticated |
 | `GET` | `/v1/authoring/schema` | Core scenario-authoring schema metadata | Authenticated |

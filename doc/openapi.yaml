@@ -26,6 +26,18 @@ components:
         role: {type: string, enum: [owner, admin, developer, viewer]}
         email_verified: {type: boolean}
         email_verified_at: {type: string, format: date-time}
+    AuditEvent:
+      type: object
+      required: [id, created_at, event_type, user_id, api_key_id, subject_type, subject_id, details]
+      properties:
+        id: {type: integer, format: int64}
+        created_at: {type: string, format: date-time}
+        event_type: {type: string}
+        user_id: {type: string}
+        api_key_id: {type: string}
+        subject_type: {type: string}
+        subject_id: {type: string}
+        details: {type: object, additionalProperties: true}
     Error:
       type: object
       required: [error]
@@ -561,6 +573,39 @@ paths:
       responses:
         '200': {description: Revoked}
         '404': {description: Key not found}
+  /v1/api-keys/{api_key_id}/rotate:
+    post:
+      summary: Atomically replace an owned active personal API key; replacement secret is returned once
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      parameters:
+        - {in: path, name: api_key_id, required: true, schema: {type: string}}
+      responses:
+        '201': {description: Replacement key metadata and one-time secret; prior key is revoked}
+        '404': {description: Active key not found}
+  /v1/audit-events:
+    get:
+      summary: Export organization audit events (owner/admin)
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      parameters:
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 1000, default: 100}}
+        - {in: query, name: offset, schema: {type: integer, minimum: 0, default: 0}}
+        - {in: query, name: format, schema: {type: string, enum: [json, csv], default: json}}
+      responses:
+        '200':
+          description: Organization-scoped audit page or CSV attachment
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  audit_events: {type: array, items: {$ref: '#/components/schemas/AuditEvent'}}
+                  count: {type: integer}
+                  limit: {type: integer}
+                  offset: {type: integer}
+                  next_offset: {type: integer}
+            text/csv:
+              schema: {type: string}
+        '403': {description: Owner/admin role required}
   /v1/jobs:
     get:
       summary: List jobs

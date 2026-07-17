@@ -10,9 +10,15 @@
   exposes queue depth, running jobs, monthly failures, quota rejections,
   package usage, and the last worker heartbeat.
 - `GET /syn_sig_ra/v1/usage` exposes customer-facing counters and limits.
+- `GET /syn_sig_ra/v1/audit-events` gives owner/admin users a bounded,
+  organization-scoped JSON or CSV security audit export.
 
 No endpoint or log line includes API-key values, request bodies, generated
 signal content, or other PHI-like payloads.
+
+The current threat model, incident checklist, and rotation procedures are in
+[`SECURITY_BASELINE.md`](SECURITY_BASELINE.md) and
+[`SECRET_ROTATION.md`](SECRET_ROTATION.md).
 
 ## Structured logs
 

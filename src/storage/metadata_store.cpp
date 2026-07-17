@@ -1060,13 +1060,13 @@ bool MetadataStore::create_personal_api_key(
     const std::string& label,
     std::string& error
 ) {
-    if (!initialize(error)) return false;
+    if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) return false;
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "INSERT INTO api_keys "
         "(id,organization_id,user_id,key_hash,label,kind) "
         "VALUES (?1,?2,?3,?4,?5,'personal');";
-    const bool succeeded =
+    bool succeeded =
         sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
         bind_text(statement, 1, api_key_id) &&
         bind_text(statement, 2, owner.organization_id) &&
@@ -1074,9 +1074,29 @@ bool MetadataStore::create_personal_api_key(
         bind_text(statement, 4, key_hash) &&
         bind_text(statement, 5, label) &&
         sqlite3_step(statement) == SQLITE_DONE;
-    if (!succeeded) error = sqlite3_errmsg(database_);
     sqlite3_finalize(statement);
-    return succeeded;
+
+    sqlite3_stmt* audit = nullptr;
+    const char* audit_sql =
+        "INSERT INTO audit_events "
+        "(organization_id,user_id,api_key_id,event_type,subject_type,subject_id) "
+        "VALUES (?1,?2,?3,'api_key.created','api_key',?4);";
+    succeeded = succeeded &&
+        sqlite3_prepare_v2(database_, audit_sql, -1, &audit, nullptr) == SQLITE_OK &&
+        bind_text(audit, 1, owner.organization_id) &&
+        bind_text(audit, 2, owner.user_id) &&
+        bind_text(audit, 3, owner.api_key_id) &&
+        bind_text(audit, 4, api_key_id) &&
+        sqlite3_step(audit) == SQLITE_DONE;
+    sqlite3_finalize(audit);
+
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (error.empty()) error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return false;
+    }
+    return true;
 }
 
 bool MetadataStore::list_personal_api_keys(
@@ -1129,7 +1149,9 @@ RecordLookupStatus MetadataStore::revoke_personal_api_key(
     const std::string& api_key_id,
     std::string& error
 ) {
-    if (!initialize(error)) return RecordLookupStatus::storage_error;
+    if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
+        return RecordLookupStatus::storage_error;
+    }
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "UPDATE api_keys SET active=0 WHERE id=?1 AND organization_id=?2 "
@@ -1141,11 +1163,224 @@ RecordLookupStatus MetadataStore::revoke_personal_api_key(
         sqlite3_step(statement) != SQLITE_DONE) {
         error = sqlite3_errmsg(database_);
         sqlite3_finalize(statement);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
         return RecordLookupStatus::storage_error;
     }
     const bool changed = sqlite3_changes(database_) == 1;
     sqlite3_finalize(statement);
-    return changed ? RecordLookupStatus::found : RecordLookupStatus::not_found;
+    if (!changed) {
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return RecordLookupStatus::not_found;
+    }
+
+    sqlite3_stmt* audit = nullptr;
+    const char* audit_sql =
+        "INSERT INTO audit_events "
+        "(organization_id,user_id,api_key_id,event_type,subject_type,subject_id) "
+        "VALUES (?1,?2,?3,'api_key.revoked','api_key',?4);";
+    const bool audited =
+        sqlite3_prepare_v2(database_, audit_sql, -1, &audit, nullptr) == SQLITE_OK &&
+        bind_text(audit, 1, owner.organization_id) &&
+        bind_text(audit, 2, owner.user_id) &&
+        bind_text(audit, 3, owner.api_key_id) &&
+        bind_text(audit, 4, api_key_id) &&
+        sqlite3_step(audit) == SQLITE_DONE;
+    sqlite3_finalize(audit);
+    if (!audited || !execute("COMMIT;", error)) {
+        if (error.empty()) error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return RecordLookupStatus::storage_error;
+    }
+    return RecordLookupStatus::found;
+}
+
+RecordLookupStatus MetadataStore::rotate_personal_api_key(
+    const ApiKeyIdentity& owner,
+    const std::string& api_key_id,
+    const std::string& replacement_api_key_id,
+    const std::string& replacement_key_hash,
+    ApiKeyRecord& replacement,
+    std::string& error
+) {
+    if (api_key_id.empty() || replacement_api_key_id.empty() ||
+        !is_sha256_hex(replacement_key_hash)) {
+        error = "API key rotation input is invalid";
+        return RecordLookupStatus::storage_error;
+    }
+    if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
+        return RecordLookupStatus::storage_error;
+    }
+
+    sqlite3_stmt* select = nullptr;
+    const char* select_sql =
+        "SELECT label FROM api_keys WHERE id=?1 AND organization_id=?2 "
+        "AND user_id=?3 AND kind='personal' AND active=1;";
+    bool succeeded =
+        sqlite3_prepare_v2(database_, select_sql, -1, &select, nullptr) == SQLITE_OK &&
+        bind_text(select, 1, api_key_id) &&
+        bind_text(select, 2, owner.organization_id) &&
+        bind_text(select, 3, owner.user_id);
+    const int selected = succeeded ? sqlite3_step(select) : SQLITE_ERROR;
+    const std::string label = selected == SQLITE_ROW
+        ? column_text(select, 0) : std::string();
+    sqlite3_finalize(select);
+    if (selected == SQLITE_DONE) {
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return RecordLookupStatus::not_found;
+    }
+    if (selected != SQLITE_ROW) succeeded = false;
+
+    sqlite3_stmt* insert = nullptr;
+    const char* insert_sql =
+        "INSERT INTO api_keys "
+        "(id,organization_id,user_id,key_hash,label,kind) "
+        "VALUES (?1,?2,?3,?4,?5,'personal');";
+    succeeded = succeeded &&
+        sqlite3_prepare_v2(database_, insert_sql, -1, &insert, nullptr) == SQLITE_OK &&
+        bind_text(insert, 1, replacement_api_key_id) &&
+        bind_text(insert, 2, owner.organization_id) &&
+        bind_text(insert, 3, owner.user_id) &&
+        bind_text(insert, 4, replacement_key_hash) &&
+        bind_text(insert, 5, label) &&
+        sqlite3_step(insert) == SQLITE_DONE;
+    sqlite3_finalize(insert);
+
+    sqlite3_stmt* revoke = nullptr;
+    const char* revoke_sql =
+        "UPDATE api_keys SET active=0 WHERE id=?1 AND organization_id=?2 "
+        "AND user_id=?3 AND kind='personal' AND active=1;";
+    succeeded = succeeded &&
+        sqlite3_prepare_v2(database_, revoke_sql, -1, &revoke, nullptr) == SQLITE_OK &&
+        bind_text(revoke, 1, api_key_id) &&
+        bind_text(revoke, 2, owner.organization_id) &&
+        bind_text(revoke, 3, owner.user_id) &&
+        sqlite3_step(revoke) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    sqlite3_finalize(revoke);
+
+    sqlite3_stmt* audit = nullptr;
+    const char* audit_sql =
+        "INSERT INTO audit_events "
+        "(organization_id,user_id,api_key_id,event_type,subject_type,subject_id,details_json) "
+        "VALUES (?1,?2,?3,'api_key.rotated','api_key',?4,?5);";
+    const std::string details =
+        std::string("{\"replacement_api_key_id\":\"") +
+        replacement_api_key_id + "\"}";
+    succeeded = succeeded &&
+        sqlite3_prepare_v2(database_, audit_sql, -1, &audit, nullptr) == SQLITE_OK &&
+        bind_text(audit, 1, owner.organization_id) &&
+        bind_text(audit, 2, owner.user_id) &&
+        bind_text(audit, 3, owner.api_key_id) &&
+        bind_text(audit, 4, api_key_id) &&
+        bind_text(audit, 5, details) &&
+        sqlite3_step(audit) == SQLITE_DONE;
+    sqlite3_finalize(audit);
+
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (error.empty()) error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return RecordLookupStatus::storage_error;
+    }
+    replacement.api_key_id = replacement_api_key_id;
+    replacement.organization_id = owner.organization_id;
+    replacement.user_id = owner.user_id;
+    replacement.role = owner.role;
+    replacement.label = label;
+    replacement.active = true;
+    return RecordLookupStatus::found;
+}
+
+bool MetadataStore::record_audit_event(
+    const ApiKeyIdentity& actor,
+    const std::string& event_type,
+    const std::string& subject_type,
+    const std::string& subject_id,
+    const std::string& details_json,
+    std::string& error
+) {
+    if (actor.organization_id.empty() || actor.user_id.empty() ||
+        actor.api_key_id.empty() || event_type.empty() || event_type.size() > 100u ||
+        subject_type.size() > 100u || subject_id.size() > 200u ||
+        details_json.empty() || details_json.size() > 4096u) {
+        error = "Audit event input is invalid";
+        return false;
+    }
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO audit_events "
+        "(organization_id,user_id,api_key_id,event_type,subject_type,subject_id,details_json) "
+        "VALUES (?1,?2,?3,?4,?5,?6,?7);";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, actor.organization_id) &&
+        bind_text(statement, 2, actor.user_id) &&
+        bind_text(statement, 3, actor.api_key_id) &&
+        bind_text(statement, 4, event_type) &&
+        bind_text(statement, 5, subject_type) &&
+        bind_text(statement, 6, subject_id) &&
+        bind_text(statement, 7, details_json) &&
+        sqlite3_step(statement) == SQLITE_DONE;
+    if (!succeeded) error = sqlite3_errmsg(database_);
+    sqlite3_finalize(statement);
+    return succeeded;
+}
+
+bool MetadataStore::list_audit_events(
+    const ApiKeyIdentity& owner,
+    int limit,
+    int offset,
+    std::vector<AuditEventRecord>& events,
+    std::string& error
+) {
+    events.clear();
+    if (owner.organization_id.empty() || limit <= 0 || limit > 1000 || offset < 0) {
+        error = "Audit list owner, limit, or offset is invalid";
+        return false;
+    }
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT id,organization_id,coalesce(user_id,''),coalesce(api_key_id,''),"
+        "event_type,coalesce(subject_type,''),coalesce(subject_id,''),details_json,created_at "
+        "FROM audit_events WHERE organization_id=?1 "
+        "ORDER BY id DESC LIMIT ?2 OFFSET ?3;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, owner.organization_id) ||
+        sqlite3_bind_int(statement, 2, limit) != SQLITE_OK ||
+        sqlite3_bind_int(statement, 3, offset) != SQLITE_OK) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return false;
+    }
+    for (;;) {
+        const int result = sqlite3_step(statement);
+        if (result == SQLITE_DONE) {
+            sqlite3_finalize(statement);
+            return true;
+        }
+        if (result != SQLITE_ROW) {
+            error = sqlite3_errmsg(database_);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        AuditEventRecord event;
+        event.audit_event_id = sqlite3_column_int64(statement, 0);
+        event.organization_id = column_text(statement, 1);
+        event.user_id = column_text(statement, 2);
+        event.api_key_id = column_text(statement, 3);
+        event.event_type = column_text(statement, 4);
+        event.subject_type = column_text(statement, 5);
+        event.subject_id = column_text(statement, 6);
+        event.details_json = column_text(statement, 7);
+        event.created_at = column_text(statement, 8);
+        events.push_back(event);
+    }
 }
 
 bool MetadataStore::create_api_key(

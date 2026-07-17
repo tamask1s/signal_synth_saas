@@ -49,7 +49,7 @@ The versioned nginx configuration is
 other requests to the canonical `https://www.timeonion.com` origin. The apex
 HTTPS origin redirects there as well, which keeps future login cookies on one
 origin. Unknown hostnames are rejected. The edge also limits request bodies to
-1 MiB, each source IP to 30 concurrent connections, and request rates to
+64 KiB, each source IP to 30 concurrent connections, and request rates to
 30/second with a 60-request burst allowance.
 
 Certbot renews the certificate twice daily when needed;

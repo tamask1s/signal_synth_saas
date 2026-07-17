@@ -108,6 +108,18 @@ struct ApiKeyRecord {
     std::string last_used_at;
 };
 
+struct AuditEventRecord {
+    long long audit_event_id;
+    std::string organization_id;
+    std::string user_id;
+    std::string api_key_id;
+    std::string event_type;
+    std::string subject_type;
+    std::string subject_id;
+    std::string details_json;
+    std::string created_at;
+};
+
 struct RetentionCandidate {
     std::string package_id;
     std::string job_id;
@@ -304,6 +316,32 @@ public:
     RecordLookupStatus revoke_personal_api_key(
         const ApiKeyIdentity& owner,
         const std::string& api_key_id,
+        std::string& error
+    );
+
+    RecordLookupStatus rotate_personal_api_key(
+        const ApiKeyIdentity& owner,
+        const std::string& api_key_id,
+        const std::string& replacement_api_key_id,
+        const std::string& replacement_key_hash,
+        ApiKeyRecord& replacement,
+        std::string& error
+    );
+
+    bool record_audit_event(
+        const ApiKeyIdentity& actor,
+        const std::string& event_type,
+        const std::string& subject_type,
+        const std::string& subject_id,
+        const std::string& details_json,
+        std::string& error
+    );
+
+    bool list_audit_events(
+        const ApiKeyIdentity& owner,
+        int limit,
+        int offset,
+        std::vector<AuditEventRecord>& events,
         std::string& error
     );
 

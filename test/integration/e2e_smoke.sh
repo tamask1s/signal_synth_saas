@@ -466,19 +466,63 @@ curl -fsS -H "Cookie: $SESSION_COOKIE" \
     -d '{"label":"e2e automation"}' \
     "$BASE_URL/v1/api-keys" >"$WORK_ROOT/personal-key.json" ||
     fail "personal API key creation failed"
-PERSONAL_KEY=$(python3 - "$WORK_ROOT/personal-key.json" <<'PY'
+read -r PERSONAL_KEY_ID PERSONAL_KEY <<EOF
+$(python3 - "$WORK_ROOT/personal-key.json" <<'PY'
+import json
+import sys
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    body = json.load(handle)
+print(body.get("api_key_id", ""), body.get("api_key", ""))
+PY
+)
+EOF
+if [ -z "$PERSONAL_KEY_ID" ] || [ -z "$PERSONAL_KEY" ]; then
+    fail "personal API key secret was not returned once"
+fi
+curl -fsS -H "Authorization: Bearer $PERSONAL_KEY" \
+    "$BASE_URL/v1/projects" >"$WORK_ROOT/personal-key-projects.json" ||
+    fail "generated personal API key did not authenticate"
+
+curl -fsS -H "Cookie: $SESSION_COOKIE" -X POST \
+    "$BASE_URL/v1/api-keys/$PERSONAL_KEY_ID/rotate" \
+    >"$WORK_ROOT/personal-key-rotated.json" ||
+    fail "personal API key rotation failed"
+ROTATED_KEY=$(python3 - "$WORK_ROOT/personal-key-rotated.json" <<'PY'
 import json
 import sys
 with open(sys.argv[1], "r", encoding="utf-8") as handle:
     print(json.load(handle).get("api_key", ""))
 PY
 )
-if [ -z "$PERSONAL_KEY" ]; then
-    fail "personal API key secret was not returned once"
-fi
-curl -fsS -H "Authorization: Bearer $PERSONAL_KEY" \
-    "$BASE_URL/v1/projects" >"$WORK_ROOT/personal-key-projects.json" ||
-    fail "generated personal API key did not authenticate"
+[ -n "$ROTATED_KEY" ] || fail "API key rotation did not return a one-time secret"
+OLD_KEY_HTTP=$(curl -sS -o /dev/null -w '%{http_code}' \
+    -H "Authorization: Bearer $PERSONAL_KEY" "$BASE_URL/v1/projects")
+[ "$OLD_KEY_HTTP" = "401" ] || fail "rotated API key remained active"
+curl -fsS -H "Authorization: Bearer $ROTATED_KEY" \
+    "$BASE_URL/v1/projects" >"$WORK_ROOT/rotated-key-projects.json" ||
+    fail "replacement API key did not authenticate"
+
+curl -fsS -H "Cookie: $SESSION_COOKIE" \
+    "$BASE_URL/v1/audit-events?limit=100" >"$WORK_ROOT/audit-events.json" ||
+    fail "audit JSON export failed"
+python3 - "$WORK_ROOT/audit-events.json" <<'PY' || fail "audit export missed key lifecycle events"
+import json
+import sys
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    events = json.load(handle).get("audit_events", [])
+types = {event.get("event_type") for event in events}
+required = {"api_key.created", "api_key.rotated", "api_key.authenticated"}
+missing = required - types
+if missing:
+    raise SystemExit("missing audit types: " + ",".join(sorted(missing)))
+PY
+curl -fsS -H "Cookie: $SESSION_COOKIE" \
+    "$BASE_URL/v1/audit-events?format=csv&limit=1000" \
+    >"$WORK_ROOT/audit-events.csv" || fail "audit CSV export failed"
+grep -q '^id,created_at,event_type,' "$WORK_ROOT/audit-events.csv" ||
+    fail "audit CSV header is invalid"
+grep -q 'api_key.rotated' "$WORK_ROOT/audit-events.csv" ||
+    fail "audit CSV omitted the rotation event"
 
 CREATE_HTTP=$(
     curl -sS \
