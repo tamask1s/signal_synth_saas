@@ -2,12 +2,21 @@
 set -eu
 
 base=${SYN_SIG_RA_BASE_URL:-https://www.timeonion.com/syn_sig_ra}
+public_origin=${SYN_SIG_RA_PUBLIC_ORIGIN:-https://www.timeonion.com}
 key=$(sudo cat /root/syn_sig_ra_api_key)
 
 curl -fsS "$base/healthz"
 printf '\n'
 curl -fsS "$base/readyz"
 printf '\n'
+legal=$(curl -fsS "$base/v1/legal")
+printf '%s' "$legal" | python3 -c \
+  'import json,sys; x=json.load(sys.stdin); assert x["terms_version"]=="private-beta-2026-07-17-r4"; assert x["operator_name"]=="Kis Tamás"; assert x["operator_address"]=="2040 Budaörs, Tátra u. 6, Hungary"; assert x["support_email"]=="synsigra@gmail.com"; assert x["support_url"]=="mailto:synsigra@gmail.com"'
+landing=$(curl -fsS "$public_origin/")
+case "$landing" in
+  *"Synsigra%20technical%20demo"*"Kis Tamás"*"synsigra@gmail.com"*) ;;
+  *) echo "landing operator/demo contact is missing" >&2; exit 1 ;;
+esac
 curl -fsS -H "Authorization: Bearer $key" "$base/v1/projects"
 printf '\n'
 curl -fsS -H "Authorization: Bearer $key" "$base/v1/usage"
@@ -16,6 +25,10 @@ curl -fsS -H "Authorization: Bearer $key" "$base/v1/downloads/verifier"
 printf '\n'
 curl -fsS -H "Authorization: Bearer $key" "$base/v1/metrics"
 printf '\n'
+audit=$(curl -fsS -H "Authorization: Bearer $key" \
+  "$base/v1/audit-events?limit=10")
+printf '%s' "$audit" | python3 -c \
+  'import json,sys; x=json.load(sys.stdin); assert x["count"]>=1; assert all("api_key" not in e.get("details",{}) for e in x["audit_events"])'
 viewer_html=$(curl -fsS "$base/viewer")
 case "$viewer_html" in
   *"Synsigra Lab"*"$base"*) ;;
@@ -56,6 +69,35 @@ if [ -n "$viewer_job" ]; then
     'import pathlib,sys; data=pathlib.Path(sys.argv[1]).read_bytes(); assert len(data)>=84 and data[:8]==b"SYNSIGV1"' \
     "$viewer_window"
   rm -f "$viewer_window"
+fi
+artifact_pair=$(printf '%s' "$jobs" | python3 -c \
+  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; j=next((j for j in jobs if j.get("status")=="succeeded" and j.get("package_id") and j.get("artifact_status")!="expired"), {}); print(j.get("job_id",""), j.get("package_id",""))')
+set -- $artifact_pair
+artifact_job=${1:-}
+artifact_package=${2:-}
+if [ -n "$artifact_job" ] && [ -n "$artifact_package" ]; then
+  artifact_headers=$(mktemp /tmp/synsigra-artifact-head.XXXXXX)
+  artifact_range=$(mktemp /tmp/synsigra-artifact-range.XXXXXX)
+  trap 'rm -f "$artifact_headers" "$artifact_range"' EXIT HUP INT TERM
+  curl -fsSI --max-time 180 -H "Authorization: Bearer $key" \
+    "$base/v1/jobs/$artifact_job/verification-kit.zip" >"$artifact_headers"
+  grep -qi '^Accept-Ranges: bytes' "$artifact_headers"
+  grep -qi '^ETag: "sha256-[0-9a-f]\{64\}"' "$artifact_headers"
+  grep -qi '^X-Checksum-SHA256: [0-9a-f]\{64\}' "$artifact_headers"
+  grep -qi '^X-Artifact-Expires-At:' "$artifact_headers"
+  range_status=$(curl -sS --max-time 60 -o "$artifact_range" -w '%{http_code}' \
+    -H "Authorization: Bearer $key" -H 'Range: bytes=0-127' \
+    "$base/v1/artifacts/$artifact_package/package.zip")
+  [ "$range_status" = "206" ] || {
+    echo "artifact byte-range check returned $range_status" >&2
+    exit 1
+  }
+  [ "$(wc -c < "$artifact_range")" -eq 128 ] || {
+    echo "artifact byte-range check returned the wrong length" >&2
+    exit 1
+  }
+  rm -f "$artifact_headers" "$artifact_range"
+  trap - EXIT HUP INT TERM
 fi
 sudo systemctl is-active apache22
 sudo systemctl is-active nginx.service

@@ -51,6 +51,17 @@ sudo install -m 0644 "$repo_dir"/downloads/verifier/* \
   /opt/signal_synth_saas/downloads/verifier/
 sudo install -m 0644 "$repo_dir/ops/apache/synsigra-apache22.logrotate" \
   /etc/logrotate.d/synsigra-apache22
+
+landing_work=$(mktemp -d /tmp/synsigra-landing-deploy.XXXXXX)
+trap 'rm -rf "$landing_work"' EXIT HUP INT TERM
+unzip -q "$repo_dir/doc/synsigra_main_landing_package_v10.zip" \
+  -d "$landing_work"
+sudo rsync -a \
+  "$landing_work/synsigra_main_landing_package/main/" \
+  /usr/local/apache2/htdocs/frontend/
+rm -rf "$landing_work"
+trap - EXIT HUP INT TERM
+
 sudo install -d -o apache -g nogroup -m 0750 \
   /var/lib/syn_sig_ra/custom_packs \
   /var/lib/syn_sig_ra/derived-artifacts \

@@ -10,6 +10,10 @@ The deploy script installs `ops/apache/synsigra-apache22.logrotate` under
 at 10 MiB, keeps seven compressed revisions, and uses `copytruncate` because
 this legacy Apache service does not use the distribution log paths.
 
+The same deploy installs the versioned main landing package into
+`/usr/local/apache2/htdocs/frontend/` without deleting unrelated paths such as
+the preserved `/tamaskis` site.
+
 All public SaaS routes must stay below:
 
 ```text
