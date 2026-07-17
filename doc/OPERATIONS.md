@@ -89,6 +89,12 @@ Successful artifacts are registered under `/opt/signal_synth_saas/releases/`;
 `current-release`, `previous-release`, and `last-rollback` are symlinks, not
 mutable copies.
 
+Successful deploy and rollback runs prune history only after the live gate:
+the five newest runtime snapshots and three newest release archives are kept,
+and every target referenced by the current/previous/last-rollback pointers is
+protected even when older. Inspect the exact keep/remove plan without changing
+state with `scripts/prune_release_history.sh --dry-run`.
+
 Rollback verification intentionally uses the stable runtime baseline
 (`SYN_SIG_RA_BASELINE_ONLY=1`): health/readiness, authenticated project access,
 and all three services. It does not require endpoints introduced by the failed

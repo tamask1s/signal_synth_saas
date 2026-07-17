@@ -48,7 +48,7 @@ jobs:
       - name: Validate release workflow scripts
         working-directory: signal_synth_saas
         run: |
-          sh -n scripts/build_release_artifact.sh scripts/verify_release_artifact.sh scripts/release_runtime.sh scripts/deploy_live.sh
+          sh -n scripts/build_release_artifact.sh scripts/verify_release_artifact.sh scripts/release_runtime.sh scripts/prune_release_history.sh scripts/deploy_live.sh
           bash -n scripts/deploy_release.sh scripts/rollback_live.sh
 
       - name: Build checksummed Apache 2.4 portability artifact

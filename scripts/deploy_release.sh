@@ -105,6 +105,7 @@ if [ -f "$artifact.sha256" ]; then
 fi
 sudo ln -sfn "$registered_artifact" /opt/signal_synth_saas/current-release
 sudo ln -sfn "$snapshot" /opt/signal_synth_saas/last-rollback
+"$repo_dir/scripts/prune_release_history.sh" --apply
 
 snapshot=
 trap - ERR INT TERM

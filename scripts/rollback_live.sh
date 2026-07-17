@@ -31,6 +31,7 @@ trap restore_forward_on_error ERR
 synsigra_restore_live_snapshot "$target"
 SYN_SIG_RA_BASELINE_ONLY=1 "$repo_dir/scripts/verify_live.sh"
 sudo ln -sfn "$forward" /opt/signal_synth_saas/last-rollback
+"$repo_dir/scripts/prune_release_history.sh" --apply
 trap - ERR
 printf 'rollback_status=succeeded\nrestored_snapshot=%s\nroll_forward_snapshot=%s\n' \
   "$(readlink -f "$target")" "$forward"
