@@ -48,6 +48,12 @@ if grep -qiE "new front door|landing page is|page intentionally presents" "$land
     echo "internal landing-page copy found in customer-facing content" >&2
     failed=1
 fi
+grep -q 'mailto:synsigra@gmail.com?subject=Synsigra%20technical%20demo' "$landing" ||
+    { echo "landing technical-demo CTA is missing" >&2; failed=1; }
+grep -q 'Kis Tamás' "$landing" ||
+    { echo "landing operator identity is missing" >&2; failed=1; }
+grep -q '2040 Budaörs, Tátra u. 6, Hungary' "$landing" ||
+    { echo "landing operator address is missing" >&2; failed=1; }
 
 if [ "$failed" -ne 0 ]; then
     echo "legacy product spelling found in user-facing content" >&2

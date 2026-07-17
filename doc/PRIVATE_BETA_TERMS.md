@@ -1,7 +1,7 @@
 # Synsigra Private Beta Terms
 
-Effective date: 2026-07-11
-Document version: `private-beta-2026-07-12-r3`
+Effective date: 2026-07-17
+Document version: `private-beta-2026-07-17-r4`
 
 These terms govern access to the Synsigra private-beta service at
 `timeonion.com`. By creating an account, the user confirms that they have read
@@ -11,6 +11,11 @@ This is a practical private-beta agreement, not a representation that the
 service has completed any medical-device, clinical, security, privacy, or other
 regulatory certification. An organization evaluating Synsigra should obtain its
 own legal and regulatory advice for its intended use.
+
+## Operator and contact
+
+The service operator is Kis Tamás, 2040 Budaörs, Tátra u. 6, Hungary.
+Private support, privacy, and account contact: `synsigra@gmail.com`.
 
 ## 1. Intended and permitted use
 
@@ -70,12 +75,12 @@ response-time SLA. Maintenance, quota changes, data resets and breaking beta
 changes may occur. When practicable, material planned interruptions will be
 communicated in advance.
 
-Support requests are accepted through the public project issue tracker:
-https://github.com/tamask1s/signal_synth_saas/issues/new
-
-Do not include credentials, PHI, personal data, proprietary detector output or
-other confidential information in a support issue. Support is normally reviewed
-within three business days, but this is a target rather than a contractual SLA.
+Support requests are accepted privately at `synsigra@gmail.com`. Include only a
+safe job/package ID, UTC timestamp, browser version, and exact error code. Never
+send passwords, API keys, account-action links, PHI, personal or patient data,
+generated signal files, proprietary detector output, or source code. Support is
+normally reviewed within three business days, but this is a target rather than
+a contractual SLA.
 
 ## 6. Billing
 

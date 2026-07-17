@@ -184,7 +184,11 @@ int main() {
         syn_sig_ra::route_request("GET", "/syn_sig_ra/v1/legal");
     require(
         legal_metadata.status == 200 &&
-            legal_metadata.body.find("private-beta-2026-07-12-r3") !=
+            legal_metadata.body.find("private-beta-2026-07-17-r4") !=
+                std::string::npos &&
+            legal_metadata.body.find("\"operator_name\":\"Kis Tamás\"") !=
+                std::string::npos &&
+            legal_metadata.body.find("\"support_email\":\"synsigra@gmail.com\"") !=
                 std::string::npos &&
             legal_metadata.body.find("\"billing_status\":\"free_beta\"") !=
                 std::string::npos &&
@@ -207,7 +211,9 @@ int main() {
             legal_privacy.body.find("Privacy and No-PHI") != std::string::npos &&
             legal_support.status == 200 &&
             legal_support.body.find("no guaranteed uptime") != std::string::npos &&
-            legal_support.body.find("No payment method") != std::string::npos,
+            legal_support.body.find("No payment method") != std::string::npos &&
+            legal_support.body.find("mailto:synsigra@gmail.com") !=
+                std::string::npos,
         "public legal and support pages should state the beta boundaries"
     );
     const syn_sig_ra::RouteResponse docs_api =
@@ -478,7 +484,7 @@ int main() {
             "\"password\":\"long-enough-password\","
             "\"display_name\":\"New User\","
             "\"accept_terms\":true,"
-            "\"terms_version\":\"private-beta-2026-07-12-r3\"}",
+            "\"terms_version\":\"private-beta-2026-07-17-r4\"}",
             "",
             "",
             "",

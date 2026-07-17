@@ -100,7 +100,7 @@ int main() {
                 "Account User",
                 password_salt,
                 password_hash,
-                "private-beta-2026-07-12-r3",
+                "private-beta-2026-07-17-r4",
                 account,
                 error
             ) == syn_sig_ra::AccountCreateStatus::created,
@@ -270,7 +270,7 @@ int main() {
             verification_database,
             "SELECT count(*) FROM legal_acceptances "
             "WHERE document_type='private_beta_terms' "
-            "AND document_version='private-beta-2026-07-12-r3';"
+            "AND document_version='private-beta-2026-07-17-r4';"
         ) == 1,
         "account creation should record the accepted terms version"
     );

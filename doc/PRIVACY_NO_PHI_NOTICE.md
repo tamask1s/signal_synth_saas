@@ -1,19 +1,18 @@
 # Synsigra Privacy and No-PHI Notice
 
-Effective date: 2026-07-11
-Notice version: `private-beta-2026-07-12-r3`
+Effective date: 2026-07-17
+Notice version: `private-beta-2026-07-17-r4`
 
 ## Scope and operator contact
 
 This notice describes the private-beta service operated through
-`timeonion.com` and maintained in the public Synsigra service repository.
-Operational and privacy requests may be started through:
+`timeonion.com`. The data controller and service operator is Kis Tamás,
+2040 Budaörs, Tátra u. 6, Hungary. Operational, account, deletion, and privacy
+requests use the private address `synsigra@gmail.com`.
 
-https://github.com/tamask1s/signal_synth_saas/issues/new
-
-That tracker is public. Do not put personal, health, credential, proprietary or
-other confidential information in an issue. Use only the minimum account
-identifier needed to let the operator arrange a non-public follow-up.
+Use only the minimum account identifier needed for identity verification.
+Never email a password, API key, account-action link, PHI, patient data,
+generated signal file, proprietary detector output, or source code.
 
 ## Data processed by the service
 
@@ -70,8 +69,8 @@ by law or necessary to protect users and the service.
 
 Users can delete eligible jobs, scenario drafts, custom packs and API keys in
 the product. Account access, correction or deletion requests can be initiated
-through the operator contact above. Identity verification may be required before
-an account-level request is fulfilled.
+privately through the operator email above. Identity verification may be
+required before an account-level request is fulfilled.
 
 The service uses an essential secure session cookie for browser sign-in. It
 does not use advertising or cross-site tracking cookies.

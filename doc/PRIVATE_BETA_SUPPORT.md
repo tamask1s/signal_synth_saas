@@ -1,16 +1,19 @@
 # Synsigra Private Beta Support and Service Expectations
 
-Effective date: 2026-07-11
+Effective date: 2026-07-17
 
 ## Support channel
 
-Open a support request at:
-https://github.com/tamask1s/signal_synth_saas/issues/new
+Email private support at `synsigra@gmail.com`. To discuss evaluation needs or
+request a technical demo, use the same address with subject `Synsigra technical
+demo`.
 
-Include a job ID, package ID, UTC timestamp, browser version and exact safe error
-code when relevant. Never include passwords, API keys, email-verification or
-password-reset links, PHI, personal data, real patient data, proprietary
-detector output, or source code.
+Include a safe job ID, package ID, UTC timestamp, browser version, and exact
+error code when relevant. Never include passwords, API keys, email-verification
+or password-reset links, PHI, personal data, real patient data, generated signal
+files, proprietary detector output, or source code.
+
+Service operator: Kis Tamás, 2040 Budaörs, Tátra u. 6, Hungary.
 
 ## Response and availability
 

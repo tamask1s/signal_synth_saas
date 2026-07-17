@@ -37,9 +37,12 @@
 
 namespace {
 
-const char kTermsVersion[] = "private-beta-2026-07-12-r3";
-const char kSupportUrl[] =
-    "https://github.com/tamask1s/signal_synth_saas/issues/new";
+const char kTermsVersion[] = "private-beta-2026-07-17-r4";
+const char kSupportEmail[] = "synsigra@gmail.com";
+const char kSupportUrl[] = "mailto:synsigra@gmail.com";
+const char kOperatorName[] = "Kis Tamás";
+const char kOperatorAddress[] =
+    "2040 Budaörs, Tátra u. 6, Hungary";
 
 bool owns_uri(const std::string& uri, const std::string& prefix) {
     return uri == prefix ||
@@ -233,7 +236,11 @@ AccountEmailDeliveryStatus deliver_account_email(
          << (verification
             ? "This link expires in 24 hours."
             : "This link expires in 30 minutes.")
-         << " If you did not request this, you can ignore this email.";
+         << " If you did not request this, you can ignore this email.\n\n"
+         << "Account support: " << kSupportEmail << "\n"
+         << "Never email passwords, API keys, account-action links, PHI, "
+            "or proprietary outputs.\n"
+         << "Operator: " << kOperatorName << ", " << kOperatorAddress;
     const syn_sig_ra::EmailSendStatus sent = syn_sig_ra::send_transactional_email(
         config, account.email, subject, body.str(), error);
     return sent == syn_sig_ra::EmailSendStatus::sent
@@ -338,7 +345,7 @@ struct ZipEntry {
 };
 
 const char kPackageUseNotice[] = R"NOTICE(Synsigra private-beta package use notice
-Version: private-beta-2026-07-12-r3
+Version: private-beta-2026-07-17-r4
 
 PERMITTED USE
 This synthetic package and its verifier reports may be used, reproduced and
@@ -362,19 +369,21 @@ by law. Full terms: https://www.timeonion.com/syn_sig_ra/legal/terms
 )NOTICE";
 
 const char kSupportAndTermsNotice[] = R"NOTICE(Synsigra private-beta support and service notice
-Version: private-beta-2026-07-12-r3
+Version: private-beta-2026-07-17-r4
 
 The private beta is free, collects no payment method, has no automatic paid
 conversion, and is provided on a best-effort basis without an uptime or
 response-time SLA. Generated artifacts are normally cached for 7 days; keep
 local copies of evidence you need.
 
-Support: https://github.com/tamask1s/signal_synth_saas/issues/new
+Private support: synsigra@gmail.com
+Operator: Kis Tamás, 2040 Budaörs, Tátra u. 6, Hungary
 
-The tracker is public. Never include passwords, API keys, account-action links,
-PHI, personal data, real patient data, proprietary detector output or source
-code. Support is normally reviewed within three business days as a target, not
-a contractual SLA.
+Never email passwords, API keys, account-action links, PHI, personal data, real
+patient data, proprietary detector output, generated signal files, or source
+code. Send only safe IDs, UTC timestamps, and exact error codes. Support is
+normally reviewed within three business days as a target, not a contractual
+SLA.
 
 Privacy and no-PHI notice:
 https://www.timeonion.com/syn_sig_ra/legal/privacy
@@ -1889,7 +1898,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
             <input id="register-password" type="password" minlength="12" maxlength="128" autocomplete="new-password">
             <label class="terms-consent" for="register-terms">
               <input id="register-terms" type="checkbox">
-              <span>I accept the <a href="/syn_sig_ra/legal/terms" target="_blank" rel="noopener">Private Beta Terms</a> and <a href="/syn_sig_ra/legal/privacy" target="_blank" rel="noopener">Privacy &amp; No-PHI Notice</a> (version <code>private-beta-2026-07-12-r3</code>).</span>
+              <span>I accept the <a href="/syn_sig_ra/legal/terms" target="_blank" rel="noopener">Private Beta Terms</a> and <a href="/syn_sig_ra/legal/privacy" target="_blank" rel="noopener">Privacy &amp; No-PHI Notice</a> (version <code>private-beta-2026-07-17-r4</code>).</span>
             </label>
             <button id="register" class="primary" disabled>Create account</button>
           </div>
@@ -2166,13 +2175,14 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <p><a href="/syn_sig_ra/legal/terms">Private Beta Terms</a></p>
       <p><a href="/syn_sig_ra/legal/privacy">Privacy &amp; No-PHI Notice</a></p>
       <p><a href="/syn_sig_ra/legal/support">Support, availability &amp; billing</a></p>
+      <p><a href="mailto:synsigra@gmail.com?subject=Synsigra%20technical%20demo">Request a technical demo</a></p>
       <p><a href="https://github.com/tamask1s/signal_synth_saas/blob/master/README.md" target="_blank" rel="noopener">Full user manual</a></p>
       <p><a href="/syn_sig_ra/openapi.yaml" data-no-spa>Live OpenAPI YAML</a></p>
     </section>
       </div>
     </div>
     <footer class="legal-footer">
-      <span>Synsigra private beta · synthetic engineering QA only</span>
+      <span>Synsigra private beta · operated by Kis Tamás · <a href="mailto:synsigra@gmail.com">synsigra@gmail.com</a></span>
       <nav aria-label="Legal and support">
         <a href="/syn_sig_ra/legal/terms">Terms</a>
         <a href="/syn_sig_ra/legal/privacy">Privacy &amp; No-PHI</a>
@@ -2358,9 +2368,11 @@ const char kTermsHtml[] = R"HTML(<!doctype html>
 <body>
   <main class="shell legal-document">
     <section class="panel">
-      <p class="eyebrow">Private beta · version private-beta-2026-07-12-r3</p>
+      <p class="eyebrow">Private beta · version private-beta-2026-07-17-r4</p>
       <h1>Synsigra Private Beta Terms</h1>
-      <p class="lede">Effective 11 July 2026. These terms define a synthetic engineering-QA evaluation service, not a medical or clinical product.</p>
+      <p class="lede">Effective 17 July 2026. These terms define a synthetic engineering-QA evaluation service, not a medical or clinical product.</p>
+      <h2>Operator</h2>
+      <p>Synsigra is operated by <strong>Kis Tamás</strong>, 2040 Budaörs, Tátra u. 6, Hungary. Private contact: <a href="mailto:synsigra@gmail.com">synsigra@gmail.com</a>.</p>
       <h2>Permitted use</h2>
       <p>You may use downloaded synthetic packages and the generator-free verifier inside your organization for algorithm development, regression testing, benchmarking, reproducibility and engineering evaluation.</p>
       <h2>Not medical or clinical use</h2>
@@ -2376,7 +2388,7 @@ const char kTermsHtml[] = R"HTML(<!doctype html>
       <h2>As-is beta</h2>
       <p>To the extent permitted by law, the service and generated materials are provided as-is and as-available without warranties of uninterrupted availability, fitness for a particular purpose or suitability for regulated or clinical use. Nothing excludes liability that cannot lawfully be excluded.</p>
       <h2>Support</h2>
-      <p><a href="https://github.com/tamask1s/signal_synth_saas/issues/new" target="_blank" rel="noopener">Open a support issue</a>. The tracker is public: never include credentials, PHI, personal data or confidential information.</p>
+      <p><a href="mailto:synsigra@gmail.com">Email private support</a>. Include only a safe job/package ID, UTC timestamp, browser version, and exact error code. Never send credentials, account-action links, PHI, personal data, real patient data, generated signals, proprietary detector output, or source code.</p>
       <p><a href="/syn_sig_ra/legal/privacy">Privacy &amp; No-PHI Notice</a> · <a href="/syn_sig_ra/legal/support">Support &amp; service expectations</a> · <a href="/syn_sig_ra/account">Back to account</a></p>
     </section>
   </main>
@@ -2395,9 +2407,11 @@ const char kPrivacyHtml[] = R"HTML(<!doctype html>
 <body>
   <main class="shell legal-document">
     <section class="panel">
-      <p class="eyebrow">Private beta · effective 11 July 2026</p>
+      <p class="eyebrow">Private beta · effective 17 July 2026</p>
       <h1>Privacy and No-PHI Notice</h1>
       <p class="lede">Synsigra minimizes account and operational data and is designed for synthetic engineering inputs only.</p>
+      <h2>Controller and private contact</h2>
+      <p>Data controller: <strong>Kis Tamás</strong>, 2040 Budaörs, Tátra u. 6, Hungary. For access, correction, deletion, or privacy requests email <a href="mailto:synsigra@gmail.com">synsigra@gmail.com</a>.</p>
       <h2>What is processed</h2>
       <p>Account email and display name; salted password hashes; session and API-key hashes; organization, project, job, usage and quota metadata; synthetic scenario drafts and custom-pack descriptions; generated packages; and limited method/route/status/duration and worker-event logs.</p>
       <h2>Why</h2>
@@ -2407,7 +2421,7 @@ const char kPrivacyHtml[] = R"HTML(<!doctype html>
       <h2>Retention and infrastructure</h2>
       <p>Generated artifacts are normally cached for 7 days. Reproducibility metadata, immutable pack recipes, and exact generator releases may remain after expiry so Synsigra can prepare a fingerprint-verified rebuild when the user downloads again. Account and security records are retained while needed to operate and protect the beta. Data is processed on the service VPS and by required hosting, DNS and Gmail SMTP providers. Essential secure session cookies are used; advertising and cross-site tracking cookies are not.</p>
       <h2>Requests and support</h2>
-      <p>Eligible jobs, drafts, custom packs and API keys can be deleted in the product. Account access, correction or deletion requests may be started through the <a href="https://github.com/tamask1s/signal_synth_saas/issues/new" target="_blank" rel="noopener">public support tracker</a>. Use only the minimum account identifier needed to arrange a non-public follow-up; never post sensitive information.</p>
+      <p>Eligible jobs, drafts, custom packs and API keys can be deleted in the product. Email account access, correction, or deletion requests privately to <a href="mailto:synsigra@gmail.com">synsigra@gmail.com</a>. Include only the minimum account identifier needed for identity verification; never send a password, API key, action link, PHI, patient data, generated signal file, or proprietary algorithm output.</p>
       <p><a href="/syn_sig_ra/legal/terms">Private Beta Terms</a> · <a href="/syn_sig_ra/legal/support">Support &amp; service expectations</a> · <a href="/syn_sig_ra/account">Back to account</a></p>
     </section>
   </main>
@@ -2429,8 +2443,9 @@ const char kSupportHtml[] = R"HTML(<!doctype html>
       <p class="eyebrow">Private beta support</p>
       <h1>Support, availability and billing</h1>
       <h2>Get support</h2>
-      <p><a class="button-link" href="https://github.com/tamask1s/signal_synth_saas/issues/new" target="_blank" rel="noopener">Open a support issue</a></p>
-      <p>Include a job or package ID, UTC timestamp, browser version and exact safe error code. Never include passwords, API keys, account-action links, PHI, personal data, proprietary detector output or source code.</p>
+      <p><a class="button-link" href="mailto:synsigra@gmail.com?subject=Synsigra%20support">Email private support</a> <a href="mailto:synsigra@gmail.com?subject=Synsigra%20technical%20demo">Request a technical demo</a></p>
+      <p>Include a safe job or package ID, UTC timestamp, browser version, and exact error code. Never include passwords, API keys, account-action links, PHI, personal data, real patient data, generated signals, proprietary detector output, or source code.</p>
+      <p>Operator: Kis Tamás, 2040 Budaörs, Tátra u. 6, Hungary · <a href="mailto:synsigra@gmail.com">synsigra@gmail.com</a></p>
       <h2>Response and availability</h2>
       <p>Support is normally reviewed within three business days, as a target rather than an SLA. The service is best-effort with no guaranteed uptime, recovery time or response time. Keep local copies of packages and evidence you need.</p>
       <p><a href="/syn_sig_ra/healthz">Service health</a> · <a href="/syn_sig_ra/readyz">Component readiness</a></p>
@@ -3463,7 +3478,7 @@ th, td { border-color: var(--border); }
 
 const char kUiJs[] = R"JS((() => {
   const base = "/syn_sig_ra";
-  const termsVersion = "private-beta-2026-07-12-r3";
+  const termsVersion = "private-beta-2026-07-17-r4";
   const state = {
     currentPage: "workspace",
     authenticated: false,
@@ -6854,6 +6869,17 @@ RouteResponse route_request(
             json_string((public_base_path + "/legal/privacy").c_str()));
         json_object_set_new(
             root, "support_url", json_string(kSupportUrl));
+        json_object_set_new(
+            root, "support_email", json_string(kSupportEmail));
+        json_object_set_new(
+            root, "privacy_email", json_string(kSupportEmail));
+        json_object_set_new(
+            root, "operator_name", json_string(kOperatorName));
+        json_object_set_new(
+            root, "operator_address", json_string(kOperatorAddress));
+        json_object_set_new(
+            root, "demo_url",
+            json_string("mailto:synsigra@gmail.com?subject=Synsigra%20technical%20demo"));
         json_object_set_new(root, "billing_status", json_string("free_beta"));
         json_object_set_new(root, "uptime_sla", json_null());
         json_object_set_new(root, "artifact_retention_days", json_integer(7));

@@ -279,12 +279,17 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [terms_version, terms_url, privacy_url, support_url, billing_status, uptime_sla, artifact_retention_days]
+                required: [terms_version, terms_url, privacy_url, support_url, support_email, privacy_email, operator_name, operator_address, demo_url, billing_status, uptime_sla, artifact_retention_days]
                 properties:
-                  terms_version: {type: string, example: private-beta-2026-07-12-r3}
+                  terms_version: {type: string, example: private-beta-2026-07-17-r4}
                   terms_url: {type: string}
                   privacy_url: {type: string}
                   support_url: {type: string, format: uri}
+                  support_email: {type: string, format: email, example: synsigra@gmail.com}
+                  privacy_email: {type: string, format: email, example: synsigra@gmail.com}
+                  operator_name: {type: string, example: Kis Tamás}
+                  operator_address: {type: string, example: '2040 Budaörs, Tátra u. 6, Hungary'}
+                  demo_url: {type: string, format: uri}
                   billing_status: {type: string, enum: [free_beta]}
                   uptime_sla: {type: string, nullable: true}
                   artifact_retention_days: {type: integer, example: 7}
@@ -417,7 +422,7 @@ paths:
                   description: Must be true.
                 terms_version:
                   type: string
-                  enum: [private-beta-2026-07-12-r3]
+                  enum: [private-beta-2026-07-17-r4]
               additionalProperties: false
       responses:
         '202': {description: Verification required or generic accepted response}

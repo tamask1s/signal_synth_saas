@@ -31,6 +31,9 @@ https://www.timeonion.com/syn_sig_ra
   and Privacy & No-PHI Notice. The accepted version and UTC timestamp are stored.
 - The private beta is free, has no payment method or automatic paid conversion,
   and is provided best-effort without an uptime or support-response SLA.
+- The service operator is Kis Tamás, 2040 Budaörs, Tátra u. 6, Hungary.
+  Private support, privacy, account, and technical-demo contact:
+  `synsigra@gmail.com`.
 
 Public beta documents:
 

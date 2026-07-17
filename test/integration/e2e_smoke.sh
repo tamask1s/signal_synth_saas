@@ -339,7 +339,7 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q 'saveResponseAsFile' "$WORK_ROOT/app.js" ||
     ! grep -q 'showToast' "$WORK_ROOT/app.js" ||
     ! grep -q 'safeNextPage' "$WORK_ROOT/app.js" ||
-    ! grep -q 'private-beta-2026-07-12-r3' "$WORK_ROOT/app.js" ||
+    ! grep -q 'private-beta-2026-07-17-r4' "$WORK_ROOT/app.js" ||
     ! grep -q 'navigateTo("packs", { welcome: "1" }, { replace: true })' "$WORK_ROOT/app.js" ||
     ! grep -q 'navigateTo("jobs", { job_id: body.job_id })' "$WORK_ROOT/app.js" ||
     ! grep -q 'focusJobId' "$WORK_ROOT/app.js" ||
@@ -356,10 +356,14 @@ curl -fsS "$BASE_URL/v1/packs" >"$WORK_ROOT/packs.json" ||
 
 curl -fsS "$BASE_URL/v1/legal" >"$WORK_ROOT/legal.json" ||
     fail "legal metadata request failed"
-grep -q '"terms_version":"private-beta-2026-07-12-r3"' "$WORK_ROOT/legal.json" ||
+grep -q '"terms_version":"private-beta-2026-07-17-r4"' "$WORK_ROOT/legal.json" ||
     fail "legal metadata did not expose current terms"
 grep -q '"billing_status":"free_beta"' "$WORK_ROOT/legal.json" ||
     fail "legal metadata did not expose beta billing status"
+grep -q '"operator_name":"Kis Tamás"' "$WORK_ROOT/legal.json" ||
+    fail "legal metadata did not identify the operator"
+grep -q '"support_email":"synsigra@gmail.com"' "$WORK_ROOT/legal.json" ||
+    fail "legal metadata did not expose private support"
 for legal_page in terms privacy support; do
     curl -fsS "$BASE_URL/legal/$legal_page" >"$WORK_ROOT/legal-$legal_page.html" ||
         fail "legal page request failed: $legal_page"
@@ -370,6 +374,8 @@ grep -q 'No-PHI' "$WORK_ROOT/legal-privacy.html" ||
     fail "privacy page lacks no-PHI boundary"
 grep -q 'no guaranteed uptime' "$WORK_ROOT/legal-support.html" ||
     fail "support page lacks no-SLA boundary"
+grep -q 'mailto:synsigra@gmail.com' "$WORK_ROOT/legal-support.html" ||
+    fail "support page lacks private email contact"
 
 REGISTER_HTTP=$(
     curl -sS \
@@ -377,7 +383,7 @@ REGISTER_HTTP=$(
         -o "$WORK_ROOT/register.json" \
         -w '%{http_code}' \
         -H "Content-Type: application/json" \
-        -d '{"email":"browser@example.com","password":"browser-test-password","display_name":"Browser User","accept_terms":true,"terms_version":"private-beta-2026-07-12-r3"}' \
+        -d '{"email":"browser@example.com","password":"browser-test-password","display_name":"Browser User","accept_terms":true,"terms_version":"private-beta-2026-07-17-r4"}' \
         "$BASE_URL/v1/auth/register"
 )
 if [ "$REGISTER_HTTP" != "202" ]; then
