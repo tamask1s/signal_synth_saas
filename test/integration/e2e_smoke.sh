@@ -215,13 +215,19 @@ PY
 )
 fi
 BASE_URL="http://127.0.0.1:$PORT/syn_sig_ra"
-MPM_LOAD=
-if [ -n "${SYN_SIG_RA_E2E_MPM_MODULE:-}" ]; then
-    if [ ! -f "$SYN_SIG_RA_E2E_MPM_MODULE" ]; then
-        fail "configured Apache MPM module is missing"
+EXTRA_MODULE_LOADS=
+for module_spec in ${SYN_SIG_RA_E2E_LOAD_MODULES:-}; do
+    module_name=${module_spec%%=*}
+    module_path=${module_spec#*=}
+    case "$module_name" in
+        ''|*[!A-Za-z0-9_]*) fail "invalid Apache module name in SYN_SIG_RA_E2E_LOAD_MODULES" ;;
+    esac
+    if [ "$module_path" = "$module_spec" ] || [ ! -f "$module_path" ]; then
+        fail "configured Apache module is missing: $module_name"
     fi
-    MPM_LOAD="LoadModule mpm_prefork_module \"$SYN_SIG_RA_E2E_MPM_MODULE\""
-fi
+    EXTRA_MODULE_LOADS="${EXTRA_MODULE_LOADS}LoadModule $module_name \"$module_path\"
+"
+done
 
 cat > "$HTTPD_CONF" <<EOF
 ServerRoot "$SERVER_ROOT"
@@ -232,7 +238,7 @@ ErrorLog "$APACHE_ERROR_LOG"
 LogLevel warn
 DocumentRoot "$DOC_ROOT"
 
-$MPM_LOAD
+$EXTRA_MODULE_LOADS
 LoadModule syn_sig_ra_module "$MODULE_PATH"
 
 SynSigRaDataRoot "$DATA_ROOT"
