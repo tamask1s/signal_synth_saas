@@ -207,8 +207,46 @@ int main() {
     require(
         manifest_download.status == 200 &&
             manifest_download.content_type == "application/json" &&
-            !manifest_download.file_path.empty(),
+            !manifest_download.file_path.empty() &&
+            manifest_download.checksum_sha256.size() == 64 &&
+            manifest_download.accept_ranges,
         "package owner should resolve manifest download"
+    );
+    const std::string package_uri =
+        "/syn_sig_ra/v1/artifacts/" + job.package_id + "/package.zip";
+    const syn_sig_ra::RouteResponse package_head =
+        syn_sig_ra::route_request(
+            "HEAD", package_uri, "/syn_sig_ra", "Bearer worker-secret",
+            &store, packs, "", "", root, "", "", "",
+            syn_sig_ra::EmailConfig());
+    require(
+        package_head.status == 200 && package_head.headers_only &&
+            package_head.file_length > 16 &&
+            package_head.file_length == package_head.file_size &&
+            package_head.checksum_sha256.size() == 64 &&
+            !package_head.artifact_expires_at.empty(),
+        "package HEAD should publish immutable delivery metadata"
+    );
+    const syn_sig_ra::RouteResponse package_range =
+        syn_sig_ra::route_request(
+            "GET", package_uri, "/syn_sig_ra", "Bearer worker-secret",
+            &store, packs, "", "", root, "", "", "",
+            syn_sig_ra::EmailConfig(), "bytes=0-15");
+    require(
+        package_range.status == 206 && package_range.file_offset == 0 &&
+            package_range.file_length == 16 &&
+            package_range.content_range.find("bytes 0-15/") == 0,
+        "package range should resolve a bounded file-backed response"
+    );
+    const syn_sig_ra::RouteResponse invalid_package_range =
+        syn_sig_ra::route_request(
+            "GET", package_uri, "/syn_sig_ra", "Bearer worker-secret",
+            &store, packs, "", "", root, "", "", "",
+            syn_sig_ra::EmailConfig(), "bytes=999999999999-");
+    require(
+        invalid_package_range.status == 416 &&
+            invalid_package_range.content_range.find("bytes */") == 0,
+        "an unsatisfiable package range should return HTTP 416"
     );
     const syn_sig_ra::RouteResponse viewer_description =
         syn_sig_ra::route_request(

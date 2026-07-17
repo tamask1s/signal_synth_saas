@@ -51,6 +51,14 @@ Synsigra SaaS is for offline-first algorithm verification:
 5. Verify local detector outputs against packaged ground truth using the Synsigra local verifier.
 6. Archive the package, manifest, provenance bundle, detector build/configuration, detections, and verification reports together.
 
+Large package and verification-kit ZIPs are delivered as immutable files rather
+than assembled in Apache memory. The UI hands them to the browser's native
+download manager, so downloads do not require a second full-size browser Blob
+and may be resumed. `HEAD` returns size, `ETag`, `X-Checksum-SHA256`,
+`Accept-Ranges: bytes`, and `X-Artifact-Expires-At`; `GET` accepts one standard
+byte range and returns `206 Content-Range`. Multipart and unsatisfiable ranges
+return `416`.
+
 The SaaS does **not** execute customer detector code and does **not** receive proprietary algorithm output unless the user explicitly sends it elsewhere outside this product workflow.
 
 Non-goals:
@@ -474,6 +482,8 @@ The UI supports:
 - retrying failed or cancelled jobs as new records;
 - soft-deleting non-running jobs;
 - downloading `manifest.json`, `package.zip`, and curated-job detection-template ZIPs;
+- streaming or resuming large package and verification-kit ZIPs without loading
+  the complete archive into an Apache worker or browser Blob;
 - opening generated WFDB cases in Synsigra Lab with bounded binary viewport reads;
 - opening the completed-job verification runbook as the primary success action;
 - viewing project, lifecycle timestamps, generator identity, build identity, and package fingerprint;

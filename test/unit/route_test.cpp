@@ -272,6 +272,12 @@ int main() {
             ui_js.body.find("target_intent: targetIntent") != std::string::npos &&
             ui_js.body.find("groupValidationErrors") != std::string::npos &&
             ui_js.body.find("saveResponseAsFile") != std::string::npos &&
+            ui_js.body.find("startNativeDownload") != std::string::npos &&
+            ui_js.body.find("method: \"HEAD\"") != std::string::npos &&
+            ui_js.body.find("response.blob()") != std::string::npos &&
+            ui_js.body.find(
+                "Browser download started. Interrupted ZIP downloads support resume."
+            ) != std::string::npos &&
             ui_js.body.find("showToast") != std::string::npos &&
             ui_js.body.find("safeNextPage") != std::string::npos &&
             ui_js.body.find("navigateTo(\"jobs\", { job_id: body.job_id })") !=

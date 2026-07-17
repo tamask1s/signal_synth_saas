@@ -253,6 +253,12 @@ if(BUILD_TESTING)
     )
     target_link_libraries(syn_sig_ra_signal_viewer_test PRIVATE syn_sig_ra_core)
 
+    add_executable(syn_sig_ra_artifact_delivery_test
+        test/unit/artifact_delivery_test.cpp
+    )
+    target_link_libraries(
+        syn_sig_ra_artifact_delivery_test PRIVATE syn_sig_ra_core)
+
     add_test(NAME route_unit COMMAND syn_sig_ra_route_test)
     add_test(NAME runtime_config_unit COMMAND syn_sig_ra_config_test)
     add_test(NAME api_key_auth_unit COMMAND syn_sig_ra_auth_test)
@@ -260,6 +266,8 @@ if(BUILD_TESTING)
     add_test(NAME job_unit COMMAND syn_sig_ra_job_test)
     add_test(NAME worker_unit COMMAND syn_sig_ra_worker_test)
     add_test(NAME signal_viewer_unit COMMAND syn_sig_ra_signal_viewer_test)
+    add_test(
+        NAME artifact_delivery_unit COMMAND syn_sig_ra_artifact_delivery_test)
     find_program(NODE_EXECUTABLE NAMES node nodejs)
     if(NODE_EXECUTABLE)
         add_test(

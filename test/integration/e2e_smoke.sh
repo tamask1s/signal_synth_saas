@@ -609,9 +609,88 @@ curl -fsS \
 
 curl -fsS \
     -H "Authorization: Bearer $API_KEY" \
-    -o "$WORK_ROOT/verification-kit.zip" \
+    -o "$WORK_ROOT/verification-kit-a.zip" \
+    "$BASE_URL/v1/jobs/$JOB_ID/verification-kit.zip" &
+KIT_PID_A=$!
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -o "$WORK_ROOT/verification-kit-b.zip" \
+    "$BASE_URL/v1/jobs/$JOB_ID/verification-kit.zip" &
+KIT_PID_B=$!
+wait "$KIT_PID_A" || fail "first concurrent verification kit download failed"
+wait "$KIT_PID_B" || fail "second concurrent verification kit download failed"
+cmp "$WORK_ROOT/verification-kit-a.zip" "$WORK_ROOT/verification-kit-b.zip" ||
+    fail "concurrent verification kit requests returned different artifacts"
+mv "$WORK_ROOT/verification-kit-a.zip" "$WORK_ROOT/verification-kit.zip"
+DERIVED_ZIP_COUNT=$(find \
+    "$DATA_ROOT/derived-artifacts/$PACKAGE_ID" \
+    -maxdepth 1 -type f -name 'verification-kit-v1.zip' | wc -l)
+[ "$DERIVED_ZIP_COUNT" = "1" ] ||
+    fail "concurrent kit requests did not publish exactly one immutable ZIP"
+if find "$DATA_ROOT/derived-artifacts/$PACKAGE_ID" \
+    -maxdepth 1 -name '.build-*' | grep -q .; then
+    fail "verification kit preparation left a temporary workspace"
+fi
+
+curl -fsSI \
+    -H "Authorization: Bearer $API_KEY" \
+    -o "$WORK_ROOT/verification-kit-head.txt" \
     "$BASE_URL/v1/jobs/$JOB_ID/verification-kit.zip" ||
-    fail "verification kit archive download failed"
+    fail "verification kit HEAD failed"
+grep -qi '^Accept-Ranges: bytes' "$WORK_ROOT/verification-kit-head.txt" ||
+    fail "verification kit HEAD lacks Accept-Ranges"
+grep -qi '^ETag: "sha256-[0-9a-f]\{64\}"' "$WORK_ROOT/verification-kit-head.txt" ||
+    fail "verification kit HEAD lacks stable SHA-256 ETag"
+grep -qi '^X-Checksum-SHA256: [0-9a-f]\{64\}' "$WORK_ROOT/verification-kit-head.txt" ||
+    fail "verification kit HEAD lacks checksum"
+grep -qi '^X-Artifact-Expires-At:' "$WORK_ROOT/verification-kit-head.txt" ||
+    fail "verification kit HEAD lacks expiry metadata"
+
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -H 'Range: bytes=0-127' \
+    -D "$WORK_ROOT/verification-kit-range-head.txt" \
+    -o "$WORK_ROOT/verification-kit-range.bin" \
+    "$BASE_URL/v1/jobs/$JOB_ID/verification-kit.zip" ||
+    fail "verification kit byte range failed"
+grep -q ' 206 ' "$WORK_ROOT/verification-kit-range-head.txt" ||
+    fail "verification kit range did not return HTTP 206"
+grep -qi '^Content-Range: bytes 0-127/' "$WORK_ROOT/verification-kit-range-head.txt" ||
+    fail "verification kit range lacks Content-Range"
+head -c 128 "$WORK_ROOT/verification-kit.zip" \
+    > "$WORK_ROOT/verification-kit-range-expected.bin"
+cmp "$WORK_ROOT/verification-kit-range-expected.bin" \
+    "$WORK_ROOT/verification-kit-range.bin" ||
+    fail "verification kit range bytes differ from the complete artifact"
+
+head -c 128 "$WORK_ROOT/verification-kit.zip" \
+    > "$WORK_ROOT/verification-kit-resumed.zip"
+curl -fsS -C - \
+    -H "Authorization: Bearer $API_KEY" \
+    -o "$WORK_ROOT/verification-kit-resumed.zip" \
+    "$BASE_URL/v1/jobs/$JOB_ID/verification-kit.zip" ||
+    fail "verification kit resume request failed"
+cmp "$WORK_ROOT/verification-kit.zip" "$WORK_ROOT/verification-kit-resumed.zip" ||
+    fail "resumed verification kit differs from the immutable artifact"
+
+INVALID_RANGE_HTTP=$(curl -sS \
+    -H "Authorization: Bearer $API_KEY" \
+    -H 'Range: bytes=999999999999-' \
+    -o "$WORK_ROOT/invalid-range.json" \
+    -w '%{http_code}' \
+    "$BASE_URL/v1/jobs/$JOB_ID/verification-kit.zip")
+[ "$INVALID_RANGE_HTTP" = "416" ] ||
+    fail "invalid verification kit range returned HTTP $INVALID_RANGE_HTTP"
+
+curl -fsSI \
+    -H "Authorization: Bearer $API_KEY" \
+    -o "$WORK_ROOT/package-head.txt" \
+    "$BASE_URL/v1/artifacts/$PACKAGE_ID/package.zip" ||
+    fail "package ZIP HEAD failed"
+grep -qi '^Accept-Ranges: bytes' "$WORK_ROOT/package-head.txt" ||
+    fail "package ZIP HEAD lacks Accept-Ranges"
+grep -qi '^X-Checksum-SHA256: [0-9a-f]\{64\}' "$WORK_ROOT/package-head.txt" ||
+    fail "package ZIP HEAD lacks checksum"
 
 python3 - "$WORK_ROOT/manifest.json" "$WORK_ROOT/package.zip" <<'PY' ||
 import json

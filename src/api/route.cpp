@@ -1,6 +1,7 @@
 #include "syn_sig_ra/route.h"
 
 #include "syn_sig_ra/api_key_auth.h"
+#include "syn_sig_ra/artifact_store.h"
 #include "syn_sig_ra/build_info.h"
 #include "syn_sig_ra/job_request.h"
 #include "syn_sig_ra/metadata_store.h"
@@ -24,14 +25,12 @@
 #include <cstdint>
 #include <climits>
 #include <cstdlib>
-#include <dirent.h>
 #include <fstream>
 #include <map>
 #include <set>
 #include <sstream>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
-#include <sys/wait.h>
 #include <unistd.h>
 #include <string>
 #include <vector>
@@ -506,141 +505,6 @@ std::string zip_store_archive(const std::vector<ZipEntry>& entries) {
     return output;
 }
 
-bool remove_temporary_tree(const std::string& path) {
-    struct stat information;
-    if (lstat(path.c_str(), &information) != 0) return errno == ENOENT;
-    if (S_ISLNK(information.st_mode)) return false;
-    if (S_ISDIR(information.st_mode)) {
-        DIR* directory = opendir(path.c_str());
-        if (directory == nullptr) return false;
-        bool succeeded = true;
-        for (dirent* entry = readdir(directory);
-             entry != nullptr; entry = readdir(directory)) {
-            const std::string name(entry->d_name);
-            if (name != "." && name != ".." &&
-                !remove_temporary_tree(path + "/" + name)) {
-                succeeded = false;
-                break;
-            }
-        }
-        closedir(directory);
-        return succeeded && rmdir(path.c_str()) == 0;
-    }
-    return S_ISREG(information.st_mode) && unlink(path.c_str()) == 0;
-}
-
-bool write_kit_entry(
-    const std::string& root,
-    const ZipEntry& entry,
-    std::string& error
-) {
-    if (entry.path.empty() || entry.path[0] == '/' ||
-        entry.path.find("..") != std::string::npos) {
-        error = "verification kit entry path is unsafe";
-        return false;
-    }
-    std::string::size_type separator = entry.path.find('/');
-    while (separator != std::string::npos) {
-        const std::string directory =
-            root + "/" + entry.path.substr(0, separator);
-        if (mkdir(directory.c_str(), 0700) != 0 && errno != EEXIST) {
-            error = "unable to create verification kit directory";
-            return false;
-        }
-        separator = entry.path.find('/', separator + 1);
-    }
-    std::ofstream output(
-        (root + "/" + entry.path).c_str(),
-        std::ios::binary | std::ios::trunc);
-    output.write(
-        entry.content.data(),
-        static_cast<std::streamsize>(entry.content.size()));
-    if (!output) {
-        error = "unable to write verification kit entry";
-        return false;
-    }
-    return true;
-}
-
-bool append_entries_to_package_zip(
-    const std::string& package,
-    const std::vector<ZipEntry>& entries,
-    bool has_detection_templates,
-    std::string& zip,
-    std::string& error
-) {
-    char temporary[] = "/tmp/synsigra-verification-kit-XXXXXX";
-    char* created = mkdtemp(temporary);
-    if (created == nullptr) {
-        error = "unable to allocate verification kit workspace";
-        return false;
-    }
-    const std::string root(created);
-    const std::string archive = root + "/verification-kit.zip";
-    ZipEntry package_entry;
-    package_entry.path = "verification-kit.zip";
-    package_entry.content = package;
-    bool succeeded = write_kit_entry(root, package_entry, error);
-    for (std::vector<ZipEntry>::const_iterator it = entries.begin();
-         succeeded && it != entries.end(); ++it) {
-        succeeded = write_kit_entry(root, *it, error);
-    }
-    if (succeeded) {
-        const pid_t child = fork();
-        if (child < 0) {
-            error = "unable to fork verification kit archiver";
-            succeeded = false;
-        } else if (child == 0) {
-            if (chdir(root.c_str()) != 0) _exit(126);
-            if (has_detection_templates) {
-                execl(
-                    "/usr/bin/zip", "/usr/bin/zip", "-q", "-r",
-                    "verification-kit.zip",
-                    "SYNSIGRA_README.md",
-                    "PACKAGE_USE_NOTICE.txt",
-                    "SUPPORT_AND_TERMS.txt",
-                    "PLATFORM_CAPABILITIES.md",
-                    "detections",
-                    static_cast<char*>(nullptr));
-            } else {
-                execl(
-                    "/usr/bin/zip", "/usr/bin/zip", "-q",
-                    "verification-kit.zip",
-                    "SYNSIGRA_README.md",
-                    "PACKAGE_USE_NOTICE.txt",
-                    "SUPPORT_AND_TERMS.txt",
-                    "PLATFORM_CAPABILITIES.md",
-                    static_cast<char*>(nullptr));
-            }
-            _exit(127);
-        } else {
-            int status = 0;
-            while (waitpid(child, &status, 0) < 0 && errno == EINTR) {
-            }
-            if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-                error = "verification kit archive update failed";
-                succeeded = false;
-            }
-        }
-    }
-    if (succeeded) {
-        std::ifstream input(archive.c_str(), std::ios::binary);
-        std::ostringstream buffer;
-        buffer << input.rdbuf();
-        if (!input.good() && !input.eof()) {
-            error = "unable to read complete verification kit";
-            succeeded = false;
-        } else {
-            zip = buffer.str();
-        }
-    }
-    if (!remove_temporary_tree(root) && succeeded) {
-        error = "unable to remove verification kit workspace";
-        succeeded = false;
-    }
-    return succeeded;
-}
-
 std::string detection_template_extension(const syn_sig_ra::PackTargetSummary& target) {
     for (std::vector<std::string>::const_iterator it =
              target.accepted_formats.begin();
@@ -833,19 +697,14 @@ std::string verification_kit_readme(
     return output.str();
 }
 
-bool build_verification_kit_zip(
+syn_sig_ra::DerivedArtifactStatus build_verification_kit_file(
     const syn_sig_ra::JobRecord& job,
+    const std::string& data_root,
     const std::string& package_directory,
     const syn_sig_ra::PackSummary* pack,
-    std::string& zip,
+    syn_sig_ra::PreparedArtifact& artifact,
     std::string& error
 ) {
-    std::string package;
-    std::string manifest;
-    if (!read_file_to_string(package_directory + "/manifest.json", manifest, error) ||
-        !read_file_to_string(package_directory + "/package.zip", package, error)) {
-        return false;
-    }
     std::vector<ZipEntry> templates;
     bool has_templates = false;
     if (pack != nullptr) {
@@ -860,8 +719,23 @@ bool build_verification_kit_zip(
     entries.push_back(readme);
     append_beta_notices(entries);
     entries.insert(entries.end(), templates.begin(), templates.end());
-    return append_entries_to_package_zip(
-        package, entries, has_templates, zip, error);
+    std::vector<syn_sig_ra::ArtifactOverlayEntry> overlay;
+    for (std::vector<ZipEntry>::const_iterator it = entries.begin();
+         it != entries.end(); ++it) {
+        syn_sig_ra::ArtifactOverlayEntry item;
+        item.path = it->path;
+        item.content = it->content;
+        overlay.push_back(item);
+    }
+    return syn_sig_ra::prepare_cached_zip_overlay(
+        data_root,
+        job.package_id,
+        package_directory + "/package.zip",
+        "verification-kit-v1",
+        overlay,
+        artifact,
+        error
+    );
 }
 
 json_t* job_json_object(
@@ -1470,6 +1344,61 @@ bool safe_download_filename(const std::string& filename) {
             ends_with(filename, ".zip")) ||
            (starts_with(filename, "synsigra-") &&
             ends_with(filename, "-py3-none-any.whl"));
+}
+
+syn_sig_ra::RouteResponse immutable_artifact_response(
+    const std::string& method,
+    const syn_sig_ra::PreparedArtifact& artifact,
+    const std::string& content_type,
+    const std::string& download_filename,
+    const std::string& range_header,
+    const std::string& expires_at
+) {
+    syn_sig_ra::ByteRange range;
+    const syn_sig_ra::ByteRangeStatus range_status = method == "GET"
+        ? syn_sig_ra::parse_byte_range(
+            range_header, artifact.size_bytes, range)
+        : syn_sig_ra::ByteRangeStatus::none;
+    if (range_status == syn_sig_ra::ByteRangeStatus::invalid) {
+        syn_sig_ra::RouteResponse response = json_response(
+            416,
+            "{\"error\":{\"code\":\"range_not_satisfiable\","
+            "\"message\":\"The requested artifact byte range is invalid or unavailable.\"}}\n"
+        );
+        response.accept_ranges = true;
+        response.content_range =
+            "bytes */" + std::to_string(artifact.size_bytes);
+        response.etag = "\"sha256-" + artifact.sha256 + "\"";
+        response.checksum_sha256 = artifact.sha256;
+        response.artifact_expires_at = expires_at;
+        return response;
+    }
+    syn_sig_ra::RouteResponse response;
+    response.disposition = syn_sig_ra::RouteDisposition::handled;
+    response.status = range_status == syn_sig_ra::ByteRangeStatus::valid
+        ? 206 : 200;
+    response.content_type = content_type;
+    response.file_path = artifact.path;
+    response.file_size = artifact.size_bytes;
+    response.file_offset = range_status == syn_sig_ra::ByteRangeStatus::valid
+        ? range.offset : 0;
+    response.file_length = range_status == syn_sig_ra::ByteRangeStatus::valid
+        ? range.length : artifact.size_bytes;
+    response.content_disposition =
+        "attachment; filename=\"" + download_filename + "\"";
+    response.cache_control = "private, no-store";
+    response.accept_ranges = true;
+    response.headers_only = method == "HEAD";
+    response.etag = "\"sha256-" + artifact.sha256 + "\"";
+    response.checksum_sha256 = artifact.sha256;
+    response.artifact_expires_at = expires_at;
+    if (range_status == syn_sig_ra::ByteRangeStatus::valid) {
+        response.content_range =
+            "bytes " + std::to_string(range.offset) + "-" +
+            std::to_string(range.offset + range.length - 1) + "/" +
+            std::to_string(artifact.size_bytes);
+    }
+    return response;
 }
 
 syn_sig_ra::RouteResponse download_file_response(
@@ -2235,9 +2164,9 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>GET</td><td><code>/v1/jobs/{job_id}/viewer/window</code></td><td>Read selected channels for one bounded binary viewport</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/jobs/{job_id}/viewer/overlays</code></td><td>Read bounded ground-truth events and intervals for one viewport</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/jobs/{job_id}/detection-templates.zip</code></td><td>Detector-output templates for completed curated jobs</td><td>Organization</td></tr>
-          <tr><td>GET</td><td><code>/v1/jobs/{job_id}/verification-kit.zip</code></td><td>One flat package directory with README, manifest, data, and templates</td><td>Organization</td></tr>
-          <tr><td>GET</td><td><code>/v1/artifacts/{package_id}/manifest.json</code></td><td>Download manifest</td><td>Organization</td></tr>
-          <tr><td>GET</td><td><code>/v1/artifacts/{package_id}/package.zip</code></td><td>Download package ZIP</td><td>Organization</td></tr>
+          <tr><td>GET/HEAD</td><td><code>/v1/jobs/{job_id}/verification-kit.zip</code></td><td>Stream or resume one immutable flat kit with README, manifest, data, and templates</td><td>Organization</td></tr>
+          <tr><td>GET/HEAD</td><td><code>/v1/artifacts/{package_id}/manifest.json</code></td><td>Download immutable manifest with checksum metadata</td><td>Organization</td></tr>
+          <tr><td>GET/HEAD</td><td><code>/v1/artifacts/{package_id}/package.zip</code></td><td>Stream or resume package ZIP with Range and checksum metadata</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/usage</code></td><td>Caller usage and limits</td><td>Authenticated</td></tr>
           <tr><td>GET</td><td><code>/v1/metrics</code></td><td>Operational metrics</td><td>Owner/admin</td></tr>
         </tbody>
@@ -6029,6 +5958,13 @@ const char kUiJs[] = R"JS((() => {
 
   async function downloadArtifact(packageId, file) {
     try {
+      if (file === "package.zip") {
+        await startNativeDownload(
+          `${base}/v1/artifacts/${encodeURIComponent(packageId)}/${file}`,
+          `${packageId}-${file}`
+        );
+        return;
+      }
       const response = await fetch(`${base}/v1/artifacts/${encodeURIComponent(packageId)}/${file}`, {
         credentials: "same-origin",
         headers: headers(false)
@@ -6061,15 +5997,10 @@ const char kUiJs[] = R"JS((() => {
 
   async function downloadVerificationKit(jobId) {
     try {
-      const response = await fetch(`${base}/v1/jobs/${encodeURIComponent(jobId)}/verification-kit.zip`, {
-        credentials: "same-origin",
-        headers: headers(false)
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || response.statusText);
-      }
-      await saveResponseAsFile(response, `${jobId}-verification-kit.zip`);
+      await startNativeDownload(
+        `${base}/v1/jobs/${encodeURIComponent(jobId)}/verification-kit.zip`,
+        `${jobId}-verification-kit.zip`
+      );
     } catch (error) {
       showToast(error.message, "error");
     }
@@ -6118,6 +6049,26 @@ const char kUiJs[] = R"JS((() => {
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  async function startNativeDownload(url, filename) {
+    const response = await fetch(url, {
+      method: "HEAD",
+      credentials: "same-origin",
+      headers: headers(false),
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      throw new Error(`Download is unavailable (${response.status} ${response.statusText}).`);
+    }
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.setAttribute("data-no-spa", "true");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    showToast("Browser download started. Interrupted ZIP downloads support resume.", "notice");
   }
 
   async function copyText(text) {
@@ -6710,7 +6661,8 @@ RouteResponse route_request(
     const std::string& query_string,
     const std::string& signal_synth_cli,
     const std::string& cookie_header,
-    const EmailConfig& email_config
+    const EmailConfig& email_config,
+    const std::string& range_header
 ) {
     if (!owns_uri(uri, public_base_path)) {
         RouteResponse response;
@@ -8736,11 +8688,11 @@ RouteResponse route_request(
             return response;
         }
         if (action == "verification-kit.zip") {
-            if (method != "GET") {
+            if (method != "GET" && method != "HEAD") {
                 return json_response(
                     405,
                     "{\"error\":{\"code\":\"method_not_allowed\","
-                    "\"message\":\"Verification kits only accept GET.\"}}\n"
+                    "\"message\":\"Verification kits only accept GET or HEAD.\"}}\n"
                 );
             }
             JobRecord job;
@@ -8825,32 +8777,38 @@ RouteResponse route_request(
                 response.internal_error = error;
                 return response;
             }
-            std::string zip;
-            if (!build_verification_kit_zip(
+            PreparedArtifact artifact;
+            const DerivedArtifactStatus kit_status =
+                build_verification_kit_file(
                     job,
+                    data_root,
                     expected_storage,
                     pack_pointer,
-                    zip,
+                    artifact,
                     error
-                )) {
+                );
+            if (kit_status != DerivedArtifactStatus::ok) {
+                const int status = kit_status ==
+                    DerivedArtifactStatus::storage_pressure ? 507 :
+                    (kit_status == DerivedArtifactStatus::invalid_source
+                        ? 404 : 503);
                 RouteResponse response = json_response(
-                    404,
-                    "{\"error\":{\"code\":\"verification_kit_unavailable\","
-                    "\"message\":\"The verification kit files are not available.\"}}\n"
+                    status,
+                    status == 507
+                        ? "{\"error\":{\"code\":\"artifact_storage_pressure\",\"message\":\"Verification kit preparation is paused to preserve server disk space.\"}}\n"
+                        : "{\"error\":{\"code\":\"verification_kit_unavailable\",\"message\":\"The verification kit files are not available.\"}}\n"
                 );
                 response.internal_error = error;
                 return response;
             }
-            RouteResponse response;
-            response.disposition = RouteDisposition::handled;
-            response.status = 200;
-            response.content_type = "application/zip";
-            response.body = zip;
-            response.content_disposition =
-                "attachment; filename=\"" + job.package_id +
-                "-verification-kit.zip\"";
-            response.cache_control = "no-store";
-            return response;
+            return immutable_artifact_response(
+                method,
+                artifact,
+                "application/zip",
+                job.package_id + "-verification-kit.zip",
+                range_header,
+                package.expires_at
+            );
         }
         if (!action.empty()) {
             if (method != "POST" || (action != "cancel" &&
@@ -9059,11 +9017,11 @@ RouteResponse route_request(
     const std::string artifacts_path =
         public_base_path + "/v1/artifacts";
     if (path_at_or_below(uri, artifacts_path)) {
-        if (method != "GET") {
+        if (method != "GET" && method != "HEAD") {
             return json_response(
                 405,
                 "{\"error\":{\"code\":\"method_not_allowed\","
-                "\"message\":\"Artifact endpoints only accept GET.\"}}\n"
+                "\"message\":\"Artifact endpoints only accept GET or HEAD.\"}}\n"
             );
         }
         const std::string relative =
@@ -9127,16 +9085,34 @@ RouteResponse route_request(
                 "artifact storage key does not match configured data root";
             return response;
         }
-        RouteResponse response;
-        response.disposition = RouteDisposition::handled;
-        response.status = 200;
-        response.content_type = filename == "manifest.json"
-            ? "application/json"
-            : "application/zip";
-        response.file_path = expected_storage + "/" + filename;
-        response.content_disposition =
-            std::string("attachment; filename=\"") + filename + "\"";
-        return response;
+        PreparedArtifact artifact;
+        const DerivedArtifactStatus artifact_status =
+            prepare_cached_file_metadata(
+                data_root,
+                package_id,
+                expected_storage + "/" + filename,
+                filename == "manifest.json" ? "manifest-json" : "package-zip",
+                artifact,
+                error
+            );
+        if (artifact_status != DerivedArtifactStatus::ok) {
+            RouteResponse response = json_response(
+                artifact_status == DerivedArtifactStatus::invalid_source
+                    ? 404 : 503,
+                "{\"error\":{\"code\":\"artifact_storage_unavailable\","
+                "\"message\":\"The artifact file is unavailable.\"}}\n"
+            );
+            response.internal_error = error;
+            return response;
+        }
+        return immutable_artifact_response(
+            method,
+            artifact,
+            filename == "manifest.json" ? "application/json" : "application/zip",
+            filename,
+            range_header,
+            package.expires_at
+        );
     }
 
     if (is_ui_page_route(uri, public_base_path)) {

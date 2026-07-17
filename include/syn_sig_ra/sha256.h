@@ -11,6 +11,12 @@ bool sha256_hex(
     std::string& error
 );
 
+bool sha256_file_hex(
+    const std::string& path,
+    std::string& output,
+    std::string& error
+);
+
 }  // namespace syn_sig_ra
 
 #endif

@@ -2359,7 +2359,9 @@ RecordLookupStatus MetadataStore::find_package(
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "SELECT p.id, p.job_id, p.organization_id, p.project_id, p.user_id, "
-        "p.package_fingerprint, p.manifest_hash, p.artifact_storage_key "
+        "p.package_fingerprint, p.manifest_hash, p.artifact_storage_key, "
+        "p.size_bytes, p.created_at, "
+        "strftime('%Y-%m-%dT%H:%M:%fZ',p.created_at,'+7 days') "
         "FROM packages p JOIN jobs j ON j.id = p.job_id "
         "WHERE p.id = ?1 AND p.organization_id = ?2 "
         "AND p.deleted_at IS NULL "
@@ -2396,6 +2398,9 @@ RecordLookupStatus MetadataStore::find_package(
     loaded.package_fingerprint = column_text(statement, 5);
     loaded.manifest_hash = column_text(statement, 6);
     loaded.artifact_storage_key = column_text(statement, 7);
+    loaded.size_bytes = sqlite3_column_int64(statement, 8);
+    loaded.created_at = column_text(statement, 9);
+    loaded.expires_at = column_text(statement, 10);
     sqlite3_finalize(statement);
     package = loaded;
     return RecordLookupStatus::found;

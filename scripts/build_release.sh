@@ -12,7 +12,7 @@ cmake -S "$repo_dir" -B "$build_dir" \
   -DAPXS_EXECUTABLE=/usr/local/apache2/bin/apxs \
   -DSYN_SIG_RA_ENABLE_INTEGRATION_TESTS=ON \
   -DBUILD_TESTING=ON
-cmake --build "$build_dir" -j"${BUILD_JOBS:-2}"
+cmake --build "$build_dir" -j"${BUILD_JOBS:-1}"
 (cd "$build_dir" && ctest -E integration_e2e_smoke --output-on-failure)
 
 if [ "${RUN_E2E:-0}" = 1 ]; then

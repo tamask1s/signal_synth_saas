@@ -434,6 +434,10 @@ int syn_sig_ra_handler(request_rec* request) {
     const std::string content_type = content_type_value == nullptr
         ? std::string()
         : content_type_value;
+    const char* range_value = apr_table_get(request->headers_in, "Range");
+    const std::string range_header = range_value == nullptr
+        ? std::string()
+        : range_value;
     std::string request_body;
     if (!read_request_body(request, request_body)) {
         request->status = HTTP_REQUEST_ENTITY_TOO_LARGE;
@@ -514,7 +518,8 @@ int syn_sig_ra_handler(request_rec* request) {
         query_string,
         config->signal_synth_cli,
         cookie,
-        email_config
+        email_config,
+        range_header
     );
 
     if (response.disposition == syn_sig_ra::RouteDisposition::declined) {
@@ -577,6 +582,33 @@ int syn_sig_ra_handler(request_rec* request) {
             response.cache_control.c_str()
         );
     }
+    if (response.accept_ranges) {
+        apr_table_set(request->headers_out, "Accept-Ranges", "bytes");
+    }
+    if (!response.content_range.empty()) {
+        apr_table_set(
+            request->headers_out,
+            "Content-Range",
+            response.content_range.c_str()
+        );
+    }
+    if (!response.etag.empty()) {
+        apr_table_set(request->headers_out, "ETag", response.etag.c_str());
+    }
+    if (!response.checksum_sha256.empty()) {
+        apr_table_set(
+            request->headers_out,
+            "X-Checksum-SHA256",
+            response.checksum_sha256.c_str()
+        );
+    }
+    if (!response.artifact_expires_at.empty()) {
+        apr_table_set(
+            request->headers_out,
+            "X-Artifact-Expires-At",
+            response.artifact_expires_at.c_str()
+        );
+    }
     if (!response.file_path.empty()) {
         apr_file_t* file = nullptr;
         apr_finfo_t information;
@@ -598,18 +630,54 @@ int syn_sig_ra_handler(request_rec* request) {
             );
             return OK;
         }
-        ap_set_content_length(request, information.size);
-        apr_size_t bytes_sent = 0;
-        ap_send_fd(
-            file,
-            request,
-            0,
-            static_cast<apr_size_t>(information.size),
-            &bytes_sent
-        );
+        const apr_off_t offset = static_cast<apr_off_t>(response.file_offset);
+        const apr_off_t length = response.file_length >= 0
+            ? static_cast<apr_off_t>(response.file_length)
+            : information.size;
+        const bool invalid_metadata =
+            offset < 0 || length < 0 || offset > information.size ||
+            length > information.size - offset ||
+            (response.file_size >= 0 &&
+             information.size != static_cast<apr_off_t>(response.file_size));
+        if (invalid_metadata) {
+            apr_file_close(file);
+            request->status = HTTP_INTERNAL_SERVER_ERROR;
+            ap_set_content_type(request, "application/json");
+            ap_rputs(
+                "{\"error\":{\"code\":\"artifact_changed\","
+                "\"message\":\"The immutable artifact changed during delivery.\"}}\n",
+                request
+            );
+            return OK;
+        }
+        ap_set_content_length(request, length);
+        if (response.headers_only || request->header_only) {
+            apr_file_close(file);
+            return OK;
+        }
+        apr_off_t sent_total = 0;
+        const apr_size_t maximum_chunk = 64u * 1024u * 1024u;
+        while (sent_total < length && !request->connection->aborted) {
+            const apr_off_t remaining = length - sent_total;
+            const apr_size_t chunk = remaining >
+                static_cast<apr_off_t>(maximum_chunk)
+                ? maximum_chunk
+                : static_cast<apr_size_t>(remaining);
+            apr_size_t bytes_sent = 0;
+            const apr_status_t send_status = ap_send_fd(
+                file,
+                request,
+                offset + sent_total,
+                chunk,
+                &bytes_sent
+            );
+            if (send_status != APR_SUCCESS || bytes_sent == 0) break;
+            sent_total += static_cast<apr_off_t>(bytes_sent);
+        }
         apr_file_close(file);
         return OK;
     }
+    if (request->header_only) return OK;
     ap_rwrite(
         response.body.data(),
         static_cast<int>(response.body.size()),

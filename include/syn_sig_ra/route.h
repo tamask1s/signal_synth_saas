@@ -25,6 +25,15 @@ struct RouteResponse {
     std::string content_disposition;
     std::string set_cookie;
     std::string cache_control;
+    std::string etag;
+    std::string checksum_sha256;
+    std::string content_range;
+    std::string artifact_expires_at;
+    long long file_offset = 0;
+    long long file_length = -1;
+    long long file_size = -1;
+    bool accept_ranges = false;
+    bool headers_only = false;
 };
 
 RouteResponse route_request(const std::string& method, const std::string& uri);
@@ -46,7 +55,8 @@ RouteResponse route_request(
     const std::string& query_string = "",
     const std::string& signal_synth_cli = "",
     const std::string& cookie_header = "",
-    const EmailConfig& email_config = EmailConfig()
+    const EmailConfig& email_config = EmailConfig(),
+    const std::string& range_header = ""
 );
 
 bool route_requires_authentication(

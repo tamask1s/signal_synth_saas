@@ -652,20 +652,43 @@ paths:
   /v1/jobs/{job_id}/verification-kit.zip:
     get:
       summary: Download a job-local verification starter kit
-      description: Returns the challenge package directly as one ZIP, augmented with SYNSIGRA_README.md, notices, and curated detector-output templates when available. After one unzip, the extracted directory can be passed directly to synsigra-verify; there is no nested package ZIP. The kit does not include the generator or verifier wheel.
+      description: Returns an immutable, file-backed challenge ZIP augmented with SYNSIGRA_README.md, notices, and curated detector-output templates when available. After one unzip, the extracted directory can be passed directly to synsigra-verify; there is no nested package ZIP. The kit does not include the generator or verifier wheel. Single byte ranges and browser resume are supported; multipart ranges are rejected.
       security: [{cookieAuth: []}, {bearerAuth: []}]
       parameters:
         - {in: path, name: job_id, required: true, schema: {type: string}}
+        - {in: header, name: Range, required: false, schema: {type: string}, example: 'bytes=1048576-'}
       responses:
         '200':
           description: Verification kit ZIP
+          headers:
+            Accept-Ranges: {schema: {type: string, enum: [bytes]}}
+            ETag: {schema: {type: string}, description: Stable strong SHA-256 ETag}
+            X-Checksum-SHA256: {schema: {type: string, pattern: '^[0-9a-f]{64}$'}}
+            X-Artifact-Expires-At: {schema: {type: string, format: date-time}}
           content:
             application/zip:
               schema:
                 type: string
                 format: binary
+        '206': {description: Requested byte range with Content-Range and the immutable artifact headers}
+        '416': {description: Invalid, multipart, or unsatisfiable byte range}
         '404': {description: Job or artifact not found}
         '409': {description: Job not succeeded or artifacts expired}
+        '507': {description: Derived-kit creation paused to preserve disk reserve}
+    head:
+      summary: Read verification-kit size, checksum, range support, and expiry without a response body
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      parameters:
+        - {in: path, name: job_id, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Verification-kit metadata
+          headers:
+            Content-Length: {schema: {type: integer, format: int64}}
+            Accept-Ranges: {schema: {type: string, enum: [bytes]}}
+            ETag: {schema: {type: string}}
+            X-Checksum-SHA256: {schema: {type: string, pattern: '^[0-9a-f]{64}$'}}
+            X-Artifact-Expires-At: {schema: {type: string, format: date-time}}
   /v1/jobs/{job_id}/viewer:
     get:
       summary: Describe cases and channels available to the signal viewer
@@ -734,13 +757,38 @@ paths:
   /v1/artifacts/{package_id}/{filename}:
     get:
       summary: Download immutable manifest or ZIP
-      security: [{bearerAuth: []}]
+      description: Streams the retained immutable file. package.zip supports single byte ranges and browser resume without buffering the artifact in an Apache worker.
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      parameters:
+        - {in: path, name: package_id, required: true, schema: {type: string}}
+        - {in: path, name: filename, required: true, schema: {type: string, enum: [manifest.json, package.zip]}}
+        - {in: header, name: Range, required: false, schema: {type: string}, example: 'bytes=0-1048575'}
+      responses:
+        '200':
+          description: Artifact bytes
+          headers:
+            Accept-Ranges: {schema: {type: string, enum: [bytes]}}
+            ETag: {schema: {type: string}}
+            X-Checksum-SHA256: {schema: {type: string, pattern: '^[0-9a-f]{64}$'}}
+            X-Artifact-Expires-At: {schema: {type: string, format: date-time}}
+        '206': {description: Requested byte range with Content-Range}
+        '416': {description: Invalid, multipart, or unsatisfiable byte range}
+        '404': {description: Missing, expired, or cross-tenant artifact}
+    head:
+      summary: Read immutable artifact delivery metadata without a response body
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       parameters:
         - {in: path, name: package_id, required: true, schema: {type: string}}
         - {in: path, name: filename, required: true, schema: {type: string, enum: [manifest.json, package.zip]}}
       responses:
-        '200': {description: Artifact bytes}
-        '404': {description: Missing, expired, or cross-tenant artifact}
+        '200':
+          description: Artifact metadata
+          headers:
+            Content-Length: {schema: {type: integer, format: int64}}
+            Accept-Ranges: {schema: {type: string, enum: [bytes]}}
+            ETag: {schema: {type: string}}
+            X-Checksum-SHA256: {schema: {type: string, pattern: '^[0-9a-f]{64}$'}}
+            X-Artifact-Expires-At: {schema: {type: string, format: date-time}}
   /v1/usage:
     get:
       summary: Caller usage and limits

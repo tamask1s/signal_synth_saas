@@ -68,6 +68,8 @@ struct PackageRecord {
     std::string manifest_hash;
     std::string artifact_storage_key;
     long long size_bytes;
+    std::string created_at;
+    std::string expires_at;
 };
 
 struct UsageSummary {

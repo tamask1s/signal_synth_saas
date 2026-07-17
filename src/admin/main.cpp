@@ -332,12 +332,15 @@ int main(int argc, char** argv) {
                  candidates.begin(); it != candidates.end(); ++it) {
             const std::string expected =
                 std::string(argv[3]) + "/packages/" + it->package_id;
+            const std::string derived =
+                std::string(argv[3]) + "/derived-artifacts/" + it->package_id;
             std::cout << "candidate=" << it->package_id
                       << " job_id=" << it->job_id << '\n';
             if (!apply) continue;
             if (it->artifact_storage_key != expected ||
                 !store.mark_package_expired(it->package_id, error) ||
-                !remove_tree(expected, error)) {
+                !remove_tree(expected, error) ||
+                !remove_tree(derived, error)) {
                 std::cerr << "error=retention-cleanup-failed package_id="
                           << it->package_id << " message=" << error << '\n';
                 return EXIT_FAILURE;
