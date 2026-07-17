@@ -257,6 +257,7 @@ SynSigRaEmailCaptureDirectory "$MAIL_ROOT"
 
 <Location "/syn_sig_ra">
     SetHandler syn_sig_ra
+    ${SYN_SIG_RA_E2E_LOCATION_ACCESS:-}
 </Location>
 EOF
 
