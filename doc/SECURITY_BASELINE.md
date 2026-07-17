@@ -45,8 +45,10 @@ curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
 ```
 
 Events include successful key/session authentication, API-key create/rotate/
-revoke, job create/retry/cancel/delete/exact rebuild, and artifact inspection/
-download. The export is organization-scoped, newest first, bounded to 1,000
+revoke, profile/password changes, job create/retry/cancel/delete/exact rebuild,
+and artifact inspection/download. Account deletion first removes identifiable
+audit events, then stores only a random anonymous deletion receipt and aggregate
+object counts. The normal export is organization-scoped, newest first, bounded to 1,000
 rows per page, and is served with `Cache-Control: no-store`. Secrets, request
 bodies, signal samples, email addresses, and password/token hashes are never
 audit fields.

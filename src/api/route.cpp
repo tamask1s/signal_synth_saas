@@ -25,6 +25,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <climits>
+#include <ctime>
 #include <cstdlib>
 #include <fstream>
 #include <map>
@@ -146,7 +147,7 @@ bool read_file_to_string(
     std::string& error
 );
 
-std::string account_json(const syn_sig_ra::AccountRecord& account) {
+json_t* account_json_object(const syn_sig_ra::AccountRecord& account) {
     json_t* root = json_object();
     json_object_set_new(root, "user_id", json_string(account.user_id.c_str()));
     json_object_set_new(
@@ -162,9 +163,24 @@ std::string account_json(const syn_sig_ra::AccountRecord& account) {
             root, "email_verified_at",
             json_string(account.email_verified_at.c_str()));
     }
+    return root;
+}
+
+std::string account_json(const syn_sig_ra::AccountRecord& account) {
+    json_t* root = account_json_object(account);
     const std::string encoded = json_dump_line(root);
     json_decref(root);
     return encoded;
+}
+
+std::string utc_now() {
+    const std::time_t now = std::time(nullptr);
+    std::tm value;
+    if (gmtime_r(&now, &value) == nullptr) return std::string();
+    char encoded[32];
+    return std::strftime(
+        encoded, sizeof(encoded), "%Y-%m-%dT%H:%M:%SZ", &value) == 0
+        ? std::string() : std::string(encoded);
 }
 
 bool issue_browser_session(
@@ -315,6 +331,30 @@ bool parse_password_reset_request(
     const bool valid = json_is_object(root) && json_object_size(root) == 2u &&
         !token.empty() && token.size() <= 512 && password.size() <= 128;
     if (root != nullptr) json_decref(root);
+    return valid;
+}
+
+bool parse_exact_string_fields(
+    const std::string& content_type,
+    const std::string& request_body,
+    const std::vector<std::string>& names,
+    std::vector<std::string>& values
+) {
+    values.clear();
+    if (!is_json_content_type(content_type) || names.empty()) return false;
+    json_error_t parse_error;
+    json_t* root = json_loadb(
+        request_body.data(), request_body.size(), JSON_REJECT_DUPLICATES,
+        &parse_error);
+    bool valid = json_is_object(root) && json_object_size(root) == names.size();
+    for (std::vector<std::string>::const_iterator name = names.begin();
+         valid && name != names.end(); ++name) {
+        json_t* value = json_object_get(root, name->c_str());
+        valid = json_is_string(value);
+        if (valid) values.push_back(json_string_value(value));
+    }
+    if (root != nullptr) json_decref(root);
+    if (!valid) values.clear();
     return valid;
 }
 
@@ -1344,6 +1384,153 @@ json_t* custom_pack_json_object(const syn_sig_ra::CustomPackRecord& pack) {
     return root;
 }
 
+bool build_account_export(
+    syn_sig_ra::MetadataStore& store,
+    const syn_sig_ra::ApiKeyIdentity& identity,
+    const std::string& public_base_path,
+    std::string& encoded,
+    std::string& error
+) {
+    syn_sig_ra::AccountRecord account;
+    std::vector<syn_sig_ra::ProjectRecord> projects;
+    std::vector<syn_sig_ra::JobRecord> jobs;
+    std::vector<syn_sig_ra::ScenarioDraftRecord> scenarios;
+    std::vector<syn_sig_ra::CustomPackRecord> custom_packs;
+    std::vector<syn_sig_ra::ApiKeyRecord> api_keys;
+    std::vector<syn_sig_ra::LegalAcceptanceRecord> legal_acceptances;
+    std::vector<syn_sig_ra::AuditEventRecord> audit_events;
+    if (store.find_account(identity, account, error) !=
+            syn_sig_ra::RecordLookupStatus::found ||
+        !store.list_projects(identity, projects, error) ||
+        !store.list_account_jobs(identity, jobs, error) ||
+        !store.list_scenario_drafts(identity, scenarios, error) ||
+        !store.list_custom_packs(identity, custom_packs, error) ||
+        !store.list_personal_api_keys(identity, api_keys, error) ||
+        !store.list_legal_acceptances(identity, legal_acceptances, error)) {
+        return false;
+    }
+    for (int offset = 0;; offset += 1000) {
+        std::vector<syn_sig_ra::AuditEventRecord> page;
+        if (!store.list_audit_events(identity, 1000, offset, page, error)) {
+            return false;
+        }
+        audit_events.insert(audit_events.end(), page.begin(), page.end());
+        if (page.size() < 1000u) break;
+    }
+
+    json_t* root = json_object();
+    json_object_set_new(root, "schema_version", json_integer(1));
+    json_object_set_new(root, "product", json_string("Synsigra"));
+    json_object_set_new(root, "exported_at", json_string(utc_now().c_str()));
+    json_object_set_new(root, "account", account_json_object(account));
+
+    json_t* project_items = json_array();
+    for (std::vector<syn_sig_ra::ProjectRecord>::const_iterator item =
+             projects.begin(); item != projects.end(); ++item) {
+        json_array_append_new(project_items, project_json_object(*item));
+    }
+    json_object_set_new(root, "projects", project_items);
+
+    json_t* job_items = json_array();
+    for (std::vector<syn_sig_ra::JobRecord>::const_iterator item = jobs.begin();
+         item != jobs.end(); ++item) {
+        json_t* value = job_json_object(*item, public_base_path);
+        json_error_t parse_error;
+        json_t* request = json_loads(
+            item->request_json.c_str(), JSON_REJECT_DUPLICATES, &parse_error);
+        json_object_set_new(
+            value, "request", request == nullptr ? json_null() : request);
+        if (!item->deleted_at.empty()) {
+            json_object_set_new(
+                value, "deleted_at", json_string(item->deleted_at.c_str()));
+        }
+        json_array_append_new(job_items, value);
+    }
+    json_object_set_new(root, "jobs", job_items);
+
+    json_t* scenario_items = json_array();
+    for (std::vector<syn_sig_ra::ScenarioDraftRecord>::const_iterator item =
+             scenarios.begin(); item != scenarios.end(); ++item) {
+        json_array_append_new(scenario_items, scenario_draft_json_object(*item));
+    }
+    json_object_set_new(root, "scenario_drafts", scenario_items);
+
+    json_t* pack_items = json_array();
+    for (std::vector<syn_sig_ra::CustomPackRecord>::const_iterator item =
+             custom_packs.begin(); item != custom_packs.end(); ++item) {
+        json_array_append_new(pack_items, custom_pack_json_object(*item));
+    }
+    json_object_set_new(root, "custom_packs", pack_items);
+
+    json_t* key_items = json_array();
+    for (std::vector<syn_sig_ra::ApiKeyRecord>::const_iterator item =
+             api_keys.begin(); item != api_keys.end(); ++item) {
+        json_t* value = json_object();
+        json_object_set_new(
+            value, "api_key_id", json_string(item->api_key_id.c_str()));
+        json_object_set_new(value, "label", json_string(item->label.c_str()));
+        json_object_set_new(value, "active", json_boolean(item->active));
+        json_object_set_new(
+            value, "created_at", json_string(item->created_at.c_str()));
+        if (!item->last_used_at.empty()) {
+            json_object_set_new(
+                value, "last_used_at", json_string(item->last_used_at.c_str()));
+        }
+        json_array_append_new(key_items, value);
+    }
+    json_object_set_new(root, "api_keys", key_items);
+
+    json_t* legal_items = json_array();
+    for (std::vector<syn_sig_ra::LegalAcceptanceRecord>::const_iterator item =
+             legal_acceptances.begin(); item != legal_acceptances.end(); ++item) {
+        json_t* value = json_object();
+        json_object_set_new(
+            value, "document_type", json_string(item->document_type.c_str()));
+        json_object_set_new(
+            value, "document_version", json_string(item->document_version.c_str()));
+        json_object_set_new(
+            value, "accepted_at", json_string(item->accepted_at.c_str()));
+        json_array_append_new(legal_items, value);
+    }
+    json_object_set_new(root, "legal_acceptances", legal_items);
+
+    json_t* audit_items = json_array();
+    for (std::vector<syn_sig_ra::AuditEventRecord>::const_iterator item =
+             audit_events.begin(); item != audit_events.end(); ++item) {
+        json_t* value = json_object();
+        json_object_set_new(value, "id", json_integer(item->audit_event_id));
+        json_object_set_new(
+            value, "created_at", json_string(item->created_at.c_str()));
+        json_object_set_new(
+            value, "event_type", json_string(item->event_type.c_str()));
+        json_object_set_new(
+            value, "api_key_id", json_string(item->api_key_id.c_str()));
+        json_object_set_new(
+            value, "subject_type", json_string(item->subject_type.c_str()));
+        json_object_set_new(
+            value, "subject_id", json_string(item->subject_id.c_str()));
+        json_error_t parse_error;
+        json_t* details = json_loads(
+            item->details_json.c_str(), JSON_REJECT_DUPLICATES, &parse_error);
+        json_object_set_new(
+            value, "details", details == nullptr ? json_object() : details);
+        json_array_append_new(audit_items, value);
+    }
+    json_object_set_new(root, "audit_events", audit_items);
+
+    json_t* retention = json_object();
+    json_object_set_new(retention, "server_workspace_after_deletion",
+        json_string("deleted"));
+    json_object_set_new(retention, "retained_security_record",
+        json_string("anonymous deletion receipt without account identifiers"));
+    json_object_set_new(retention, "downloaded_artifacts",
+        json_string("cannot be revoked; remain synthetic and governed by their bundled terms"));
+    json_object_set_new(root, "deletion_and_retention", retention);
+    encoded = json_dump_line(root);
+    json_decref(root);
+    return true;
+}
+
 bool ensure_directory(const std::string& path, std::string& error) {
     if (mkdir(path.c_str(), 0750) == 0 || errno == EEXIST) return true;
     error = "unable to create custom pack directory";
@@ -1919,6 +2106,33 @@ const char kUiHtml[] = R"HTML(<!doctype html>
           </div>
           <button id="logout" class="secondary">Sign out</button>
         </div>
+        <div class="auth-grid account-lifecycle-grid">
+          <section class="card">
+            <h3>Profile</h3>
+            <p class="muted compact">This name appears in the product navigation and account records.</p>
+            <label for="profile-display-name">Display name</label>
+            <input id="profile-display-name" type="text" maxlength="100" autocomplete="name">
+            <button id="save-profile" class="secondary">Save profile</button>
+          </section>
+          <section class="card">
+            <h3>Change password</h3>
+            <p class="muted compact">Changing it signs out every other browser session.</p>
+            <label for="current-password">Current password</label>
+            <input id="current-password" type="password" maxlength="128" autocomplete="current-password">
+            <label for="new-password">New password (12+ characters)</label>
+            <input id="new-password" type="password" minlength="12" maxlength="128" autocomplete="new-password">
+            <button id="change-password" class="secondary">Change password</button>
+          </section>
+        </div>
+        <section class="card account-data-card">
+          <div class="panel-heading">
+            <div>
+              <h3>Your data</h3>
+              <p class="muted compact">Download your profile, projects, jobs, scenarios, custom packs, API-key metadata, legal acceptances, and audit history. Passwords, hashes, session tokens, and API-key secrets are never exported.</p>
+            </div>
+            <button id="export-account" class="secondary">Download account export</button>
+          </div>
+        </section>
         <h3>Personal API keys</h3>
         <p class="muted">Create keys for scripts or CI. A new secret is shown once.</p>
         <div class="row">
@@ -1940,6 +2154,16 @@ const char kUiHtml[] = R"HTML(<!doctype html>
           </div>
           <div id="audit-events" class="jobs"></div>
         </section>
+        <details class="card danger-zone">
+          <summary>Delete account and workspace</summary>
+          <p>This permanently removes the account, projects, jobs, server-cached packages, scenarios, custom packs, sessions, and API keys.</p>
+          <p class="muted">An anonymous deletion receipt is retained without your account identifiers. Files you already downloaded cannot be revoked and remain governed by their bundled Synsigra terms.</p>
+          <label for="delete-account-password">Current password</label>
+          <input id="delete-account-password" type="password" maxlength="128" autocomplete="current-password">
+          <label for="delete-account-confirmation">Type <code>DELETE MY ACCOUNT</code></label>
+          <input id="delete-account-confirmation" type="text" autocomplete="off">
+          <button id="delete-account" class="danger" disabled>Permanently delete account</button>
+        </details>
       </div>
       <p id="auth-output" class="muted" aria-live="polite"></p>
     </section>
@@ -2265,6 +2489,9 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>POST</td><td><code>/v1/auth/login</code></td><td>Start browser session after verification</td><td>Public</td></tr>
           <tr><td>GET</td><td><code>/v1/auth/me</code></td><td>Current account</td><td>Session</td></tr>
           <tr><td>POST</td><td><code>/v1/auth/logout</code></td><td>End browser session</td><td>Session</td></tr>
+          <tr><td>PATCH/DELETE</td><td><code>/v1/account</code></td><td>Update profile or permanently delete the owned workspace with re-authentication</td><td>Authenticated</td></tr>
+          <tr><td>POST</td><td><code>/v1/account/password</code></td><td>Change password and invalidate prior browser sessions</td><td>Authenticated</td></tr>
+          <tr><td>GET</td><td><code>/v1/account/export</code></td><td>Download account, workspace, legal, and audit data without secrets</td><td>Authenticated</td></tr>
           <tr><td>GET/POST</td><td><code>/v1/projects</code></td><td>List/create projects</td><td>Authenticated</td></tr>
           <tr><td>GET/POST/DELETE</td><td><code>/v1/api-keys</code></td><td>Manage personal API keys</td><td>Authenticated</td></tr>
           <tr><td>POST</td><td><code>/v1/api-keys/{api_key_id}/rotate</code></td><td>Atomically replace a key and return the replacement secret once</td><td>Authenticated</td></tr>
@@ -2712,6 +2939,14 @@ h3 { font-size: 16px; margin-bottom: 8px; }
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 28px;
 }
+.account-lifecycle-grid { margin: 18px 0; gap: 14px; }
+.account-lifecycle-grid .card { display: flex; flex-direction: column; }
+.account-lifecycle-grid button { align-self: flex-start; margin-top: 12px; }
+.account-data-card { margin: 0 0 22px; }
+.danger-zone { margin-top: 22px; border-color: rgba(255, 140, 145, .4); }
+.danger-zone summary { cursor: pointer; color: var(--danger); font-weight: 800; }
+.danger-zone[open] summary { margin-bottom: 14px; }
+.danger-zone button { margin-top: 12px; }
 
 .row, .panel-heading {
   display: flex;
@@ -3785,6 +4020,9 @@ const char kUiJs[] = R"JS((() => {
       $("account-verification").className = state.account.email_verified
         ? "status ok"
         : "status error";
+      if (document.activeElement !== $("profile-display-name")) {
+        $("profile-display-name").value = state.account.display_name;
+      }
     }
     renderWorkspaceNextAction();
   }
@@ -6386,6 +6624,111 @@ const char kUiJs[] = R"JS((() => {
     showToast("You are signed out.", "notice");
   }
 
+  async function saveProfile() {
+    const displayName = $("profile-display-name").value.trim();
+    if (!displayName) {
+      setText("auth-output", "Enter a display name.", "error");
+      return;
+    }
+    setText("auth-output", "Saving profile…", "muted");
+    try {
+      state.account = await api("/v1/account", {
+        method: "PATCH",
+        json: { display_name: displayName }
+      });
+      state.role = state.account.role || "";
+      renderAuthState();
+      setText("auth-output", "Profile updated.", "muted ok");
+      showToast("Profile updated.");
+    } catch (error) {
+      setText("auth-output", error.message, "error");
+    }
+  }
+
+  async function changePassword() {
+    const currentPassword = $("current-password").value;
+    const newPassword = $("new-password").value;
+    if (!currentPassword || newPassword.length < 12) {
+      setText("auth-output", "Enter your current password and a new password of at least 12 characters.", "error");
+      return;
+    }
+    setText("auth-output", "Changing password…", "muted");
+    try {
+      state.account = await api("/v1/account/password", {
+        method: "POST",
+        json: { current_password: currentPassword, new_password: newPassword }
+      });
+      $("current-password").value = "";
+      $("new-password").value = "";
+      renderAuthState();
+      setText("auth-output", "Password changed. Other browser sessions were signed out.", "muted ok");
+      showToast("Password changed securely.");
+    } catch (error) {
+      setText("auth-output", error.message, "error");
+    }
+  }
+
+  async function exportAccount() {
+    setText("auth-output", "Preparing account export…", "muted");
+    try {
+      const body = await api("/v1/account/export");
+      const blob = new Blob([JSON.stringify(body, null, 2) + "\n"], {
+        type: "application/json"
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "synsigra-account-export.json";
+      link.setAttribute("data-no-spa", "true");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      setText("auth-output", "Account export downloaded.", "muted ok");
+      showToast("Account export downloaded.");
+    } catch (error) {
+      setText("auth-output", error.message, "error");
+    }
+  }
+
+  async function deleteAccount() {
+    const currentPassword = $("delete-account-password").value;
+    const confirmation = $("delete-account-confirmation").value;
+    if (!currentPassword || confirmation !== "DELETE MY ACCOUNT") {
+      setText("auth-output", "Enter your password and DELETE MY ACCOUNT exactly.", "error");
+      return;
+    }
+    if (!window.confirm("Permanently delete your Synsigra account, workspace, and server-cached packages?")) {
+      return;
+    }
+    setText("auth-output", "Deleting account and workspace…", "muted");
+    try {
+      const result = await api("/v1/account", {
+        method: "DELETE",
+        json: { current_password: currentPassword, confirmation }
+      });
+      state.account = null;
+      state.authenticated = false;
+      state.role = "";
+      state.apiKeys = [];
+      state.auditEvents = [];
+      state.projects = [];
+      state.scenarios = [];
+      state.customPacks = [];
+      state.jobs = [];
+      state.jobsLoaded = false;
+      $("delete-account-password").value = "";
+      $("delete-account-confirmation").value = "";
+      $("delete-account").disabled = true;
+      renderAuthState();
+      navigateTo("account", {}, { replace: true });
+      setText("auth-output", `Account deleted. Receipt: ${result.deletion_receipt_id}`, "muted ok");
+      showToast("Your account and workspace were deleted.", "notice");
+    } catch (error) {
+      setText("auth-output", error.message, "error");
+    }
+  }
+
   function renderApiKeys() {
     $("api-keys").innerHTML = state.apiKeys.map((key) => `
       <article class="job">
@@ -6557,6 +6900,14 @@ const char kUiJs[] = R"JS((() => {
   $("resend-verification").addEventListener("click", resendVerification);
   $("complete-password-reset").addEventListener("click", completePasswordReset);
   $("logout").addEventListener("click", logout);
+  $("save-profile").addEventListener("click", saveProfile);
+  $("change-password").addEventListener("click", changePassword);
+  $("export-account").addEventListener("click", exportAccount);
+  $("delete-account-confirmation").addEventListener("input", () => {
+    $("delete-account").disabled =
+      $("delete-account-confirmation").value !== "DELETE MY ACCOUNT";
+  });
+  $("delete-account").addEventListener("click", deleteAccount);
   $("create-api-key").addEventListener("click", createApiKey);
   $("refresh-audit").addEventListener("click", loadAuditEvents);
   $("api-keys").addEventListener("click", (event) => {
@@ -6827,6 +7178,7 @@ bool route_requires_authentication(
            path_at_or_below(uri, public_base_path + "/v1/usage") ||
            path_at_or_below(uri, public_base_path + "/v1/metrics") ||
            path_at_or_below(uri, public_base_path + "/v1/audit-events") ||
+           path_at_or_below(uri, public_base_path + "/v1/account") ||
            path_at_or_below(uri, public_base_path + "/v1/api-keys") ||
            path_at_or_below(uri, public_base_path + "/v1/downloads") ||
            path_at_or_below(uri, public_base_path + "/v1/authoring") ||
@@ -7363,6 +7715,7 @@ RouteResponse route_request(
     }
 
     ApiKeyIdentity authenticated_identity;
+    AccountRecord authenticated_account;
     bool authenticated = false;
     if (route_requires_authentication(uri, public_base_path)) {
         if (metadata_store == nullptr) {
@@ -7372,7 +7725,6 @@ RouteResponse route_request(
                 "\"message\":\"Authentication storage is unavailable.\"}}\n"
             );
         }
-        AccountRecord authenticated_account;
         const AuthenticationResult authentication = authorization_header.empty()
             ? authenticate_session(
                 cookie_header, *metadata_store, &authenticated_account)
@@ -7423,6 +7775,238 @@ RouteResponse route_request(
                 "\"message\":\"Per-key request rate limit exceeded.\"}}\n"
             );
         }
+    }
+
+    const std::string account_path = public_base_path + "/v1/account";
+    if (path_at_or_below(uri, account_path)) {
+        AccountRecord account;
+        std::string error;
+        const RecordLookupStatus account_status = metadata_store->find_account(
+            authenticated_identity, account, error);
+        if (account_status == RecordLookupStatus::not_found) {
+            return json_response(404, "{\"error\":{\"code\":\"account_not_found\","
+                "\"message\":\"The account no longer exists.\"}}\n");
+        }
+        if (account_status != RecordLookupStatus::found) {
+            RouteResponse response = json_response(
+                503, "{\"error\":{\"code\":\"metadata_unavailable\","
+                "\"message\":\"Account storage is unavailable.\"}}\n");
+            response.internal_error = error;
+            return response;
+        }
+
+        if (uri == account_path + "/export") {
+            if (method != "GET") {
+                return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Account export only accepts GET.\"}}\n");
+            }
+            std::string body;
+            if (!build_account_export(
+                    *metadata_store, authenticated_identity,
+                    public_base_path, body, error)) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"account_export_unavailable\","
+                    "\"message\":\"The account export could not be created.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            RouteResponse response = json_response(200, body);
+            response.content_disposition =
+                "attachment; filename=\"synsigra-account-export.json\"";
+            response.cache_control = "no-store";
+            return response;
+        }
+
+        if (uri == account_path + "/password") {
+            if (method != "POST") {
+                return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Password change only accepts POST.\"}}\n");
+            }
+            std::vector<std::string> fields;
+            if (!parse_exact_string_fields(
+                    content_type, request_body,
+                    std::vector<std::string>{"current_password", "new_password"},
+                    fields) || fields[0].size() > 128u ||
+                fields[1].size() > 128u) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_password_change\","
+                    "\"message\":\"Current and new passwords are required.\"}}\n");
+            }
+            bool matches = false;
+            if (!verify_password(
+                    fields[0], account.password_salt, account.password_hash,
+                    matches, error)) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"password_check_unavailable\","
+                    "\"message\":\"The password could not be checked.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            if (!matches) {
+                return json_response(401, "{\"error\":{\"code\":\"current_password_incorrect\","
+                    "\"message\":\"The current password is incorrect.\"}}\n");
+            }
+            if (fields[0] == fields[1]) {
+                return json_response(400, "{\"error\":{\"code\":\"password_unchanged\","
+                    "\"message\":\"Choose a different new password.\"}}\n");
+            }
+            std::string salt;
+            std::string password_hash;
+            if (!hash_password(fields[1], salt, password_hash, error)) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_password\","
+                    "\"message\":\"Password must contain 12-128 characters.\"}}\n");
+            }
+            if (!metadata_store->change_account_password(
+                    authenticated_identity, salt, password_hash, error)) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"password_change_failed\","
+                    "\"message\":\"The password could not be changed.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            if (authorization_header.empty()) {
+                account.password_salt = salt;
+                account.password_hash = password_hash;
+                RouteResponse response;
+                if (!issue_browser_session(
+                        *metadata_store, account, response, error)) {
+                    return internal_account_error(
+                        "Password changed, but sign-in failed.", error);
+                }
+                return response;
+            }
+            RouteResponse response = json_response(
+                200, "{\"status\":\"password_changed\"}\n");
+            response.cache_control = "no-store";
+            return response;
+        }
+
+        if (uri != account_path) {
+            return json_response(404, "{\"error\":{\"code\":\"account_route_not_found\","
+                "\"message\":\"The account operation does not exist.\"}}\n");
+        }
+        if (method == "PATCH") {
+            std::vector<std::string> fields;
+            if (!parse_exact_string_fields(
+                    content_type, request_body,
+                    std::vector<std::string>{"display_name"}, fields)) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_profile\","
+                    "\"message\":\"A display name is required.\"}}\n");
+            }
+            bool visible = false;
+            for (std::string::const_iterator character = fields[0].begin();
+                 character != fields[0].end(); ++character) {
+                if (!std::isspace(static_cast<unsigned char>(*character))) {
+                    visible = true;
+                    break;
+                }
+            }
+            if (!visible || fields[0].size() > 100u) {
+                return json_response(400, "{\"error\":{\"code\":\"invalid_display_name\","
+                    "\"message\":\"Display name must contain 1-100 characters.\"}}\n");
+            }
+            AccountRecord updated;
+            const RecordLookupStatus status =
+                metadata_store->update_account_display_name(
+                    authenticated_identity, fields[0], updated, error);
+            if (status != RecordLookupStatus::found) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"profile_update_failed\","
+                    "\"message\":\"The profile could not be updated.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            RouteResponse response = json_response(200, account_json(updated));
+            response.cache_control = "no-store";
+            return response;
+        }
+        if (method == "DELETE") {
+            std::vector<std::string> fields;
+            if (!parse_exact_string_fields(
+                    content_type, request_body,
+                    std::vector<std::string>{"current_password", "confirmation"},
+                    fields) || fields[1] != "DELETE MY ACCOUNT") {
+                return json_response(400, "{\"error\":{\"code\":\"deletion_confirmation_required\","
+                    "\"message\":\"Enter DELETE MY ACCOUNT exactly.\"}}\n");
+            }
+            bool matches = false;
+            if (!verify_password(
+                    fields[0], account.password_salt, account.password_hash,
+                    matches, error)) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"password_check_unavailable\","
+                    "\"message\":\"The password could not be checked.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            if (!matches) {
+                return json_response(401, "{\"error\":{\"code\":\"current_password_incorrect\","
+                    "\"message\":\"The current password is incorrect.\"}}\n");
+            }
+            std::string receipt_id;
+            std::string verification_hash;
+            std::string reset_hash;
+            if (!random_id("deletion_", receipt_id, error) ||
+                !sha256_hex("email_verification:" + account.email,
+                    verification_hash, error) ||
+                !sha256_hex("password_reset:" + account.email,
+                    reset_hash, error)) {
+                return internal_account_error(
+                    "Account deletion is temporarily unavailable.", error);
+            }
+            AccountDeletionResult deleted;
+            const AccountDeleteStatus status = metadata_store->delete_owned_account(
+                authenticated_identity, verification_hash, reset_hash,
+                receipt_id, deleted, error);
+            if (status == AccountDeleteStatus::forbidden) {
+                return json_response(403, "{\"error\":{\"code\":\"owner_required\","
+                    "\"message\":\"Only a workspace owner can delete it.\"}}\n");
+            }
+            if (status == AccountDeleteStatus::shared_workspace) {
+                return json_response(409, "{\"error\":{\"code\":\"shared_workspace\","
+                    "\"message\":\"Transfer or remove other members before deleting this workspace.\"}}\n");
+            }
+            if (status == AccountDeleteStatus::running_jobs) {
+                return json_response(409, "{\"error\":{\"code\":\"running_jobs\","
+                    "\"message\":\"Wait for running jobs to finish before deleting the workspace.\"}}\n");
+            }
+            if (status == AccountDeleteStatus::not_found) {
+                return json_response(404, "{\"error\":{\"code\":\"account_not_found\","
+                    "\"message\":\"The account no longer exists.\"}}\n");
+            }
+            if (status != AccountDeleteStatus::deleted) {
+                RouteResponse response = json_response(
+                    503, "{\"error\":{\"code\":\"account_deletion_failed\","
+                    "\"message\":\"The account could not be deleted.\"}}\n");
+                response.internal_error = error;
+                return response;
+            }
+            std::string cleanup_error;
+            const bool cleaned = purge_account_storage(
+                data_root, deleted.package_ids, deleted.job_ids,
+                deleted.custom_pack_ids, cleanup_error);
+            json_t* body = json_object();
+            json_object_set_new(body, "status", json_string("deleted"));
+            json_object_set_new(
+                body, "deletion_receipt_id", json_string(receipt_id.c_str()));
+            json_object_set_new(body, "server_workspace",
+                json_string(cleaned ? "deleted" : "cleanup_requires_operator"));
+            json_object_set_new(body, "downloaded_artifacts",
+                json_string("not_revocable"));
+            const std::string encoded = json_dump_line(body);
+            json_decref(body);
+            RouteResponse response = json_response(200, encoded);
+            response.cache_control = "no-store";
+            response.set_cookie =
+                "syn_sig_ra_session=; Path=/syn_sig_ra; Max-Age=0; "
+                "Secure; HttpOnly; SameSite=Lax";
+            if (!cleaned) {
+                response.internal_error =
+                    "account deleted; artifact cleanup failed: " + cleanup_error;
+            }
+            return response;
+        }
+        return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
+            "\"message\":\"Use PATCH to update the profile, DELETE to remove the account, GET /export, or POST /password.\"}}\n");
     }
 
     const std::string api_keys_path = public_base_path + "/v1/api-keys";

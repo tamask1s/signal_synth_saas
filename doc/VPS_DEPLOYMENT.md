@@ -423,31 +423,34 @@ with `--backup DIRECTORY`, instead of deleting individual files by hand.
 
 ## Rollback
 
-If Apache fails configuration validation, do not reload. Fix the config or
-restore the previous module first.
+The normal release path validates the artifact checksum and Apache ABI before
+stopping services, captures every replaceable runtime file, validates both
+Apache and nginx configuration, and executes the live smoke gate. Any failure
+automatically restores the pre-deploy snapshot. No database or generated
+customer package is changed by deployment or rollback.
 
-Rollback sequence:
-
-```sh
-sudo systemctl stop syn_sig_ra_worker.service
-sudo cp /usr/local/apache2/modules/mod_syn_sig_ra.so.before-upgrade \
-  /usr/local/apache2/modules/mod_syn_sig_ra.so
-sudo /usr/local/apache2/bin/httpd -t
-sudo /usr/local/apache2/bin/apachectl graceful
-sudo systemctl start syn_sig_ra_worker.service
-```
-
-If the include itself must be disabled:
+Roll back the last successful release explicitly with:
 
 ```sh
-sudo sed -i.bak '/^Include conf\/extra\/syn_sig_ra.conf$/s/^/#/' \
-  /usr/local/apache2/conf/httpd.conf
-sudo /usr/local/apache2/bin/httpd -t
-sudo /usr/local/apache2/bin/apachectl graceful
+scripts/rollback_live.sh
 ```
 
-This removes only the `/syn_sig_ra/...` API. The existing non-SaaS
-`timeonion.com` routes continue to be served by Apache 2.2.
+Or name a checksummed snapshot under the release rollback root:
+
+```sh
+scripts/rollback_live.sh \
+  /opt/signal_synth_saas/rollback/pre-RELEASE_ID-TIMESTAMP
+```
+
+The rollback restores module, worker/admin tools, pinned generator, catalog,
+verifier files, main landing site, nginx configuration, and log rotation as one
+unit, then runs `verify_live.sh`. It first captures the current state, so a
+failed rollback is automatically reversed and a successful rollback retains a
+roll-forward snapshot.
+
+Release archives and pointers are under `/opt/signal_synth_saas/releases/`.
+Runtime snapshots are under `/opt/signal_synth_saas/rollback/`; each contains a
+`SHA256SUMS` file. Do not edit either in place.
 
 ## Current production limitations
 

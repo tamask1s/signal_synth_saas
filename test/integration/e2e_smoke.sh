@@ -333,6 +333,8 @@ grep -q '^openapi: 3.0.3' "$WORK_ROOT/openapi.yaml" ||
     fail "live OpenAPI route did not return an OpenAPI document"
 grep -q '^  /v1/authoring/schema:' "$WORK_ROOT/openapi.yaml" ||
     fail "live OpenAPI document did not include authoring routes"
+grep -q '^  /v1/account:' "$WORK_ROOT/openapi.yaml" ||
+    fail "live OpenAPI document did not include account lifecycle routes"
 grep -q '^  /v1/jobs:' "$WORK_ROOT/openapi.yaml" ||
     fail "live OpenAPI document did not include job routes"
 curl -fsS "$BASE_URL/verify" >"$WORK_ROOT/ui-verify.html" ||
@@ -367,7 +369,9 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q 'data-no-spa' "$WORK_ROOT/app.js" ||
     ! grep -q 'link.hasAttribute("download")' "$WORK_ROOT/app.js" ||
     ! grep -q 'verifyEmailFromLink' "$WORK_ROOT/app.js" ||
-    ! grep -q 'completePasswordReset' "$WORK_ROOT/app.js"; then
+    ! grep -q 'completePasswordReset' "$WORK_ROOT/app.js" ||
+    ! grep -q 'exportAccount' "$WORK_ROOT/app.js" ||
+    ! grep -q 'deleteAccount' "$WORK_ROOT/app.js"; then
     dump_file "$WORK_ROOT/app.js" "web UI JavaScript"
     fail "web UI JavaScript was not executable or did not contain API wiring"
 fi
@@ -550,6 +554,41 @@ grep -q '^id,created_at,event_type,' "$WORK_ROOT/audit-events.csv" ||
     fail "audit CSV header is invalid"
 grep -q 'api_key.rotated' "$WORK_ROOT/audit-events.csv" ||
     fail "audit CSV omitted the rotation event"
+
+curl -fsS -X PATCH -H "Cookie: $SESSION_COOKIE" \
+    -H "Content-Type: application/json" \
+    -d '{"display_name":"Browser User Updated"}' \
+    "$BASE_URL/v1/account" >"$WORK_ROOT/profile-updated.json" ||
+    fail "signed-in profile update failed"
+grep -q '"display_name":"Browser User Updated"' \
+    "$WORK_ROOT/profile-updated.json" || fail "profile update was not persisted"
+curl -fsS -H "Cookie: $SESSION_COOKIE" \
+    "$BASE_URL/v1/account/export" >"$WORK_ROOT/account-export.json" ||
+    fail "account export failed"
+python3 - "$WORK_ROOT/account-export.json" <<'PY' || fail "account export leaked secrets or omitted owned data"
+import json
+import pathlib
+import sys
+text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+body = json.loads(text)
+for key in ("account", "projects", "jobs", "scenario_drafts", "custom_packs",
+            "api_keys", "legal_acceptances", "audit_events"):
+    assert key in body, key
+for forbidden in ('"password_hash"', '"password_salt"', '"key_hash"'):
+    assert forbidden not in text, forbidden
+PY
+curl -fsS -D "$WORK_ROOT/password-change.headers" \
+    -H "Cookie: $SESSION_COOKIE" -H "Content-Type: application/json" \
+    -d '{"current_password":"replacement-browser-password","new_password":"final-browser-password"}' \
+    "$BASE_URL/v1/account/password" >"$WORK_ROOT/password-change.json" ||
+    fail "signed-in password change failed"
+OLD_SESSION_COOKIE=$SESSION_COOKIE
+SESSION_COOKIE=$(sed -n 's/^[Ss]et-[Cc]ookie: \([^;]*\).*/\1/p' \
+    "$WORK_ROOT/password-change.headers" | tr -d '\r')
+[ -n "$SESSION_COOKIE" ] || fail "password change did not issue a replacement session"
+OLD_SESSION_HTTP=$(curl -sS -o /dev/null -w '%{http_code}' \
+    -H "Cookie: $OLD_SESSION_COOKIE" "$BASE_URL/v1/auth/me")
+[ "$OLD_SESSION_HTTP" = "401" ] || fail "password change did not invalidate its prior session"
 
 CREATE_HTTP=$(
     curl -sS \
@@ -1105,6 +1144,22 @@ curl -fsS \
     -o "$WORK_ROOT/custom-manifest.json" \
     "$BASE_URL/v1/artifacts/$CUSTOM_PACKAGE_ID/manifest.json" ||
     fail "custom pack manifest download failed"
+
+curl -fsS -X DELETE -H "Cookie: $SESSION_COOKIE" \
+    -H "Content-Type: application/json" \
+    -d '{"current_password":"final-browser-password","confirmation":"DELETE MY ACCOUNT"}' \
+    "$BASE_URL/v1/account" >"$WORK_ROOT/account-deleted.json" ||
+    fail "password-confirmed account deletion failed"
+grep -q '"status":"deleted"' "$WORK_ROOT/account-deleted.json" ||
+    fail "account deletion did not return a deletion receipt"
+DELETED_SESSION_HTTP=$(curl -sS -o /dev/null -w '%{http_code}' \
+    -H "Cookie: $SESSION_COOKIE" "$BASE_URL/v1/auth/me")
+[ "$DELETED_SESSION_HTTP" = "401" ] ||
+    fail "deleted account session remained active"
+DELETED_KEY_HTTP=$(curl -sS -o /dev/null -w '%{http_code}' \
+    -H "Authorization: Bearer $ROTATED_KEY" "$BASE_URL/v1/projects")
+[ "$DELETED_KEY_HTTP" = "401" ] ||
+    fail "deleted account API key remained active"
 
 printf 'status=e2e-succeeded\n'
 printf 'job_id=%s\n' "$JOB_ID"

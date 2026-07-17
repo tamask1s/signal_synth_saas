@@ -358,8 +358,10 @@ Notes:
 - Cross-organization resources deliberately return `404`.
 - New accounts must verify e-mail ownership before login or API-key creation.
 - The account page can resend verification mail and request/complete forgotten-password recovery without exposing whether an address exists.
-- Sign out invalidates the server-side browser session. A successful password reset invalidates all older browser sessions for that user.
+- Signed-in users can update their display name, change their password, and download a JSON export of their profile, projects, current and deleted job metadata, scenarios, custom packs, API-key metadata, legal acceptances, and audit history. Passwords, hashes, key secrets, sessions, and e-mail action tokens are never exported.
+- Sign out invalidates the server-side browser session. A successful password reset or signed-in password change invalidates all older browser sessions for that user.
 - API keys can be listed and revoked from the UI.
+- A single-member workspace owner can permanently delete the account after re-entering the current password and the exact destructive confirmation. The server removes the owned database records and artifact trees; only an anonymous deletion receipt remains. Copies already downloaded to another device cannot be revoked.
 
 ### Verifier downloads and runbooks
 
@@ -611,6 +613,10 @@ Authorization: Bearer <api-key>
 | `POST` | `/v1/auth/login` | Start browser session for verified account | Public |
 | `GET` | `/v1/auth/me` | Current account | Session |
 | `POST` | `/v1/auth/logout` | End browser session | Session |
+| `PATCH` | `/v1/account` | Update the signed-in display name | Authenticated |
+| `POST` | `/v1/account/password` | Change password, invalidate sessions, and replace the current browser session | Authenticated |
+| `GET` | `/v1/account/export` | Download account/workspace/legal/audit JSON without secrets | Authenticated |
+| `DELETE` | `/v1/account` | Permanently delete a single-member owner workspace with password re-authentication | Authenticated owner |
 | `GET` | `/v1/projects` | Project list and caller role | Authenticated |
 | `POST` | `/v1/projects` | Create project | Owner/admin |
 | `GET` | `/v1/api-keys` | List personal API keys | Authenticated |
@@ -716,8 +722,11 @@ job records the core version/commit/build identity, generator binary SHA-256,
 canonical integration contract, canonical receipt, pack/package fingerprints,
 and artifact location.
 
-Operational scripts documented in `doc/` cover build, state-preserving deploy,
-live verification, retention cleanup, backup, and restore drills. The separate
+Operational scripts documented in `doc/` create checksummed, versioned release
+artifacts, enforce the target Apache ABI, deploy with a live smoke gate, and
+automatically restore the complete pre-deploy runtime snapshot if installation
+or smoke verification fails. Explicit rollback, retention cleanup, backup, and
+restore drills use the same checked workflow. The separate
 `scripts/reset_prebeta_state.sh --confirm-destroy-prebeta-state` command is the
 only supported way to discard pre-beta state; normal deploy never migrates or
 deletes the database.
@@ -746,7 +755,12 @@ Start here for implementation and operations details:
 - [`doc/RETENTION_BACKUP.md`](doc/RETENTION_BACKUP.md)
 - [`doc/openapi.yaml`](doc/openapi.yaml)
 
-The current deployment uses nginx as the public TLS edge and a custom Apache backend bound to localhost. The sibling `signal_synth` CLI is installed separately and invoked by the SaaS worker.
+The current deployment uses nginx as the public TLS edge and one custom Apache
+2.2 backend bound to localhost. Apache 2.4 is not installed as a second live
+server: GitHub CI uses it only for portability E2E and creates an ABI-labelled
+compatibility artifact. Production artifacts are built against and accepted
+only by the live Apache 2.2 ABI. The sibling `signal_synth` CLI is packaged in
+the same release artifact and invoked by the SaaS worker.
 
 ## Security and limitations
 

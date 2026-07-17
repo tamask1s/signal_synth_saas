@@ -19,6 +19,23 @@ names, identifiers, free-text clinical notes, or other PHI/personal data in
 API requests, project names, labels, or future scenario drafts. Generated
 signals are engineering test artifacts, not clinical evidence.
 
+## Account lifecycle
+
+The browser Account page is the preferred interface for personal settings.
+The same session-authenticated API supports `PATCH /v1/account` for display
+name changes, `POST /v1/account/password` for a current-password-confirmed
+password change, and `GET /v1/account/export` for a portable JSON export.
+Password changes invalidate every older browser session; the initiating browser
+receives one replacement session.
+
+`DELETE /v1/account` requires the current password and exact confirmation
+`DELETE MY ACCOUNT`. It is available only to an owner whose workspace has no
+other members or running jobs. It permanently removes the owned workspace and
+server artifacts, retaining only an anonymous deletion receipt. Downloaded
+copies are outside the server and cannot be revoked. The export intentionally
+omits password material, API-key secrets/hashes, session tokens, and e-mail
+action tokens. See live `/openapi.yaml` for exact schemas and status codes.
+
 ## First job with curl
 
 Store the private-beta key without putting it in shell history:

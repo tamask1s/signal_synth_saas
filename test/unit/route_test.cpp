@@ -96,6 +96,8 @@ int main() {
             openapi.cache_control == "public, max-age=300" &&
             openapi.body.find("openapi: 3.0.3") != std::string::npos &&
             openapi.body.find("/v1/authoring/schema:") != std::string::npos &&
+            openapi.body.find("/v1/account:") != std::string::npos &&
+            openapi.body.find("/v1/account/export:") != std::string::npos &&
             openapi.body.find("/v1/jobs:") != std::string::npos &&
             openapi.body.find("/v1/jobs/{job_id}/viewer/window:") !=
                 std::string::npos &&
@@ -155,6 +157,10 @@ int main() {
             ui.body.find("scenario-groups") != std::string::npos &&
             ui.body.find("register-email") != std::string::npos &&
             ui.body.find("register-terms") != std::string::npos &&
+            ui.body.find("profile-display-name") != std::string::npos &&
+            ui.body.find("change-password") != std::string::npos &&
+            ui.body.find("export-account") != std::string::npos &&
+            ui.body.find("delete-account-confirmation") != std::string::npos &&
             ui.body.find("/syn_sig_ra/legal/terms") != std::string::npos &&
             ui.body.find("/syn_sig_ra/legal/privacy") != std::string::npos &&
             ui.body.find("save-key") == std::string::npos &&
@@ -610,6 +616,138 @@ int main() {
     require(
         reused_reset.status == 400,
         "consumed reset token should not be reusable"
+    );
+
+    const syn_sig_ra::RouteResponse profile_updated =
+        syn_sig_ra::route_request(
+            "PATCH", "/syn_sig_ra/v1/account", "/syn_sig_ra", "", &store,
+            "", "application/json", "{\"display_name\":\"Updated User\"}",
+            "", "", "", reset_completed.set_cookie
+        );
+    require(
+        profile_updated.status == 200 &&
+            profile_updated.body.find("\"display_name\":\"Updated User\"") !=
+                std::string::npos,
+        "signed-in users should update their display name"
+    );
+
+    const syn_sig_ra::RouteResponse account_export =
+        syn_sig_ra::route_request(
+            "GET", "/syn_sig_ra/v1/account/export", "/syn_sig_ra", "", &store,
+            "", "", "", "", "", "", reset_completed.set_cookie
+        );
+    require(
+        account_export.status == 200 &&
+            account_export.content_disposition.find(
+                "synsigra-account-export.json") != std::string::npos &&
+            account_export.body.find("\"display_name\":\"Updated User\"") !=
+                std::string::npos &&
+            account_export.body.find("\"projects\"") != std::string::npos &&
+            account_export.body.find("\"jobs\"") != std::string::npos &&
+            account_export.body.find("\"scenario_drafts\"") !=
+                std::string::npos &&
+            account_export.body.find("\"legal_acceptances\"") !=
+                std::string::npos &&
+            account_export.body.find("\"audit_events\"") !=
+                std::string::npos &&
+            account_export.body.find("\"password_hash\"") ==
+                std::string::npos &&
+            account_export.body.find("\"password_salt\"") ==
+                std::string::npos &&
+            account_export.body.find("\"key_hash\"") == std::string::npos,
+        "account export should contain owned data and omit credentials"
+    );
+
+    const syn_sig_ra::RouteResponse wrong_current_password =
+        syn_sig_ra::route_request(
+            "POST", "/syn_sig_ra/v1/account/password", "/syn_sig_ra", "",
+            &store, "", "application/json",
+            "{\"current_password\":\"wrong-password\","
+            "\"new_password\":\"changed-password-456\"}",
+            "", "", "", reset_completed.set_cookie
+        );
+    require(
+        wrong_current_password.status == 401,
+        "password change should require the current password"
+    );
+
+    const syn_sig_ra::RouteResponse password_changed =
+        syn_sig_ra::route_request(
+            "POST", "/syn_sig_ra/v1/account/password", "/syn_sig_ra", "",
+            &store, "", "application/json",
+            "{\"current_password\":\"replacement-password-123\","
+            "\"new_password\":\"changed-password-456\"}",
+            "", "", "", reset_completed.set_cookie
+        );
+    require(
+        password_changed.status == 200 &&
+            password_changed.set_cookie.find("HttpOnly") != std::string::npos,
+        "password change should invalidate sessions and issue a replacement session"
+    );
+    require(
+        syn_sig_ra::route_request(
+            "GET", "/syn_sig_ra/v1/auth/me", "/syn_sig_ra", "", &store,
+            "", "", "", "", "", "", reset_completed.set_cookie
+        ).status == 401,
+        "the session used before a password change should be invalidated"
+    );
+    require(
+        syn_sig_ra::route_request(
+            "GET", "/syn_sig_ra/v1/auth/me", "/syn_sig_ra", "", &store,
+            "", "", "", "", "", "", password_changed.set_cookie
+        ).status == 200,
+        "the replacement session should remain signed in"
+    );
+
+    const syn_sig_ra::RouteResponse unsafe_deletion =
+        syn_sig_ra::route_request(
+            "DELETE", "/syn_sig_ra/v1/account", "/syn_sig_ra", "", &store,
+            "", "application/json",
+            "{\"current_password\":\"changed-password-456\","
+            "\"confirmation\":\"delete\"}",
+            "/tmp/syn_sig_ra_route_account_storage", "", "",
+            password_changed.set_cookie
+        );
+    require(
+        unsafe_deletion.status == 400,
+        "account deletion should require the exact destructive confirmation"
+    );
+
+    const syn_sig_ra::RouteResponse account_deleted =
+        syn_sig_ra::route_request(
+            "DELETE", "/syn_sig_ra/v1/account", "/syn_sig_ra", "", &store,
+            "", "application/json",
+            "{\"current_password\":\"changed-password-456\","
+            "\"confirmation\":\"DELETE MY ACCOUNT\"}",
+            "/tmp/syn_sig_ra_route_account_storage", "", "",
+            password_changed.set_cookie
+        );
+    require(
+        account_deleted.status == 200 &&
+            account_deleted.body.find("\"status\":\"deleted\"") !=
+                std::string::npos &&
+            account_deleted.body.find("\"server_workspace\":\"deleted\"") !=
+                std::string::npos &&
+            account_deleted.body.find("\"downloaded_artifacts\":\"not_revocable\"") !=
+                std::string::npos &&
+            account_deleted.set_cookie.find("Max-Age=0") != std::string::npos,
+        "owner re-authentication should permanently delete the account workspace"
+    );
+    require(
+        syn_sig_ra::route_request(
+            "GET", "/syn_sig_ra/v1/auth/me", "/syn_sig_ra", "", &store,
+            "", "", "", "", "", "", password_changed.set_cookie
+        ).status == 401,
+        "deleted account sessions should no longer authenticate"
+    );
+    require(
+        syn_sig_ra::route_request(
+            "POST", "/syn_sig_ra/v1/auth/login", "/syn_sig_ra", "", &store,
+            "", "application/json",
+            "{\"email\":\"new@example.com\","
+            "\"password\":\"changed-password-456\"}"
+        ).status == 401,
+        "a deleted account should not be able to sign in again"
     );
 
     const syn_sig_ra::RouteResponse unauthorized =

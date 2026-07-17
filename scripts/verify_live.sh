@@ -44,7 +44,10 @@ case "$viewer_js" in *"Math.max(centerY - halfHeight"*) exit 1 ;; *) ;; esac
 viewer_app=$(curl -fsS "$base/viewer/app.js")
 case "$viewer_app" in *"signalCache.find"*prefetchedRequest*setEmptyState*) ;; *) exit 1 ;; esac
 openapi=$(curl -fsS "$base/openapi.yaml")
-case "$openapi" in *"/v1/jobs/{job_id}/viewer/window:"*) ;; *) exit 1 ;; esac
+case "$openapi" in
+  *"/v1/jobs/{job_id}/viewer/window:"*"/v1/account/export:"*) ;;
+  *) exit 1 ;;
+esac
 viewer_auth_status=$(curl -sS -o /dev/null -w '%{http_code}' \
   "$base/v1/jobs/job_verify_probe/viewer")
 [ "$viewer_auth_status" = "401" ] || {

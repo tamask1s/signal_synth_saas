@@ -337,6 +337,25 @@ bool bind_text(
     ) == SQLITE_OK;
 }
 
+bool execute_bound(
+    sqlite3* database,
+    const char* sql,
+    const std::vector<std::string>& values,
+    std::string& error
+) {
+    sqlite3_stmt* statement = nullptr;
+    bool succeeded = sqlite3_prepare_v2(
+        database, sql, -1, &statement, nullptr) == SQLITE_OK;
+    for (std::size_t index = 0; succeeded && index < values.size(); ++index) {
+        succeeded = bind_text(
+            statement, static_cast<int>(index + 1), values[index]);
+    }
+    succeeded = succeeded && sqlite3_step(statement) == SQLITE_DONE;
+    if (!succeeded) error = sqlite3_errmsg(database);
+    sqlite3_finalize(statement);
+    return succeeded;
+}
+
 std::string column_text(sqlite3_stmt* statement, int index) {
     const unsigned char* value = sqlite3_column_text(statement, index);
     return value == nullptr
@@ -405,6 +424,9 @@ syn_sig_ra::JobRecord job_columns(sqlite3_stmt* statement) {
     job.created_at = column_text(statement, 22);
     job.started_at = column_text(statement, 23);
     job.completed_at = column_text(statement, 24);
+    if (sqlite3_column_count(statement) > 25) {
+        job.deleted_at = column_text(statement, 25);
+    }
     return job;
 }
 
@@ -668,6 +690,326 @@ RecordLookupStatus MetadataStore::find_account_by_email(
     account.email_verified_at = column_text(statement, 8);
     sqlite3_finalize(statement);
     return RecordLookupStatus::found;
+}
+
+RecordLookupStatus MetadataStore::find_account(
+    const ApiKeyIdentity& identity,
+    AccountRecord& account,
+    std::string& error
+) {
+    if (!initialize(error)) return RecordLookupStatus::storage_error;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT u.id,m.organization_id,u.email,u.display_name,"
+        "u.password_salt,u.password_hash,m.role,u.email_verified,"
+        "COALESCE(u.email_verified_at,'') "
+        "FROM users u JOIN organization_memberships m ON m.user_id=u.id "
+        "WHERE u.id=?1 AND m.organization_id=?2;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, identity.user_id) ||
+        !bind_text(statement, 2, identity.organization_id)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    const int step = sqlite3_step(statement);
+    if (step == SQLITE_DONE) {
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::not_found;
+    }
+    if (step != SQLITE_ROW) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return RecordLookupStatus::storage_error;
+    }
+    account.user_id = column_text(statement, 0);
+    account.organization_id = column_text(statement, 1);
+    account.email = column_text(statement, 2);
+    account.display_name = column_text(statement, 3);
+    account.password_salt = column_text(statement, 4);
+    account.password_hash = column_text(statement, 5);
+    account.role = column_text(statement, 6);
+    account.email_verified = sqlite3_column_int(statement, 7) == 1;
+    account.email_verified_at = column_text(statement, 8);
+    sqlite3_finalize(statement);
+    return RecordLookupStatus::found;
+}
+
+RecordLookupStatus MetadataStore::update_account_display_name(
+    const ApiKeyIdentity& identity,
+    const std::string& display_name,
+    AccountRecord& account,
+    std::string& error
+) {
+    if (display_name.empty() || display_name.size() > 100u ||
+        !initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
+        if (error.empty()) error = "display name is invalid";
+        return RecordLookupStatus::storage_error;
+    }
+    bool succeeded = execute_bound(
+        database_,
+        "UPDATE users SET display_name=?3 WHERE id=?1 AND EXISTS ("
+        "SELECT 1 FROM organization_memberships WHERE user_id=?1 "
+        "AND organization_id=?2);",
+        std::vector<std::string>{
+            identity.user_id, identity.organization_id, display_name}, error);
+    const bool found = succeeded && sqlite3_changes(database_) == 1;
+    if (succeeded && found) {
+        succeeded = execute_bound(
+            database_,
+            "INSERT INTO audit_events (organization_id,user_id,api_key_id,"
+            "event_type,subject_type,subject_id) "
+            "VALUES (?1,?2,?3,'account.profile_updated','account',?2);",
+            std::vector<std::string>{identity.organization_id,
+                identity.user_id, identity.api_key_id}, error);
+    }
+    if (!succeeded || !found || !execute("COMMIT;", error)) {
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return succeeded && !found
+            ? RecordLookupStatus::not_found
+            : RecordLookupStatus::storage_error;
+    }
+    return find_account(identity, account, error);
+}
+
+bool MetadataStore::change_account_password(
+    const ApiKeyIdentity& identity,
+    const std::string& password_salt,
+    const std::string& password_hash,
+    std::string& error
+) {
+    if (password_salt.empty() || password_hash.empty() ||
+        !initialize(error) || !execute("BEGIN IMMEDIATE;", error)) return false;
+    bool succeeded = execute_bound(
+        database_,
+        "UPDATE users SET password_salt=?3,password_hash=?4 WHERE id=?1 "
+        "AND EXISTS (SELECT 1 FROM organization_memberships WHERE user_id=?1 "
+        "AND organization_id=?2);",
+        std::vector<std::string>{identity.user_id, identity.organization_id,
+            password_salt, password_hash}, error) &&
+        sqlite3_changes(database_) == 1;
+    succeeded = succeeded && execute_bound(
+        database_,
+        "DELETE FROM sessions WHERE api_key_id IN (SELECT id FROM api_keys "
+        "WHERE user_id=?1 AND organization_id=?2 AND kind='browser');",
+        std::vector<std::string>{identity.user_id, identity.organization_id}, error);
+    succeeded = succeeded && execute_bound(
+        database_,
+        "INSERT INTO audit_events (organization_id,user_id,api_key_id,"
+        "event_type,subject_type,subject_id) "
+        "VALUES (?1,?2,?3,'account.password_changed','account',?2);",
+        std::vector<std::string>{identity.organization_id,
+            identity.user_id, identity.api_key_id}, error);
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (error.empty()) error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return false;
+    }
+    return true;
+}
+
+bool MetadataStore::list_legal_acceptances(
+    const ApiKeyIdentity& identity,
+    std::vector<LegalAcceptanceRecord>& acceptances,
+    std::string& error
+) {
+    acceptances.clear();
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT document_type,document_version,accepted_at "
+        "FROM legal_acceptances WHERE user_id=?1 AND EXISTS (SELECT 1 FROM "
+        "organization_memberships WHERE user_id=?1 AND organization_id=?2) "
+        "ORDER BY accepted_at,document_type,document_version;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, identity.user_id) ||
+        !bind_text(statement, 2, identity.organization_id)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return false;
+    }
+    for (;;) {
+        const int step = sqlite3_step(statement);
+        if (step == SQLITE_DONE) {
+            sqlite3_finalize(statement);
+            return true;
+        }
+        if (step != SQLITE_ROW) {
+            error = sqlite3_errmsg(database_);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        LegalAcceptanceRecord acceptance;
+        acceptance.document_type = column_text(statement, 0);
+        acceptance.document_version = column_text(statement, 1);
+        acceptance.accepted_at = column_text(statement, 2);
+        acceptances.push_back(acceptance);
+    }
+}
+
+AccountDeleteStatus MetadataStore::delete_owned_account(
+    const ApiKeyIdentity& identity,
+    const std::string& verification_email_hash,
+    const std::string& reset_email_hash,
+    const std::string& deletion_receipt_id,
+    AccountDeletionResult& result,
+    std::string& error
+) {
+    result = AccountDeletionResult();
+    if (!is_sha256_hex(verification_email_hash) ||
+        !is_sha256_hex(reset_email_hash) || deletion_receipt_id.empty() ||
+        deletion_receipt_id.size() > 200u || !initialize(error) ||
+        !execute("BEGIN IMMEDIATE;", error)) {
+        if (error.empty()) error = "account deletion input is invalid";
+        return AccountDeleteStatus::storage_error;
+    }
+    sqlite3_stmt* membership = nullptr;
+    const char* membership_sql =
+        "SELECT role,(SELECT count(*) FROM organization_memberships "
+        "WHERE organization_id=?1) FROM organization_memberships "
+        "WHERE organization_id=?1 AND user_id=?2;";
+    if (sqlite3_prepare_v2(database_, membership_sql, -1, &membership, nullptr) !=
+            SQLITE_OK ||
+        !bind_text(membership, 1, identity.organization_id) ||
+        !bind_text(membership, 2, identity.user_id)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(membership);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return AccountDeleteStatus::storage_error;
+    }
+    const int membership_step = sqlite3_step(membership);
+    if (membership_step == SQLITE_DONE) {
+        sqlite3_finalize(membership);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return AccountDeleteStatus::not_found;
+    }
+    if (membership_step != SQLITE_ROW) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(membership);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return AccountDeleteStatus::storage_error;
+    }
+    const std::string role = column_text(membership, 0);
+    const int member_count = sqlite3_column_int(membership, 1);
+    sqlite3_finalize(membership);
+    if (role != "owner") {
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return AccountDeleteStatus::forbidden;
+    }
+    if (member_count != 1) {
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return AccountDeleteStatus::shared_workspace;
+    }
+
+    sqlite3_stmt* active = nullptr;
+    bool query_ok = sqlite3_prepare_v2(
+            database_,
+            "SELECT count(*) FROM jobs WHERE organization_id=?1 "
+            "AND status='running' AND deleted_at IS NULL;",
+            -1, &active, nullptr) == SQLITE_OK &&
+        bind_text(active, 1, identity.organization_id) &&
+        sqlite3_step(active) == SQLITE_ROW;
+    const int running = query_ok ? sqlite3_column_int(active, 0) : -1;
+    sqlite3_finalize(active);
+    if (!query_ok) {
+        error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return AccountDeleteStatus::storage_error;
+    }
+    if (running != 0) {
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return AccountDeleteStatus::running_jobs;
+    }
+
+    const auto collect_ids = [this, &error](
+        const char* sql, const std::string& value,
+        std::vector<std::string>& ids) -> bool {
+        sqlite3_stmt* statement = nullptr;
+        if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) !=
+                SQLITE_OK || !bind_text(statement, 1, value)) {
+            error = sqlite3_errmsg(database_);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        for (;;) {
+            const int step = sqlite3_step(statement);
+            if (step == SQLITE_DONE) {
+                sqlite3_finalize(statement);
+                return true;
+            }
+            if (step != SQLITE_ROW) {
+                error = sqlite3_errmsg(database_);
+                sqlite3_finalize(statement);
+                return false;
+            }
+            ids.push_back(column_text(statement, 0));
+        }
+    };
+    bool succeeded = collect_ids(
+        "SELECT id FROM packages WHERE organization_id=?1;",
+        identity.organization_id, result.package_ids) &&
+        collect_ids("SELECT id FROM jobs WHERE organization_id=?1;",
+            identity.organization_id, result.job_ids) &&
+        collect_ids("SELECT id FROM custom_packs WHERE organization_id=?1;",
+            identity.organization_id, result.custom_pack_ids);
+
+    const char* statements[] = {
+        "DELETE FROM email_token_submissions WHERE token_hash IN (SELECT "
+            "token_hash FROM email_tokens WHERE user_id=?1);",
+        "DELETE FROM sessions WHERE api_key_id IN (SELECT id FROM api_keys "
+            "WHERE organization_id=?1);",
+        "DELETE FROM quota_decisions WHERE organization_id=?1;",
+        "DELETE FROM audit_events WHERE organization_id=?1;",
+        "DELETE FROM packages WHERE organization_id=?1;",
+        "DELETE FROM jobs WHERE organization_id=?1;",
+        "DELETE FROM custom_packs WHERE organization_id=?1;",
+        "DELETE FROM scenario_drafts WHERE organization_id=?1;",
+        "DELETE FROM projects WHERE organization_id=?1;",
+        "DELETE FROM email_tokens WHERE user_id=?1;",
+        "DELETE FROM legal_acceptances WHERE user_id=?1;",
+        "DELETE FROM organization_memberships WHERE organization_id=?1;",
+        "DELETE FROM api_keys WHERE organization_id=?1;",
+        "DELETE FROM organizations WHERE id=?1;",
+        "DELETE FROM users WHERE id=?1;"
+    };
+    for (int index = 0; succeeded && index < 15; ++index) {
+        const std::string value =
+            (index == 0 || index == 9 || index == 10 || index == 14)
+            ? identity.user_id : identity.organization_id;
+        succeeded = execute_bound(
+            database_, statements[index], std::vector<std::string>{value}, error);
+    }
+    succeeded = succeeded && execute_bound(
+        database_,
+        "DELETE FROM email_send_attempts WHERE email_hash IN (?1,?2);",
+        std::vector<std::string>{verification_email_hash, reset_email_hash}, error);
+    std::ostringstream details;
+    details << "{\"custom_packs\":" << result.custom_pack_ids.size()
+            << ",\"jobs\":" << result.job_ids.size()
+            << ",\"packages\":" << result.package_ids.size()
+            << ",\"retained\":\"anonymous_deletion_receipt_only\"}";
+    succeeded = succeeded && execute_bound(
+        database_,
+        "INSERT INTO audit_events (event_type,subject_type,subject_id,details_json) "
+        "VALUES ('account.deleted','deletion_receipt',?1,?2);",
+        std::vector<std::string>{deletion_receipt_id, details.str()}, error);
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (error.empty()) error = sqlite3_errmsg(database_);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        result = AccountDeletionResult();
+        return AccountDeleteStatus::storage_error;
+    }
+    return AccountDeleteStatus::deleted;
 }
 
 bool MetadataStore::create_session(
@@ -2114,6 +2456,47 @@ bool MetadataStore::list_jobs(
         }
         JobRecord loaded = job_columns(statement);
         jobs.push_back(loaded);
+    }
+}
+
+bool MetadataStore::list_account_jobs(
+    const ApiKeyIdentity& owner,
+    std::vector<JobRecord>& jobs,
+    std::string& error
+) {
+    jobs.clear();
+    if (!initialize(error)) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT j.id,j.organization_id,j.project_id,j.user_id,j.status,"
+        "j.request_json,j.selected_pack_id,j.source_pack_path,"
+        "j.pack_fingerprint,COALESCE(p.id,''),j.package_fingerprint,"
+        "j.integration_contract_version,j.integration_contract_json,"
+        "j.generator_version,j.generator_git_commit,"
+        "j.generator_build_identity,j.generator_binary_sha256,"
+        "j.challenge_receipt_json,j.manifest_hash,j.artifact_storage_key,"
+        "j.error_code,j.error_message,j.created_at,j.started_at,j.completed_at,"
+        "COALESCE(j.deleted_at,'') FROM jobs j LEFT JOIN packages p "
+        "ON p.job_id=j.id WHERE j.organization_id=?1 "
+        "ORDER BY j.created_at DESC,j.id DESC;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bind_text(statement, 1, owner.organization_id)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return false;
+    }
+    for (;;) {
+        const int step = sqlite3_step(statement);
+        if (step == SQLITE_DONE) {
+            sqlite3_finalize(statement);
+            return true;
+        }
+        if (step != SQLITE_ROW) {
+            error = sqlite3_errmsg(database_);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        jobs.push_back(job_columns(statement));
     }
 }
 

@@ -54,9 +54,13 @@ associate service and no business-associate agreement is provided.
 Generated artifacts are normally cached for 7 days and may be removed
 immediately after a user deletes the related job. Reproducibility metadata may
 remain after artifact expiry. Account and security records are retained while
-the account is active and as reasonably needed for security, abuse prevention,
-backup integrity and legal obligations. Operational backups are access
-restricted and follow the production deletion policy.
+the account is active. Self-service account deletion removes the single-member
+workspace's identifiable account, project, job, package, scenario, custom-pack,
+credential, legal-acceptance, quota, e-mail-token, and audit records, plus its
+server-side artifact trees. The live database retains only a random anonymous
+deletion receipt with aggregate deleted-object counts. Copies previously
+downloaded by the user cannot be revoked. Operational backups are access
+restricted and expire under the production backup policy.
 
 ## Sharing and infrastructure
 
@@ -68,9 +72,11 @@ by law or necessary to protect users and the service.
 ## User choices
 
 Users can delete eligible jobs, scenario drafts, custom packs and API keys in
-the product. Account access, correction or deletion requests can be initiated
-privately through the operator email above. Identity verification may be
-required before an account-level request is fulfilled.
+the product. The Account page also supports profile correction, a portable JSON
+account export, and password-confirmed self-service deletion for single-member
+owner workspaces. Shared-workspace deletion requires members to be transferred
+or removed first. Support requests can still be initiated privately through
+the operator email above, and identity verification may be required.
 
 The service uses an essential secure session cookie for browser sign-in. It
 does not use advertising or cross-site tracking cookies.

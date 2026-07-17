@@ -338,8 +338,9 @@ The module serves a minimal browser UI directly from the Apache module:
 The UI is static HTML/CSS/JavaScript backed by secure server-side sessions.
 Users register or sign in with e-mail/password; Bearer API keys are reserved
 for scripts and CI and are managed from the account panel. The UI supports
-service health, pack browsing, job creation,
-recent job status, authenticated manifest/ZIP downloads, and job deletion.
+service health, pack browsing, job creation, recent job status, authenticated
+manifest/ZIP downloads, job deletion, profile/password management, secret-free
+account export, and password-confirmed single-member workspace deletion.
 It polls the job list in the background, but only re-renders the list when the
 job payload actually changes.
 
@@ -479,6 +480,15 @@ For the next steps toward a real user-ready SaaS, see
 
 For readiness, metrics, alert thresholds, and repeatable build/deploy/verify
 commands, see [`OPERATIONS.md`](OPERATIONS.md).
+
+Production release artifacts contain the stripped Apache module, worker/admin
+tools, pinned generator CLI, curated catalog, verifier downloads, landing site,
+and checked configuration. Their manifest records both source commits,
+architecture, payload digest, and the Apache module ABI. The live Apache 2.2
+deploy rejects Apache 2.4 CI artifacts before stopping services. Every deploy
+captures a checksummed runtime snapshot, runs the full live smoke gate, and
+restores that snapshot automatically on failure; `scripts/rollback_live.sh`
+performs the same operation explicitly.
 
 For immutable artifact retention, backups, and restore drills, see
 [`RETENTION_BACKUP.md`](RETENTION_BACKUP.md).

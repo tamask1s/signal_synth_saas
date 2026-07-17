@@ -26,6 +26,14 @@ components:
         role: {type: string, enum: [owner, admin, developer, viewer]}
         email_verified: {type: boolean}
         email_verified_at: {type: string, format: date-time}
+    AccountDeletion:
+      type: object
+      required: [status, deletion_receipt_id, server_workspace, downloaded_artifacts]
+      properties:
+        status: {type: string, enum: [deleted]}
+        deletion_receipt_id: {type: string}
+        server_workspace: {type: string, enum: [deleted, cleanup_requires_operator]}
+        downloaded_artifacts: {type: string, enum: [not_revocable]}
     AuditEvent:
       type: object
       required: [id, created_at, event_type, user_id, api_key_id, subject_type, subject_id, details]
@@ -529,6 +537,73 @@ paths:
       security: [{cookieAuth: []}]
       responses:
         '200': {description: Signed out}
+  /v1/account:
+    patch:
+      summary: Update the signed-in user's display name
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [display_name]
+              properties:
+                display_name: {type: string, minLength: 1, maxLength: 100}
+              additionalProperties: false
+      responses:
+        '200': {description: Updated account, content: {application/json: {schema: {$ref: '#/components/schemas/Account'}}}}
+        '400': {description: Invalid display name}
+    delete:
+      summary: Permanently delete the owner account and its single-member workspace
+      description: Requires the current password and exact destructive confirmation. Server-side projects, jobs, packages, scenarios, custom packs, sessions, API keys, legal records, and identifiable audit/security records are removed. Only an anonymous deletion receipt remains. Previously downloaded artifacts cannot be revoked.
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, confirmation]
+              properties:
+                current_password: {type: string, maxLength: 128}
+                confirmation: {type: string, enum: [DELETE MY ACCOUNT]}
+              additionalProperties: false
+      responses:
+        '200': {description: Account and workspace deleted, content: {application/json: {schema: {$ref: '#/components/schemas/AccountDeletion'}}}}
+        '401': {description: Current password is incorrect}
+        '403': {description: Workspace owner role required}
+        '409': {description: Workspace has other members or a job is running}
+  /v1/account/password:
+    post:
+      summary: Change password and invalidate all prior browser sessions
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password: {type: string, maxLength: 128}
+                new_password: {type: string, minLength: 12, maxLength: 128}
+              additionalProperties: false
+      responses:
+        '200': {description: Password changed; cookie clients receive a replacement session}
+        '400': {description: Invalid or unchanged password}
+        '401': {description: Current password is incorrect}
+  /v1/account/export:
+    get:
+      summary: Download a complete JSON account and workspace export without secrets
+      description: Includes profile, projects, current and soft-deleted job metadata, scenarios, custom packs, API-key metadata, legal acceptances, audit history, and deletion-retention behavior. Password credentials, key hashes/secrets, session tokens, and email-action tokens are excluded.
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Account export attachment
+          content:
+            application/json:
+              schema: {type: object, additionalProperties: true}
   /v1/projects:
     get:
       summary: List caller organization projects

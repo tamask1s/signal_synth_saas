@@ -33,8 +33,11 @@ limits, docs, and live operations.
 - Authenticated generator-free verifier bundle/wheel downloads for local
   `synsigra-verify` installation without cloning the generator repository.
 - Quotas, request rate limits, usage view, and admin metrics.
-- Retention cleanup, backup, restore drill, build/deploy/verify scripts, and
-  live deployment workflow.
+- Retention cleanup, backup and restore drill; checksummed ABI-labelled release
+  artifacts; smoke-gated deploy with automatic rollback; explicit verified
+  rollback; and Apache 2.4 portability E2E alongside the live Apache 2.2 build.
+- Self-service profile/password management, secret-free account/workspace JSON
+  export, and password-confirmed single-member owner workspace deletion.
 - User manual, rendered in-app quickstart/API/troubleshooting docs, raw
   OpenAPI YAML, curl examples, and a Python smoke client.
 
@@ -74,8 +77,10 @@ The service must not become:
   not a substitute for professional legal review before a paid/public launch.
 - Security baseline needs a focused threat model, secret rotation review, and
   audit export story before broader beta.
-- Release automation exists as scripts, but full CI/CD/release governance is
-  still pending.
+- Release artifacts and deploy/rollback automation are implemented. Publishing
+  a production artifact from hosted CI is intentionally deferred because the
+  production module must be compiled against the VPS's Apache 2.2 ABI; hosted
+  CI publishes only its clearly labelled Apache 2.4 portability artifact.
 - API hardening work remains: idempotency keys, request IDs, richer artifact
   metadata, HEAD support, and stable error examples.
 - Detector-output templates cover curated scoreable targets; custom-pack
@@ -86,7 +91,6 @@ The service must not become:
 
 Before broader external beta:
 
-- [#22 Release, CI/CD, and deployment automation](https://github.com/tamask1s/signal_synth_saas/issues/22)
 - [#23 Security baseline: threat model, secret rotation, audit export](https://github.com/tamask1s/signal_synth_saas/issues/23)
 - [#24 Commercial and legal readiness for private beta](https://github.com/tamask1s/signal_synth_saas/issues/24)
 

@@ -132,6 +132,18 @@ struct AuditEventRecord {
     std::string created_at;
 };
 
+struct LegalAcceptanceRecord {
+    std::string document_type;
+    std::string document_version;
+    std::string accepted_at;
+};
+
+struct AccountDeletionResult {
+    std::vector<std::string> package_ids;
+    std::vector<std::string> job_ids;
+    std::vector<std::string> custom_pack_ids;
+};
+
 struct RetentionCandidate {
     std::string package_id;
     std::string job_id;
@@ -182,6 +194,15 @@ enum class ApiKeyLookupStatus {
 enum class AccountCreateStatus {
     created,
     email_exists,
+    storage_error
+};
+
+enum class AccountDeleteStatus {
+    deleted,
+    not_found,
+    forbidden,
+    shared_workspace,
+    running_jobs,
     storage_error
 };
 
@@ -240,6 +261,41 @@ public:
     RecordLookupStatus find_account_by_email(
         const std::string& email,
         AccountRecord& account,
+        std::string& error
+    );
+
+    RecordLookupStatus find_account(
+        const ApiKeyIdentity& identity,
+        AccountRecord& account,
+        std::string& error
+    );
+
+    RecordLookupStatus update_account_display_name(
+        const ApiKeyIdentity& identity,
+        const std::string& display_name,
+        AccountRecord& account,
+        std::string& error
+    );
+
+    bool change_account_password(
+        const ApiKeyIdentity& identity,
+        const std::string& password_salt,
+        const std::string& password_hash,
+        std::string& error
+    );
+
+    bool list_legal_acceptances(
+        const ApiKeyIdentity& identity,
+        std::vector<LegalAcceptanceRecord>& acceptances,
+        std::string& error
+    );
+
+    AccountDeleteStatus delete_owned_account(
+        const ApiKeyIdentity& identity,
+        const std::string& verification_email_hash,
+        const std::string& reset_email_hash,
+        const std::string& deletion_receipt_id,
+        AccountDeletionResult& result,
         std::string& error
     );
 
@@ -449,6 +505,12 @@ public:
         const ApiKeyIdentity& owner,
         int limit,
         int offset,
+        std::vector<JobRecord>& jobs,
+        std::string& error
+    );
+
+    bool list_account_jobs(
+        const ApiKeyIdentity& owner,
         std::vector<JobRecord>& jobs,
         std::string& error
     );

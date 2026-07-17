@@ -50,6 +50,14 @@ bool store_immutable_package(
     std::string& error
 );
 
+bool purge_account_storage(
+    const std::string& data_root,
+    const std::vector<std::string>& package_ids,
+    const std::vector<std::string>& job_ids,
+    const std::vector<std::string>& custom_pack_ids,
+    std::string& error
+);
+
 DerivedArtifactStatus prepare_cached_file_metadata(
     const std::string& data_root,
     const std::string& package_id,

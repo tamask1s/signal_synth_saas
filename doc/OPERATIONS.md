@@ -58,10 +58,43 @@ transport later.
 ```sh
 scripts/build_release.sh
 RUN_E2E=1 scripts/build_release.sh
+scripts/build_release_artifact.sh
 scripts/deploy_live.sh
 scripts/verify_live.sh
+scripts/rollback_live.sh
 scripts/commit_checked.sh 17 "Add observability" file1 file2
 git push origin master
+```
+
+`build_release_artifact.sh` is the single packaging boundary. It puts the
+stripped module, worker/admin tools, pinned generator, curated packs, verifier,
+landing site, and deployment configuration into an immutable
+`build/releases/synsigra-*.tar.gz` plus an external SHA-256 file. Its manifest
+records the exact SaaS/core commits, payload digest, architecture, Release
+flags, working-tree state, and Apache module ABI.
+
+The production VPS builds against Apache 2.2. GitHub CI deliberately builds and
+executes the same source against Apache 2.4 as a portability check and uploads
+that separately labelled artifact for 14 days. Apache 2.4 is not a second live
+server. `deploy_release.sh` compares the artifact ABI with the running backend
+before any service is stopped, so the CI artifact cannot be installed on the
+2.2 VPS accidentally.
+
+`deploy_live.sh` builds one artifact and delegates installation to
+`deploy_release.sh`. Before changing runtime files, deployment captures a
+checksummed snapshot under `/opt/signal_synth_saas/rollback/`. Apache and nginx
+configuration checks and the complete `verify_live.sh` smoke gate must pass.
+Any failure restores that snapshot automatically and reruns the live check.
+Successful artifacts are registered under `/opt/signal_synth_saas/releases/`;
+`current-release`, `previous-release`, and `last-rollback` are symlinks, not
+mutable copies.
+
+Explicit rollback restores the last successful pre-deploy snapshot, verifies
+the live product, and retains a roll-forward snapshot:
+
+```sh
+scripts/rollback_live.sh
+scripts/rollback_live.sh /opt/signal_synth_saas/rollback/SNAPSHOT_NAME
 ```
 
 Normal deploy preserves state and refuses an unsupported database schema.

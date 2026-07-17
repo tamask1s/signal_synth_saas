@@ -106,6 +106,10 @@ bool make_read_only(const std::string& path, std::string& error) {
         return false;
     }
     if (S_ISDIR(information.st_mode)) {
+        if (chmod(path.c_str(), 0700) != 0) {
+            error = "unable to make stored directory removable";
+            return false;
+        }
         DIR* directory = opendir(path.c_str());
         if (directory == nullptr) {
             error = "unable to inspect stored package directory";
@@ -152,6 +156,10 @@ bool remove_tree(const std::string& path, std::string& error) {
         return false;
     }
     if (S_ISDIR(information.st_mode)) {
+        if (chmod(path.c_str(), 0700) != 0) {
+            error = "unable to make stored directory removable";
+            return false;
+        }
         DIR* directory = opendir(path.c_str());
         if (directory == nullptr) {
             error = "unable to open temporary rendered package";
@@ -168,7 +176,11 @@ bool remove_tree(const std::string& path, std::string& error) {
             }
         }
         closedir(directory);
-        return succeeded && rmdir(path.c_str()) == 0;
+        if (!succeeded || rmdir(path.c_str()) != 0) {
+            if (error.empty()) error = "unable to remove stored directory";
+            return false;
+        }
+        return true;
     }
     if (!S_ISREG(information.st_mode) || unlink(path.c_str()) != 0) {
         error = "unable to remove temporary rendered package";
@@ -604,6 +616,39 @@ bool store_immutable_package(
     }
     package = stored;
     return true;
+}
+
+bool purge_account_storage(
+    const std::string& data_root,
+    const std::vector<std::string>& package_ids,
+    const std::vector<std::string>& job_ids,
+    const std::vector<std::string>& custom_pack_ids,
+    std::string& error
+) {
+    if (data_root.empty()) {
+        error = "account storage root is unavailable";
+        return false;
+    }
+    const auto purge = [&data_root, &error](
+        const std::string& collection,
+        const std::string& expected_prefix,
+        const std::vector<std::string>& ids) -> bool {
+        for (std::vector<std::string>::const_iterator id = ids.begin();
+             id != ids.end(); ++id) {
+            if (id->compare(0, expected_prefix.size(), expected_prefix) != 0 ||
+                !safe_component(*id) ||
+                !remove_tree(data_root + "/" + collection + "/" + *id, error)) {
+                if (error.empty()) error = "account storage identity is invalid";
+                return false;
+            }
+        }
+        return true;
+    };
+    return purge("packages", "pkg_", package_ids) &&
+        purge("derived-artifacts", "pkg_", package_ids) &&
+        purge("recipes", "job_", job_ids) &&
+        purge("work", "job_", job_ids) &&
+        purge("custom_packs", "custom_pack_", custom_pack_ids);
 }
 
 DerivedArtifactStatus prepare_cached_file_metadata(
