@@ -46,7 +46,7 @@ rollback_on_error() {
 trap rollback_on_error ERR INT TERM
 
 timestamp=$(date -u +%Y%m%d%H%M%S)
-snapshot=$(synsigra_capture_live_snapshot "pre-${release_id}-${timestamp}")
+snapshot=$(synsigra_capture_live_snapshot "pre-${release_id}-${timestamp}-$$")
 
 sudo systemctl stop syn_sig_ra_worker.service
 sudo systemctl stop apache22

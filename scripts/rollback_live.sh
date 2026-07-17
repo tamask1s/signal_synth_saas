@@ -19,7 +19,7 @@ if [ -z "$target" ]; then
 fi
 
 timestamp=$(date -u +%Y%m%d%H%M%S)
-forward=$(synsigra_capture_live_snapshot "pre-manual-rollback-${timestamp}")
+forward=$(synsigra_capture_live_snapshot "pre-manual-rollback-${timestamp}-$$")
 restore_forward_on_error() {
   status=$?
   trap - ERR
