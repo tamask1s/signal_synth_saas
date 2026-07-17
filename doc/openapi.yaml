@@ -118,14 +118,14 @@ components:
             size_class: {type: string}
         scenarios: {type: array, items: {$ref: '#/components/schemas/PackScenario'}}
         scenario_count: {type: integer}
-        generator_contract: {type: string}
-        compatible_generator_versions: {type: array, items: {type: string}}
+        integration_contract: {type: string, enum: [synsigra_core_integration_v1]}
         generator_compatibility:
           type: object
           properties:
             local_verifier_min_version: {type: string}
             challenge_package_contract: {type: string}
             scoring_manifest_contract: {type: string}
+            integration_contract: {type: string, enum: [synsigra_core_integration_v1]}
         output_artifact_roles: {type: array, items: {type: string}}
         primary_badges: {type: array, items: {type: string}}
         changelog:
@@ -154,8 +154,11 @@ components:
         package_id: {type: string}
         artifact_status: {type: string, enum: [available, expired]}
         package_fingerprint: {type: string}
+        integration_contract: {type: string, enum: [synsigra_core_integration_v1]}
         generator_version: {type: string}
+        generator_git_commit: {type: string}
         generator_build_identity: {type: string}
+        generator_binary_sha256: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
         manifest_url: {type: string}
         archive_url: {type: string}
         detection_templates_url: {type: string}
@@ -302,7 +305,7 @@ paths:
     get:
       summary: Component readiness
       responses:
-        '200': {description: DB, generator, catalog, and artifact store are ready}
+        '200': {description: DB, exact linked/CLI core identity, catalog, and artifact store are ready}
         '503': {description: One or more components are not ready}
   /v1/packs:
     get:

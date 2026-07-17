@@ -456,13 +456,15 @@ Use local storage first:
 ```text
 /var/lib/syn_sig_ra/
   db.sqlite3
-  jobs/
   work/
   packages/
     <package_id>/
       manifest.json
       package.zip
-      extracted/
+  recipes/
+  generator_releases/
+  custom_packs/
+  derived-artifacts/
 ```
 
 The storage interface should be abstracted so local filesystem storage can later be replaced with object storage.
@@ -497,13 +499,14 @@ For immutable custom packs assembled from scenario drafts, see
 ## Metadata and API keys
 
 The module initializes a versioned SQLite database at
-`<SynSigRaDataRoot>/db.sqlite3`. Schema version 9 contains accounts, salted
+`<SynSigRaDataRoot>/db.sqlite3`. The fresh v1 schema contains accounts, salted
 password credentials, email-verification state, hashed expiring single-use
 email tokens, delivery/submission rate-limit records, expiring sessions,
 organizations, memberships, projects, API-key hashes, jobs, packages, and
 audit events. API keys and email tokens must be high-entropy secrets; only
-their lowercase SHA-256 hashes are persisted. The service upgrades the live
-version-8 beta schema to version 9 while preserving existing users as verified.
+their lowercase SHA-256 hashes are persisted. Unsupported or unversioned
+non-empty databases are rejected; development resets recreate them instead of
+carrying compatibility migrations.
 
 API keys resolve to an organization membership with an `owner`, `admin`,
 `developer`, or `viewer` role. Jobs and packages are project-scoped. See
@@ -521,8 +524,9 @@ arguments:
 ```sh
 read -r -s API_KEY
 printf '%s\n' "$API_KEY" |
-  build/syn_sig_ra_admin create-api-key \
-    build/var/db.sqlite3 org_dev user_dev key_dev "local development" owner
+  build/syn_sig_ra_admin bootstrap-owner \
+    build/var/db.sqlite3 org_dev user_dev developer@example.test \
+    "Development Owner" key_dev "local development"
 unset API_KEY
 ```
 
@@ -538,6 +542,11 @@ Revoke an API key:
 ```sh
 build/syn_sig_ra_admin revoke-api-key build/var/db.sqlite3 key_dev
 ```
+
+`create-api-key` only adds a key to an existing membership; it never creates
+an organization, user, membership, or synthetic e-mail address. The one-time
+`bootstrap-owner` command requires a fresh empty database and reads its secret
+only from stdin.
 
 `/syn_sig_ra/healthz` remains public. Routes at or below
 `/syn_sig_ra/v1/projects`, `/syn_sig_ra/v1/jobs`, and

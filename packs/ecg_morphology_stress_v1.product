@@ -6,13 +6,9 @@
       "version": "1.0"
     }
   ],
-  "compatible_generator_versions": [
-    "0.5.0-dev",
-    "signal_synth-cli"
-  ],
   "deprecation_message": "",
   "expected_pack_fingerprint": "sha256:fbbec63842de10af31ccd6e86adf32f2c0691f3ac4596e7ca80bc9059dd4997e",
-  "generator_contract": "signal-synth-cli/pack-challenge-v1",
+  "integration_contract": "synsigra_core_integration_v1",
   "pack_id": "ecg_morphology_stress_v1",
   "release_status": "beta",
   "released_at": "2026-07-06",

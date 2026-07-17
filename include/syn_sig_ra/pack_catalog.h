@@ -49,8 +49,7 @@ struct PackSummary {
     std::string pack_fingerprint;
     std::string release_status;
     std::string released_at;
-    std::string generator_contract;
-    std::vector<std::string> compatible_generator_versions;
+    std::string integration_contract_version;
     std::string deprecation_message;
     std::vector<PackChangelogEntry> changelog;
     std::string scoring_mode;

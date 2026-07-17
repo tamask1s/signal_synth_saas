@@ -60,12 +60,41 @@ set(
 set(SYN_SIG_RA_DEFAULT_PUBLIC_BASE_PATH "/syn_sig_ra")
 
 file(MAKE_DIRECTORY
-    "${SYN_SIG_RA_DEFAULT_DATA_ROOT}/jobs"
     "${SYN_SIG_RA_DEFAULT_DATA_ROOT}/work"
     "${SYN_SIG_RA_DEFAULT_DATA_ROOT}/packages"
 )
 
 find_package(Git QUIET)
+set(
+    SYN_SIG_RA_EXPECTED_SIGNAL_SYNTH_COMMIT
+    "ef2c1d9cd00a07c62617619aa939a6996052867e"
+    CACHE STRING
+    "Exact signal_synth commit accepted by this SaaS release"
+)
+if(NOT Git_FOUND)
+    message(FATAL_ERROR "Git is required to verify the pinned signal_synth producer")
+endif()
+execute_process(
+    COMMAND "${GIT_EXECUTABLE}" rev-parse HEAD
+    WORKING_DIRECTORY "${SIGNAL_SYNTH_ROOT}"
+    RESULT_VARIABLE SIGNAL_SYNTH_GIT_RESULT
+    OUTPUT_VARIABLE SIGNAL_SYNTH_GIT_COMMIT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+execute_process(
+    COMMAND "${GIT_EXECUTABLE}" status --porcelain
+    WORKING_DIRECTORY "${SIGNAL_SYNTH_ROOT}"
+    OUTPUT_VARIABLE SIGNAL_SYNTH_GIT_DIRTY
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+if(NOT SIGNAL_SYNTH_GIT_RESULT EQUAL 0 OR
+   NOT SIGNAL_SYNTH_GIT_COMMIT STREQUAL SYN_SIG_RA_EXPECTED_SIGNAL_SYNTH_COMMIT OR
+   NOT SIGNAL_SYNTH_GIT_DIRTY STREQUAL "")
+    message(FATAL_ERROR
+        "signal_synth must be the clean pinned producer "
+        "${SYN_SIG_RA_EXPECTED_SIGNAL_SYNTH_COMMIT}; found ${SIGNAL_SYNTH_GIT_COMMIT}")
+endif()
+
 set(SYN_SIG_RA_GIT_COMMIT "unknown")
 if(Git_FOUND)
     execute_process(
@@ -124,6 +153,7 @@ add_library(syn_sig_ra_core STATIC
     src/email/transactional_email.cpp
     src/job/job_request.cpp
     src/job/random_id.cpp
+    src/integration/core_contract.cpp
     src/storage/metadata_store.cpp
     src/viewer/signal_viewer.cpp
     src/worker/worker.cpp
@@ -248,6 +278,16 @@ if(BUILD_TESTING)
     )
     target_link_libraries(syn_sig_ra_worker_test PRIVATE syn_sig_ra_core)
 
+    add_executable(syn_sig_ra_core_contract_test
+        test/unit/core_contract_test.cpp
+    )
+    target_link_libraries(syn_sig_ra_core_contract_test PRIVATE syn_sig_ra_core)
+
+    add_executable(syn_sig_ra_metadata_schema_test
+        test/unit/metadata_schema_test.cpp
+    )
+    target_link_libraries(syn_sig_ra_metadata_schema_test PRIVATE syn_sig_ra_core)
+
     add_executable(syn_sig_ra_signal_viewer_test
         test/unit/signal_viewer_test.cpp
     )
@@ -265,6 +305,8 @@ if(BUILD_TESTING)
     add_test(NAME pack_catalog_unit COMMAND syn_sig_ra_pack_catalog_test)
     add_test(NAME job_unit COMMAND syn_sig_ra_job_test)
     add_test(NAME worker_unit COMMAND syn_sig_ra_worker_test)
+    add_test(NAME core_contract_unit COMMAND syn_sig_ra_core_contract_test)
+    add_test(NAME metadata_schema_unit COMMAND syn_sig_ra_metadata_schema_test)
     add_test(NAME signal_viewer_unit COMMAND syn_sig_ra_signal_viewer_test)
     add_test(
         NAME artifact_delivery_unit COMMAND syn_sig_ra_artifact_delivery_test)

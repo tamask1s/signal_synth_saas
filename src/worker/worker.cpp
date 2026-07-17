@@ -1,6 +1,7 @@
 #include "syn_sig_ra/worker.h"
 
 #include "syn_sig_ra/artifact_store.h"
+#include "syn_sig_ra/core_contract.h"
 #include "syn_sig_ra/metadata_store.h"
 #include "syn_sig_ra/pack_catalog.h"
 #include "syn_sig_ra/sha256.h"
@@ -13,11 +14,13 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <jansson.h>
+
 #include <cerrno>
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
-#include <map>
+#include <climits>
 #include <sstream>
 #include <string>
 
@@ -186,6 +189,15 @@ bool valid_fingerprint(const std::string& value) {
         }
     }
     return true;
+}
+
+bool json_string_equals(
+    json_t* object,
+    const char* key,
+    const std::string& expected
+) {
+    json_t* value = json_object_get(object, key);
+    return json_is_string(value) && json_string_value(value) == expected;
 }
 
 bool read_binary_file(
@@ -428,72 +440,73 @@ std::string stable_cli_error(const std::string& stderr_text) {
 
 namespace syn_sig_ra {
 
-bool parse_challenge_stdout(
+bool parse_challenge_receipt(
     const std::string& stdout_text,
+    const CoreIntegrationContract& producer,
     CliChallengeResult& result,
     std::string& error
 ) {
     error.clear();
-    if (stdout_text.empty()) {
-        error = "CLI stdout was empty";
+    json_error_t parse_error;
+    json_t* root = json_loadb(
+        stdout_text.data(), stdout_text.size(), JSON_REJECT_DUPLICATES,
+        &parse_error);
+    if (!json_is_object(root) || json_object_size(root) != 10) {
+        if (root != nullptr) json_decref(root);
+        error = "CLI stdout is not the exact challenge receipt object";
         return false;
     }
-    std::map<std::string, std::string> fields;
-    std::istringstream lines(stdout_text);
-    std::string line;
-    while (std::getline(lines, line)) {
-        if (!line.empty() && line[line.size() - 1] == '\r') {
-            line.erase(line.size() - 1);
-        }
-        const std::string::size_type separator = line.find('=');
-        if (separator == std::string::npos ||
-            !fields.insert(std::make_pair(
-                line.substr(0, separator),
-                line.substr(separator + 1)
-            )).second) {
-            error = "CLI stdout contains malformed or duplicate fields";
-            return false;
-        }
-    }
-    const char* required[] = {
-        "status",
-        "output_directory",
-        "package_id",
-        "scenario_count",
-        "pack_fingerprint",
-        "package_fingerprint"
-    };
-    for (std::size_t index = 0;
-         index < sizeof(required) / sizeof(required[0]);
-         ++index) {
-        if (fields.count(required[index]) == 0) {
-            error = "CLI stdout is missing required fields";
-            return false;
-        }
-    }
-    char* end = nullptr;
-    const unsigned long count = std::strtoul(
-        fields["scenario_count"].c_str(),
-        &end,
-        10
-    );
-    if (fields["status"] != "challenge-rendered" ||
-        fields["output_directory"].empty() ||
-        !is_valid_pack_id(fields["package_id"]) ||
-        count == 0 ||
-        end == nullptr ||
-        *end != '\0' ||
-        !valid_fingerprint(fields["pack_fingerprint"]) ||
-        !valid_fingerprint(fields["package_fingerprint"])) {
-        error = "CLI stdout contains invalid field values";
+    json_t* schema = json_object_get(root, "schema_version");
+    json_t* output = json_object_get(root, "output_directory");
+    json_t* package_id = json_object_get(root, "package_id");
+    json_t* count = json_object_get(root, "scenario_count");
+    json_t* pack_fingerprint = json_object_get(root, "pack_fingerprint");
+    json_t* package_fingerprint = json_object_get(root, "package_fingerprint");
+    json_t* generator = json_object_get(root, "generator");
+    json_t* contracts = json_object_get(root, "contracts");
+    const bool generator_shape = json_is_object(generator) &&
+        json_object_size(generator) == 4;
+    const bool contracts_shape = json_is_object(contracts) &&
+        json_object_size(contracts) == 2;
+    const bool valid = json_is_integer(schema) && json_integer_value(schema) == 1 &&
+        json_string_equals(root, "contract", producer.integration_contract) &&
+        json_string_equals(root, "status", "challenge_rendered") &&
+        json_is_string(output) && json_string_length(output) > 0 &&
+        json_is_string(package_id) &&
+        is_valid_pack_id(json_string_value(package_id)) &&
+        json_is_integer(count) && json_integer_value(count) > 0 &&
+        static_cast<unsigned long long>(json_integer_value(count)) <= ULONG_MAX &&
+        json_is_string(pack_fingerprint) &&
+        valid_fingerprint(json_string_value(pack_fingerprint)) &&
+        json_is_string(package_fingerprint) &&
+        valid_fingerprint(json_string_value(package_fingerprint)) &&
+        generator_shape && contracts_shape &&
+        json_string_equals(generator, "name", producer.generator_name) &&
+        json_string_equals(generator, "version", producer.generator_version) &&
+        json_string_equals(
+            generator, "git_commit", producer.generator_git_commit) &&
+        json_string_equals(
+            generator, "build_identity", producer.generator_build_identity) &&
+        json_string_equals(
+            contracts, "challenge_package", producer.challenge_package) &&
+        json_string_equals(
+            contracts, "scoring_manifest", producer.scoring_manifest);
+    char* canonical = valid
+        ? json_dumps(root, JSON_COMPACT | JSON_SORT_KEYS) : nullptr;
+    if (!valid || canonical == nullptr) {
+        json_decref(root);
+        error = "CLI challenge receipt fields do not match the accepted producer";
         return false;
     }
     CliChallengeResult parsed;
-    parsed.output_directory = fields["output_directory"];
-    parsed.package_id = fields["package_id"];
-    parsed.scenario_count = count;
-    parsed.pack_fingerprint = fields["pack_fingerprint"];
-    parsed.package_fingerprint = fields["package_fingerprint"];
+    parsed.output_directory = json_string_value(output);
+    parsed.package_id = json_string_value(package_id);
+    parsed.scenario_count = static_cast<unsigned long>(json_integer_value(count));
+    parsed.pack_fingerprint = json_string_value(pack_fingerprint);
+    parsed.package_fingerprint = json_string_value(package_fingerprint);
+    parsed.canonical_receipt_json = canonical;
+    free(canonical);
+    json_decref(root);
     result = parsed;
     return true;
 }
@@ -505,6 +518,11 @@ WorkerRunStatus run_worker_once(
 ) {
     error.clear();
     job_id.clear();
+    CoreIntegrationContract current_producer;
+    if (!validate_core_integration(
+            config.signal_synth_cli, current_producer, error)) {
+        return WorkerRunStatus::worker_error;
+    }
     MetadataStore store(config.database_path);
     JobRecord job;
     const RecordLookupStatus claim = store.claim_next_job(job, error);
@@ -515,7 +533,7 @@ WorkerRunStatus run_worker_once(
         return WorkerRunStatus::worker_error;
     }
     job_id = job.job_id;
-    const bool pinned_execution = !job.generator_build_identity.empty();
+    const bool pinned_execution = !job.generator_binary_sha256.empty();
     const std::string built_in_pack =
         config.pack_root + "/" + job.selected_pack_id + ".json";
     const std::string custom_pack =
@@ -527,7 +545,8 @@ WorkerRunStatus run_worker_once(
          job.source_pack_path == custom_pack);
     std::string expected_pack = job.source_pack_path;
     std::string execution_cli;
-    std::string generator_identity = job.generator_build_identity;
+    std::string generator_binary_sha256 = job.generator_binary_sha256;
+    CoreIntegrationContract execution_producer = current_producer;
     const std::string output_directory =
         config.data_root + "/work/" + job.job_id;
     std::string failure_code;
@@ -551,7 +570,7 @@ WorkerRunStatus run_worker_once(
             !regular_file(expected_pack) ||
             !resolve_generator_release(
                 config.data_root,
-                generator_identity,
+                generator_binary_sha256,
                 execution_cli)) {
             failure_code = "HISTORICAL_INPUT_UNAVAILABLE";
             failure_message =
@@ -566,7 +585,7 @@ WorkerRunStatus run_worker_once(
             !archive_generator_release(
                 config.data_root,
                 config.signal_synth_cli,
-                generator_identity,
+                generator_binary_sha256,
                 execution_cli,
                 error) ||
             !snapshot_pack_recipe(
@@ -578,12 +597,33 @@ WorkerRunStatus run_worker_once(
             !store.pin_job_inputs(
                 job.job_id,
                 expected_pack,
-                generator_identity,
+                current_producer.integration_contract,
+                current_producer.canonical_json,
+                current_producer.generator_version,
+                current_producer.generator_git_commit,
+                current_producer.generator_build_identity,
+                generator_binary_sha256,
                 error)) {
             failure_code = "EXECUTION_INPUT_SNAPSHOT_FAILED";
             failure_message =
                 "Immutable generator and pack inputs could not be preserved.";
         }
+    }
+
+    if (failure_code.empty() && pinned_execution &&
+        !cli_core_integration_contract(
+            execution_cli, execution_producer, error)) {
+        failure_code = "HISTORICAL_INPUT_UNAVAILABLE";
+        failure_message = "The preserved generator contract is unavailable.";
+    }
+    if (failure_code.empty() && pinned_execution &&
+        (job.integration_contract_version != execution_producer.integration_contract ||
+         job.integration_contract_json != execution_producer.canonical_json ||
+         job.generator_version != execution_producer.generator_version ||
+         job.generator_git_commit != execution_producer.generator_git_commit ||
+         job.generator_build_identity != execution_producer.generator_build_identity)) {
+        failure_code = "HISTORICAL_INPUT_MISMATCH";
+        failure_message = "The preserved generator identity does not match the job.";
     }
 
     int exit_code = 0;
@@ -614,7 +654,8 @@ WorkerRunStatus run_worker_once(
 
     CliChallengeResult challenge;
     if (failure_code.empty() &&
-        !parse_challenge_stdout(stdout_text, challenge, error)) {
+        !parse_challenge_receipt(
+            stdout_text, execution_producer, challenge, error)) {
         failure_code = "GENERATOR_OUTPUT_INVALID";
         failure_message = "Generator returned invalid machine output.";
     }
@@ -668,8 +709,13 @@ WorkerRunStatus run_worker_once(
             job,
             package.package_id,
             challenge.package_fingerprint,
-            "signal_synth-cli",
-            generator_identity,
+            execution_producer.integration_contract,
+            execution_producer.canonical_json,
+            execution_producer.generator_version,
+            execution_producer.generator_git_commit,
+            execution_producer.generator_build_identity,
+            generator_binary_sha256,
+            challenge.canonical_receipt_json,
             normalized_command,
             package.manifest_hash,
             package.package_directory,

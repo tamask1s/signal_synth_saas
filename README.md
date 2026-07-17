@@ -697,7 +697,7 @@ Apache module : localhost backend under /syn_sig_ra
 SQLite : metadata database
 filesystem data root : immutable packages and snapshots
 worker service : queued generation jobs
-signal_synth CLI : authoritative generator
+linked signal_synth library + CLI : one pinned producer identity
 ```
 
 Operational endpoints:
@@ -705,11 +705,22 @@ Operational endpoints:
 | Endpoint | Use |
 |---|---|
 | `/healthz` | Confirms the Apache module can answer. |
-| `/readyz` | Confirms DB, generator, catalog, and artifact store are usable. |
+| `/readyz` | Confirms DB, pinned linked/CLI core identity, catalog, disk, and artifact store; publishes the accepted non-secret core contract. |
 | `/v1/usage` | Customer-facing usage counters and limits. |
 | `/v1/metrics` | Owner/admin operational counters and worker heartbeat. |
 
-Operational scripts documented in `doc/` cover build, deploy, live verification, retention cleanup, backup, and restore drill workflows.
+The SaaS is pinned to `signal_synth@ef2c1d9cd00a07c62617619aa939a6996052867e` and accepts only
+`synsigra_core_integration_v1`. Build configuration fails for a different or
+dirty sibling checkout. Worker receipts are strict JSON, and each completed
+job records the core version/commit/build identity, generator binary SHA-256,
+canonical integration contract, canonical receipt, pack/package fingerprints,
+and artifact location.
+
+Operational scripts documented in `doc/` cover build, state-preserving deploy,
+live verification, retention cleanup, backup, and restore drills. The separate
+`scripts/reset_prebeta_state.sh --confirm-destroy-prebeta-state` command is the
+only supported way to discard pre-beta state; normal deploy never migrates or
+deletes the database.
 
 ## Repository layout
 

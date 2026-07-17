@@ -441,8 +441,11 @@ int main() {
     identity.api_key_id = "route_key";
     identity.organization_id = "route_org";
     identity.user_id = "route_user";
+    identity.role = "owner";
     require(
-        store.create_api_key(identity, key_hash, "route test", error),
+        store.bootstrap_owner(
+            identity, "bootstrap@example.test", "Bootstrap Owner",
+            key_hash, "route test", error),
         "route test API key creation should succeed: " + error
     );
 

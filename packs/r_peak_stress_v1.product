@@ -6,13 +6,9 @@
       "version": "1.0"
     }
   ],
-  "compatible_generator_versions": [
-    "0.5.0-dev",
-    "signal_synth-cli"
-  ],
   "deprecation_message": "",
   "expected_pack_fingerprint": "sha256:197b42c92ecdbd2af0971462b6a99314ac28e8cbae9d9c03d5fb0a206a4a5505",
-  "generator_contract": "signal-synth-cli/pack-challenge-v1",
+  "integration_contract": "synsigra_core_integration_v1",
   "pack_id": "r_peak_stress_v1",
   "release_status": "beta",
   "released_at": "2026-07-06",

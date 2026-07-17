@@ -6,16 +6,22 @@ build_dir=${BUILD_DIR:-"$repo_dir/build/e2e"}
 signal_synth_root=${SIGNAL_SYNTH_ROOT:-"$repo_dir/../signal_synth"}
 signal_synth_build_dir=${SIGNAL_SYNTH_BUILD_DIR:-"$repo_dir/build/signal_synth_live"}
 timestamp=$(date -u +%Y%m%d%H%M%S)
-reset_db=0
-[ "${1:-}" = "--reset-db" ] && reset_db=1
+[ "$#" -eq 0 ] || {
+  echo "usage: $0" >&2
+  echo "database resets use scripts/reset_prebeta_state.sh" >&2
+  exit 2
+}
 
-cmake -S "$signal_synth_root" -B "$signal_synth_build_dir" \
-  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-  -DSIGNAL_SYNTH_BUILD_TESTS=OFF \
-  -DSIGNAL_SYNTH_BUILD_CLI=ON
-cmake --build "$signal_synth_build_dir" --target signal_synth_cli -j2
-SIGNAL_SYNTH_CLI="$signal_synth_build_dir/signal-synth" \
-  "$repo_dir/scripts/build_release.sh"
+if [ "${SYN_SIG_RA_SKIP_BUILD:-0}" != 1 ]; then
+  cmake -S "$signal_synth_root" -B "$signal_synth_build_dir" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_CXX_FLAGS_RELEASE="-O2 -DNDEBUG" \
+    -DSIGNAL_SYNTH_BUILD_TESTS=OFF \
+    -DSIGNAL_SYNTH_BUILD_CLI=ON
+  cmake --build "$signal_synth_build_dir" --target signal_synth_cli -j2
+  SIGNAL_SYNTH_CLI="$signal_synth_build_dir/signal-synth" \
+    "$repo_dir/scripts/build_release.sh"
+fi
 
 sudo systemctl stop syn_sig_ra_worker.service
 sudo systemctl stop apache22
@@ -67,20 +73,6 @@ sudo install -d -o apache -g nogroup -m 0750 \
   /var/lib/syn_sig_ra/derived-artifacts \
   /var/lib/syn_sig_ra/recipes \
   /var/lib/syn_sig_ra/generator_releases
-
-if [ "$reset_db" = 1 ]; then
-  sudo cp /var/lib/syn_sig_ra/db.sqlite3 \
-    "/var/lib/syn_sig_ra/db.sqlite3.before-$timestamp"
-  sudo rm -f /var/lib/syn_sig_ra/db.sqlite3 \
-    /var/lib/syn_sig_ra/db.sqlite3-shm \
-    /var/lib/syn_sig_ra/db.sqlite3-wal
-  sudo -u apache /usr/local/bin/syn_sig_ra_admin \
-    init-db /var/lib/syn_sig_ra/db.sqlite3
-  sudo cat /root/syn_sig_ra_api_key |
-    sudo -u apache /usr/local/bin/syn_sig_ra_admin create-api-key \
-      /var/lib/syn_sig_ra/db.sqlite3 \
-      org_live user_live key_live_20260705 "live integration" owner
-fi
 
 sudo /usr/local/apache2/bin/httpd -t
 sudo systemctl start apache22

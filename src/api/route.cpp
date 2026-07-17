@@ -3,6 +3,7 @@
 #include "syn_sig_ra/api_key_auth.h"
 #include "syn_sig_ra/artifact_store.h"
 #include "syn_sig_ra/build_info.h"
+#include "syn_sig_ra/core_contract.h"
 #include "syn_sig_ra/job_request.h"
 #include "syn_sig_ra/metadata_store.h"
 #include "syn_sig_ra/openapi_document.h"
@@ -780,6 +781,16 @@ json_t* job_json_object(
         );
     }
     if (job.status == "succeeded") {
+        json_object_set_new(root, "integration_contract", json_string(
+            job.integration_contract_version.c_str()));
+        json_object_set_new(root, "generator_version", json_string(
+            job.generator_version.c_str()));
+        json_object_set_new(root, "generator_git_commit", json_string(
+            job.generator_git_commit.c_str()));
+        json_object_set_new(root, "generator_build_identity", json_string(
+            job.generator_build_identity.c_str()));
+        json_object_set_new(root, "generator_binary_sha256", json_string(
+            job.generator_binary_sha256.c_str()));
         if (job.package_id.empty()) {
             json_object_set_new(
                 root, "artifact_status", json_string("expired")
@@ -798,16 +809,6 @@ json_t* job_json_object(
             root,
             "package_fingerprint",
             json_string(job.package_fingerprint.c_str())
-        );
-        json_object_set_new(
-            root,
-            "generator_version",
-            json_string(job.generator_version.c_str())
-        );
-        json_object_set_new(
-            root,
-            "generator_build_identity",
-            json_string(job.generator_build_identity.c_str())
         );
         json_object_set_new(
             root,
@@ -4123,7 +4124,7 @@ const char kUiJs[] = R"JS((() => {
         </details>
         <details>
           <summary>Compatibility and changelog</summary>
-          <p class="muted">Generator: ${escapeHtml(pack.generator_contract || "n/a")} · compatible: ${escapeHtml((pack.compatible_generator_versions || []).join(", "))}</p>
+          <p class="muted">Core contract: ${escapeHtml(pack.integration_contract || "n/a")}</p>
           <p class="muted">Local verifier min: ${escapeHtml((pack.generator_compatibility || {}).local_verifier_min_version || "n/a")}</p>
           ${pack.deprecation_message ? `<p class="error">${escapeHtml(pack.deprecation_message)}</p>` : ""}
           <ul>
@@ -5657,8 +5658,11 @@ const char kUiJs[] = R"JS((() => {
       artifact_status: job.artifact_status || "",
       started_at: job.started_at || "",
       completed_at: job.completed_at || "",
+      integration_contract: job.integration_contract || "",
       generator_version: job.generator_version || "",
+      generator_git_commit: job.generator_git_commit || "",
       generator_build_identity: job.generator_build_identity || "",
+      generator_binary_sha256: job.generator_binary_sha256 || "",
       error: job.error || null
     })));
   }
@@ -6016,8 +6020,11 @@ const char kUiJs[] = R"JS((() => {
               <dt>Project</dt><dd>${escapeHtml(job.project_id || "—")}</dd>
               <dt>Started</dt><dd>${escapeHtml(formatDate(job.started_at))}</dd>
               <dt>Completed</dt><dd>${escapeHtml(formatDate(job.completed_at))}</dd>
+              <dt>Core contract</dt><dd class="fingerprint">${escapeHtml(job.integration_contract || "—")}</dd>
               <dt>Generator</dt><dd>${escapeHtml(job.generator_version || "—")}</dd>
+              <dt>Core commit</dt><dd class="fingerprint">${escapeHtml(job.generator_git_commit || "—")}</dd>
               <dt>Build identity</dt><dd class="fingerprint">${escapeHtml(job.generator_build_identity || "—")}</dd>
+              <dt>Binary SHA-256</dt><dd class="fingerprint">${escapeHtml(job.generator_binary_sha256 || "—")}</dd>
               <dt>Package fingerprint</dt><dd class="fingerprint">${escapeHtml(job.package_fingerprint || "—")}</dd>
             </dl>
           </details>
@@ -6949,9 +6956,13 @@ RouteResponse route_request(
             return json_response(405, "{\"error\":{\"code\":\"method_not_allowed\","
                 "\"message\":\"Readiness only accepts GET.\"}}\n");
         }
-        const bool database_ok = metadata_store != nullptr;
-        const bool generator_ok =
-            !signal_synth_cli.empty() && access(signal_synth_cli.c_str(), X_OK) == 0;
+        std::string database_error;
+        const bool database_ok = metadata_store != nullptr &&
+            metadata_store->initialize(database_error);
+        CoreIntegrationContract contract;
+        std::string contract_error;
+        const bool generator_ok = !signal_synth_cli.empty() &&
+            validate_core_integration(signal_synth_cli, contract, contract_error);
         std::vector<PackSummary> packs;
         std::string pack_error;
         const bool packs_ok = PackCatalog(pack_root).list(packs, pack_error) &&
@@ -6971,6 +6982,22 @@ RouteResponse route_request(
         json_object_set_new(body, "status", json_string(ready ? "ready" : "not_ready"));
         json_object_set_new(body, "database", json_boolean(database_ok));
         json_object_set_new(body, "generator", json_boolean(generator_ok));
+        if (generator_ok) {
+            json_t* producer = json_object();
+            json_object_set_new(producer, "integration_contract", json_string(
+                contract.integration_contract.c_str()));
+            json_object_set_new(producer, "version", json_string(
+                contract.generator_version.c_str()));
+            json_object_set_new(producer, "git_commit", json_string(
+                contract.generator_git_commit.c_str()));
+            json_object_set_new(producer, "build_identity", json_string(
+                contract.generator_build_identity.c_str()));
+            json_object_set_new(producer, "challenge_package", json_string(
+                contract.challenge_package.c_str()));
+            json_object_set_new(producer, "scoring_manifest", json_string(
+                contract.scoring_manifest.c_str()));
+            json_object_set_new(body, "accepted_core", producer);
+        }
         json_object_set_new(body, "pack_catalog", json_boolean(packs_ok));
         json_object_set_new(body, "artifact_store", json_boolean(storage_ok));
         json_object_set_new(
@@ -8582,21 +8609,24 @@ RouteResponse route_request(
                 return response;
             }
             if (pack_status == PackLookupStatus::found) {
-                bool generator_compatible = false;
-                for (std::vector<std::string>::const_iterator it =
-                         pack.compatible_generator_versions.begin();
-                     it != pack.compatible_generator_versions.end(); ++it) {
-                    if (*it == "signal_synth-cli") {
-                        generator_compatible = true;
-                        break;
-                    }
-                }
-                if (!generator_compatible) {
+                if (pack.integration_contract_version !=
+                    "synsigra_core_integration_v1") {
                     return json_response(
                         409,
                         "{\"error\":{\"code\":\"pack_generator_incompatible\","
                         "\"message\":\"The pack is not compatible with this generator.\"}}\n"
                     );
+                }
+                CoreIntegrationContract accepted;
+                if (!signal_synth_cli.empty() && !validate_core_integration(
+                        signal_synth_cli, accepted, error)) {
+                    RouteResponse response = json_response(
+                        503,
+                        "{\"error\":{\"code\":\"generator_contract_mismatch\","
+                        "\"message\":\"The generator producer identity is not ready.\"}}\n"
+                    );
+                    response.internal_error = error;
+                    return response;
                 }
                 source_pack_path =
                     pack_root + "/" + job_request.pack_id + ".json";
@@ -9171,11 +9201,11 @@ RouteResponse route_request(
                 const std::string releases =
                     data_root + "/generator_releases/";
                 const bool valid_identity =
-                    original.generator_build_identity.size() == 71 &&
-                    original.generator_build_identity.compare(
+                    original.generator_binary_sha256.size() == 71 &&
+                    original.generator_binary_sha256.compare(
                         0, 7, "sha256:") == 0;
                 const std::string release_cli = valid_identity
-                    ? releases + original.generator_build_identity.substr(7) +
+                    ? releases + original.generator_binary_sha256.substr(7) +
                         "/signal-synth"
                     : std::string();
                 if (original.source_pack_path.size() <= recipes.size() ||

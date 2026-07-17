@@ -194,10 +194,12 @@ print(secrets.token_urlsafe(32))
 PY
 )
 printf '%s\n' "$API_KEY" |
-    "$ADMIN_BIN" create-api-key \
+    "$ADMIN_BIN" bootstrap-owner \
         "$DB_PATH" \
         org_e2e \
         user_e2e \
+        e2e@example.test \
+        "E2E Owner" \
         key_e2e \
         "integration e2e" >/dev/null
 
@@ -613,10 +615,16 @@ if body.get("status") != "succeeded":
 package_id = body.get("package_id", "")
 if not package_id.startswith("pkg_"):
     raise SystemExit("missing valid package_id")
-for key in ("package_fingerprint", "generator_build_identity"):
+for key in ("package_fingerprint", "generator_binary_sha256"):
     value = body.get(key, "")
     if not (isinstance(value, str) and value.startswith("sha256:") and len(value) == 71):
         raise SystemExit("invalid " + key)
+if body.get("integration_contract") != "synsigra_core_integration_v1":
+    raise SystemExit("invalid integration contract")
+if len(body.get("generator_git_commit", "")) != 40:
+    raise SystemExit("invalid generator git commit")
+if body.get("generator_build_identity") != "signal_synth/" + body["generator_git_commit"]:
+    raise SystemExit("invalid generator build identity")
 for key in ("manifest_url", "archive_url"):
     value = body.get(key, "")
     if not value.startswith("/syn_sig_ra/v1/artifacts/" + package_id + "/"):

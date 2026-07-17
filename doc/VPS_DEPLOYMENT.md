@@ -191,7 +191,6 @@ Create the local state directory. The Apache 2.2 worker user on this VPS is
 
 ```sh
 sudo install -d -o apache -g nogroup -m 0750 /var/lib/syn_sig_ra
-sudo install -d -o apache -g nogroup -m 0750 /var/lib/syn_sig_ra/jobs
 sudo install -d -o apache -g nogroup -m 0750 /var/lib/syn_sig_ra/work
 sudo install -d -o apache -g nogroup -m 0750 /var/lib/syn_sig_ra/packages
 
@@ -206,12 +205,14 @@ Create an API key without committing or logging the plaintext secret:
 ```sh
 sudo sh -c 'umask 077; openssl rand -base64 48 > /root/syn_sig_ra_api_key'
 sudo sh -c 'cat /root/syn_sig_ra_api_key |
-  /usr/local/bin/syn_sig_ra_admin create-api-key \
+  /usr/local/bin/syn_sig_ra_admin bootstrap-owner \
     /var/lib/syn_sig_ra/db.sqlite3 \
     org_live \
     user_live \
+    synsigra@gmail.com \
+    "Kis Tamás" \
     key_live_$(date +%Y%m%d) \
-    "live API key"'
+    "live operator"'
 ```
 
 Do not print `/root/syn_sig_ra_api_key` in shared logs.
@@ -414,11 +415,11 @@ sudo stat -c '%U:%G %a %n' \
   /var/lib/syn_sig_ra/packages
 ```
 
-The module accepts the immediately preceding pre-beta schema where an explicit
-in-place upgrade is implemented. Older obsolete schema versions should be reset:
-stop the worker, remove `/var/lib/syn_sig_ra/db.sqlite3`, initialize a fresh
-database, and register again. There is no customer-data migration commitment
-during the private beta.
+The current database is the only accepted schema. Any other non-empty schema
+fails with an instruction to run the explicit destructive pre-beta reset; no
+in-place compatibility migration exists. Use
+`scripts/reset_prebeta_state.sh --confirm-destroy-prebeta-state`, optionally
+with `--backup DIRECTORY`, instead of deleting individual files by hand.
 
 ## Rollback
 

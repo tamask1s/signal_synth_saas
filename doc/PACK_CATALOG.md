@@ -30,8 +30,9 @@ their stored fingerprints remain immutable.
 
 ## Generator compatibility
 
-`generator_contract` names the required CLI behavior and
-`compatible_generator_versions` lists accepted generator version identities.
+`integration_contract` is the single supported SaaS/core boundary. This release
+accepts `synsigra_core_integration_v1`; generator version ranges and legacy CLI
+aliases are deliberately not compatibility surfaces.
 New jobs return `pack_generator_incompatible` rather than invoking an
 unapproved generator. Completed jobs retain the exact generator build hash.
 

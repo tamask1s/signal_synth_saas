@@ -3,6 +3,8 @@
 
 #include <string>
 
+#include "syn_sig_ra/core_contract.h"
+
 namespace syn_sig_ra {
 
 struct WorkerConfig {
@@ -18,6 +20,7 @@ struct CliChallengeResult {
     unsigned long scenario_count;
     std::string pack_fingerprint;
     std::string package_fingerprint;
+    std::string canonical_receipt_json;
 };
 
 enum class WorkerRunStatus {
@@ -27,8 +30,9 @@ enum class WorkerRunStatus {
     worker_error
 };
 
-bool parse_challenge_stdout(
+bool parse_challenge_receipt(
     const std::string& stdout_text,
+    const CoreIntegrationContract& producer,
     CliChallengeResult& result,
     std::string& error
 );

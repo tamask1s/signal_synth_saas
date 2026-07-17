@@ -42,20 +42,6 @@ def product_changelog(entries):
     return output
 
 
-def compatible_generator_versions(metadata):
-    compatibility = metadata.get("generator_compatibility", {})
-    versions = []
-    minimum = compatibility.get("minimum_generator_version")
-    if minimum:
-        versions.append(minimum)
-    versions.append("signal_synth-cli")
-    output = []
-    for item in versions:
-        if item not in output:
-            output.append(item)
-    return output
-
-
 def resolve_signal_synth_cli(cli):
     if cli:
         return cli
@@ -115,8 +101,7 @@ def import_pack(source_root, output_root, path_base, metadata, signal_synth_cli)
         "release_status": metadata["release_status"],
         "released_at": metadata["release_date"],
         "expected_pack_fingerprint": pack_fingerprint,
-        "generator_contract": "signal-synth-cli/pack-challenge-v1",
-        "compatible_generator_versions": compatible_generator_versions(metadata),
+        "integration_contract": "synsigra_core_integration_v1",
         "deprecation_message": metadata.get("deprecation_message", ""),
         "changelog": product_changelog(metadata.get("changelog", [])),
     }

@@ -3,9 +3,10 @@
 ## Endpoints
 
 - `GET /syn_sig_ra/healthz` proves the Apache module can answer.
-- `GET /syn_sig_ra/readyz` returns HTTP 200 only when the metadata DB opens,
-  the generator is executable, the pack catalog is non-empty, and the artifact
-  data root is writable. It also reports free disk bytes.
+- `GET /syn_sig_ra/readyz` returns HTTP 200 only when the current metadata DB
+  opens, the linked core and external CLI report the exact same supported
+  producer identity, the pack catalog is non-empty, and the artifact data root
+  is writable. It reports the accepted contract/identity and free disk bytes.
 - `GET /syn_sig_ra/v1/metrics` is restricted to owner/admin API keys and
   exposes queue depth, running jobs, monthly failures, quota rejections,
   package usage, and the last worker heartbeat.
@@ -58,11 +59,24 @@ transport later.
 scripts/build_release.sh
 RUN_E2E=1 scripts/build_release.sh
 scripts/deploy_live.sh
-scripts/deploy_live.sh --reset-db
 scripts/verify_live.sh
 scripts/commit_checked.sh 17 "Add observability" file1 file2
 git push origin master
 ```
 
-`--reset-db` is intentionally explicit and re-provisions the private-beta
-live key after backing up the old database. Push remains a separate operation.
+Normal deploy preserves state and refuses an unsupported database schema.
+There are no in-place compatibility migrations. The explicitly destructive,
+idempotent pre-beta reset is separate:
+
+```sh
+scripts/reset_prebeta_state.sh --confirm-destroy-prebeta-state
+scripts/reset_prebeta_state.sh --confirm-destroy-prebeta-state \
+  --backup /var/backups/syn_sig_ra/pre-v1-reset
+```
+
+It stops services, optionally archives the old state, removes the database and
+derived artifacts, bootstraps the real operator (`Kis Tamás`,
+`synsigra@gmail.com`) from a secret supplied on stdin, rotates the live key,
+deploys, proves the old key returns 401, and generates/downloads a fresh smoke
+package. Config, TLS, mail credentials, logs, source packs, verifier downloads,
+and repositories are not removed. Push remains a separate operation.

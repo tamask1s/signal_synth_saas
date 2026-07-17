@@ -177,11 +177,6 @@
       },
       "local_verifier_smoke_tests": [
         {
-          "scope": "golden challenge package compatibility and R-peak scoring fixture",
-          "target": "r_peak",
-          "test_id": "TEST-GOLDEN-CHALLENGE-001"
-        },
-        {
           "scope": "local event-detection scoring smoke test",
           "target": "r_peak",
           "test_id": "TEST-PYTHON-SCORING-001"
@@ -1385,11 +1380,6 @@
         "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
       },
       "local_verifier_smoke_tests": [
-        {
-          "scope": "golden challenge package compatibility and R-peak scoring fixture",
-          "target": "r_peak",
-          "test_id": "TEST-GOLDEN-CHALLENGE-001"
-        },
         {
           "scope": "local event-detection scoring smoke test",
           "target": "r_peak",
@@ -2806,11 +2796,6 @@
       },
       "local_verifier_smoke_tests": [
         {
-          "scope": "golden challenge package compatibility and R-peak scoring fixture",
-          "target": "r_peak",
-          "test_id": "TEST-GOLDEN-CHALLENGE-001"
-        },
-        {
           "scope": "local event-detection scoring smoke test",
           "target": "r_peak",
           "test_id": "TEST-PYTHON-SCORING-001"
@@ -3186,11 +3171,6 @@
         "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
       },
       "local_verifier_smoke_tests": [
-        {
-          "scope": "golden challenge package compatibility and R-peak scoring fixture",
-          "target": "r_peak",
-          "test_id": "TEST-GOLDEN-CHALLENGE-001"
-        },
         {
           "scope": "local event-detection scoring smoke test",
           "target": "r_peak",

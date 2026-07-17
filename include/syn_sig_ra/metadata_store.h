@@ -46,8 +46,13 @@ struct JobRecord {
     std::string pack_fingerprint;
     std::string package_id;
     std::string package_fingerprint;
+    std::string integration_contract_version;
+    std::string integration_contract_json;
     std::string generator_version;
+    std::string generator_git_commit;
     std::string generator_build_identity;
+    std::string generator_binary_sha256;
+    std::string challenge_receipt_json;
     std::string manifest_hash;
     std::string artifact_storage_key;
     std::string error_code;
@@ -65,6 +70,13 @@ struct PackageRecord {
     std::string project_id;
     std::string user_id;
     std::string package_fingerprint;
+    std::string integration_contract_version;
+    std::string integration_contract_json;
+    std::string generator_version;
+    std::string generator_git_commit;
+    std::string generator_build_identity;
+    std::string generator_binary_sha256;
+    std::string challenge_receipt_json;
     std::string manifest_hash;
     std::string artifact_storage_key;
     long long size_bytes;
@@ -352,6 +364,15 @@ public:
         std::string& error
     );
 
+    bool bootstrap_owner(
+        const ApiKeyIdentity& identity,
+        const std::string& email,
+        const std::string& display_name,
+        const std::string& key_hash,
+        const std::string& label,
+        std::string& error
+    );
+
     ApiKeyLookupStatus find_active_api_key(
         const std::string& key_hash,
         ApiKeyIdentity& identity,
@@ -466,17 +487,12 @@ public:
     bool pin_job_inputs(
         const std::string& job_id,
         const std::string& source_pack_path,
-        const std::string& generator_build_identity,
-        std::string& error
-    );
-
-    bool complete_job(
-        const std::string& job_id,
-        const std::string& package_fingerprint,
+        const std::string& integration_contract_version,
+        const std::string& integration_contract_json,
         const std::string& generator_version,
+        const std::string& generator_git_commit,
         const std::string& generator_build_identity,
-        const std::string& normalized_cli_command,
-        const std::string& artifact_storage_key,
+        const std::string& generator_binary_sha256,
         std::string& error
     );
 
@@ -484,8 +500,13 @@ public:
         const JobRecord& job,
         const std::string& package_id,
         const std::string& package_fingerprint,
+        const std::string& integration_contract_version,
+        const std::string& integration_contract_json,
         const std::string& generator_version,
+        const std::string& generator_git_commit,
         const std::string& generator_build_identity,
+        const std::string& generator_binary_sha256,
+        const std::string& challenge_receipt_json,
         const std::string& normalized_cli_command,
         const std::string& manifest_hash,
         const std::string& artifact_storage_key,

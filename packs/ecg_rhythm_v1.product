@@ -6,13 +6,9 @@
       "version": "1.0"
     }
   ],
-  "compatible_generator_versions": [
-    "0.5.0-dev",
-    "signal_synth-cli"
-  ],
   "deprecation_message": "",
   "expected_pack_fingerprint": "sha256:a7552ec3900dd51d3c9769a8e7d112f27b55011a91fbb16ba3fd66f8a939c869",
-  "generator_contract": "signal-synth-cli/pack-challenge-v1",
+  "integration_contract": "synsigra_core_integration_v1",
   "pack_id": "ecg_rhythm_v1",
   "release_status": "beta",
   "released_at": "2026-07-06",

@@ -88,9 +88,8 @@ int main() {
     );
     require(
         r_peak->release_status == "beta" &&
-            r_peak->generator_contract ==
-                "signal-synth-cli/pack-challenge-v1" &&
-            r_peak->compatible_generator_versions.size() >= 1 &&
+            r_peak->integration_contract_version ==
+                "synsigra_core_integration_v1" &&
             r_peak->changelog.size() == 1,
         "catalog should expose validated release and compatibility metadata"
     );

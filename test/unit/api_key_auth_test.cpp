@@ -61,6 +61,7 @@ int main() {
     identity.api_key_id = "key_test";
     identity.organization_id = "org_test";
     identity.user_id = "user_test";
+    identity.role = "owner";
 
     {
         syn_sig_ra::MetadataStore store(database_path);
@@ -72,7 +73,9 @@ int main() {
         );
         error.clear();
         require(
-            store.create_api_key(identity, key_hash, "unit test", error),
+            store.bootstrap_owner(
+                identity, "bootstrap@example.test", "Bootstrap Owner",
+                key_hash, "unit test", error),
             "API key creation should succeed: " + error
         );
 
@@ -299,7 +302,7 @@ int main() {
         "rate-limit decisions should be persisted"
     );
     require(
-        scalar_int(verification_database, "PRAGMA user_version;") == 10,
+        scalar_int(verification_database, "PRAGMA user_version;") == 1,
         "schema version should be deterministic"
     );
     sqlite3_close(verification_database);

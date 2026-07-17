@@ -56,6 +56,33 @@ bool remove_tree(const std::string& path) {
     return unlink(path.c_str()) == 0;
 }
 
+bool verify_user(const std::string& database_path, const std::string& user_id) {
+    sqlite3* database = nullptr;
+    sqlite3_stmt* statement = nullptr;
+    bool ok = sqlite3_open(database_path.c_str(), &database) == SQLITE_OK &&
+        sqlite3_prepare_v2(
+            database, "UPDATE users SET email_verified=1 WHERE id=?1;",
+            -1, &statement, nullptr) == SQLITE_OK;
+    if (ok) {
+        sqlite3_bind_text(statement, 1, user_id.c_str(), -1, SQLITE_TRANSIENT);
+        ok = sqlite3_step(statement) == SQLITE_DONE;
+    }
+    sqlite3_finalize(statement);
+    sqlite3_close(database);
+    return ok;
+}
+
+std::string replace_once(
+    std::string value,
+    const std::string& needle,
+    const std::string& replacement
+) {
+    const std::string::size_type at = value.find(needle);
+    require(at != std::string::npos, "receipt mutation fixture should exist");
+    value.replace(at, needle.size(), replacement);
+    return value;
+}
+
 }  // namespace
 
 int main() {
@@ -63,18 +90,57 @@ int main() {
         "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     syn_sig_ra::CliChallengeResult parsed;
     std::string error;
+    syn_sig_ra::CoreIntegrationContract producer;
     require(
-        !syn_sig_ra::parse_challenge_stdout("", parsed, error),
+        syn_sig_ra::linked_core_integration_contract(producer, error),
+        "linked contract should be valid: " + error
+    );
+    require(
+        !syn_sig_ra::parse_challenge_receipt("", producer, parsed, error),
         "empty CLI stdout should be rejected"
     );
     require(
-        !syn_sig_ra::parse_challenge_stdout(
+        !syn_sig_ra::parse_challenge_receipt(
             "status=challenge-rendered\nstatus=duplicate\n",
+            producer,
             parsed,
             error
         ),
         "duplicate CLI fields should be rejected"
     );
+    const std::string valid_receipt =
+        "{\"schema_version\":1,\"contract\":\"synsigra_core_integration_v1\","
+        "\"status\":\"challenge_rendered\",\"output_directory\":\"/tmp/out\","
+        "\"package_id\":\"test_pack\",\"scenario_count\":1,"
+        "\"pack_fingerprint\":\"" + fingerprint + "\","
+        "\"package_fingerprint\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\","
+        "\"generator\":{\"name\":\"signal_synth\",\"version\":\"0.5.0-dev\","
+        "\"git_commit\":\"ef2c1d9cd00a07c62617619aa939a6996052867e\","
+        "\"build_identity\":\"signal_synth/ef2c1d9cd00a07c62617619aa939a6996052867e\"},"
+        "\"contracts\":{\"challenge_package\":\"synsigra_challenge_package_v1\","
+        "\"scoring_manifest\":\"synsigra_scoring_manifest_v1\"}}";
+    require(
+        syn_sig_ra::parse_challenge_receipt(
+            valid_receipt, producer, parsed, error) &&
+            parsed.canonical_receipt_json.find("challenge_rendered") !=
+                std::string::npos,
+        "exact JSON receipt should be accepted: " + error
+    );
+    require(!syn_sig_ra::parse_challenge_receipt(
+        valid_receipt + " trailing", producer, parsed, error),
+        "receipt trailing output must be rejected");
+    require(!syn_sig_ra::parse_challenge_receipt(
+        replace_once(valid_receipt, "\"status\":", "\"status\":\"challenge_rendered\",\"status\":"),
+        producer, parsed, error), "receipt duplicate keys must be rejected");
+    require(!syn_sig_ra::parse_challenge_receipt(
+        replace_once(valid_receipt, "{\"schema_version\":1,", "{\"schema_version\":1,\"extra\":true,"),
+        producer, parsed, error), "receipt unknown fields must be rejected");
+    require(!syn_sig_ra::parse_challenge_receipt(
+        replace_once(valid_receipt, "\"status\":\"challenge_rendered\",", ""),
+        producer, parsed, error), "receipt missing fields must be rejected");
+    require(!syn_sig_ra::parse_challenge_receipt(
+        replace_once(valid_receipt, "\"version\":\"0.5.0-dev\"", "\"version\":\"9.9.9\""),
+        producer, parsed, error), "receipt producer mismatches must be rejected");
 
     std::ostringstream root_builder;
     root_builder << "/tmp/syn_sig_ra_worker_test_" << getpid();
@@ -96,23 +162,34 @@ int main() {
     write_file(
         success_cli,
         "#!/bin/sh\n"
+        "if [ \"$1\" = contract ]; then\n"
+        "  echo '" + producer.canonical_json + "'\n"
+        "  exit 0\n"
+        "fi\n"
         "mkdir -p \"$5/cases/test_case\"\n"
         "echo '{\"schema_version\":1}' > \"$5/manifest.json\"\n"
         "printf 'test_case 2 500 8\\n# generator=signal_synth test\\n# scenario_id=test_case\\nsignal.dat 16 200(0)/mV 16 0 0 0 0 ECG\\nsignal.dat 16 1000(0)/au 16 0 0 0 0 PPG\\n' > \"$5/cases/test_case/synsigra.hea\"\n"
         "printf '\\000\\000\\144\\000\\001\\000\\145\\000\\002\\000\\146\\000\\003\\000\\147\\000\\004\\000\\150\\000\\005\\000\\151\\000\\006\\000\\152\\000\\007\\000\\153\\000' > \"$5/cases/test_case/synsigra.dat\"\n"
-        "echo status=challenge-rendered\n"
-        "echo output_directory=\"$5\"\n"
-        "echo package_id=test_pack\n"
-        "echo scenario_count=1\n"
-        "echo pack_fingerprint=" + fingerprint + "\n"
-        "echo package_fingerprint=sha256:"
-        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n",
+        "printf '{\"schema_version\":1,\"contract\":\"synsigra_core_integration_v1\","
+        "\"status\":\"challenge_rendered\",\"output_directory\":\"%s\","
+        "\"package_id\":\"test_pack\",\"scenario_count\":1,"
+        "\"pack_fingerprint\":\"" + fingerprint + "\","
+        "\"package_fingerprint\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\","
+        "\"generator\":{\"name\":\"signal_synth\",\"version\":\"0.5.0-dev\","
+        "\"git_commit\":\"ef2c1d9cd00a07c62617619aa939a6996052867e\","
+        "\"build_identity\":\"signal_synth/ef2c1d9cd00a07c62617619aa939a6996052867e\"},"
+        "\"contracts\":{\"challenge_package\":\"synsigra_challenge_package_v1\","
+        "\"scoring_manifest\":\"synsigra_scoring_manifest_v1\"}}\n' \"$5\"\n",
         0700
     );
     const std::string failure_cli = root + "/failure-cli";
     write_file(
         failure_cli,
         "#!/bin/sh\n"
+        "if [ \"$1\" = contract ]; then\n"
+        "  echo '" + producer.canonical_json + "'\n"
+        "  exit 0\n"
+        "fi\n"
         "echo 'error=PACK_JSON_RANGE path=$ message=bad pack' >&2\n"
         "exit 4\n",
         0700
@@ -124,13 +201,16 @@ int main() {
     owner.api_key_id = "worker_key";
     owner.organization_id = "worker_org";
     owner.user_id = "worker_user";
+    owner.role = "owner";
     std::string key_hash;
     require(
         syn_sig_ra::sha256_hex("worker-secret", key_hash, error),
         "worker owner hash should succeed"
     );
     require(
-        store.create_api_key(owner, key_hash, "worker", error),
+        store.bootstrap_owner(
+            owner, "worker@example.test", "Worker Owner", key_hash,
+            "worker", error),
         "worker owner should be created: " + error
     );
 
@@ -176,12 +256,14 @@ int main() {
     const std::string successful_package_id = job.package_id;
     const std::string successful_generator_identity =
         job.generator_build_identity;
+    const std::string successful_generator_binary =
+        job.generator_binary_sha256;
     require(
         job.source_pack_path.find(root + "/recipes/") == 0 &&
             access(job.source_pack_path.c_str(), R_OK) == 0 &&
             access(
                 (root + "/generator_releases/" +
-                 job.generator_build_identity.substr(7) +
+                 job.generator_binary_sha256.substr(7) +
                  "/signal-synth").c_str(),
                 X_OK) == 0,
         "successful jobs should pin immutable recipes and generator releases"
@@ -311,8 +393,19 @@ int main() {
     );
     syn_sig_ra::ApiKeyIdentity other_owner;
     other_owner.api_key_id = "worker_other_key";
-    other_owner.organization_id = "worker_other_org";
-    other_owner.user_id = "worker_other_user";
+    syn_sig_ra::AccountRecord other_account;
+    require(
+        store.create_account(
+            "worker-other@example.test", "Other Worker", "salt", "hash",
+            "test-terms", other_account, error) ==
+            syn_sig_ra::AccountCreateStatus::created,
+        "other account should be created: " + error
+    );
+    other_owner.organization_id = other_account.organization_id;
+    other_owner.user_id = other_account.user_id;
+    other_owner.role = "owner";
+    require(verify_user(database, other_owner.user_id),
+        "other account should be verified");
     require(
         syn_sig_ra::sha256_hex("worker-other-secret", key_hash, error) &&
             store.create_api_key(
@@ -337,7 +430,8 @@ int main() {
         );
     require(
         isolated_download.status == 404,
-        "another owner must not discover package artifacts"
+        "another owner must not discover package artifacts: " +
+            std::to_string(isolated_download.status) + " " + isolated_download.body
     );
     const syn_sig_ra::RouteResponse isolated_viewer =
         syn_sig_ra::route_request(
@@ -455,6 +549,7 @@ int main() {
             syn_sig_ra::RecordLookupStatus::found &&
             job.status == "succeeded" &&
             job.generator_build_identity == successful_generator_identity &&
+            job.generator_binary_sha256 == successful_generator_binary &&
             job.package_fingerprint ==
                 "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                 "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",

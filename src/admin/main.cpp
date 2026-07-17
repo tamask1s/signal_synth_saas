@@ -1,4 +1,5 @@
 #include "syn_sig_ra/metadata_store.h"
+#include "syn_sig_ra/core_contract.h"
 #include "syn_sig_ra/sha256.h"
 #include "syn_sig_ra/signal_viewer.h"
 
@@ -20,6 +21,11 @@ void print_usage(const char* executable) {
         << "Usage:\n"
         << "  " << executable << " init-db <database-path>\n"
         << "  " << executable
+        << " core-contract <signal-synth-cli>\n"
+        << "  " << executable
+        << " bootstrap-owner <database-path> <organization-id> <user-id>"
+        << " <email> <display-name> <key-id> <label>\n"
+        << "  " << executable
         << " list-api-keys <database-path> [organization-id]\n"
         << "  " << executable
         << " create-api-key <database-path> <organization-id>"
@@ -36,7 +42,8 @@ void print_usage(const char* executable) {
         << " prepare-viewer-source <extracted-package-root> <viewer-root>\n"
         << "  " << executable
         << " list-active-package-paths <database-path>\n"
-        << "\ncreate-api-key reads the plaintext API key as one line from stdin.\n";
+        << "\nbootstrap-owner and create-api-key read the plaintext API key "
+        << "as one line from stdin.\n";
 }
 
 bool remove_tree(const std::string& path, std::string& error) {
@@ -148,6 +155,47 @@ bool compact_artifacts(
 }  // namespace
 
 int main(int argc, char** argv) {
+    if (argc == 3 && std::string(argv[1]) == "core-contract") {
+        syn_sig_ra::CoreIntegrationContract contract;
+        std::string error;
+        if (!syn_sig_ra::validate_core_integration(argv[2], contract, error)) {
+            std::cerr << "error=core-contract-rejected message=" << error << '\n';
+            return EXIT_FAILURE;
+        }
+        std::cout << contract.canonical_json << '\n';
+        return EXIT_SUCCESS;
+    }
+
+    if (argc == 9 && std::string(argv[1]) == "bootstrap-owner") {
+        std::string plaintext_key;
+        if (!std::getline(std::cin, plaintext_key) || plaintext_key.empty()) {
+            std::cerr << "error=missing-api-key\n";
+            return EXIT_FAILURE;
+        }
+        std::string key_hash;
+        std::string error;
+        if (!syn_sig_ra::sha256_hex(plaintext_key, key_hash, error)) {
+            std::cerr << "error=api-key-hash-failed message=" << error << '\n';
+            return EXIT_FAILURE;
+        }
+        syn_sig_ra::ApiKeyIdentity identity;
+        identity.organization_id = argv[3];
+        identity.user_id = argv[4];
+        identity.api_key_id = argv[7];
+        identity.role = "owner";
+        syn_sig_ra::MetadataStore store(argv[2]);
+        if (!store.bootstrap_owner(
+                identity, argv[5], argv[6], key_hash, argv[8], error)) {
+            std::cerr << "error=owner-bootstrap-failed message=" << error << '\n';
+            return EXIT_FAILURE;
+        }
+        std::cout << "status=owner-bootstrapped\n"
+                  << "organization_id=" << identity.organization_id << '\n'
+                  << "user_id=" << identity.user_id << '\n'
+                  << "api_key_id=" << identity.api_key_id << '\n';
+        return EXIT_SUCCESS;
+    }
+
     if (argc == 3 &&
         std::string(argv[1]) == "list-active-package-paths") {
         sqlite3* database = nullptr;

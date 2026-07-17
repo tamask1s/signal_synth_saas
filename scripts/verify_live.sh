@@ -7,7 +7,10 @@ key=$(sudo cat /root/syn_sig_ra_api_key)
 
 curl -fsS "$base/healthz"
 printf '\n'
-curl -fsS "$base/readyz"
+ready=$(curl -fsS "$base/readyz")
+printf '%s' "$ready" | python3 -c \
+  'import json,sys; x=json.load(sys.stdin); c=x["accepted_core"]; assert x["status"]=="ready"; assert c["integration_contract"]=="synsigra_core_integration_v1"; assert c["git_commit"]=="ef2c1d9cd00a07c62617619aa939a6996052867e"; assert c["build_identity"]=="signal_synth/"+c["git_commit"]; assert c["challenge_package"]=="synsigra_challenge_package_v1"; assert c["scoring_manifest"]=="synsigra_scoring_manifest_v1"'
+printf '%s' "$ready"
 printf '\n'
 legal=$(curl -fsS "$base/v1/legal")
 printf '%s' "$legal" | python3 -c \
@@ -50,6 +53,8 @@ viewer_auth_status=$(curl -sS -o /dev/null -w '%{http_code}' \
 }
 jobs=$(curl -fsS -H "Authorization: Bearer $key" \
   "$base/v1/jobs?limit=100&offset=0")
+printf '%s' "$jobs" | python3 -c \
+  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; done=[j for j in jobs if j.get("status")=="succeeded"]; assert done; assert all(j.get("integration_contract")=="synsigra_core_integration_v1" and j.get("generator_git_commit")=="ef2c1d9cd00a07c62617619aa939a6996052867e" and j.get("generator_build_identity")=="signal_synth/"+j["generator_git_commit"] and j.get("generator_binary_sha256","").startswith("sha256:") and len(j["generator_binary_sha256"])==71 for j in done)'
 viewer_job=$(printf '%s' "$jobs" | python3 -c \
   'import json,sys; jobs=json.load(sys.stdin)["jobs"]; print(next((j["job_id"] for j in jobs if j.get("status")=="succeeded" and j.get("package_id") and j.get("artifact_status")!="expired"), ""))')
 if [ -n "$viewer_job" ]; then

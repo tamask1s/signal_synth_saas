@@ -4,6 +4,8 @@
 #include "syn_sig_ra/runtime_config.h"
 #include "syn_sig_ra/sha256.h"
 
+#include <sqlite3.h>
+
 #include <unistd.h>
 
 #include <cstdio>
@@ -27,6 +29,61 @@ std::string read_file(const std::string& path) {
     std::ostringstream content;
     content << input.rdbuf();
     return content.str();
+}
+
+bool add_member(
+    const std::string& database_path,
+    const std::string& organization_id,
+    const std::string& user_id,
+    const std::string& email,
+    const std::string& role
+) {
+    sqlite3* database = nullptr;
+    sqlite3_stmt* statement = nullptr;
+    bool ok = sqlite3_open(database_path.c_str(), &database) == SQLITE_OK &&
+        sqlite3_prepare_v2(
+            database,
+            "INSERT INTO users (id,email,display_name,password_salt,password_hash) "
+            "VALUES (?1,?2,?1,'','');", -1, &statement, nullptr) == SQLITE_OK;
+    if (ok) {
+        sqlite3_bind_text(statement, 1, user_id.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, email.c_str(), -1, SQLITE_TRANSIENT);
+        ok = sqlite3_step(statement) == SQLITE_DONE;
+    }
+    sqlite3_finalize(statement);
+    statement = nullptr;
+    ok = ok && sqlite3_prepare_v2(
+        database,
+        "INSERT INTO organization_memberships (organization_id,user_id,role) "
+        "VALUES (?1,?2,?3);", -1, &statement, nullptr) == SQLITE_OK;
+    if (ok) {
+        sqlite3_bind_text(statement, 1, organization_id.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, user_id.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 3, role.c_str(), -1, SQLITE_TRANSIENT);
+        ok = sqlite3_step(statement) == SQLITE_DONE;
+    }
+    sqlite3_finalize(statement);
+    sqlite3_close(database);
+    return ok;
+}
+
+bool verify_user(
+    const std::string& database_path,
+    const std::string& user_id
+) {
+    sqlite3* database = nullptr;
+    sqlite3_stmt* statement = nullptr;
+    bool ok = sqlite3_open(database_path.c_str(), &database) == SQLITE_OK &&
+        sqlite3_prepare_v2(
+            database, "UPDATE users SET email_verified=1 WHERE id=?1;",
+            -1, &statement, nullptr) == SQLITE_OK;
+    if (ok) {
+        sqlite3_bind_text(statement, 1, user_id.c_str(), -1, SQLITE_TRANSIENT);
+        ok = sqlite3_step(statement) == SQLITE_DONE;
+    }
+    sqlite3_finalize(statement);
+    sqlite3_close(database);
+    return ok;
 }
 
 }  // namespace
@@ -79,13 +136,16 @@ int main() {
     owner.api_key_id = "key_job_owner";
     owner.organization_id = "org_job_owner";
     owner.user_id = "user_job_owner";
+    owner.role = "owner";
     std::string key_hash;
     require(
         syn_sig_ra::sha256_hex("job-owner-secret", key_hash, error),
         "owner key hash should succeed"
     );
     require(
-        store.create_api_key(owner, key_hash, "job owner", error),
+        store.bootstrap_owner(
+            owner, "job-owner@example.test", "Job Owner", key_hash,
+            "job owner", error),
         "owner key should be created: " + error
     );
 
@@ -255,7 +315,10 @@ int main() {
     viewer.user_id = "user_job_viewer";
     viewer.role = "viewer";
     require(
-        syn_sig_ra::sha256_hex("viewer-secret", key_hash, error) &&
+        add_member(
+            path.str(), owner.organization_id, viewer.user_id,
+            "job-viewer@example.test", viewer.role) &&
+            syn_sig_ra::sha256_hex("viewer-secret", key_hash, error) &&
             store.create_api_key(viewer, key_hash, "job viewer", error),
         "viewer key should be created: " + error
     );
@@ -434,8 +497,18 @@ int main() {
 
     syn_sig_ra::ApiKeyIdentity other;
     other.api_key_id = "key_other";
-    other.organization_id = "org_other";
-    other.user_id = "user_other";
+    syn_sig_ra::AccountRecord other_account;
+    require(
+        store.create_account(
+            "job-other@example.test", "Other Owner", "salt", "hash",
+            "test-terms", other_account, error) ==
+            syn_sig_ra::AccountCreateStatus::created,
+        "other account should be created"
+    );
+    other.organization_id = other_account.organization_id;
+    other.user_id = other_account.user_id;
+    other.role = "owner";
+    require(verify_user(path.str(), other.user_id), "other user should verify");
     require(
         syn_sig_ra::sha256_hex("other-secret", key_hash, error),
         "other key hash should succeed"
@@ -454,7 +527,8 @@ int main() {
     );
     require(
         isolated.status == 404,
-        "another owner must not discover or read the job"
+        "another owner must not discover or read the job: " +
+            std::to_string(isolated.status) + " " + isolated.body
     );
 
     const syn_sig_ra::RouteResponse cancelled = syn_sig_ra::route_request(

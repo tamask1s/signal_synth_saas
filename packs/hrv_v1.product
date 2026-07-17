@@ -6,13 +6,9 @@
       "version": "1.0"
     }
   ],
-  "compatible_generator_versions": [
-    "0.5.0-dev",
-    "signal_synth-cli"
-  ],
   "deprecation_message": "",
   "expected_pack_fingerprint": "sha256:288cc846aa1a5fb0ddeb5acc07be6445080344a6dd5228467c853d314c89b24c",
-  "generator_contract": "signal-synth-cli/pack-challenge-v1",
+  "integration_contract": "synsigra_core_integration_v1",
   "pack_id": "hrv_v1",
   "release_status": "beta",
   "released_at": "2026-07-06",

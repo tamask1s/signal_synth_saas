@@ -1,4 +1,5 @@
 #include "syn_sig_ra/route.h"
+#include "syn_sig_ra/core_contract.h"
 #include "syn_sig_ra/metadata_store.h"
 #include "syn_sig_ra/runtime_config.h"
 #include "syn_sig_ra/transactional_email.h"
@@ -687,6 +688,29 @@ int syn_sig_ra_handler(request_rec* request) {
 }
 
 void syn_sig_ra_register_hooks(apr_pool_t*) {
+    ap_hook_post_config(
+        [](apr_pool_t*, apr_pool_t*, apr_pool_t*, server_rec* server) -> int {
+            for (server_rec* current = server; current != nullptr;
+                 current = current->next) {
+                const ApacheServerConfig* config =
+                    static_cast<const ApacheServerConfig*>(ap_get_module_config(
+                        current->module_config, &syn_sig_ra_module));
+                syn_sig_ra::CoreIntegrationContract contract;
+                std::string error;
+                if (config == nullptr || !syn_sig_ra::validate_core_integration(
+                        config->signal_synth_cli, contract, error)) {
+                    ap_log_error(
+                        APLOG_MARK, APLOG_CRIT, 0, current,
+                        "Synsigra core integration rejected: %s", error.c_str());
+                    return HTTP_INTERNAL_SERVER_ERROR;
+                }
+            }
+            return OK;
+        },
+        nullptr,
+        nullptr,
+        APR_HOOK_MIDDLE
+    );
     ap_hook_handler(
         syn_sig_ra_handler,
         nullptr,

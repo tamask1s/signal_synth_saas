@@ -164,17 +164,15 @@ bool load_product_metadata(
     json_t* status = json_object_get(root, "release_status");
     json_t* released = json_object_get(root, "released_at");
     json_t* expected = json_object_get(root, "expected_pack_fingerprint");
-    json_t* contract = json_object_get(root, "generator_contract");
-    json_t* compatible = json_object_get(root, "compatible_generator_versions");
+    json_t* contract = json_object_get(root, "integration_contract");
     json_t* deprecation = json_object_get(root, "deprecation_message");
     json_t* changelog = json_object_get(root, "changelog");
     const bool scalar_valid =
-        json_object_size(root) == 10 &&
+        json_object_size(root) == 9 &&
         json_is_integer(schema) && json_integer_value(schema) == 1 &&
         json_is_string(pack_id) && json_is_string(version) &&
         json_is_string(status) && json_is_string(released) &&
         json_is_string(expected) && json_is_string(contract) &&
-        json_is_array(compatible) && json_array_size(compatible) > 0 &&
         json_is_string(deprecation) && json_is_array(changelog) &&
         json_array_size(changelog) > 0;
     if (!scalar_valid ||
@@ -182,6 +180,8 @@ bool load_product_metadata(
         pack.version != json_string_value(version) ||
         !is_semantic_version(pack.version) ||
         pack.pack_fingerprint != json_string_value(expected) ||
+        std::string(json_string_value(contract)) !=
+            "synsigra_core_integration_v1" ||
         (std::string(json_string_value(status)) != "beta" &&
          std::string(json_string_value(status)) != "stable" &&
          std::string(json_string_value(status)) != "deprecated")) {
@@ -191,19 +191,10 @@ bool load_product_metadata(
     }
     pack.release_status = json_string_value(status);
     pack.released_at = json_string_value(released);
-    pack.generator_contract = json_string_value(contract);
+    pack.integration_contract_version = json_string_value(contract);
     pack.deprecation_message = json_string_value(deprecation);
-    pack.compatible_generator_versions.clear();
     std::size_t index = 0;
     json_t* item = nullptr;
-    json_array_foreach(compatible, index, item) {
-        if (!json_is_string(item)) {
-            json_decref(root);
-            error = "compatible generator versions must be strings";
-            return false;
-        }
-        pack.compatible_generator_versions.push_back(json_string_value(item));
-    }
     pack.changelog.clear();
     bool current_version_documented = false;
     json_array_foreach(changelog, index, item) {
@@ -640,8 +631,7 @@ std::string pack_summary_json(const PackSummary& pack) {
     json_object_set_new(root, "scenario_count", json_integer(static_cast<json_int_t>(pack.scenarios.size())));
     json_object_set_new(root, "release_status", json_string(pack.release_status.c_str()));
     json_object_set_new(root, "released_at", json_string(pack.released_at.c_str()));
-    json_object_set_new(root, "generator_contract", json_string(pack.generator_contract.c_str()));
-    json_object_set_new(root, "compatible_generator_versions", string_array_json_value(pack.compatible_generator_versions));
+    json_object_set_new(root, "integration_contract", json_string(pack.integration_contract_version.c_str()));
     json_object_set_new(root, "deprecation_message", json_string(pack.deprecation_message.c_str()));
     json_t* changelog = json_array();
     for (std::vector<PackChangelogEntry>::const_iterator it =
@@ -688,6 +678,7 @@ std::string pack_summary_json(const PackSummary& pack) {
     json_object_set_new(compatibility, "local_verifier_min_version", json_string(pack.local_verifier_min_version.c_str()));
     json_object_set_new(compatibility, "challenge_package_contract", json_string(pack.challenge_package_contract.c_str()));
     json_object_set_new(compatibility, "scoring_manifest_contract", json_string(pack.scoring_manifest_contract.c_str()));
+    json_object_set_new(compatibility, "integration_contract", json_string(pack.integration_contract_version.c_str()));
     json_object_set_new(root, "generator_compatibility", compatibility);
     json_object_set_new(root, "output_artifact_roles", string_array_json_value(pack.output_artifact_roles));
     json_object_set_new(root, "primary_badges", string_array_json_value(pack.primary_badges));

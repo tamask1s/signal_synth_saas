@@ -11,13 +11,20 @@
 
 namespace {
 
-const int kSchemaVersion = 10;
+const int kSchemaVersion = 1;
 const int kRequestLimitPerMinute = 120;
 const int kConcurrentJobLimit = 2;
 const int kMonthlyJobLimit = 100;
 
 const char kSchemaSql[] = R"SQL(
-CREATE TABLE IF NOT EXISTS organizations (
+CREATE TABLE metadata_schema (
+    singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+    contract TEXT NOT NULL CHECK (contract = 'synsigra_saas_metadata_v1')
+);
+INSERT INTO metadata_schema (singleton,contract)
+VALUES (1,'synsigra_saas_metadata_v1');
+
+CREATE TABLE organizations (
     id TEXT PRIMARY KEY,
     display_name TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (
@@ -25,7 +32,7 @@ CREATE TABLE IF NOT EXISTS organizations (
     )
 );
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
     id TEXT PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
     display_name TEXT NOT NULL,
@@ -39,7 +46,7 @@ CREATE TABLE IF NOT EXISTS users (
     )
 );
 
-CREATE TABLE IF NOT EXISTS legal_acceptances (
+CREATE TABLE legal_acceptances (
     user_id TEXT NOT NULL,
     document_type TEXT NOT NULL,
     document_version TEXT NOT NULL,
@@ -50,7 +57,7 @@ CREATE TABLE IF NOT EXISTS legal_acceptances (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-CREATE TABLE IF NOT EXISTS organization_memberships (
+CREATE TABLE organization_memberships (
     organization_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'developer', 'viewer')),
@@ -62,7 +69,7 @@ CREATE TABLE IF NOT EXISTS organization_memberships (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-CREATE TABLE IF NOT EXISTS projects (
+CREATE TABLE projects (
     id TEXT PRIMARY KEY,
     organization_id TEXT NOT NULL,
     display_name TEXT NOT NULL,
@@ -73,7 +80,7 @@ CREATE TABLE IF NOT EXISTS projects (
     FOREIGN KEY (organization_id) REFERENCES organizations(id)
 );
 
-CREATE TABLE IF NOT EXISTS api_keys (
+CREATE TABLE api_keys (
     id TEXT PRIMARY KEY,
     organization_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
@@ -92,7 +99,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-CREATE TABLE IF NOT EXISTS sessions (
+CREATE TABLE sessions (
     id TEXT PRIMARY KEY,
     token_hash TEXT NOT NULL UNIQUE CHECK (length(token_hash) = 64),
     api_key_id TEXT NOT NULL,
@@ -105,7 +112,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     FOREIGN KEY (api_key_id) REFERENCES api_keys(id)
 );
 
-CREATE TABLE IF NOT EXISTS jobs (
+CREATE TABLE jobs (
     id TEXT PRIMARY KEY,
     organization_id TEXT NOT NULL,
     project_id TEXT NOT NULL,
@@ -117,8 +124,13 @@ CREATE TABLE IF NOT EXISTS jobs (
     source_pack_path TEXT,
     pack_fingerprint TEXT,
     package_fingerprint TEXT,
+    integration_contract_version TEXT,
+    integration_contract_json TEXT,
     generator_version TEXT,
+    generator_git_commit TEXT,
     generator_build_identity TEXT,
+    generator_binary_sha256 TEXT,
+    challenge_receipt_json TEXT,
     normalized_cli_command TEXT,
     manifest_hash TEXT,
     artifact_storage_key TEXT,
@@ -135,7 +147,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-CREATE TABLE IF NOT EXISTS packages (
+CREATE TABLE packages (
     id TEXT PRIMARY KEY,
     job_id TEXT NOT NULL UNIQUE,
     organization_id TEXT NOT NULL,
@@ -143,8 +155,13 @@ CREATE TABLE IF NOT EXISTS packages (
     user_id TEXT NOT NULL,
     pack_fingerprint TEXT,
     package_fingerprint TEXT NOT NULL,
+    integration_contract_version TEXT NOT NULL,
+    integration_contract_json TEXT NOT NULL,
     generator_version TEXT,
+    generator_git_commit TEXT,
     generator_build_identity TEXT,
+    generator_binary_sha256 TEXT,
+    challenge_receipt_json TEXT NOT NULL,
     manifest_hash TEXT NOT NULL,
     artifact_storage_key TEXT NOT NULL UNIQUE,
     size_bytes INTEGER NOT NULL DEFAULT 0 CHECK (size_bytes >= 0),
@@ -158,7 +175,7 @@ CREATE TABLE IF NOT EXISTS packages (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-CREATE TABLE IF NOT EXISTS audit_events (
+CREATE TABLE audit_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     organization_id TEXT,
     user_id TEXT,
@@ -175,7 +192,7 @@ CREATE TABLE IF NOT EXISTS audit_events (
     FOREIGN KEY (api_key_id) REFERENCES api_keys(id)
 );
 
-CREATE TABLE IF NOT EXISTS quota_decisions (
+CREATE TABLE quota_decisions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     organization_id TEXT NOT NULL,
     api_key_id TEXT NOT NULL,
@@ -189,13 +206,13 @@ CREATE TABLE IF NOT EXISTS quota_decisions (
     FOREIGN KEY (api_key_id) REFERENCES api_keys(id)
 );
 
-CREATE TABLE IF NOT EXISTS worker_heartbeat (
+CREATE TABLE worker_heartbeat (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
     status TEXT NOT NULL,
     last_seen_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS scenario_drafts (
+CREATE TABLE scenario_drafts (
     id TEXT PRIMARY KEY,
     organization_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
@@ -214,10 +231,10 @@ CREATE TABLE IF NOT EXISTS scenario_drafts (
     FOREIGN KEY (organization_id) REFERENCES organizations(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
-CREATE INDEX IF NOT EXISTS scenario_drafts_owner_updated_idx
+CREATE INDEX scenario_drafts_owner_updated_idx
     ON scenario_drafts (organization_id,user_id,updated_at);
 
-CREATE TABLE IF NOT EXISTS custom_packs (
+CREATE TABLE custom_packs (
     id TEXT PRIMARY KEY,
     organization_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
@@ -235,10 +252,10 @@ CREATE TABLE IF NOT EXISTS custom_packs (
     FOREIGN KEY (organization_id) REFERENCES organizations(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
-CREATE INDEX IF NOT EXISTS custom_packs_owner_created_idx
+CREATE INDEX custom_packs_owner_created_idx
     ON custom_packs (organization_id,user_id,created_at);
 
-CREATE TABLE IF NOT EXISTS email_tokens (
+CREATE TABLE email_tokens (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
     purpose TEXT NOT NULL CHECK (purpose IN ('email_verification','password_reset')),
@@ -251,12 +268,12 @@ CREATE TABLE IF NOT EXISTS email_tokens (
     ),
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
-CREATE INDEX IF NOT EXISTS email_tokens_user_purpose_created_idx
+CREATE INDEX email_tokens_user_purpose_created_idx
     ON email_tokens (user_id,purpose,created_at);
-CREATE INDEX IF NOT EXISTS email_tokens_hash_idx
+CREATE INDEX email_tokens_hash_idx
     ON email_tokens (token_hash);
 
-CREATE TABLE IF NOT EXISTS email_send_attempts (
+CREATE TABLE email_send_attempts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     purpose TEXT NOT NULL,
     email_hash TEXT NOT NULL CHECK (length(email_hash) = 64),
@@ -264,10 +281,10 @@ CREATE TABLE IF NOT EXISTS email_send_attempts (
         strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     )
 );
-CREATE INDEX IF NOT EXISTS email_send_attempts_rate_idx
+CREATE INDEX email_send_attempts_rate_idx
     ON email_send_attempts (purpose,email_hash,created_at);
 
-CREATE TABLE IF NOT EXISTS email_token_submissions (
+CREATE TABLE email_token_submissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     purpose TEXT NOT NULL,
     token_hash TEXT NOT NULL CHECK (length(token_hash) = 64),
@@ -276,14 +293,14 @@ CREATE TABLE IF NOT EXISTS email_token_submissions (
         strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     )
 );
-CREATE INDEX IF NOT EXISTS email_token_submissions_rate_idx
+CREATE INDEX email_token_submissions_rate_idx
     ON email_token_submissions (purpose,token_hash,created_at);
 
-CREATE INDEX IF NOT EXISTS jobs_owner_created_idx
+CREATE INDEX jobs_owner_created_idx
     ON jobs (organization_id, project_id, created_at);
-CREATE INDEX IF NOT EXISTS packages_owner_created_idx
+CREATE INDEX packages_owner_created_idx
     ON packages (organization_id, project_id, created_at);
-CREATE INDEX IF NOT EXISTS audit_owner_created_idx
+CREATE INDEX audit_owner_created_idx
     ON audit_events (organization_id, user_id, created_at);
 )SQL";
 
@@ -361,6 +378,36 @@ syn_sig_ra::CustomPackRecord custom_pack_columns(sqlite3_stmt* statement) {
     return pack;
 }
 
+syn_sig_ra::JobRecord job_columns(sqlite3_stmt* statement) {
+    syn_sig_ra::JobRecord job;
+    job.job_id = column_text(statement, 0);
+    job.organization_id = column_text(statement, 1);
+    job.project_id = column_text(statement, 2);
+    job.user_id = column_text(statement, 3);
+    job.status = column_text(statement, 4);
+    job.request_json = column_text(statement, 5);
+    job.selected_pack_id = column_text(statement, 6);
+    job.source_pack_path = column_text(statement, 7);
+    job.pack_fingerprint = column_text(statement, 8);
+    job.package_id = column_text(statement, 9);
+    job.package_fingerprint = column_text(statement, 10);
+    job.integration_contract_version = column_text(statement, 11);
+    job.integration_contract_json = column_text(statement, 12);
+    job.generator_version = column_text(statement, 13);
+    job.generator_git_commit = column_text(statement, 14);
+    job.generator_build_identity = column_text(statement, 15);
+    job.generator_binary_sha256 = column_text(statement, 16);
+    job.challenge_receipt_json = column_text(statement, 17);
+    job.manifest_hash = column_text(statement, 18);
+    job.artifact_storage_key = column_text(statement, 19);
+    job.error_code = column_text(statement, 20);
+    job.error_message = column_text(statement, 21);
+    job.created_at = column_text(statement, 22);
+    job.started_at = column_text(statement, 23);
+    job.completed_at = column_text(statement, 24);
+    return job;
+}
+
 }  // namespace
 
 namespace syn_sig_ra {
@@ -436,35 +483,45 @@ bool MetadataStore::initialize(std::string& error) {
         : -1;
     sqlite3_finalize(version_statement);
 
-    if (schema_version != 0 && schema_version != 8 && schema_version != 9 &&
-        schema_version != kSchemaVersion) {
-        error = "SQLite metadata schema is obsolete; reset the pre-beta database";
+    if (schema_version != 0 && schema_version != kSchemaVersion) {
+        error = "SQLite metadata schema is unsupported; run the destructive pre-beta reset";
         return false;
     }
 
-    if (!execute("BEGIN IMMEDIATE;", error)) {
+    if (schema_version == kSchemaVersion) {
+        sqlite3_stmt* marker = nullptr;
+        const bool valid = sqlite3_prepare_v2(
+                database_,
+                "SELECT contract FROM metadata_schema WHERE singleton=1;",
+                -1, &marker, nullptr) == SQLITE_OK &&
+            sqlite3_step(marker) == SQLITE_ROW &&
+            column_text(marker, 0) == "synsigra_saas_metadata_v1";
+        sqlite3_finalize(marker);
+        if (!valid) {
+            error = "SQLite schema marker is invalid; run the destructive pre-beta reset";
+            return false;
+        }
+        initialized_ = true;
+        return true;
+    }
+
+    sqlite3_stmt* tables = nullptr;
+    int table_count = -1;
+    if (sqlite3_prepare_v2(
+            database_,
+            "SELECT count(*) FROM sqlite_master WHERE type='table' "
+            "AND name NOT LIKE 'sqlite_%';", -1, &tables, nullptr) == SQLITE_OK &&
+        sqlite3_step(tables) == SQLITE_ROW) {
+        table_count = sqlite3_column_int(tables, 0);
+    }
+    sqlite3_finalize(tables);
+    if (table_count != 0) {
+        error = "Unversioned SQLite database is not empty; run the destructive pre-beta reset";
         return false;
     }
-    bool succeeded = true;
-    if (schema_version == 8) {
-        succeeded =
-            execute("ALTER TABLE users ADD COLUMN email_verified "
-                    "INTEGER NOT NULL DEFAULT 1;", error) &&
-            execute("ALTER TABLE users ADD COLUMN email_verified_at TEXT;", error) &&
-            execute("UPDATE users SET email_verified=1, "
-                    "email_verified_at=COALESCE(email_verified_at,created_at);", error);
-    }
-    if (succeeded && (schema_version == 8 || schema_version == 9)) {
-        succeeded = execute(
-            "ALTER TABLE scenario_drafts ADD COLUMN target_intent_json "
-            "TEXT NOT NULL DEFAULT '[\"r_peak\"]';", error);
-    }
-    if (succeeded) {
-        succeeded = execute(kSchemaSql, error);
-    }
-    if (succeeded) {
-        succeeded = execute("PRAGMA user_version = 10;", error);
-    }
+    if (!execute("BEGIN IMMEDIATE;", error)) return false;
+    const bool succeeded = execute(kSchemaSql, error) &&
+        execute("PRAGMA user_version = 1;", error);
     if (!succeeded || !execute("COMMIT;", error)) {
         std::string rollback_error;
         execute("ROLLBACK;", rollback_error);
@@ -1402,65 +1459,28 @@ bool MetadataStore::create_api_key(
     if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
         return false;
     }
-
-    const char* statements[] = {
-        "INSERT OR IGNORE INTO organizations "
-        "(id, display_name) VALUES (?1, ?1);",
-        "INSERT OR IGNORE INTO users "
-        "(id, email, display_name, password_salt, password_hash) "
-        "VALUES (?1, ?1 || '@legacy.invalid', ?1, '', '');",
-        "INSERT OR REPLACE INTO organization_memberships "
-        "(organization_id, user_id, role) VALUES (?1, ?2, ?3);",
-        "INSERT OR IGNORE INTO projects "
-        "(id, organization_id, display_name) VALUES (?1 || '_default', ?1, 'Default');",
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
         "INSERT INTO api_keys "
-        "(id, organization_id, user_id, key_hash, label) "
-        "VALUES (?1, ?2, ?3, ?4, ?5);"
-    };
-
-    bool succeeded = true;
-    for (int index = 0; index < 5 && succeeded; ++index) {
-        sqlite3_stmt* statement = nullptr;
-        succeeded = sqlite3_prepare_v2(
-            database_,
-            statements[index],
-            -1,
-            &statement,
-            nullptr
-        ) == SQLITE_OK;
-        if (succeeded && index == 0) {
-            succeeded = bind_text(
-                statement,
-                1,
-                identity.organization_id
-            );
-        } else if (succeeded && index == 1) {
-            succeeded = bind_text(statement, 1, identity.user_id);
-        } else if (succeeded && index == 2) {
-            succeeded =
-                bind_text(statement, 1, identity.organization_id) &&
-                bind_text(statement, 2, identity.user_id) &&
-                bind_text(statement, 3, role);
-        } else if (succeeded && index == 3) {
-            succeeded = bind_text(statement, 1, identity.organization_id);
-        } else if (succeeded) {
-            succeeded =
-                bind_text(statement, 1, identity.api_key_id) &&
-                bind_text(statement, 2, identity.organization_id) &&
-                bind_text(statement, 3, identity.user_id) &&
-                bind_text(statement, 4, key_hash) &&
-                bind_text(statement, 5, label);
-        }
-        if (succeeded) {
-            succeeded = sqlite3_step(statement) == SQLITE_DONE;
-        }
-        sqlite3_finalize(statement);
-    }
-
+        "(id,organization_id,user_id,key_hash,label) "
+        "SELECT ?1,?2,?3,?4,?5 WHERE EXISTS ("
+        "SELECT 1 FROM organization_memberships "
+        "WHERE organization_id=?2 AND user_id=?3 AND role=?6);";
+    bool succeeded = sqlite3_prepare_v2(
+            database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, identity.api_key_id) &&
+        bind_text(statement, 2, identity.organization_id) &&
+        bind_text(statement, 3, identity.user_id) &&
+        bind_text(statement, 4, key_hash) &&
+        bind_text(statement, 5, label) &&
+        bind_text(statement, 6, role) &&
+        sqlite3_step(statement) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    sqlite3_finalize(statement);
     if (!succeeded) {
-        error = sqlite3_errmsg(database_);
-        std::string rollback_error;
-        execute("ROLLBACK;", rollback_error);
+        error = "API key owner does not exist or does not have the requested role";
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
         return false;
     }
 
@@ -1487,8 +1507,83 @@ bool MetadataStore::create_api_key(
         if (error.empty()) {
             error = sqlite3_errmsg(database_);
         }
-        std::string rollback_error;
-        execute("ROLLBACK;", rollback_error);
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return false;
+    }
+    return true;
+}
+
+bool MetadataStore::bootstrap_owner(
+    const ApiKeyIdentity& identity,
+    const std::string& email,
+    const std::string& display_name,
+    const std::string& key_hash,
+    const std::string& label,
+    std::string& error
+) {
+    if (identity.organization_id.empty() || identity.user_id.empty() ||
+        identity.api_key_id.empty() || identity.role != "owner" ||
+        email.find('@') == std::string::npos || display_name.empty() ||
+        label.empty() || !is_sha256_hex(key_hash)) {
+        error = "owner bootstrap input is invalid";
+        return false;
+    }
+    if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) return false;
+    sqlite3_stmt* count = nullptr;
+    bool succeeded = sqlite3_prepare_v2(
+            database_,
+            "SELECT (SELECT count(*) FROM users)+"
+            "(SELECT count(*) FROM organizations)+"
+            "(SELECT count(*) FROM api_keys);",
+            -1, &count, nullptr) == SQLITE_OK &&
+        sqlite3_step(count) == SQLITE_ROW && sqlite3_column_int(count, 0) == 0;
+    sqlite3_finalize(count);
+    const char* sql[] = {
+        "INSERT INTO organizations (id,display_name) VALUES (?1,?2);",
+        "INSERT INTO users (id,email,display_name,password_salt,password_hash,"
+        "email_verified,email_verified_at) VALUES (?1,?2,?3,'','',1,"
+        "strftime('%Y-%m-%dT%H:%M:%fZ','now'));",
+        "INSERT INTO organization_memberships (organization_id,user_id,role) "
+        "VALUES (?1,?2,'owner');",
+        "INSERT INTO projects (id,organization_id,display_name) "
+        "VALUES (?1 || '_default',?1,'Default');",
+        "INSERT INTO api_keys (id,organization_id,user_id,key_hash,label) "
+        "VALUES (?1,?2,?3,?4,?5);",
+        "INSERT INTO audit_events (organization_id,user_id,api_key_id,event_type,"
+        "subject_type,subject_id) VALUES (?1,?2,?3,'operator.bootstrapped',"
+        "'api_key',?3);"
+    };
+    for (int i = 0; i < 6 && succeeded; ++i) {
+        sqlite3_stmt* insert = nullptr;
+        succeeded = sqlite3_prepare_v2(database_, sql[i], -1, &insert, nullptr) == SQLITE_OK;
+        if (succeeded && i == 0)
+            succeeded = bind_text(insert, 1, identity.organization_id) &&
+                bind_text(insert, 2, display_name);
+        else if (succeeded && i == 1)
+            succeeded = bind_text(insert, 1, identity.user_id) &&
+                bind_text(insert, 2, email) && bind_text(insert, 3, display_name);
+        else if (succeeded && i == 2)
+            succeeded = bind_text(insert, 1, identity.organization_id) &&
+                bind_text(insert, 2, identity.user_id);
+        else if (succeeded && i == 3)
+            succeeded = bind_text(insert, 1, identity.organization_id);
+        else if (succeeded && i == 4)
+            succeeded = bind_text(insert, 1, identity.api_key_id) &&
+                bind_text(insert, 2, identity.organization_id) &&
+                bind_text(insert, 3, identity.user_id) &&
+                bind_text(insert, 4, key_hash) && bind_text(insert, 5, label);
+        else if (succeeded)
+            succeeded = bind_text(insert, 1, identity.organization_id) &&
+                bind_text(insert, 2, identity.user_id) &&
+                bind_text(insert, 3, identity.api_key_id);
+        if (succeeded) succeeded = sqlite3_step(insert) == SQLITE_DONE;
+        sqlite3_finalize(insert);
+    }
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (error.empty()) error = "database is not empty or owner bootstrap failed";
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
         return false;
     }
     return true;
@@ -1922,8 +2017,10 @@ RecordLookupStatus MetadataStore::find_job(
         "SELECT j.id, j.organization_id, j.project_id, j.user_id, j.status, "
         "j.request_json, j.selected_pack_id, j.source_pack_path, "
         "j.pack_fingerprint, COALESCE(p.id, ''), "
-        "j.package_fingerprint, j.generator_version, "
-        "j.generator_build_identity, j.manifest_hash, "
+        "j.package_fingerprint, j.integration_contract_version, "
+        "j.integration_contract_json, j.generator_version, "
+        "j.generator_git_commit, j.generator_build_identity, "
+        "j.generator_binary_sha256, j.challenge_receipt_json, j.manifest_hash, "
         "j.artifact_storage_key, j.error_code, j.error_message, "
         "j.created_at, j.started_at, j.completed_at "
         "FROM jobs j LEFT JOIN packages p "
@@ -1953,27 +2050,7 @@ RecordLookupStatus MetadataStore::find_job(
         sqlite3_finalize(statement);
         return RecordLookupStatus::storage_error;
     }
-    JobRecord loaded;
-    loaded.job_id = column_text(statement, 0);
-    loaded.organization_id = column_text(statement, 1);
-    loaded.project_id = column_text(statement, 2);
-    loaded.user_id = column_text(statement, 3);
-    loaded.status = column_text(statement, 4);
-    loaded.request_json = column_text(statement, 5);
-    loaded.selected_pack_id = column_text(statement, 6);
-    loaded.source_pack_path = column_text(statement, 7);
-    loaded.pack_fingerprint = column_text(statement, 8);
-    loaded.package_id = column_text(statement, 9);
-    loaded.package_fingerprint = column_text(statement, 10);
-    loaded.generator_version = column_text(statement, 11);
-    loaded.generator_build_identity = column_text(statement, 12);
-    loaded.manifest_hash = column_text(statement, 13);
-    loaded.artifact_storage_key = column_text(statement, 14);
-    loaded.error_code = column_text(statement, 15);
-    loaded.error_message = column_text(statement, 16);
-    loaded.created_at = column_text(statement, 17);
-    loaded.started_at = column_text(statement, 18);
-    loaded.completed_at = column_text(statement, 19);
+    JobRecord loaded = job_columns(statement);
     sqlite3_finalize(statement);
     job = loaded;
     return RecordLookupStatus::found;
@@ -1999,8 +2076,10 @@ bool MetadataStore::list_jobs(
         "SELECT j.id, j.organization_id, j.project_id, j.user_id, j.status, "
         "j.request_json, j.selected_pack_id, j.source_pack_path, "
         "j.pack_fingerprint, COALESCE(p.id, ''), "
-        "j.package_fingerprint, j.generator_version, "
-        "j.generator_build_identity, j.manifest_hash, "
+        "j.package_fingerprint, j.integration_contract_version, "
+        "j.integration_contract_json, j.generator_version, "
+        "j.generator_git_commit, j.generator_build_identity, "
+        "j.generator_binary_sha256, j.challenge_receipt_json, j.manifest_hash, "
         "j.artifact_storage_key, j.error_code, j.error_message, "
         "j.created_at, j.started_at, j.completed_at "
         "FROM jobs j LEFT JOIN packages p "
@@ -2033,27 +2112,7 @@ bool MetadataStore::list_jobs(
             sqlite3_finalize(statement);
             return false;
         }
-        JobRecord loaded;
-        loaded.job_id = column_text(statement, 0);
-        loaded.organization_id = column_text(statement, 1);
-        loaded.project_id = column_text(statement, 2);
-        loaded.user_id = column_text(statement, 3);
-        loaded.status = column_text(statement, 4);
-        loaded.request_json = column_text(statement, 5);
-        loaded.selected_pack_id = column_text(statement, 6);
-        loaded.source_pack_path = column_text(statement, 7);
-        loaded.pack_fingerprint = column_text(statement, 8);
-        loaded.package_id = column_text(statement, 9);
-        loaded.package_fingerprint = column_text(statement, 10);
-        loaded.generator_version = column_text(statement, 11);
-        loaded.generator_build_identity = column_text(statement, 12);
-        loaded.manifest_hash = column_text(statement, 13);
-        loaded.artifact_storage_key = column_text(statement, 14);
-        loaded.error_code = column_text(statement, 15);
-        loaded.error_message = column_text(statement, 16);
-        loaded.created_at = column_text(statement, 17);
-        loaded.started_at = column_text(statement, 18);
-        loaded.completed_at = column_text(statement, 19);
+        JobRecord loaded = job_columns(statement);
         jobs.push_back(loaded);
     }
 }
@@ -2144,7 +2203,8 @@ JobLifecycleStatus MetadataStore::rebuild_job_exact(
         existing.source_pack_path.empty() ||
         existing.pack_fingerprint.empty() ||
         existing.package_fingerprint.empty() ||
-        existing.generator_build_identity.empty()) {
+        existing.integration_contract_version.empty() ||
+        existing.generator_binary_sha256.empty()) {
         return JobLifecycleStatus::invalid_state;
     }
     if (!random_id("job_", new_job_id, error) ||
@@ -2156,8 +2216,10 @@ JobLifecycleStatus MetadataStore::rebuild_job_exact(
         "INSERT INTO jobs "
         "(id, organization_id, project_id, user_id, status, request_json, "
         "selected_pack_id, source_pack_path, pack_fingerprint, "
-        "package_fingerprint, generator_version, generator_build_identity) "
-        "VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?7, ?8, ?9, ?10, ?11);";
+        "package_fingerprint, integration_contract_version, "
+        "integration_contract_json, generator_version, generator_git_commit, "
+        "generator_build_identity, generator_binary_sha256) "
+        "VALUES (?1,?2,?3,?4,'queued',?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15);";
     bool succeeded =
         sqlite3_prepare_v2(database_, insert_sql, -1, &insert, nullptr) ==
             SQLITE_OK &&
@@ -2170,8 +2232,12 @@ JobLifecycleStatus MetadataStore::rebuild_job_exact(
         bind_text(insert, 7, existing.source_pack_path) &&
         bind_text(insert, 8, existing.pack_fingerprint) &&
         bind_text(insert, 9, existing.package_fingerprint) &&
-        bind_text(insert, 10, existing.generator_version) &&
-        bind_text(insert, 11, existing.generator_build_identity) &&
+        bind_text(insert, 10, existing.integration_contract_version) &&
+        bind_text(insert, 11, existing.integration_contract_json) &&
+        bind_text(insert, 12, existing.generator_version) &&
+        bind_text(insert, 13, existing.generator_git_commit) &&
+        bind_text(insert, 14, existing.generator_build_identity) &&
+        bind_text(insert, 15, existing.generator_binary_sha256) &&
         sqlite3_step(insert) == SQLITE_DONE;
     sqlite3_finalize(insert);
 
@@ -2340,7 +2406,9 @@ RecordLookupStatus MetadataStore::claim_next_job(
     const char* select_sql =
         "SELECT id, organization_id, project_id, user_id, request_json, "
         "selected_pack_id, source_pack_path, pack_fingerprint, created_at, "
-        "package_fingerprint, generator_build_identity "
+        "package_fingerprint, integration_contract_version, "
+        "integration_contract_json, generator_version, generator_git_commit, "
+        "generator_build_identity, generator_binary_sha256 "
         "FROM jobs WHERE status = 'queued' AND deleted_at IS NULL "
         "ORDER BY created_at, id LIMIT 1;";
     if (sqlite3_prepare_v2(
@@ -2380,7 +2448,12 @@ RecordLookupStatus MetadataStore::claim_next_job(
     claimed.pack_fingerprint = column_text(select, 7);
     claimed.created_at = column_text(select, 8);
     claimed.package_fingerprint = column_text(select, 9);
-    claimed.generator_build_identity = column_text(select, 10);
+    claimed.integration_contract_version = column_text(select, 10);
+    claimed.integration_contract_json = column_text(select, 11);
+    claimed.generator_version = column_text(select, 12);
+    claimed.generator_git_commit = column_text(select, 13);
+    claimed.generator_build_identity = column_text(select, 14);
+    claimed.generator_binary_sha256 = column_text(select, 15);
     sqlite3_finalize(select);
 
     sqlite3_stmt* update = nullptr;
@@ -2411,60 +2484,35 @@ RecordLookupStatus MetadataStore::claim_next_job(
 bool MetadataStore::pin_job_inputs(
     const std::string& job_id,
     const std::string& source_pack_path,
+    const std::string& integration_contract_version,
+    const std::string& integration_contract_json,
+    const std::string& generator_version,
+    const std::string& generator_git_commit,
     const std::string& generator_build_identity,
+    const std::string& generator_binary_sha256,
     std::string& error
 ) {
     if (!initialize(error)) return false;
     sqlite3_stmt* statement = nullptr;
     const char* sql =
-        "UPDATE jobs SET source_pack_path=?2, generator_version="
-        "'signal_synth-cli', generator_build_identity=?3 "
+        "UPDATE jobs SET source_pack_path=?2, integration_contract_version=?3, "
+        "integration_contract_json=?4, generator_version=?5, "
+        "generator_git_commit=?6, generator_build_identity=?7, "
+        "generator_binary_sha256=?8 "
         "WHERE id=?1 AND status='running' AND deleted_at IS NULL;";
     const bool succeeded =
         sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
         bind_text(statement, 1, job_id) &&
         bind_text(statement, 2, source_pack_path) &&
-        bind_text(statement, 3, generator_build_identity) &&
+        bind_text(statement, 3, integration_contract_version) &&
+        bind_text(statement, 4, integration_contract_json) &&
+        bind_text(statement, 5, generator_version) &&
+        bind_text(statement, 6, generator_git_commit) &&
+        bind_text(statement, 7, generator_build_identity) &&
+        bind_text(statement, 8, generator_binary_sha256) &&
         sqlite3_step(statement) == SQLITE_DONE &&
         sqlite3_changes(database_) == 1;
     if (!succeeded) error = sqlite3_errmsg(database_);
-    sqlite3_finalize(statement);
-    return succeeded;
-}
-
-bool MetadataStore::complete_job(
-    const std::string& job_id,
-    const std::string& package_fingerprint,
-    const std::string& generator_version,
-    const std::string& generator_build_identity,
-    const std::string& normalized_cli_command,
-    const std::string& artifact_storage_key,
-    std::string& error
-) {
-    if (!initialize(error)) {
-        return false;
-    }
-    sqlite3_stmt* statement = nullptr;
-    const char* sql =
-        "UPDATE jobs SET status = 'succeeded', package_fingerprint = ?2, "
-        "generator_version = ?3, generator_build_identity = ?4, "
-        "normalized_cli_command = ?5, artifact_storage_key = ?6, "
-        "completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
-        "WHERE id = ?1 AND status = 'running' AND deleted_at IS NULL;";
-    const bool succeeded =
-        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) ==
-            SQLITE_OK &&
-        bind_text(statement, 1, job_id) &&
-        bind_text(statement, 2, package_fingerprint) &&
-        bind_text(statement, 3, generator_version) &&
-        bind_text(statement, 4, generator_build_identity) &&
-        bind_text(statement, 5, normalized_cli_command) &&
-        bind_text(statement, 6, artifact_storage_key) &&
-        sqlite3_step(statement) == SQLITE_DONE &&
-        sqlite3_changes(database_) == 1;
-    if (!succeeded) {
-        error = sqlite3_errmsg(database_);
-    }
     sqlite3_finalize(statement);
     return succeeded;
 }
@@ -2473,8 +2521,13 @@ bool MetadataStore::complete_job_with_package(
     const JobRecord& job,
     const std::string& package_id,
     const std::string& package_fingerprint,
+    const std::string& integration_contract_version,
+    const std::string& integration_contract_json,
     const std::string& generator_version,
+    const std::string& generator_git_commit,
     const std::string& generator_build_identity,
+    const std::string& generator_binary_sha256,
+    const std::string& challenge_receipt_json,
     const std::string& normalized_cli_command,
     const std::string& manifest_hash,
     const std::string& artifact_storage_key,
@@ -2488,9 +2541,11 @@ bool MetadataStore::complete_job_with_package(
     const char* package_sql =
         "INSERT INTO packages "
         "(id, job_id, organization_id, project_id, user_id, pack_fingerprint, "
-        "package_fingerprint, generator_version, "
-        "generator_build_identity, manifest_hash, artifact_storage_key, size_bytes) "
-        "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12);";
+        "package_fingerprint, integration_contract_version, integration_contract_json, "
+        "generator_version, generator_git_commit, generator_build_identity, "
+        "generator_binary_sha256, challenge_receipt_json, manifest_hash, "
+        "artifact_storage_key, size_bytes) "
+        "VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17);";
     bool succeeded =
         sqlite3_prepare_v2(
             database_,
@@ -2506,20 +2561,27 @@ bool MetadataStore::complete_job_with_package(
         bind_text(package_statement, 5, job.user_id) &&
         bind_text(package_statement, 6, job.pack_fingerprint) &&
         bind_text(package_statement, 7, package_fingerprint) &&
-        bind_text(package_statement, 8, generator_version) &&
-        bind_text(package_statement, 9, generator_build_identity) &&
-        bind_text(package_statement, 10, manifest_hash) &&
-        bind_text(package_statement, 11, artifact_storage_key) &&
-        sqlite3_bind_int64(package_statement, 12, size_bytes) == SQLITE_OK &&
+        bind_text(package_statement, 8, integration_contract_version) &&
+        bind_text(package_statement, 9, integration_contract_json) &&
+        bind_text(package_statement, 10, generator_version) &&
+        bind_text(package_statement, 11, generator_git_commit) &&
+        bind_text(package_statement, 12, generator_build_identity) &&
+        bind_text(package_statement, 13, generator_binary_sha256) &&
+        bind_text(package_statement, 14, challenge_receipt_json) &&
+        bind_text(package_statement, 15, manifest_hash) &&
+        bind_text(package_statement, 16, artifact_storage_key) &&
+        sqlite3_bind_int64(package_statement, 17, size_bytes) == SQLITE_OK &&
         sqlite3_step(package_statement) == SQLITE_DONE;
     sqlite3_finalize(package_statement);
 
     sqlite3_stmt* job_statement = nullptr;
     const char* job_sql =
         "UPDATE jobs SET status = 'succeeded', package_fingerprint = ?2, "
-        "generator_version = ?3, generator_build_identity = ?4, "
-        "normalized_cli_command = ?5, manifest_hash = ?6, "
-        "artifact_storage_key = ?7, "
+        "integration_contract_version=?3, integration_contract_json=?4, "
+        "generator_version=?5, generator_git_commit=?6, "
+        "generator_build_identity=?7, generator_binary_sha256=?8, "
+        "challenge_receipt_json=?9, normalized_cli_command=?10, manifest_hash=?11, "
+        "artifact_storage_key=?12, "
         "completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
         "WHERE id = ?1 AND status = 'running' AND deleted_at IS NULL;";
     succeeded = succeeded &&
@@ -2532,11 +2594,16 @@ bool MetadataStore::complete_job_with_package(
         ) == SQLITE_OK &&
         bind_text(job_statement, 1, job.job_id) &&
         bind_text(job_statement, 2, package_fingerprint) &&
-        bind_text(job_statement, 3, generator_version) &&
-        bind_text(job_statement, 4, generator_build_identity) &&
-        bind_text(job_statement, 5, normalized_cli_command) &&
-        bind_text(job_statement, 6, manifest_hash) &&
-        bind_text(job_statement, 7, artifact_storage_key) &&
+        bind_text(job_statement, 3, integration_contract_version) &&
+        bind_text(job_statement, 4, integration_contract_json) &&
+        bind_text(job_statement, 5, generator_version) &&
+        bind_text(job_statement, 6, generator_git_commit) &&
+        bind_text(job_statement, 7, generator_build_identity) &&
+        bind_text(job_statement, 8, generator_binary_sha256) &&
+        bind_text(job_statement, 9, challenge_receipt_json) &&
+        bind_text(job_statement, 10, normalized_cli_command) &&
+        bind_text(job_statement, 11, manifest_hash) &&
+        bind_text(job_statement, 12, artifact_storage_key) &&
         sqlite3_step(job_statement) == SQLITE_DONE &&
         sqlite3_changes(database_) == 1;
     sqlite3_finalize(job_statement);
@@ -2594,7 +2661,10 @@ RecordLookupStatus MetadataStore::find_package(
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "SELECT p.id, p.job_id, p.organization_id, p.project_id, p.user_id, "
-        "p.package_fingerprint, p.manifest_hash, p.artifact_storage_key, "
+        "p.package_fingerprint, p.integration_contract_version, "
+        "p.integration_contract_json, p.generator_version, p.generator_git_commit, "
+        "p.generator_build_identity, p.generator_binary_sha256, "
+        "p.challenge_receipt_json, p.manifest_hash, p.artifact_storage_key, "
         "p.size_bytes, p.created_at, "
         "strftime('%Y-%m-%dT%H:%M:%fZ',p.created_at,'+7 days') "
         "FROM packages p JOIN jobs j ON j.id = p.job_id "
@@ -2631,11 +2701,18 @@ RecordLookupStatus MetadataStore::find_package(
     loaded.project_id = column_text(statement, 3);
     loaded.user_id = column_text(statement, 4);
     loaded.package_fingerprint = column_text(statement, 5);
-    loaded.manifest_hash = column_text(statement, 6);
-    loaded.artifact_storage_key = column_text(statement, 7);
-    loaded.size_bytes = sqlite3_column_int64(statement, 8);
-    loaded.created_at = column_text(statement, 9);
-    loaded.expires_at = column_text(statement, 10);
+    loaded.integration_contract_version = column_text(statement, 6);
+    loaded.integration_contract_json = column_text(statement, 7);
+    loaded.generator_version = column_text(statement, 8);
+    loaded.generator_git_commit = column_text(statement, 9);
+    loaded.generator_build_identity = column_text(statement, 10);
+    loaded.generator_binary_sha256 = column_text(statement, 11);
+    loaded.challenge_receipt_json = column_text(statement, 12);
+    loaded.manifest_hash = column_text(statement, 13);
+    loaded.artifact_storage_key = column_text(statement, 14);
+    loaded.size_bytes = sqlite3_column_int64(statement, 15);
+    loaded.created_at = column_text(statement, 16);
+    loaded.expires_at = column_text(statement, 17);
     sqlite3_finalize(statement);
     package = loaded;
     return RecordLookupStatus::found;

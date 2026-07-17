@@ -11,13 +11,9 @@
       "version": "1.1"
     }
   ],
-  "compatible_generator_versions": [
-    "0.5.0-dev",
-    "signal_synth-cli"
-  ],
   "deprecation_message": "",
   "expected_pack_fingerprint": "sha256:6baf74b49d0c0b0e34b4ef5713ad45becab5de9effed91299f99beee453b725d",
-  "generator_contract": "signal-synth-cli/pack-challenge-v1",
+  "integration_contract": "synsigra_core_integration_v1",
   "pack_id": "ppg_benchmark_v1",
   "release_status": "beta",
   "released_at": "2026-07-06",
