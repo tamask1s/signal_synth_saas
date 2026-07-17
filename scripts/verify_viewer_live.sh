@@ -34,7 +34,7 @@ page=$(curl -fsS "$base/viewer")
 printf '%s' "$page" | grep -q 'Ground truth overlays'
 printf '%s' "$page" | grep -q 'Local algorithm output'
 printf '%s' "$page" | grep -q 'id="spacing-in"'
-printf '%s' "$page" | grep -q 'style.css?v=4'
+printf '%s' "$page" | grep -q 'style.css?v=5'
 library=$(curl -fsS "$base/viewer/signal-viewer.js")
 printf '%s' "$library" | grep -q 'SignalWindowCache'
 printf '%s' "$library" | grep -q 'setChannelSpacing'
@@ -43,6 +43,6 @@ printf '%s' "$application" | grep -q 'file was not uploaded'
 printf '%s' "$application" | grep -q 'setEmptyState'
 printf '%s' "$application" | grep -q "available.includes('r_peak')"
 stylesheet=$(curl -fsS "$base/viewer/style.css")
-printf '%s' "$stylesheet" | grep -q 'height: calc(100dvh - 76px)'
-printf '%s' "$stylesheet" | grep -q 'position: sticky'
+printf '%s' "$stylesheet" | grep -q 'height: max(430px, calc(100dvh - 140px))'
+printf '%s' "$application" | grep -q 'CHANNEL_SPACING_STEP = 1.5'
 printf 'status=viewer-ui-ok\njob_id=%s\ncase_id=%s\n' "$job_id" "$case_id"

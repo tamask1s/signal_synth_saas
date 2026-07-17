@@ -16,6 +16,7 @@
     status: document.querySelector('#request-status'),
     slider: document.querySelector('#position-slider'),
     canvas: document.querySelector('#signal-canvas'),
+    canvasShell: document.querySelector('#canvas-shell'),
     empty: document.querySelector('#viewer-empty'),
     overlayFieldset: document.querySelector('#overlay-fieldset'),
     overlayList: document.querySelector('#overlay-list'),
@@ -28,6 +29,9 @@
   };
   const signalCache = new library.SignalWindowCache(28 * 1024 * 1024);
   const overlayCache = new library.BoundedLruCache(4 * 1024 * 1024);
+  const CHANNEL_SPACING_STEP = 1.5;
+  const MIN_CHANNEL_SPACING = 1 / (CHANNEL_SPACING_STEP * CHANNEL_SPACING_STEP);
+  const MAX_CHANNEL_SPACING = CHANNEL_SPACING_STEP * CHANNEL_SPACING_STEP;
   const state = {
     jobs: [],
     jobId: '',
@@ -529,11 +533,19 @@
   }
 
   function setChannelSpacing(scale) {
-    state.channelSpacing = Math.max(0.5, Math.min(1, scale));
+    state.channelSpacing = Math.max(MIN_CHANNEL_SPACING, Math.min(MAX_CHANNEL_SPACING, scale));
+    const viewportHeight = window.visualViewport &&
+      Number.isFinite(window.visualViewport.height)
+      ? window.visualViewport.height
+      : window.innerHeight;
+    const fittedHeight = Math.max(430, Math.round(viewportHeight - 140));
+    elements.canvasShell.style.height = `${Math.round(fittedHeight * state.channelSpacing)}px`;
     renderer.setChannelSpacing(state.channelSpacing);
     elements.spacingValue.textContent = `Spacing ${Math.round(state.channelSpacing * 100)}%`;
-    elements.spacingIn.disabled = state.layout !== 'stacked' || state.channelSpacing >= 0.999;
-    elements.spacingOut.disabled = state.layout !== 'stacked' || state.channelSpacing <= 0.501;
+    elements.spacingIn.disabled = state.layout !== 'stacked' ||
+      state.channelSpacing >= MAX_CHANNEL_SPACING - 0.001;
+    elements.spacingOut.disabled = state.layout !== 'stacked' ||
+      state.channelSpacing <= MIN_CHANNEL_SPACING + 0.001;
   }
 
   function parseCsv(text) {
@@ -733,8 +745,16 @@
   document.querySelector('#amplitude-in').addEventListener('click', () => setAmplitude(state.amplitudeScale * 2));
   document.querySelector('#amplitude-out').addEventListener('click', () => setAmplitude(state.amplitudeScale / 2));
   document.querySelector('#amplitude-fit').addEventListener('click', () => setAmplitude(1));
-  elements.spacingIn.addEventListener('click', () => setChannelSpacing(state.channelSpacing + 0.125));
-  elements.spacingOut.addEventListener('click', () => setChannelSpacing(state.channelSpacing - 0.125));
+  elements.spacingIn.addEventListener('click', () =>
+    setChannelSpacing(state.channelSpacing * CHANNEL_SPACING_STEP));
+  elements.spacingOut.addEventListener('click', () =>
+    setChannelSpacing(state.channelSpacing / CHANNEL_SPACING_STEP));
+
+  let displayResizeTimer = null;
+  window.addEventListener('resize', () => {
+    window.clearTimeout(displayResizeTimer);
+    displayResizeTimer = window.setTimeout(() => setChannelSpacing(state.channelSpacing), 100);
+  });
 
   elements.slider.addEventListener('input', () => {
     state.startSample = clampStart(Number(elements.slider.value));
@@ -795,5 +815,6 @@
     }
   });
 
+  setChannelSpacing(1);
   loadJobs();
 })();

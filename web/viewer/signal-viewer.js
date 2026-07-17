@@ -331,7 +331,7 @@
     }
 
     setChannelSpacing(scale) {
-      this.channelSpacing = Math.max(0.5, Math.min(1, scale));
+      this.channelSpacing = Math.max(4 / 9, Math.min(9 / 4, scale));
       this.draw();
     }
 
@@ -705,14 +705,12 @@
         });
       } else {
         const laneHeight = plot.height / visible.length;
-        const lanePitch = laneHeight * this.channelSpacing;
-        const occupiedHeight = lanePitch * visible.length;
-        const firstCenter = plot.top + (plot.height - occupiedHeight) / 2 + lanePitch / 2;
         visible.forEach((item, index) => {
-          const center = firstCenter + lanePitch * index;
+          const center = plot.top + laneHeight * (index + 0.5);
           const color = COLORS[item.channel.index % COLORS.length];
           const range = this.drawChannel(
-            ctx, item.values, item.channel, color, plot, center, laneHeight * 0.46, false
+            ctx, item.values, item.channel, color, plot, center,
+            laneHeight / this.channelSpacing * 0.46, false
           );
           ctx.fillStyle = color;
           ctx.textAlign = 'right';

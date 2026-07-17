@@ -260,8 +260,8 @@ action or from **Lab**. The viewer supports:
 - a bottom position slider and drag-to-pan canvas;
 - horizontal `+`/`−` time zoom, plus Ctrl/⌘ + wheel zoom around the pointer;
 - vertical `+`/`−` amplitude zoom and **Fit amplitude**;
-- a separate vertical spacing `+`/`−` control for compressing stacked channel
-  centers without changing signal amplitude;
+- a separate vertical spacing `+`/`−` control that changes plot height in 1.5×
+  steps without changing the selected amplitude-zoom setting;
 - keyboard left/right pan and `+`/`−` time zoom on the focused canvas;
 - physical-unit labels derived from WFDB gain, zero, and unit metadata;
 - switchable ground-truth R-peak, ECG beat-class, PPG onset/peak,
@@ -271,12 +271,13 @@ action or from **Lab**. The viewer supports:
 - local-only CSV v2 or JSON v1 detector overlays. The browser File API parses
   these files and does not upload them to Synsigra.
 
-On desktop, the signal stage stays within the browser viewport while the normal
-browser page scroll moves through the longer source and control content. There
-is no second nested sidebar scrollbar. The default stacked spacing is the full
-one-screen layout; spacing `−` compresses channels and spacing `+` restores it.
-Only **ECG R peaks** are enabled by default when available. Other truth layers
-remain one click away, avoiding an unreadable first view.
+The signal stage is not sticky: both columns move together with the normal
+browser page scroll, with no second nested sidebar scrollbar. Initially, the
+plot and position slider together are approximately one browser viewport tall.
+Spacing `+` grows the plot and channel distances by 1.5×; spacing `−` divides
+them by 1.5, with two bounded steps in either direction. Only **ECG R peaks**
+are enabled by default when available. Other truth layers remain one click
+away, avoiding an unreadable first view.
 
 Stacked lanes do not clamp a channel at its lane boundary. Increasing vertical
 scale may deliberately let a waveform overlap a neighboring lane, preserving

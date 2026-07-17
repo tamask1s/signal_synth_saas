@@ -313,7 +313,7 @@ int main() {
             viewer_page.body.find("Ground truth overlays") != std::string::npos &&
             viewer_page.body.find("Local algorithm output") != std::string::npos &&
             viewer_page.body.find("spacing-in") != std::string::npos &&
-            viewer_page.body.find("style.css?v=4") != std::string::npos &&
+            viewer_page.body.find("style.css?v=5") != std::string::npos &&
             viewer_page.body.find("__SYNSIGRA_BASE__") == std::string::npos &&
             viewer_page.body.find("/syn_sig_ra/viewer/app.js") != std::string::npos &&
             viewer_library.status == 200 &&
@@ -332,12 +332,13 @@ int main() {
             viewer_app.body.find("file was not uploaded") != std::string::npos &&
             viewer_app.body.find("setEmptyState") != std::string::npos &&
             viewer_app.body.find("available.includes('r_peak')") != std::string::npos &&
+            viewer_app.body.find("CHANNEL_SPACING_STEP = 1.5") != std::string::npos &&
             viewer_app.body.find("prefetchedRequest") != std::string::npos &&
             viewer_app.body.find("immediate ? 0 : 140") != std::string::npos &&
             viewer_css.status == 200 &&
             viewer_css.body.find(".vertical-controls") != std::string::npos &&
-            viewer_css.body.find("height: calc(100dvh - 76px)") != std::string::npos &&
-            viewer_css.body.find("position: sticky") != std::string::npos,
+            viewer_css.body.find("height: max(430px, calc(100dvh - 140px))") != std::string::npos &&
+            viewer_css.body.find("top: 76px") == std::string::npos,
         "signal viewer routes should serve the portable viewer and SaaS adapter"
     );
     require(

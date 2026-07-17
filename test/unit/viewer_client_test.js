@@ -22,9 +22,11 @@ const canvas = {
 const renderer = new library.SignalCanvasRenderer(canvas);
 assert.strictEqual(renderer.channelSpacing, 1, 'stacked channels should fill the viewer by default');
 renderer.setChannelSpacing(0.25);
-assert.strictEqual(renderer.channelSpacing, 0.5, 'channel spacing should retain a readable lower bound');
+assert.strictEqual(renderer.channelSpacing, 4 / 9, 'channel spacing should retain a readable lower bound');
 renderer.setChannelSpacing(1.5);
-assert.strictEqual(renderer.channelSpacing, 1, 'channel spacing must not grow beyond the fitted layout');
+assert.strictEqual(renderer.channelSpacing, 1.5, 'channel spacing should grow beyond the fitted layout');
+renderer.setChannelSpacing(4);
+assert.strictEqual(renderer.channelSpacing, 9 / 4, 'channel spacing should retain a bounded upper limit');
 
 const bounded = new library.BoundedLruCache(1024);
 assert.strictEqual(bounded.set('first', { id: 1 }, 700), true);
