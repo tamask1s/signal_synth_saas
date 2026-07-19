@@ -3,6 +3,21 @@
 Give this document directly to a Codex chat that must turn natural-language
 algorithm-QA requests into generated, downloadable Synsigra packages.
 
+## Prefer the hosted MCP server
+
+If the Codex environment can connect to a remote Streamable HTTP MCP server,
+prefer `https://www.timeonion.com/syn_sig_ra/mcp` and configure the secret from
+`api_key.txt` as an `Authorization: Bearer ...` header. The MCP server exposes
+the live recommendation, authoring, generation, job, rebuild, and verification
+workflow as model-discoverable tools, so most of the manual REST translation
+below is unnecessary. One key is still sufficient; never print or place it in
+the MCP URL.
+
+The complete MCP architecture, tool list, safety boundary, and protocol probe
+are in [MCP_SERVER.md](MCP_SERVER.md). Continue with the REST workflow below
+when the client cannot configure a remote MCP server or when debugging at the
+HTTP-contract level.
+
 ## Mission
 
 For requests such as:

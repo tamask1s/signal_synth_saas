@@ -20,6 +20,10 @@ case "$landing" in
   *"Synsigra%20technical%20demo"*"Kis Tamás"*"synsigra@gmail.com"*) ;;
   *) echo "landing operator/demo contact is missing" >&2; exit 1 ;;
 esac
+case "$landing" in
+  *"AI assistant"*"MCP"*) ;;
+  *) echo "landing MCP message is missing" >&2; exit 1 ;;
+esac
 curl -fsS -H "Authorization: Bearer $key" "$base/v1/projects"
 printf '\n'
 if [ "${SYN_SIG_RA_BASELINE_ONLY:-0}" = 1 ]; then
@@ -31,6 +35,32 @@ if [ "${SYN_SIG_RA_BASELINE_ONLY:-0}" = 1 ]; then
 fi
 curl -fsS -H "Authorization: Bearer $key" "$base/v1/usage"
 printf '\n'
+printf 'check=mcp\n'
+mcp_setup=$(curl -fsS "$base/mcp-setup")
+case "$mcp_setup" in *"MCP assistant"*"$base/mcp"*) ;; *) exit 1 ;; esac
+mcp_initialize=$(curl -fsS "$base/mcp" \
+  -H "Authorization: Bearer $key" \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  --data-binary '{"jsonrpc":"2.0","id":"live-init","method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"live-verify","version":"1"}}}')
+printf '%s' "$mcp_initialize" | python3 -c \
+  'import json,sys; x=json.load(sys.stdin); r=x["result"]; assert r["protocolVersion"]=="2025-11-25"; assert "tools" in r["capabilities"] and "prompts" in r["capabilities"]; assert r["serverInfo"]["name"]=="synsigra"'
+mcp_tools=$(curl -fsS "$base/mcp" \
+  -H "Authorization: Bearer $key" \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -H 'MCP-Protocol-Version: 2025-11-25' \
+  --data-binary '{"jsonrpc":"2.0","id":"live-tools","method":"tools/list","params":{}}')
+printf '%s' "$mcp_tools" | python3 -c \
+  'import json,sys; t={x["name"]:x for x in json.load(sys.stdin)["result"]["tools"]}; required={"synsigra_recommend_packs","synsigra_create_job","synsigra_get_verification_guide","synsigra_get_authoring_contract","synsigra_create_custom_pack"}; assert required<=set(t); assert t["synsigra_create_job"]["annotations"]["readOnlyHint"] is False; assert t["synsigra_recommend_packs"]["annotations"]["readOnlyHint"] is True'
+mcp_recommend=$(curl -fsS "$base/mcp" \
+  -H "Authorization: Bearer $key" \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -H 'MCP-Protocol-Version: 2025-11-25' \
+  --data-binary '{"jsonrpc":"2.0","id":"live-recommend","method":"tools/call","params":{"name":"synsigra_recommend_packs","arguments":{"goal":"Validate ECG R peaks, RR and HRV LF HF SDNN RMSSD under noise","duration_seconds":300,"sampling_rate_hz":500}}}')
+printf '%s' "$mcp_recommend" | python3 -c \
+  'import json,sys; r=json.load(sys.stdin)["result"]["structuredContent"]; assert {"r_peak","rr_interval","hrv","signal_quality"}<=set(r["interpreted_targets"]); assert r["candidates"] and r["recommended_workflow"] in {"inspect_top_curated_pack_then_create_job","use_custom_authoring_for_unmet_requirements"}'
 verifier=$(curl -fsS -H "Authorization: Bearer $key" "$base/v1/downloads/verifier")
 printf '%s' "$verifier" | python3 -c \
   'import json,sys; x=json.load(sys.stdin); assert x["schema_version"]==2 and x["version"]=="0.10.0" and x["generator_included"] is False; assert x["core_git_commit"]=="13fd76d3f57bf5b55ae0ccf18ebd06f06329a819"; assert x["challenge_contract"]=="synsigra_challenge_package_v3" and x["scoring_manifest_contract"]=="synsigra_scoring_manifest_v3"; assert x["submission_contract"]=="synsigra_submission_v1" and x["submission_formats_contract"]=="synsigra_submission_formats_v2"; assert x["measurement_values_contract"]=="synsigra_measurement_values_v2" and x["measurement_truth_contract"]=="synsigra_measurement_truth_v2" and x["measurement_scoring_contract"]=="synsigra_measurement_score_v2" and x["local_verification_contract"]=="synsigra_local_verification_v2"; assert x["verify_example"]=="synsigra-verify challenge submission verification-results --force"'
@@ -59,6 +89,7 @@ printf 'check=openapi\n'
 openapi=$(curl -fsS "$base/openapi.yaml")
 case "$openapi" in *"/v1/jobs/{job_id}/viewer/window:"*) ;; *) exit 1 ;; esac
 case "$openapi" in *"/v1/account/export:"*) ;; *) exit 1 ;; esac
+case "$openapi" in *"/mcp:"*"Streamable HTTP MCP"*) ;; *) exit 1 ;; esac
 case "$openapi" in *"synsigra_core_integration_v7"*"synsigra_challenge_package_v3"*"ChallengeMetadata:"*) ;; *) exit 1 ;; esac
 case "$openapi" in *"detection-templates.zip"*) exit 1 ;; *) ;; esac
 viewer_auth_status=$(curl -sS -o /dev/null -w '%{http_code}' \

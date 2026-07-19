@@ -98,6 +98,7 @@ int main() {
             openapi.body.find("/v1/authoring/schema:") != std::string::npos &&
             openapi.body.find("/v1/account:") != std::string::npos &&
             openapi.body.find("/v1/account/export:") != std::string::npos &&
+            openapi.body.find("/mcp:") != std::string::npos &&
             openapi.body.find("/v1/jobs:") != std::string::npos &&
             openapi.body.find("/v1/jobs/{job_id}/viewer/window:") !=
                 std::string::npos &&
@@ -127,6 +128,7 @@ int main() {
             ui.body.find("Algorithm QA workspace") != std::string::npos &&
             ui.body.find("class=\"product-bar\"") != std::string::npos &&
             ui.body.find("Build custom tests") != std::string::npos &&
+            ui.body.find("MCP assistant") != std::string::npos &&
             ui.body.find("header-account-link") != std::string::npos &&
             ui.body.find("app-toast") != std::string::npos &&
             ui.body.find("What do you want to do next?") != std::string::npos &&

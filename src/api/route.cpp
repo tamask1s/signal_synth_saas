@@ -5,6 +5,7 @@
 #include "syn_sig_ra/build_info.h"
 #include "syn_sig_ra/core_contract.h"
 #include "syn_sig_ra/job_request.h"
+#include "syn_sig_ra/mcp_server.h"
 #include "syn_sig_ra/metadata_store.h"
 #include "syn_sig_ra/openapi_document.h"
 #include "syn_sig_ra/pack_catalog.h"
@@ -100,6 +101,7 @@ bool is_ui_page_route(const std::string& uri, const std::string& public_base_pat
         "/verify",
         "/scenarios",
         "/custom-packs",
+        "/mcp-setup",
         "/account",
         "/advanced"
     };
@@ -1588,6 +1590,8 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         <div class="side-nav-title section-title">Build custom tests</div>
         <a href="/syn_sig_ra/scenarios" data-nav-page="scenarios">Scenario editor</a>
         <a href="/syn_sig_ra/custom-packs" data-nav-page="custom-packs">Custom packs</a>
+        <div class="side-nav-title section-title">AI integration</div>
+        <a href="/syn_sig_ra/mcp-setup" data-nav-page="mcp-setup">MCP assistant</a>
         <div class="side-nav-title section-title">Settings</div>
         <a href="/syn_sig_ra/account" data-nav-page="account">Account</a>
         <a href="/syn_sig_ra/advanced" data-nav-page="advanced">Developer / API</a>
@@ -1996,12 +2000,56 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <pre id="custom-pack-output" class="output"></pre>
       <div id="custom-packs" class="jobs"></div>
     </section>
+    <section id="mcp-setup" class="panel page" data-page="mcp-setup">
+      <p class="eyebrow">AI-native workflow</p>
+      <h2>Connect an AI assistant to Synsigra</h2>
+      <p class="lede">Describe the algorithm behavior you want to prove. The Synsigra MCP server can discover the live catalog, identify scoreable targets, design custom scenarios when needed, generate a package, and guide local scoring.</p>
+      <p class="verify-note"><strong>Your code stays local.</strong> The assistant downloads synthetic challenge data and explains the submission contract. Your proprietary algorithm and completed outputs are not uploaded to Synsigra. Never send PHI or patient data in a prompt.</p>
+      <div class="step-cards">
+        <div class="step-card"><span class="step-number">1</span><strong>Create one API key</strong><span>Open Account, create a personal key, and save the secret when it is shown once.</span></div>
+        <div class="step-card"><span class="step-number">2</span><strong>Add the remote MCP server</strong><span>Use Streamable HTTP and send the key as an Authorization Bearer header.</span></div>
+        <div class="step-card"><span class="step-number">3</span><strong>Describe the proof you need</strong><span>The assistant compares scoreable coverage and asks before it creates a quota-consuming job.</span></div>
+        <div class="step-card"><span class="step-number">4</span><strong>Verify locally</strong><span>Run your algorithm against challenge/, populate submission/, then run the exact synsigra-verify recipe.</span></div>
+      </div>
+      <h3>Connection</h3>
+      <dl class="detail-grid">
+        <div><dt>Transport</dt><dd>Streamable HTTP · stateless</dd></div>
+        <div><dt>Endpoint</dt><dd><code>https://www.timeonion.com/syn_sig_ra/mcp</code></dd></div>
+        <div><dt>Authentication</dt><dd><code>Authorization: Bearer YOUR_API_KEY</code></dd></div>
+        <div><dt>Protocol</dt><dd>MCP 2025-11-25, with 2025-06-18 and 2025-03-26 negotiation</dd></div>
+      </dl>
+      <p><a class="button-link primary" href="/syn_sig_ra/account">Create or manage API keys</a></p>
+      <details class="meta" open>
+        <summary>Generic remote-server configuration</summary>
+        <p class="muted compact">Client configuration formats vary. Choose Streamable HTTP, use the endpoint above, and configure the secret outside source control. This illustrative shape shows the required values:</p>
+        <pre class="output">{
+  "mcpServers": {
+    "synsigra": {
+      "type": "streamable-http",
+      "url": "https://www.timeonion.com/syn_sig_ra/mcp",
+      "headers": {
+        "Authorization": "Bearer ${SYNSIGRA_API_KEY}"
+      }
+    }
+  }
+}</pre>
+      </details>
+      <h3>Prompts that work well</h3>
+      <div class="cards">
+        <article class="card"><strong>Peak and interval validation</strong><p>“I need to prove that my sampled-ECG detector finds R peaks and calculates RR, HR and HRV metrics such as LF, HF, SDNN and RMSSD correctly. Recommend the smallest scoreable challenge and generate it after I approve it.”</p></article>
+        <article class="card"><strong>Noise and rhythm stress</strong><p>“Create a 3-minute, 500 Hz ECG stress test for peak detection with several coherent noise and arrhythmia cases. Explain which outputs are automatically scored and use custom authoring if no curated pack matches exactly.”</p></article>
+      </div>
+      <h3>What the assistant can do</h3>
+      <p>It can recommend and inspect curated packs; list projects and jobs; create and monitor generation jobs; rebuild expired packages exactly; fetch live core authoring schemas and templates; clone, preview and save scenarios; compose custom packs; and return a job-specific download and verification runbook.</p>
+      <p class="muted">Job creation, exact rebuilds, scenario saves and custom-pack creation are declared as modifying MCP tools. A capable client can show an approval prompt before invoking them. API roles, quotas, audit behavior and errors are identical to the web/API workflow.</p>
+    </section>
     <section id="documentation" class="panel page" data-page="advanced">
       <h2>Documentation</h2>
       <p class="muted">Expert/API reference, raw contracts, troubleshooting, and manual workflows.</p>
       <p><a href="/syn_sig_ra/docs/quickstart">One-page quickstart</a></p>
       <p><a href="/syn_sig_ra/docs/api">Rendered API reference</a></p>
       <p><a href="/syn_sig_ra/docs/troubleshooting">Troubleshooting guide</a></p>
+      <p><a href="/syn_sig_ra/mcp-setup">MCP assistant setup</a></p>
       <p><a href="/syn_sig_ra/legal/terms">Private Beta Terms</a></p>
       <p><a href="/syn_sig_ra/legal/privacy">Privacy &amp; No-PHI Notice</a></p>
       <p><a href="/syn_sig_ra/legal/support">Support, availability &amp; billing</a></p>
@@ -2122,6 +2170,7 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>GET/HEAD</td><td><code>/v1/artifacts/{package_id}/package.zip</code></td><td>Stream or resume package ZIP with Range and checksum metadata</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/usage</code></td><td>Caller usage and limits</td><td>Authenticated</td></tr>
           <tr><td>GET</td><td><code>/v1/metrics</code></td><td>Operational metrics</td><td>Owner/admin</td></tr>
+          <tr><td>POST</td><td><code>/mcp</code></td><td>Stateless Streamable HTTP MCP tools and prompts</td><td>Bearer API key</td></tr>
         </tbody>
       </table>
       <h2>Minimal curl client</h2>
@@ -2143,7 +2192,7 @@ req = urllib.request.Request(base + "/v1/jobs", data=json.dumps({
     "Content-Type": "application/json",
 })
 print(urllib.request.urlopen(req).read().decode())</pre>
-      <p>Raw machine-readable contract: <a href="/syn_sig_ra/openapi.yaml">live OpenAPI YAML</a>.</p>
+      <p>Raw machine-readable contract: <a href="/syn_sig_ra/openapi.yaml">live OpenAPI YAML</a>. AI assistants can use the separate <a href="/syn_sig_ra/mcp-setup">Synsigra MCP server</a>.</p>
       <p><a href="/syn_sig_ra/docs/quickstart">Quickstart</a> · <a href="/syn_sig_ra/docs/troubleshooting">Troubleshooting</a> · <a href="/syn_sig_ra/">Back to app</a></p>
     </section>
   </main>
@@ -3424,6 +3473,10 @@ const char kUiJs[] = R"JS((() => {
     "custom-packs": {
       title: "Custom pack composer",
       description: "Combine validated scenario drafts into an immutable, reproducible challenge pack."
+    },
+    "mcp-setup": {
+      title: "MCP assistant integration",
+      description: "Connect an AI assistant that can translate engineering goals into scoreable Synsigra packages and local verification steps."
     },
     account: {
       title: "Account and developer access",
@@ -6820,7 +6873,10 @@ RouteResponse route_request(
     const std::string& signal_synth_cli,
     const std::string& cookie_header,
     const EmailConfig& email_config,
-    const std::string& range_header
+    const std::string& range_header,
+    const std::string& accept_header,
+    const std::string& origin_header,
+    const std::string& mcp_protocol_version_header
 ) {
     if (!owns_uri(uri, public_base_path)) {
         RouteResponse response;
@@ -7368,6 +7424,14 @@ RouteResponse route_request(
             response.internal_error = error;
         }
         return response;
+    }
+
+    if (uri == public_base_path + "/mcp") {
+        return handle_mcp_request(
+            method, public_base_path, authorization_header, metadata_store,
+            pack_root, data_root, signal_synth_cli, email_config,
+            content_type, request_body, accept_header, origin_header,
+            mcp_protocol_version_header);
     }
 
     ApiKeyIdentity authenticated_identity;

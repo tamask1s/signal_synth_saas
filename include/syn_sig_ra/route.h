@@ -56,7 +56,10 @@ RouteResponse route_request(
     const std::string& signal_synth_cli = "",
     const std::string& cookie_header = "",
     const EmailConfig& email_config = EmailConfig(),
-    const std::string& range_header = ""
+    const std::string& range_header = "",
+    const std::string& accept_header = "",
+    const std::string& origin_header = "",
+    const std::string& mcp_protocol_version_header = ""
 );
 
 bool route_requires_authentication(

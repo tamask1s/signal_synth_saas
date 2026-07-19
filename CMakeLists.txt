@@ -158,6 +158,7 @@ add_library(syn_sig_ra_core STATIC
     src/storage/metadata_store.cpp
     src/viewer/signal_viewer.cpp
     src/worker/worker.cpp
+    src/api/mcp_server.cpp
     src/api/route.cpp
 )
 set_target_properties(syn_sig_ra_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -274,6 +275,11 @@ if(BUILD_TESTING)
     )
     target_link_libraries(syn_sig_ra_job_test PRIVATE syn_sig_ra_core)
 
+    add_executable(syn_sig_ra_mcp_server_test
+        test/unit/mcp_server_test.cpp
+    )
+    target_link_libraries(syn_sig_ra_mcp_server_test PRIVATE syn_sig_ra_core)
+
     add_executable(syn_sig_ra_worker_test
         test/unit/worker_test.cpp
     )
@@ -305,6 +311,7 @@ if(BUILD_TESTING)
     add_test(NAME api_key_auth_unit COMMAND syn_sig_ra_auth_test)
     add_test(NAME pack_catalog_unit COMMAND syn_sig_ra_pack_catalog_test)
     add_test(NAME job_unit COMMAND syn_sig_ra_job_test)
+    add_test(NAME mcp_server_unit COMMAND syn_sig_ra_mcp_server_test)
     add_test(NAME worker_unit COMMAND syn_sig_ra_worker_test)
     add_test(NAME core_contract_unit COMMAND syn_sig_ra_core_contract_test)
     add_test(NAME metadata_schema_unit COMMAND syn_sig_ra_metadata_schema_test)

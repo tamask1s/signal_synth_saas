@@ -326,6 +326,7 @@ if ! grep -q 'Algorithm QA workspace' "$WORK_ROOT/ui.html" ||
     ! grep -q 'register-terms' "$WORK_ROOT/ui.html" ||
     ! grep -q '/syn_sig_ra/legal/privacy' "$WORK_ROOT/ui.html" ||
     ! grep -q 'Build custom tests' "$WORK_ROOT/ui.html" ||
+    ! grep -q 'MCP assistant' "$WORK_ROOT/ui.html" ||
     ! grep -q 'verification-runbook' "$WORK_ROOT/ui.html" ||
     ! grep -q 'custom-pack-review' "$WORK_ROOT/ui.html" ||
     ! grep -q 'custom-pack-scenario-search' "$WORK_ROOT/ui.html" ||
@@ -358,6 +359,12 @@ grep -q '^  /v1/account:' "$WORK_ROOT/openapi.yaml" ||
     fail "live OpenAPI document did not include account lifecycle routes"
 grep -q '^  /v1/jobs:' "$WORK_ROOT/openapi.yaml" ||
     fail "live OpenAPI document did not include job routes"
+grep -q '^  /mcp:' "$WORK_ROOT/openapi.yaml" ||
+    fail "live OpenAPI document did not include the MCP endpoint"
+curl -fsS "$BASE_URL/mcp-setup" >"$WORK_ROOT/ui-mcp.html" ||
+    fail "MCP setup route request failed"
+grep -q 'https://www.timeonion.com/syn_sig_ra/mcp' "$WORK_ROOT/ui-mcp.html" ||
+    fail "MCP setup route did not expose the production endpoint"
 curl -fsS "$BASE_URL/verify" >"$WORK_ROOT/ui-verify.html" ||
     fail "verification route request failed"
 grep -q 'Verification runbook' "$WORK_ROOT/ui-verify.html" ||
@@ -406,6 +413,46 @@ fi
 
 curl -fsS "$BASE_URL/v1/packs" >"$WORK_ROOT/packs.json" ||
     fail "pack catalog request failed"
+
+MCP_ACCEPT='Accept: application/json, text/event-stream'
+MCP_VERSION='MCP-Protocol-Version: 2025-11-25'
+MCP_UNAUTHORIZED=$(
+    curl -sS -o "$WORK_ROOT/mcp-unauthorized.json" -w '%{http_code}' \
+        -H "$MCP_ACCEPT" -H 'Content-Type: application/json' \
+        -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"e2e","version":"1"}}}' \
+        "$BASE_URL/mcp"
+)
+[ "$MCP_UNAUTHORIZED" = "401" ] ||
+    fail "MCP endpoint accepted a request without a Bearer API key"
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -H "$MCP_ACCEPT" -H 'Content-Type: application/json' \
+    -H "Origin: http://127.0.0.1:$PORT" \
+    -d '{"jsonrpc":"2.0","id":"e2e-init","method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"e2e","version":"1"}}}' \
+    "$BASE_URL/mcp" >"$WORK_ROOT/mcp-initialize.json" ||
+    fail "MCP initialize failed through Apache"
+grep -q '"protocolVersion":"2025-11-25"' "$WORK_ROOT/mcp-initialize.json" ||
+    fail "MCP initialize did not negotiate the current protocol"
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -H "$MCP_ACCEPT" -H "$MCP_VERSION" -H 'Content-Type: application/json' \
+    -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+    "$BASE_URL/mcp" >"$WORK_ROOT/mcp-tools.json" ||
+    fail "MCP tools/list failed through Apache"
+grep -q 'synsigra_recommend_packs' "$WORK_ROOT/mcp-tools.json" ||
+    fail "MCP tool discovery omitted pack recommendation"
+grep -q 'synsigra_get_verification_guide' "$WORK_ROOT/mcp-tools.json" ||
+    fail "MCP tool discovery omitted verification guidance"
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -H "$MCP_ACCEPT" -H "$MCP_VERSION" -H 'Content-Type: application/json' \
+    -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"synsigra_recommend_packs","arguments":{"goal":"Validate ECG R peaks, RR, HRV LF HF SDNN RMSSD under noise","duration_seconds":300,"sampling_rate_hz":500}}}' \
+    "$BASE_URL/mcp" >"$WORK_ROOT/mcp-recommend.json" ||
+    fail "MCP pack recommendation failed through Apache"
+grep -q '"interpreted_targets"' "$WORK_ROOT/mcp-recommend.json" ||
+    fail "MCP recommendation omitted interpreted targets"
+grep -q '"recommended_workflow"' "$WORK_ROOT/mcp-recommend.json" ||
+    fail "MCP recommendation omitted its next workflow"
 
 curl -fsS "$BASE_URL/v1/legal" >"$WORK_ROOT/legal.json" ||
     fail "legal metadata request failed"

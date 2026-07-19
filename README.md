@@ -65,6 +65,10 @@ The product navigation is deliberately task-oriented:
   intervals, perfusion events, and expected missing pulses.
 - **Account** manages the profile, password, personal API keys, account export,
   and permanent workspace deletion.
+- **MCP assistant** connects a compatible AI client directly to the live pack,
+  authoring, generation, job-status, rebuild, and local-verification workflow.
+  It turns an engineering goal into explicit scoreable/reference-only target
+  coverage before any job is created.
 - **Docs** serves the live OpenAPI document, rendered API reference, quickstart,
   and troubleshooting guide.
 
@@ -96,6 +100,48 @@ Authorization: Bearer YOUR_ONE_TIME_SECRET
 Store the secret outside source control and send it only to
 `https://www.timeonion.com/syn_sig_ra`. A complete natural-language/Codex client
 workflow is in [doc/CODEX_API_CLIENT_GUIDE.md](doc/CODEX_API_CLIENT_GUIDE.md).
+
+## MCP assistant integration
+
+Synsigra also exposes a stateless Streamable HTTP MCP server:
+
+```text
+https://www.timeonion.com/syn_sig_ra/mcp
+```
+
+Use one personal API key as an HTTP header:
+
+```http
+Authorization: Bearer YOUR_ONE_TIME_SECRET
+```
+
+No email, password, cookie, or second credential is needed. The server
+negotiates MCP `2025-11-25`, `2025-06-18`, or `2025-03-26`; it does not expose
+an unauthenticated SSE stream or stateful session. A client must send both
+`application/json` and `text/event-stream` in `Accept`, as required by the
+Streamable HTTP transport.
+
+The MCP server exposes model-discoverable tools to:
+
+- infer verification targets from a plain-language engineering goal and rank
+  current curated packs;
+- show scoreable, reference-only, and missing coverage without overstating a
+  pack's claims;
+- inspect packs, projects, jobs, and exact generator/package identities;
+- fetch the live core-owned authoring schema and templates, clone curated
+  cases, preview/save scenarios, and compose custom packs when duration,
+  sampling rate, physiology, noise, or target requirements are not met by a
+  curated pack;
+- create a generation job only after selection/approval and rebuild an expired
+  job with its exact preserved generator;
+- return an exact download and local `synsigra-verify` runbook. Proprietary
+  algorithms and their completed outputs stay local.
+
+The modifying tools are annotated as non-read-only and non-idempotent so MCP
+hosts can ask for human confirmation. The same organization roles, request/job
+quotas, storage checks, core contracts, and API errors apply as in the web UI.
+Setup and example prompts are available at
+<https://www.timeonion.com/syn_sig_ra/mcp-setup>.
 
 ## Verification targets
 
@@ -334,6 +380,7 @@ complete canonical core contract as `accepted_core.contract_document`.
 
 - [Customer API guide](doc/API_GUIDE.md)
 - [Codex/natural-language API client guide](doc/CODEX_API_CLIENT_GUIDE.md)
+- [MCP server architecture and client workflow](doc/MCP_SERVER.md)
 - [Custom pack model](doc/CUSTOM_PACKS.md)
 - [Operations](doc/OPERATIONS.md)
 - [Security baseline](doc/SECURITY_BASELINE.md)

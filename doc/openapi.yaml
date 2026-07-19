@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Synsigra SaaS API
-  version: 0.2.0
-  description: Complete private-beta API for deterministic synthetic biosignal challenge generation, bounded waveform viewing, algorithm-submission verification, and owned authoring resources. The live authoring endpoints expose the core's dynamic field and template catalogs. Synthetic engineering data only; do not submit PHI. The generator is server-only; users receive challenge artifacts and the generator-free verifier.
+  version: 0.3.0
+  description: Complete private-beta API for deterministic synthetic biosignal challenge generation, bounded waveform viewing, algorithm-submission verification, owned authoring resources, and a stateless Streamable HTTP MCP adapter. The live authoring endpoints expose the core's dynamic field and template catalogs. Synthetic engineering data only; do not submit PHI. The generator is server-only; users receive challenge artifacts and the generator-free verifier.
 servers:
   - url: https://www.timeonion.com/syn_sig_ra
 components:
@@ -436,6 +436,46 @@ components:
         install: {type: array, items: {type: string}}
         verify_example: {type: string}
 paths:
+  /mcp:
+    post:
+      summary: Call the Synsigra Streamable HTTP MCP server
+      description: Stateless JSON-RPC MCP endpoint with tools for goal-based pack recommendation, catalog/project/job access, custom scenario and pack authoring, generation, exact rebuild, and local verification guidance. Only personal Bearer API keys are accepted. Send both application/json and text/event-stream in Accept. The current server negotiates MCP 2025-11-25, 2025-06-18, or 2025-03-26 and returns one application/json response per request.
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: header
+          name: Accept
+          required: true
+          schema: {type: string, example: 'application/json, text/event-stream'}
+        - in: header
+          name: MCP-Protocol-Version
+          required: false
+          schema: {type: string, enum: ['2025-11-25', '2025-06-18', '2025-03-26']}
+        - in: header
+          name: Origin
+          required: false
+          schema: {type: string, format: uri, example: 'https://www.timeonion.com'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: One JSON-RPC 2.0 MCP request, notification, or response. Batch payloads are not accepted.
+              additionalProperties: true
+      responses:
+        '200': {description: JSON-RPC result or error}
+        '202': {description: Notification accepted without a response body}
+        '400': {description: Invalid JSON-RPC payload or unsupported protocol-version header}
+        '401': {description: Missing, malformed, or revoked personal API key}
+        '403': {description: Invalid Origin header}
+        '406': {description: Accept does not advertise both required transport media types}
+        '415': {description: Content-Type is not application/json}
+    get:
+      summary: Probe optional MCP server-to-client streaming
+      description: This stateless server deliberately provides no standalone SSE stream.
+      security: [{bearerAuth: []}]
+      responses:
+        '405': {description: SSE stream not offered; use POST}
   /openapi.yaml:
     get:
       summary: Download this complete live machine-readable API contract

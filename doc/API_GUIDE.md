@@ -29,6 +29,22 @@ The secret is displayed once when created. Do not print, commit, or send it to
 another origin. A key can be listed, rotated, and revoked from Account or the
 `/v1/api-keys` endpoints.
 
+## MCP clients
+
+An AI client can use the same single personal key with Synsigra's stateless
+Streamable HTTP MCP endpoint:
+
+```text
+https://www.timeonion.com/syn_sig_ra/mcp
+Authorization: Bearer YOUR_ONE_TIME_SECRET
+```
+
+The MCP adapter delegates to these same API routes, so it cannot bypass roles,
+quotas, catalog/core compatibility, storage guards, or job state rules. It adds
+goal-based pack ranking, live custom-authoring tools, human-approval annotations
+for modifying calls, and job-specific local verification guidance. See the
+in-product [MCP setup page](https://www.timeonion.com/syn_sig_ra/mcp-setup).
+
 ## Generate and download one curated challenge
 
 Check the exact live core and catalog:

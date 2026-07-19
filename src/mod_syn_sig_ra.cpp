@@ -442,6 +442,20 @@ int syn_sig_ra_handler(request_rec* request) {
     const std::string range_header = range_value == nullptr
         ? std::string()
         : range_value;
+    const char* accept_value = apr_table_get(request->headers_in, "Accept");
+    const std::string accept_header = accept_value == nullptr
+        ? std::string()
+        : accept_value;
+    const char* origin_value = apr_table_get(request->headers_in, "Origin");
+    const std::string origin_header = origin_value == nullptr
+        ? std::string()
+        : origin_value;
+    const char* protocol_version_value = apr_table_get(
+        request->headers_in, "MCP-Protocol-Version");
+    const std::string mcp_protocol_version_header =
+        protocol_version_value == nullptr
+            ? std::string()
+            : protocol_version_value;
     std::string request_body;
     if (!read_request_body(request, request_body)) {
         request->status = HTTP_REQUEST_ENTITY_TOO_LARGE;
@@ -473,6 +487,7 @@ int syn_sig_ra_handler(request_rec* request) {
          uri[auth_path.size()] == '/');
     if (syn_sig_ra::route_requires_authentication(
             uri, config->public_base_path) ||
+        uri == std::string(config->public_base_path) + "/mcp" ||
         uri == std::string(config->public_base_path) + "/readyz" ||
         account_route) {
         std::string storage_error;
@@ -523,7 +538,10 @@ int syn_sig_ra_handler(request_rec* request) {
         config->signal_synth_cli,
         cookie,
         email_config,
-        range_header
+        range_header,
+        accept_header,
+        origin_header,
+        mcp_protocol_version_header
     );
 
     if (response.disposition == syn_sig_ra::RouteDisposition::declined) {
