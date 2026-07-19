@@ -67,6 +67,7 @@ cat "$new_key" | sudo -u apache /usr/local/bin/syn_sig_ra_admin \
 sudo chown apache:nogroup "$database"
 sudo chmod 0600 "$database"
 sudo install -o root -g root -m 0600 "$new_key" "$key_file"
+install -m 0600 "$new_key" "$repo_dir/api_key.txt"
 
 SYN_SIG_RA_BASELINE_ONLY=1 SYN_SIG_RA_SKIP_BUILD=1 \
   "$repo_dir/scripts/deploy_live.sh"
