@@ -22,11 +22,19 @@ jobs:
         with:
           path: signal_synth_saas
 
+      - name: Resolve pinned core commit
+        id: core-pin
+        shell: bash
+        run: |
+          commit="$(sed -n 's/^[[:space:]]*"\([0-9a-f]\{40\}\)"[[:space:]]*$/\1/p' signal_synth_saas/CMakeLists.txt | head -n 1)"
+          test -n "$commit"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
       - name: Check out pinned core
         uses: actions/checkout@v5
         with:
           repository: tamask1s/signal_synth
-          ref: ef2c1d9cd00a07c62617619aa939a6996052867e
+          ref: ${{ steps.core-pin.outputs.commit }}
           path: signal_synth
 
       - name: Install build dependencies
