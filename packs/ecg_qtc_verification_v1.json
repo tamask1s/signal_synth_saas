@@ -1,0 +1,123 @@
+{
+  "description": "Formula-explicit QT/QTc and T-offset verification across rate extremes, dynamic adaptation and difficult repolarization morphology.",
+  "name": "ECG QT/QTc Verification Pack v1",
+  "pack_id": "ecg_qtc_verification_v1",
+  "scenarios": [
+    {
+      "id": "bazett_brady_45",
+      "path": "scenarios/packs/qtc_bazett_brady_45_v3.json",
+      "targets": [
+        "r_peak",
+        "ecg_delineation",
+        "qtc"
+      ]
+    },
+    {
+      "id": "bazett_tachy_120",
+      "path": "scenarios/packs/qtc_bazett_tachy_120_v3.json",
+      "targets": [
+        "r_peak",
+        "ecg_delineation",
+        "qtc"
+      ]
+    },
+    {
+      "id": "fridericia_brady_45",
+      "path": "scenarios/packs/qtc_fridericia_brady_45_v3.json",
+      "targets": [
+        "r_peak",
+        "ecg_delineation",
+        "qtc"
+      ]
+    },
+    {
+      "id": "fridericia_tachy_120",
+      "path": "scenarios/packs/qtc_fridericia_tachy_120_v3.json",
+      "targets": [
+        "r_peak",
+        "ecg_delineation",
+        "qtc"
+      ]
+    },
+    {
+      "id": "framingham_brady_45",
+      "path": "scenarios/packs/qtc_framingham_brady_45_v3.json",
+      "targets": [
+        "r_peak",
+        "ecg_delineation",
+        "qtc"
+      ]
+    },
+    {
+      "id": "framingham_tachy_120",
+      "path": "scenarios/packs/qtc_framingham_tachy_120_v3.json",
+      "targets": [
+        "r_peak",
+        "ecg_delineation",
+        "qtc"
+      ]
+    },
+    {
+      "id": "hodges_brady_45",
+      "path": "scenarios/packs/qtc_hodges_brady_45_v3.json",
+      "targets": [
+        "r_peak",
+        "ecg_delineation",
+        "qtc"
+      ]
+    },
+    {
+      "id": "hodges_tachy_120",
+      "path": "scenarios/packs/qtc_hodges_tachy_120_v3.json",
+      "targets": [
+        "r_peak",
+        "ecg_delineation",
+        "qtc"
+      ]
+    },
+    {
+      "id": "fixed_normal_60",
+      "path": "scenarios/packs/qtc_fixed_normal_60_v3.json",
+      "targets": [
+        "r_peak",
+        "ecg_delineation",
+        "qtc"
+      ]
+    },
+    {
+      "id": "dynamic_long_qt",
+      "path": "scenarios/packs/dynamic_repolarization_long_qt_v3.json",
+      "targets": [
+        "r_peak",
+        "ecg_delineation",
+        "qtc"
+      ]
+    },
+    {
+      "id": "difficult_t_u",
+      "path": "scenarios/packs/ecg_extended_wave_components_v7.json",
+      "targets": [
+        "r_peak",
+        "ecg_delineation",
+        "qtc"
+      ]
+    },
+    {
+      "id": "low_t_baseline",
+      "path": "scenarios/packs/qtc_low_t_baseline_v3.json",
+      "targets": [
+        "r_peak",
+        "ecg_delineation",
+        "qtc"
+      ]
+    }
+  ],
+  "schema_version": 2,
+  "targets": [
+    "r_peak",
+    "ecg_delineation",
+    "qtc"
+  ],
+  "verification_protocol_path": "ecg_qtc_verification_v1_expectations.json",
+  "version": "1.0"
+}

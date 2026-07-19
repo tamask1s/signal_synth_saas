@@ -16,6 +16,9 @@ struct PackScenarioSummary {
     int channel_count = 0;
     long long sample_count = 0;
     long long estimated_package_bytes = 0;
+    bool uses_external_noise = false;
+    bool external_noise_release_allowed = true;
+    std::vector<std::string> external_noise_asset_ids;
 };
 
 struct PackChangelogEntry {
@@ -47,6 +50,9 @@ struct PackSummary {
     std::vector<std::string> targets;
     std::vector<PackScenarioSummary> scenarios;
     std::string pack_fingerprint;
+    std::string catalog_version;
+    std::string catalog_source_sha256;
+    std::string release_set_id;
     std::string release_status;
     std::string released_at;
     std::string integration_contract_version;
@@ -55,7 +61,7 @@ struct PackSummary {
     std::string scoring_mode;
     std::vector<PackTargetSummary> scoreable_targets;
     std::vector<PackTargetSummary> reference_only_targets;
-    std::vector<std::string> detector_output_schemas;
+    std::vector<std::string> submission_output_schemas;
     std::string recommended_profile;
     std::vector<std::string> supported_threshold_profiles;
     std::vector<std::string> recommended_for;
@@ -75,6 +81,13 @@ struct PackSummary {
     std::string local_verifier_min_version;
     std::string challenge_package_contract;
     std::string scoring_manifest_contract;
+    std::string submission_contract;
+    std::string verification_protocol_contract;
+    bool verification_protocol_available = false;
+    std::string verification_protocol_json;
+    std::string verification_protocol_sha256;
+    bool uses_external_noise = false;
+    std::vector<std::string> external_noise_asset_ids;
     std::vector<std::string> output_artifact_roles;
     std::vector<std::string> primary_badges;
 };

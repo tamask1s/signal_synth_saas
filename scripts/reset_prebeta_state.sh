@@ -68,7 +68,8 @@ sudo chown apache:nogroup "$database"
 sudo chmod 0600 "$database"
 sudo install -o root -g root -m 0600 "$new_key" "$key_file"
 
-SYN_SIG_RA_SKIP_BUILD=1 "$repo_dir/scripts/deploy_live.sh"
+SYN_SIG_RA_BASELINE_ONLY=1 SYN_SIG_RA_SKIP_BUILD=1 \
+  "$repo_dir/scripts/deploy_live.sh"
 
 auth_status() {
   secret=$1
@@ -121,10 +122,50 @@ done
   printf '%s\n' "$result" >&2
   exit 1
 }
+printf '%s' "$result" | python3 -c '
+import json,sys
+j=json.load(sys.stdin)
+c=j["challenge"]
+expected={
+ "challenge_contract":"synsigra_challenge_package_v3",
+ "scoring_manifest_contract":"synsigra_scoring_manifest_v3",
+ "submission_contract":"synsigra_submission_v1",
+ "submission_formats_contract":"synsigra_submission_formats_v2",
+ "measurement_values_contract":"synsigra_measurement_values_v2",
+ "measurement_truth_contract":"synsigra_measurement_truth_v2",
+ "measurement_scoring_contract":"synsigra_measurement_score_v2",
+ "local_verification_contract":"synsigra_local_verification_v2",
+}
+assert all(c.get(k)==v for k,v in expected.items())
+assert c["verification"]["mode"]=="diagnostic"
+assert c["verification"]["evidence_eligible"] is False
+assert c["verification"]["matrix_complete"] is None
+assert c["integrity"]["ok"] is True
+'
 kit=$(mktemp /tmp/synsigra-reset-kit.XXXXXX)
 curl -fsS -K - -o "$kit" "$base/v1/jobs/$job_id/verification-kit.zip" <<EOF
 header = "Authorization: Bearer $new_secret"
 EOF
 unzip -tq "$kit" >/dev/null
 rm -f "$kit"
+
+# The deployment itself can only perform a runtime baseline check because the
+# reset database initially has no jobs. Exercise the complete live verifier now
+# that a fresh v7 package and its customer kit exist.
+"$repo_dir/scripts/verify_live.sh"
+
+# A pre-beta reset intentionally leaves no old producer artifact available for
+# an accidental rollback. Keep exactly the freshly installed v7 release.
+current_release=$(sudo readlink -f /opt/signal_synth_saas/current-release)
+case "$current_release" in
+  /opt/signal_synth_saas/releases/*.tar.gz) ;;
+  *) echo "current release is outside the managed release store" >&2; exit 1 ;;
+esac
+current_name=$(basename "$current_release")
+sudo find /opt/signal_synth_saas/releases -mindepth 1 -maxdepth 1 -type f \
+  ! -name "$current_name" ! -name "$current_name.sha256" -delete
+sudo find /opt/signal_synth_saas/rollback -mindepth 1 -maxdepth 1 -type d \
+  -exec rm -rf {} +
+sudo rm -f /opt/signal_synth_saas/previous-release \
+  /opt/signal_synth_saas/last-rollback
 printf 'status=prebeta-reset-verified\njob_id=%s\n' "$job_id"

@@ -1,0 +1,38 @@
+{
+  "description": "Lead-selective P/T notching and biphasic waves, U waves, R-prime, fragmented QRS and periodic fusion beats with exact point and measurement truth.",
+  "name": "Extended ECG wave and beat morphology",
+  "pack_id": "ecg_extended_morphology_v1",
+  "scenarios": [
+    {
+      "id": "wave_components",
+      "path": "scenarios/packs/ecg_extended_wave_components_v7.json",
+      "targets": [
+        "ecg_delineation",
+        "morphology_assertions"
+      ]
+    },
+    {
+      "id": "qrs_components",
+      "path": "scenarios/packs/ecg_extended_qrs_components_v7.json",
+      "targets": [
+        "ecg_delineation",
+        "morphology_assertions"
+      ]
+    },
+    {
+      "id": "fusion_beats",
+      "path": "scenarios/packs/ecg_fusion_beats_v7.json",
+      "targets": [
+        "ecg_beat_classification",
+        "morphology_assertions"
+      ]
+    }
+  ],
+  "schema_version": 2,
+  "targets": [
+    "ecg_delineation",
+    "morphology_assertions",
+    "ecg_beat_classification"
+  ],
+  "version": "1.0"
+}

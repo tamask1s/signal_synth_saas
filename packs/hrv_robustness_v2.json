@@ -1,0 +1,98 @@
+{
+  "description": "Deterministic ECG challenge for R-peak, NN interval, VLF/LF/HF, time-domain HRV and signal-quality pipeline QA.",
+  "name": "HRV Robustness Pack v2",
+  "pack_id": "hrv_robustness_v2",
+  "scenarios": [
+    {
+      "id": "clean_baseline",
+      "path": "scenarios/hrv/hrv_clean_baseline.json",
+      "targets": [
+        "r_peak",
+        "hrv"
+      ]
+    },
+    {
+      "id": "vlf_dominant",
+      "path": "scenarios/hrv/hrv_vlf_dominant.json",
+      "targets": [
+        "r_peak",
+        "hrv"
+      ]
+    },
+    {
+      "id": "lf_dominant",
+      "path": "scenarios/hrv/hrv_lf_dominant.json",
+      "targets": [
+        "r_peak",
+        "hrv"
+      ]
+    },
+    {
+      "id": "hf_dominant",
+      "path": "scenarios/hrv/hrv_hf_dominant.json",
+      "targets": [
+        "r_peak",
+        "hrv"
+      ]
+    },
+    {
+      "id": "high_variability",
+      "path": "scenarios/hrv/hrv_high_variability.json",
+      "targets": [
+        "r_peak",
+        "hrv"
+      ]
+    },
+    {
+      "id": "respiratory_variation",
+      "path": "scenarios/hrv/hrv_respiratory_variation.json",
+      "targets": [
+        "r_peak",
+        "hrv"
+      ]
+    },
+    {
+      "id": "ectopic_contamination",
+      "path": "scenarios/hrv/hrv_ectopic_contamination.json",
+      "targets": [
+        "r_peak",
+        "hrv"
+      ]
+    },
+    {
+      "id": "baseline_wander_stress",
+      "path": "scenarios/hrv/hrv_baseline_wander_stress.json",
+      "targets": [
+        "r_peak",
+        "hrv",
+        "signal_quality"
+      ]
+    },
+    {
+      "id": "powerline_emg_stress",
+      "path": "scenarios/hrv/hrv_powerline_emg_stress.json",
+      "targets": [
+        "r_peak",
+        "hrv",
+        "signal_quality"
+      ]
+    },
+    {
+      "id": "drift_dropout_stress",
+      "path": "scenarios/hrv/hrv_drift_dropout_stress.json",
+      "targets": [
+        "r_peak",
+        "hrv",
+        "signal_quality"
+      ]
+    }
+  ],
+  "schema_version": 2,
+  "targets": [
+    "r_peak",
+    "hrv",
+    "signal_quality"
+  ],
+  "verification_protocol_path": "hrv_robustness_v2_expectations.json",
+  "version": "2.0"
+}

@@ -60,6 +60,7 @@
     episode: 'Clinical episodes',
     r_peak: 'ECG R peaks',
     beat_class: 'ECG beat classes',
+    ecg_fiducial: 'ECG delineation fiducials',
     ppg_onset: 'PPG pulse onsets',
     ppg_peak: 'PPG systolic peaks',
     low_perfusion: 'Low-perfusion pulses',

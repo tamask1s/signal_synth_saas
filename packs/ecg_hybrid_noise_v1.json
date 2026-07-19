@@ -1,0 +1,21 @@
+{
+  "description": "Deterministic baseline-wander, muscle and electrode-motion stress intervals with exact clean reference, SNR and clipping truth.",
+  "name": "Calibrated hybrid ECG noise",
+  "pack_id": "ecg_hybrid_noise_v1",
+  "scenarios": [
+    {
+      "id": "calibrated_noise",
+      "path": "scenarios/packs/ecg_hybrid_noise_v8.json",
+      "targets": [
+        "r_peak",
+        "signal_quality"
+      ]
+    }
+  ],
+  "schema_version": 2,
+  "targets": [
+    "r_peak",
+    "signal_quality"
+  ],
+  "version": "1.0"
+}

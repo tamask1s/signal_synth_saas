@@ -607,10 +607,11 @@
       ctx.restore();
     }
 
-    drawEventOverlays(ctx, plot) {
+    drawEventOverlays(ctx, plot, visibleChannels) {
       const styles = {
         r_peak: '#4ee4ff',
         beat_class: '#d4a4ff',
+        ecg_fiducial: '#ff9fd5',
         ppg_onset: '#64e6ad',
         ppg_peak: '#ffd16f',
         low_perfusion: '#ff9e62'
@@ -642,17 +643,24 @@
           ? (item.start_sample + item.end_sample) / 2
           : item.start_sample;
         const x = this.xForSample(sample, plot);
+        const laneIndex = this.layout === 'stacked' && item.kind === 'ecg_fiducial'
+          ? visibleChannels.findIndex((entry) => entry.channel.name === item.channel)
+          : -1;
+        const laneHeight = laneIndex >= 0 ? plot.height / visibleChannels.length : plot.height;
+        const lineTop = laneIndex >= 0 ? plot.top + laneIndex * laneHeight : plot.top + 14;
+        const lineBottom = laneIndex >= 0 ? lineTop + laneHeight : plot.top + plot.height;
+        const markerY = laneIndex >= 0 ? lineTop + laneHeight / 2 : plot.top + 11;
         ctx.strokeStyle = color;
         ctx.globalAlpha = item.local ? 0.92 : 0.56;
         ctx.lineWidth = item.local ? 1.5 : 1;
         ctx.setLineDash(item.local ? [6, 4] :
           item.source === 'construction' ? [2, 4] : []);
         ctx.beginPath();
-        ctx.moveTo(x, plot.top + 14);
-        ctx.lineTo(x, plot.top + plot.height);
+        ctx.moveTo(x, lineTop);
+        ctx.lineTo(x, lineBottom);
         ctx.stroke();
         ctx.setLineDash([]);
-        this.drawMarkerShape(ctx, item.kind, x, plot.top + 11, color, item.local);
+        this.drawMarkerShape(ctx, item.kind, x, markerY, color, item.local);
         const meaningfulClass = item.kind === 'beat_class' && item.label &&
           item.label !== 'normal';
         if ((item.count > 1 || item.local || meaningfulClass) && index < 120) {
@@ -663,7 +671,7 @@
           ctx.font = '10px ui-sans-serif, system-ui, sans-serif';
           ctx.textAlign = 'left';
           ctx.textBaseline = 'top';
-          ctx.fillText(label, x + 6, plot.top + 18 + (index % 3) * 12);
+          ctx.fillText(label, x + 6, markerY + 7 + (index % 3) * 12);
         }
       });
       ctx.restore();
@@ -721,7 +729,7 @@
           ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
         });
       }
-      this.drawEventOverlays(ctx, plot);
+      this.drawEventOverlays(ctx, plot, visible);
     }
   }
 

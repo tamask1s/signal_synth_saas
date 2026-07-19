@@ -124,6 +124,10 @@ int main() {
                     << "\"beats\":["
                     << "{\"r_peak_seconds\":2.0,\"beat_class\":\"normal\"},"
                     << "{\"r_peak_seconds\":246.912,\"beat_class\":\"pvc\"}],"
+                    << "\"fiducials\":[{\"kind\":\"qrs_onset\","
+                    << "\"source\":\"lead_measurement\",\"lead_index\":0,"
+                    << "\"sample_index\":123000,\"time_seconds\":246.0,"
+                    << "\"amplitude_mv\":-0.1,\"present\":true}],"
                     << "\"ppg_fiducials\":[{\"kind\":\"systolic_peak\","
                     << "\"source\":\"measurement\",\"sample_index\":1100,"
                     << "\"time_seconds\":2.2}],"
@@ -221,13 +225,14 @@ int main() {
             viewer, overlay_request, overlays, error) ==
                 syn_sig_ra::SignalViewerStatus::ok &&
             overlays.source_sample_count == sample_count &&
-            overlays.available_kinds.size() >= 6u &&
-            overlays.total_matching_items >= 4u,
+            overlays.available_kinds.size() >= 7u &&
+            overlays.total_matching_items >= 5u,
         "ground-truth overlay window should be indexed: " + error
     );
     bool found_artifact = false;
     bool found_episode = false;
     bool found_class = false;
+    bool found_fiducial = false;
     for (std::vector<syn_sig_ra::SignalViewerOverlayItem>::const_iterator item =
              overlays.items.begin(); item != overlays.items.end(); ++item) {
         found_artifact = found_artifact ||
@@ -237,9 +242,14 @@ int main() {
             (item->kind == "episode" && item->interval && item->label == "psvt");
         found_class = found_class ||
             (item->kind == "beat_class" && item->label == "pvc");
+        found_fiducial = found_fiducial ||
+            (item->kind == "ecg_fiducial" &&
+             item->source == "lead_measurement" &&
+             item->label == "qrs_onset" && item->channel == "II" &&
+             item->has_value);
     }
     require(
-        found_artifact && found_episode && found_class,
+        found_artifact && found_episode && found_class && found_fiducial,
         "overlay window should preserve interval and event semantics"
     );
 

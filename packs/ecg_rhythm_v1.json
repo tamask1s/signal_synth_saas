@@ -32,7 +32,8 @@
       "path": "scenarios/catalog/rhythm_psvt_episode.json",
       "targets": [
         "r_peak",
-        "ecg_beat_classification"
+        "ecg_beat_classification",
+        "rhythm_episode"
       ]
     },
     {
@@ -68,10 +69,11 @@
       ]
     }
   ],
-  "schema_version": 1,
+  "schema_version": 2,
   "targets": [
     "r_peak",
-    "ecg_beat_classification"
+    "ecg_beat_classification",
+    "rhythm_episode"
   ],
-  "version": "1.0"
+  "version": "1.1"
 }

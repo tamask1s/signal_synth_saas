@@ -30,7 +30,11 @@ release_id=$(basename "$release_root")
 for file in \
   manifest.json SHA256SUMS \
   bin/mod_syn_sig_ra.so bin/syn_sig_ra_worker bin/syn_sig_ra_admin \
+  bin/challenge_artifact.py \
   bin/signal-synth ops/nginx/timeonion.conf \
+  downloads/verifier/synsigra-wheel.whl \
+  downloads/verifier/metadata.json \
+  ops/systemd/syn_sig_ra_worker.service \
   ops/apache/synsigra-apache.logrotate; do
   [ -f "$release_root/$file" ] || {
     echo "release payload is missing $file" >&2

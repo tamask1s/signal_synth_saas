@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -18,6 +19,7 @@
 
 #include <cerrno>
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <fstream>
 #include <climits>
@@ -48,6 +50,28 @@ bool path_below(const std::string& path, const std::string& root) {
     return path.size() > root.size() &&
         path.compare(0, root.size(), root) == 0 &&
         path[root.size()] == '/';
+}
+
+bool safe_relative_path(const std::string& value) {
+    if (value.empty() || value.size() > 512 || value[0] == '/' ||
+        value.find('\\') != std::string::npos ||
+        value.find("//") != std::string::npos) return false;
+    std::string::size_type start = 0;
+    while (start < value.size()) {
+        const std::string::size_type end = value.find('/', start);
+        const std::string part = value.substr(
+            start, end == std::string::npos
+                ? std::string::npos : end - start);
+        if (part.empty() || part == "." || part == ".." ||
+            part.find(':') != std::string::npos) return false;
+        for (std::string::const_iterator character = part.begin();
+             character != part.end(); ++character) {
+            if (static_cast<unsigned char>(*character) < 0x20u) return false;
+        }
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+    return true;
 }
 
 bool ensure_directory(
@@ -133,6 +157,97 @@ bool copy_tree(
         succeeded = false;
     }
     return succeeded;
+}
+
+bool ensure_dependency_parent(
+    const std::string& root,
+    const std::string& relative,
+    std::string& error
+) {
+    std::string directory = root;
+    std::string::size_type start = 0;
+    for (;;) {
+        const std::string::size_type separator = relative.find('/', start);
+        if (separator == std::string::npos) return true;
+        directory += "/" + relative.substr(start, separator - start);
+        if (!ensure_directory(directory, 0750, error)) return false;
+        start = separator + 1;
+    }
+}
+
+bool protect_tree(const std::string& path, std::string& error) {
+    struct stat information;
+    if (lstat(path.c_str(), &information) != 0 || S_ISLNK(information.st_mode)) {
+        error = "immutable input snapshot contains an unsafe path";
+        return false;
+    }
+    if (S_ISREG(information.st_mode)) {
+        if (chmod(path.c_str(), 0440) == 0) return true;
+        error = "unable to protect immutable input file";
+        return false;
+    }
+    if (!S_ISDIR(information.st_mode)) {
+        error = "immutable input snapshot contains an unsupported object";
+        return false;
+    }
+    DIR* directory = opendir(path.c_str());
+    if (directory == nullptr) {
+        error = "unable to inspect immutable input snapshot";
+        return false;
+    }
+    bool succeeded = true;
+    for (dirent* entry = readdir(directory);
+         entry != nullptr; entry = readdir(directory)) {
+        const std::string name(entry->d_name);
+        if (name != "." && name != ".." &&
+            !protect_tree(path + "/" + name, error)) {
+            succeeded = false;
+            break;
+        }
+    }
+    closedir(directory);
+    if (succeeded && chmod(path.c_str(), 0550) != 0) {
+        error = "unable to protect immutable input directory";
+        succeeded = false;
+    }
+    return succeeded;
+}
+
+bool copy_declared_verification_protocol(
+    const std::string& source_pack,
+    const std::string& source_root,
+    const std::string& snapshot_root,
+    std::string& error
+) {
+    std::string document;
+    if (!read_binary_file(source_pack, document, error)) return false;
+    json_error_t parse_error;
+    json_t* root = json_loadb(
+        document.data(), document.size(), JSON_REJECT_DUPLICATES, &parse_error);
+    json_t* value = root == nullptr
+        ? nullptr : json_object_get(root, "verification_protocol_path");
+    if (!json_is_object(root) ||
+        (value != nullptr && !json_is_string(value))) {
+        if (root != nullptr) json_decref(root);
+        error = "pack recipe has an invalid verification protocol path";
+        return false;
+    }
+    if (value == nullptr) {
+        json_decref(root);
+        return true;
+    }
+    const std::string relative(json_string_value(value));
+    json_decref(root);
+    if (!safe_relative_path(relative) ||
+        !ensure_dependency_parent(snapshot_root, relative, error) ||
+        !copy_tree(
+            source_root + "/" + relative,
+            snapshot_root + "/" + relative,
+            error)) {
+        if (error.empty()) error = "verification protocol snapshot failed";
+        return false;
+    }
+    return true;
 }
 
 bool remove_tree(const std::string& path) {
@@ -238,6 +353,7 @@ bool run_cli(
     const std::string& pack,
     const std::string& output_directory,
     const std::string& data_root,
+    const std::string& noise_asset_root,
     int& exit_code,
     std::string& stdout_text,
     std::string& stderr_text,
@@ -255,6 +371,16 @@ bool run_cli(
         return false;
     }
     if (child == 0) {
+        setpgid(0, 0);
+        rlimit limit;
+        limit.rlim_cur = limit.rlim_max = 600;
+        setrlimit(RLIMIT_CPU, &limit);
+        limit.rlim_cur = limit.rlim_max = 4ull * 1024ull * 1024ull * 1024ull;
+        setrlimit(RLIMIT_AS, &limit);
+        limit.rlim_cur = limit.rlim_max = 16ull * 1024ull * 1024ull * 1024ull;
+        setrlimit(RLIMIT_FSIZE, &limit);
+        limit.rlim_cur = limit.rlim_max = 256;
+        setrlimit(RLIMIT_NOFILE, &limit);
         dup2(stdout_pipe[1], STDOUT_FILENO);
         dup2(stderr_pipe[1], STDERR_FILENO);
         close(stdout_pipe[0]);
@@ -269,14 +395,19 @@ bool run_cli(
             pack.c_str(),
             "--out",
             output_directory.c_str(),
+            "--noise-assets",
+            noise_asset_root.c_str(),
             static_cast<char*>(nullptr)
         );
         _exit(127);
     }
+    setpgid(child, child);
     close(stdout_pipe[1]);
     close(stderr_pipe[1]);
     bool stdout_open = true;
     bool stderr_open = true;
+    const std::chrono::steady_clock::time_point deadline =
+        std::chrono::steady_clock::now() + std::chrono::minutes(15);
     while (stdout_open || stderr_open) {
         pollfd descriptors[2];
         descriptors[0].fd = stdout_pipe[0];
@@ -292,7 +423,12 @@ bool run_cli(
         }
         if (!disk_has_generation_reserve(data_root)) {
             error = "DISK_PRESSURE";
-            kill(child, SIGKILL);
+            kill(-child, SIGKILL);
+            break;
+        }
+        if (std::chrono::steady_clock::now() >= deadline) {
+            error = "GENERATION_TIMEOUT";
+            kill(-child, SIGKILL);
             break;
         }
         if (stdout_open && descriptors[0].revents != 0) {
@@ -302,7 +438,7 @@ bool run_cli(
             stderr_open = append_pipe(stderr_pipe[0], stderr_text, error);
         }
         if (!error.empty()) {
-            kill(child, SIGKILL);
+            kill(-child, SIGKILL);
             break;
         }
     }
@@ -377,7 +513,9 @@ bool snapshot_pack_recipe(
     const std::string& data_root,
     const std::string& job_id,
     const std::string& source_pack,
+    const std::string& noise_asset_root,
     std::string& snapshot_pack,
+    std::string& snapshot_noise_assets,
     std::string& error
 ) {
     const std::string recipes = data_root + "/recipes";
@@ -387,11 +525,17 @@ bool snapshot_pack_recipe(
         return false;
     }
     snapshot_pack = recipe + "/pack.json";
+    snapshot_noise_assets = recipe + "/noise_assets";
     if (!copy_regular_file(source_pack, snapshot_pack, 0440, error)) {
         remove_tree(recipe);
         return false;
     }
     const std::string::size_type separator = source_pack.rfind('/');
+    if (separator == std::string::npos) {
+        error = "pack recipe source has no trusted root";
+        remove_tree(recipe);
+        return false;
+    }
     const std::string source_root = source_pack.substr(0, separator);
     if (directory_exists(source_root + "/scenarios") &&
         !copy_tree(
@@ -401,8 +545,10 @@ bool snapshot_pack_recipe(
         remove_tree(recipe);
         return false;
     }
-    if (chmod(recipe.c_str(), 0550) != 0) {
-        error = "unable to lock pack recipe";
+    if (!copy_declared_verification_protocol(
+            source_pack, source_root, recipe, error) ||
+        !copy_tree(noise_asset_root, snapshot_noise_assets, error) ||
+        !protect_tree(recipe, error)) {
         remove_tree(recipe);
         return false;
     }
@@ -436,6 +582,51 @@ std::string stable_cli_error(const std::string& stderr_text) {
     return code;
 }
 
+bool challenge_metadata_matches_job(
+    const std::string& text,
+    const syn_sig_ra::JobRecord& job,
+    const syn_sig_ra::CoreIntegrationContract& producer,
+    const syn_sig_ra::CliChallengeResult& challenge,
+    std::string& error
+) {
+    json_error_t parse_error;
+    json_t* root = json_loadb(
+        text.data(), text.size(), JSON_REJECT_DUPLICATES, &parse_error);
+    json_t* case_count = root == nullptr
+        ? nullptr : json_object_get(root, "case_count");
+    json_t* cases = root == nullptr
+        ? nullptr : json_object_get(root, "cases");
+    json_t* targets = root == nullptr
+        ? nullptr : json_object_get(root, "targets");
+    json_t* outputs = root == nullptr
+        ? nullptr : json_object_get(root, "submission_outputs");
+    json_t* roles = root == nullptr
+        ? nullptr : json_object_get(root, "roles");
+    const bool matches = json_is_object(root) &&
+        json_string_equals(root, "package_id", job.selected_pack_id) &&
+        json_string_equals(root, "package_id", challenge.package_id) &&
+        json_string_equals(root, "pack_version", job.selected_pack_version) &&
+        json_string_equals(root, "pack_fingerprint", job.pack_fingerprint) &&
+        json_string_equals(
+            root, "pack_fingerprint", challenge.pack_fingerprint) &&
+        json_string_equals(
+            root, "generator_version", producer.generator_version) &&
+        json_string_equals(
+            root, "generator_git_commit", producer.generator_git_commit) &&
+        json_is_integer(case_count) && json_integer_value(case_count) > 0 &&
+        static_cast<unsigned long long>(json_integer_value(case_count)) ==
+            challenge.scenario_count &&
+        json_is_array(cases) && json_array_size(cases) ==
+            static_cast<std::size_t>(challenge.scenario_count) &&
+        json_is_array(targets) && json_array_size(targets) > 0 &&
+        json_is_array(outputs) && json_is_object(roles);
+    if (root != nullptr) json_decref(root);
+    if (!matches) {
+        error = "challenge metadata does not match the reserved job and receipt";
+    }
+    return matches;
+}
+
 }  // namespace
 
 namespace syn_sig_ra {
@@ -467,7 +658,7 @@ bool parse_challenge_receipt(
     const bool generator_shape = json_is_object(generator) &&
         json_object_size(generator) == 4;
     const bool contracts_shape = json_is_object(contracts) &&
-        json_object_size(contracts) == 2;
+        json_object_size(contracts) == 3;
     const bool valid = json_is_integer(schema) && json_integer_value(schema) == 1 &&
         json_string_equals(root, "contract", producer.integration_contract) &&
         json_string_equals(root, "status", "challenge_rendered") &&
@@ -491,9 +682,11 @@ bool parse_challenge_receipt(
             contracts, "challenge_package", producer.challenge_package) &&
         json_string_equals(
             contracts, "scoring_manifest", producer.scoring_manifest);
-    char* canonical = valid
+    const bool protocol_valid = contracts_shape && json_string_equals(
+        contracts, "verification_protocol", producer.verification_protocol);
+    char* canonical = valid && protocol_valid
         ? json_dumps(root, JSON_COMPACT | JSON_SORT_KEYS) : nullptr;
-    if (!valid || canonical == nullptr) {
+    if (!valid || !protocol_valid || canonical == nullptr) {
         json_decref(root);
         error = "CLI challenge receipt fields do not match the accepted producer";
         return false;
@@ -545,6 +738,7 @@ WorkerRunStatus run_worker_once(
          job.source_pack_path == custom_pack);
     std::string expected_pack = job.source_pack_path;
     std::string execution_cli;
+    std::string execution_noise_asset_root;
     std::string generator_binary_sha256 = job.generator_binary_sha256;
     CoreIntegrationContract execution_producer = current_producer;
     const std::string output_directory =
@@ -554,6 +748,9 @@ WorkerRunStatus run_worker_once(
 
     if (!directory_exists(config.data_root + "/work") ||
         !directory_exists(config.data_root + "/packages") ||
+        !directory_exists(config.noise_asset_root) ||
+        !regular_file(config.challenge_helper) ||
+        !regular_file(config.verifier_wheel) ||
         directory_exists(output_directory) ||
         regular_file(output_directory)) {
         failure_code = "WORKER_CONFIG_INVALID";
@@ -565,9 +762,15 @@ WorkerRunStatus run_worker_once(
             "Generation is paused to preserve the server disk reserve.";
     }
     if (failure_code.empty() && pinned_execution) {
+        const std::string::size_type separator = expected_pack.rfind('/');
+        execution_noise_asset_root = separator == std::string::npos
+            ? std::string() : expected_pack.substr(0, separator) + "/noise_assets";
         if (!path_below(
                 expected_pack, config.data_root + "/recipes") ||
             !regular_file(expected_pack) ||
+            !path_below(
+                execution_noise_asset_root, config.data_root + "/recipes") ||
+            !directory_exists(execution_noise_asset_root) ||
             !resolve_generator_release(
                 config.data_root,
                 generator_binary_sha256,
@@ -592,7 +795,9 @@ WorkerRunStatus run_worker_once(
                 config.data_root,
                 job.job_id,
                 source_pack,
+                config.noise_asset_root,
                 expected_pack,
+                execution_noise_asset_root,
                 error) ||
             !store.pin_job_inputs(
                 job.job_id,
@@ -635,17 +840,20 @@ WorkerRunStatus run_worker_once(
             expected_pack,
             output_directory,
             config.data_root,
+            execution_noise_asset_root,
             exit_code,
             stdout_text,
             stderr_text,
             error
         )) {
-        failure_code = error == "DISK_PRESSURE"
-            ? "DISK_PRESSURE"
-            : "WORKER_EXECUTION_FAILED";
+        failure_code = error == "DISK_PRESSURE" ? "DISK_PRESSURE" :
+            error == "GENERATION_TIMEOUT" ? "GENERATION_TIMEOUT" :
+            "WORKER_EXECUTION_FAILED";
         failure_message = error == "DISK_PRESSURE"
             ? "Generation stopped before exhausting the server disk reserve."
-            : "Generator execution could not be completed.";
+            : error == "GENERATION_TIMEOUT"
+                ? "Generation exceeded the bounded execution time."
+                : "Generator execution could not be completed.";
     }
     if (failure_code.empty() && exit_code != 0) {
         failure_code = stable_cli_error(stderr_text);
@@ -661,12 +869,35 @@ WorkerRunStatus run_worker_once(
     }
     if (failure_code.empty() &&
         (challenge.output_directory != output_directory ||
+         challenge.package_id != job.selected_pack_id ||
          challenge.pack_fingerprint != job.pack_fingerprint ||
          (!job.package_fingerprint.empty() &&
           challenge.package_fingerprint != job.package_fingerprint))) {
         failure_code = "GENERATOR_OUTPUT_MISMATCH";
         failure_message =
             "Exact rebuild output did not match the preserved job identity.";
+    }
+
+    std::string challenge_metadata_json;
+    if (failure_code.empty() && !inspect_challenge_package(
+            config.challenge_helper,
+            config.verifier_wheel,
+            output_directory,
+            challenge_metadata_json,
+            error)) {
+        failure_code = "CHALLENGE_VALIDATION_FAILED";
+        failure_message =
+            "Generated challenge failed the verifier trust-boundary checks.";
+    }
+    if (failure_code.empty() && !challenge_metadata_matches_job(
+            challenge_metadata_json,
+            job,
+            execution_producer,
+            challenge,
+            error)) {
+        failure_code = "CHALLENGE_IDENTITY_MISMATCH";
+        failure_message =
+            "Generated challenge identity does not match the reserved job.";
     }
 
     if (!failure_code.empty()) {
@@ -686,8 +917,8 @@ WorkerRunStatus run_worker_once(
     }
 
     const std::string normalized_command =
-        execution_cli + " pack challenge " + expected_pack +
-        " --out " + output_directory;
+        "signal-synth pack challenge <immutable-pack-recipe>"
+        " --out <new-directory> --noise-assets <approved-registry>";
     StoredPackage package;
     if (!directory_exists(config.data_root + "/packages") ||
         !store_immutable_package(
@@ -705,6 +936,23 @@ WorkerRunStatus run_worker_once(
         );
         return WorkerRunStatus::failed_job;
     }
+    std::string archived_metadata_json;
+    if (!inspect_challenge_package(
+            config.challenge_helper,
+            config.verifier_wheel,
+            package.package_directory + "/package.zip",
+            archived_metadata_json,
+            error) ||
+        archived_metadata_json != challenge_metadata_json) {
+        std::string ignored;
+        discard_stored_package(config.data_root, package.package_id, ignored);
+        store.fail_job(
+            job.job_id,
+            "CHALLENGE_ROUNDTRIP_FAILED",
+            "Stored challenge failed the verifier round-trip checks.",
+            ignored);
+        return WorkerRunStatus::failed_job;
+    }
     if (!store.complete_job_with_package(
             job,
             package.package_id,
@@ -716,6 +964,7 @@ WorkerRunStatus run_worker_once(
             execution_producer.generator_build_identity,
             generator_binary_sha256,
             challenge.canonical_receipt_json,
+            challenge_metadata_json,
             normalized_command,
             package.manifest_hash,
             package.package_directory,

@@ -1,0 +1,37 @@
+{
+  "description": "Multi-episode AF, PSVT, VT, VF and asystole engineering verification pack with interval and burden ground truth.",
+  "name": "Advanced rhythm burden and critical-state stress",
+  "pack_id": "advanced_rhythm_burden_v1",
+  "scenarios": [
+    {
+      "id": "recurrent_af_psvt",
+      "path": "scenarios/packs/rhythm_recurrent_af_psvt_v2.json",
+      "targets": [
+        "rhythm_episode",
+        "rhythm_burden"
+      ]
+    },
+    {
+      "id": "recurrent_vt",
+      "path": "scenarios/packs/rhythm_vt_burden_v2.json",
+      "targets": [
+        "rhythm_episode",
+        "rhythm_burden"
+      ]
+    },
+    {
+      "id": "vf_asystole",
+      "path": "scenarios/packs/rhythm_vf_asystole_v2.json",
+      "targets": [
+        "rhythm_episode",
+        "rhythm_burden"
+      ]
+    }
+  ],
+  "schema_version": 2,
+  "targets": [
+    "rhythm_episode",
+    "rhythm_burden"
+  ],
+  "version": "1.0"
+}

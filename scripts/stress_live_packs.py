@@ -4,7 +4,7 @@
 The script is intentionally dependency-free so it can run on the VPS without
 creating a Python environment. It queues each pack as a live job, waits for a
 terminal state, validates the generated manifest/package ZIP, and validates
-detection-template ZIPs for packs that advertise scoreable targets.
+the same role-driven verification kit that customers download.
 """
 
 from __future__ import annotations
@@ -136,9 +136,19 @@ def list_packs(client: Client, selected: list[str]) -> list[dict[str, Any]]:
     packs = body.get("packs")
     if not isinstance(packs, list):
         raise RuntimeError("Pack list response did not contain packs[]")
+    valid = [pack for pack in packs if isinstance(pack, dict)]
+    for pack in valid:
+        if pack.get("catalog_version") != "3.0":
+            raise RuntimeError("pack list contains a non-3.0 catalog entry")
+        if pack.get("catalog_source_sha256") != "sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e":
+            raise RuntimeError("pack list contains an unexpected catalog hash")
+        if pack.get("integration_contract") != "synsigra_core_integration_v7":
+            raise RuntimeError("pack list contains a non-v7 entry")
     if not selected:
-        return [pack for pack in packs if isinstance(pack, dict)]
-    by_id = {pack.get("pack_id"): pack for pack in packs if isinstance(pack, dict)}
+        if len(valid) != 18:
+            raise RuntimeError(f"expected 18 catalog packs, found {len(valid)}")
+        return valid
+    by_id = {pack.get("pack_id"): pack for pack in valid}
     missing = [pack_id for pack_id in selected if pack_id not in by_id]
     if missing:
         raise RuntimeError("Unknown selected pack(s): " + ", ".join(missing))
@@ -174,6 +184,8 @@ def validate_manifest(path: pathlib.Path) -> None:
         manifest = json.load(handle)
     if not manifest.get("package_id"):
         raise RuntimeError("manifest has no package_id")
+    if manifest.get("contract") != "synsigra_challenge_package_v3":
+        raise RuntimeError("manifest is not challenge package v3")
     if manifest.get("package_type") not in ("challenge", "scenario_pack"):
         raise RuntimeError("manifest package_type is not recognized")
     cases = manifest.get("cases")
@@ -190,6 +202,100 @@ def validate_zip(path: pathlib.Path, required_members: list[str] | None = None) 
     for member in required_members or []:
         if member not in names:
             raise RuntimeError(f"zip is missing {member}")
+
+
+def validate_job(job: dict[str, Any], pack: dict[str, Any]) -> None:
+    if job.get("integration_contract") != "synsigra_core_integration_v7":
+        raise RuntimeError("job has the wrong integration contract")
+    if job.get("generator_git_commit") != "13fd76d3f57bf5b55ae0ccf18ebd06f06329a819":
+        raise RuntimeError("job was not rendered by the pinned generator")
+    if job.get("pack_version") != pack.get("version"):
+        raise RuntimeError("job pack version differs from the selected catalog entry")
+    catalog = job.get("catalog")
+    if not isinstance(catalog, dict) or catalog.get("version") != "3.0":
+        raise RuntimeError("job does not preserve catalog 3.0 identity")
+    if catalog.get("source_sha256") != "sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e":
+        raise RuntimeError("job has the wrong catalog hash")
+    challenge = job.get("challenge")
+    if not isinstance(challenge, dict):
+        raise RuntimeError("job has no normalized challenge metadata")
+    expected = {
+        "verifier_version": "0.10.0",
+        "challenge_contract": "synsigra_challenge_package_v3",
+        "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
+        "submission_contract": "synsigra_submission_v1",
+        "submission_formats_contract": "synsigra_submission_formats_v2",
+        "measurement_values_contract": "synsigra_measurement_values_v2",
+        "measurement_truth_contract": "synsigra_measurement_truth_v2",
+        "measurement_scoring_contract": "synsigra_measurement_score_v2",
+        "local_verification_contract": "synsigra_local_verification_v2",
+    }
+    for key, value in expected.items():
+        if challenge.get(key) != value:
+            raise RuntimeError(f"challenge {key} is not {value}")
+    if challenge.get("integrity", {}).get("ok") is not True:
+        raise RuntimeError("challenge integrity was not verified")
+    if not isinstance(challenge.get("submission_outputs"), list):
+        raise RuntimeError("challenge has no role-selected submission outputs")
+    expected_targets = {
+        item.get("target")
+        for key in ("scoreable_targets", "reference_only_targets")
+        for item in pack.get(key, [])
+        if isinstance(item, dict)
+    }
+    actual_targets = {
+        item.get("target")
+        for item in challenge.get("targets", [])
+        if isinstance(item, dict)
+    }
+    if actual_targets != expected_targets:
+        raise RuntimeError("challenge target coverage differs from the catalog")
+    protocol = pack.get("verification_protocol")
+    if not isinstance(protocol, dict):
+        raise RuntimeError("catalog pack has no verification protocol envelope")
+    expected_protocol = protocol.get("document") if protocol.get("available") else None
+    if challenge.get("verification_protocol") != expected_protocol:
+        raise RuntimeError("challenge verification protocol differs from the catalog")
+    verification = challenge.get("verification")
+    if not isinstance(verification, dict):
+        raise RuntimeError("challenge has no verification-mode metadata")
+    if protocol.get("available"):
+        if verification.get("mode") != "evidence" or \
+                verification.get("evidence_eligible") is not True or \
+                verification.get("matrix_complete") is not True or \
+                not isinstance(verification.get("protocol"), dict):
+            raise RuntimeError("protocol pack is not evidence-ready")
+    elif verification.get("mode") != "diagnostic" or \
+            verification.get("evidence_eligible") is not False or \
+            verification.get("matrix_complete") is not None or \
+            verification.get("protocol") is not None:
+        raise RuntimeError("protocol-free pack is not explicitly diagnostic")
+
+
+def validate_kit(path: pathlib.Path, job: dict[str, Any]) -> None:
+    prefix = "verification-kit/"
+    required = [
+        prefix + "README.txt",
+        prefix + "ENGINEERING_CLAIM_BOUNDARY.txt",
+        prefix + "challenge-metadata.json",
+        prefix + "challenge/manifest.json",
+        prefix + "submission/submission.json",
+        prefix + "submission/formats.json",
+    ]
+    validate_zip(path, required)
+    with zipfile.ZipFile(path) as archive:
+        names = archive.namelist()
+        if any(name.endswith("package.zip") for name in names):
+            raise RuntimeError("verification kit contains a nested package ZIP")
+        metadata = json.loads(
+            archive.read(prefix + "challenge-metadata.json").decode("utf-8")
+        )
+        if metadata.get("challenge_contract") != "synsigra_challenge_package_v3":
+            raise RuntimeError("verification kit metadata contract mismatch")
+        if metadata.get("integrity", {}).get("ok") is not True:
+            raise RuntimeError("verification kit metadata is not integrity-trusted")
+        if metadata != job.get("challenge"):
+            raise RuntimeError("verification kit metadata differs from job metadata")
 
 
 def delete_job(client: Client, job_id: str) -> None:
@@ -237,8 +343,6 @@ def run() -> int:
             if not isinstance(pack_id, str) or not pack_id:
                 failures.append(f"pack #{index}: missing pack_id")
                 continue
-            scoreable = pack.get("scoreable_targets")
-            has_scoreable_targets = isinstance(scoreable, list) and bool(scoreable)
             print(f"[{index}/{len(packs)}] {pack_id}: queue", flush=True)
             job_id = ""
             try:
@@ -263,6 +367,7 @@ def run() -> int:
                         + ": "
                         + json.dumps(job.get("error") or {}, sort_keys=True)
                     )
+                validate_job(job, pack)
                 package_id = job.get("package_id")
                 if not isinstance(package_id, str) or not package_id:
                     raise RuntimeError("succeeded job has no package_id")
@@ -291,17 +396,12 @@ def run() -> int:
                     )
                     print(f"    package.zip ok ({archive_bytes} bytes)", flush=True)
 
-                if has_scoreable_targets:
-                    templates_path = pack_dir / "detection-templates.zip"
-                    template_bytes = client.download(
-                        f"/v1/jobs/{job_id}/detection-templates.zip",
-                        templates_path,
-                    )
-                    validate_zip(templates_path, ["README.md"])
-                    print(
-                        f"    detection templates ok ({template_bytes} bytes)",
-                        flush=True,
-                    )
+                kit_path = pack_dir / "verification-kit.zip"
+                kit_bytes = client.download(
+                    f"/v1/jobs/{job_id}/verification-kit.zip", kit_path
+                )
+                validate_kit(kit_path, job)
+                print(f"    verification kit ok ({kit_bytes} bytes)", flush=True)
                 print(f"[{index}/{len(packs)}] {pack_id}: ok", flush=True)
             except Exception as exc:  # noqa: BLE001 - stress script needs all failures.
                 message = f"{pack_id}: {exc}"

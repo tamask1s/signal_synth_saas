@@ -109,16 +109,18 @@ int main() {
         "duplicate CLI fields should be rejected"
     );
     const std::string valid_receipt =
-        "{\"schema_version\":1,\"contract\":\"synsigra_core_integration_v1\","
+        "{\"schema_version\":1,\"contract\":\"" + producer.integration_contract + "\","
         "\"status\":\"challenge_rendered\",\"output_directory\":\"/tmp/out\","
         "\"package_id\":\"test_pack\",\"scenario_count\":1,"
         "\"pack_fingerprint\":\"" + fingerprint + "\","
         "\"package_fingerprint\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\","
-        "\"generator\":{\"name\":\"signal_synth\",\"version\":\"0.5.0-dev\","
-        "\"git_commit\":\"ef2c1d9cd00a07c62617619aa939a6996052867e\","
-        "\"build_identity\":\"signal_synth/ef2c1d9cd00a07c62617619aa939a6996052867e\"},"
-        "\"contracts\":{\"challenge_package\":\"synsigra_challenge_package_v1\","
-        "\"scoring_manifest\":\"synsigra_scoring_manifest_v1\"}}";
+        "\"generator\":{\"name\":\"" + producer.generator_name +
+        "\",\"version\":\"" + producer.generator_version + "\","
+        "\"git_commit\":\"" + producer.generator_git_commit + "\","
+        "\"build_identity\":\"" + producer.generator_build_identity + "\"},"
+        "\"contracts\":{\"challenge_package\":\"" + producer.challenge_package + "\","
+        "\"scoring_manifest\":\"" + producer.scoring_manifest + "\","
+        "\"verification_protocol\":\"" + producer.verification_protocol + "\"}}";
     require(
         syn_sig_ra::parse_challenge_receipt(
             valid_receipt, producer, parsed, error) &&
@@ -139,7 +141,7 @@ int main() {
         replace_once(valid_receipt, "\"status\":\"challenge_rendered\",", ""),
         producer, parsed, error), "receipt missing fields must be rejected");
     require(!syn_sig_ra::parse_challenge_receipt(
-        replace_once(valid_receipt, "\"version\":\"0.5.0-dev\"", "\"version\":\"9.9.9\""),
+        replace_once(valid_receipt, "\"version\":\"0.10.0-dev\"", "\"version\":\"9.9.9\""),
         producer, parsed, error), "receipt producer mismatches must be rejected");
 
     std::ostringstream root_builder;
@@ -148,6 +150,7 @@ int main() {
     const std::string work = root + "/work";
     const std::string packs = root + "/packs";
     const std::string packages = root + "/packages";
+    const std::string noise_assets = root + "/noise_assets";
     require(mkdir(root.c_str(), 0700) == 0, "test root should be created");
     require(mkdir(work.c_str(), 0700) == 0, "work root should be created");
     require(mkdir(packs.c_str(), 0700) == 0, "pack root should be created");
@@ -155,9 +158,18 @@ int main() {
         mkdir(packages.c_str(), 0700) == 0,
         "package root should be created"
     );
+    require(mkdir(noise_assets.c_str(), 0700) == 0,
+        "noise asset root should be created");
 
     const std::string pack_path = packs + "/test_pack.json";
-    write_file(pack_path, "{}\n", 0600);
+    const std::string protocol_path = packs + "/protocol.json";
+    const std::string noise_path = noise_assets + "/fixture.csv";
+    write_file(
+        pack_path,
+        "{\"verification_protocol_path\":\"protocol.json\"}\n",
+        0600);
+    write_file(protocol_path, "{\"protocol\":\"immutable\"}\n", 0600);
+    write_file(noise_path, "sample,noise\n0,0.25\n", 0600);
     const std::string success_cli = root + "/success-cli";
     write_file(
         success_cli,
@@ -166,22 +178,62 @@ int main() {
         "  echo '" + producer.canonical_json + "'\n"
         "  exit 0\n"
         "fi\n"
+        "test -f \"$(dirname \"$3\")/protocol.json\" || exit 41\n"
+        "test -f \"$7/fixture.csv\" || exit 42\n"
         "mkdir -p \"$5/cases/test_case\"\n"
         "echo '{\"schema_version\":1}' > \"$5/manifest.json\"\n"
         "printf 'test_case 2 500 8\\n# generator=signal_synth test\\n# scenario_id=test_case\\nsignal.dat 16 200(0)/mV 16 0 0 0 0 ECG\\nsignal.dat 16 1000(0)/au 16 0 0 0 0 PPG\\n' > \"$5/cases/test_case/synsigra.hea\"\n"
         "printf '\\000\\000\\144\\000\\001\\000\\145\\000\\002\\000\\146\\000\\003\\000\\147\\000\\004\\000\\150\\000\\005\\000\\151\\000\\006\\000\\152\\000\\007\\000\\153\\000' > \"$5/cases/test_case/synsigra.dat\"\n"
-        "printf '{\"schema_version\":1,\"contract\":\"synsigra_core_integration_v1\","
+        "printf '{\"schema_version\":1,\"contract\":\"" + producer.integration_contract + "\","
         "\"status\":\"challenge_rendered\",\"output_directory\":\"%s\","
         "\"package_id\":\"test_pack\",\"scenario_count\":1,"
         "\"pack_fingerprint\":\"" + fingerprint + "\","
         "\"package_fingerprint\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\","
-        "\"generator\":{\"name\":\"signal_synth\",\"version\":\"0.5.0-dev\","
-        "\"git_commit\":\"ef2c1d9cd00a07c62617619aa939a6996052867e\","
-        "\"build_identity\":\"signal_synth/ef2c1d9cd00a07c62617619aa939a6996052867e\"},"
-        "\"contracts\":{\"challenge_package\":\"synsigra_challenge_package_v1\","
-        "\"scoring_manifest\":\"synsigra_scoring_manifest_v1\"}}\n' \"$5\"\n",
+        "\"generator\":{\"name\":\"" + producer.generator_name +
+        "\",\"version\":\"" + producer.generator_version + "\","
+        "\"git_commit\":\"" + producer.generator_git_commit + "\","
+        "\"build_identity\":\"" + producer.generator_build_identity + "\"},"
+        "\"contracts\":{\"challenge_package\":\"" + producer.challenge_package + "\","
+        "\"scoring_manifest\":\"" + producer.scoring_manifest + "\","
+        "\"verification_protocol\":\"" + producer.verification_protocol + "\"}}\n' \"$5\"\n",
         0700
     );
+    const std::string helper = root + "/challenge-helper.py";
+    write_file(
+        helper,
+        "import json,sys\n"
+        "print(json.dumps({"
+        "'schema_version':1,"
+        "'contract':'synsigra_saas_challenge_metadata_v1',"
+        "'verifier_version':'0.10.0',"
+        "'challenge_contract':'synsigra_challenge_package_v3',"
+        "'scoring_manifest_contract':'synsigra_scoring_manifest_v3',"
+        "'submission_contract':'synsigra_submission_v1',"
+        "'submission_formats_contract':'synsigra_submission_formats_v2',"
+        "'measurement_values_contract':'synsigra_measurement_values_v2',"
+        "'measurement_truth_contract':'synsigra_measurement_truth_v2',"
+        "'measurement_scoring_contract':'synsigra_measurement_score_v2',"
+        "'local_verification_contract':'synsigra_local_verification_v2',"
+        "'package_id':'test_pack',"
+        "'name':'Test pack',"
+        "'pack_version':'1.0',"
+        "'pack_fingerprint':'" + fingerprint + "',"
+        "'generator_version':'" + producer.generator_version + "',"
+        "'generator_git_commit':'" + producer.generator_git_commit + "',"
+        "'case_count':1,"
+        "'targets':[{'target':'r_peak','supported':True}],"
+        "'cases':[{'case_id':'test_case'}],"
+        "'submission_outputs':[],"
+        "'submission_formats':{},"
+        "'verification_protocol':None,"
+        "'verification':{'mode':'diagnostic','evidence_eligible':False,'matrix_complete':None,'evidence_result':'not_run','policy_result':'not_run','notice':'test','protocol':None},"
+        "'external_noise':{'used':False,'release_allowed':True,'assets':[],'truth_paths':[]},"
+        "'roles':{},"
+        "'integrity':{'ok':True}},sort_keys=True,separators=(',',':')))\n",
+        0600
+    );
+    const std::string wheel = root + "/synsigra-wheel.whl";
+    write_file(wheel, "test wheel placeholder\n", 0600);
     const std::string failure_cli = root + "/failure-cli";
     write_file(
         failure_cli,
@@ -223,6 +275,9 @@ int main() {
             "test_pack",
             pack_path,
             fingerprint,
+            "1.0",
+            "3.0",
+            "sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e",
             succeeded_job,
             error
         ),
@@ -233,6 +288,9 @@ int main() {
     config.signal_synth_cli = success_cli;
     config.pack_root = packs;
     config.data_root = root;
+    config.noise_asset_root = noise_assets;
+    config.challenge_helper = helper;
+    config.verifier_wheel = wheel;
     std::string claimed_job;
     require(
         syn_sig_ra::run_worker_once(config, claimed_job, error) ==
@@ -536,6 +594,9 @@ int main() {
         rebuild.body.find(rebuild_marker) + rebuild_marker.size());
     const std::string rebuilt_job =
         rebuild_start.substr(0, rebuild_start.find('"'));
+    require(
+        unlink(protocol_path.c_str()) == 0 && unlink(noise_path.c_str()) == 0,
+        "live protocol and noise files should be removable before rebuild");
     config.signal_synth_cli = failure_cli;
     require(
         syn_sig_ra::run_worker_once(config, claimed_job, error) ==
@@ -555,6 +616,8 @@ int main() {
                 "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "exact rebuild should preserve generator and package identity"
     );
+    write_file(protocol_path, "{\"protocol\":\"new-live-copy\"}\n", 0600);
+    write_file(noise_path, "sample,noise\n0,9.0\n", 0600);
 
     std::string failed_job;
     require(
@@ -565,6 +628,9 @@ int main() {
             "test_pack",
             pack_path,
             fingerprint,
+            "1.0",
+            "3.0",
+            "sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e",
             failed_job,
             error
         ),
@@ -579,9 +645,26 @@ int main() {
         store.find_job(failed_job, owner, job, error) ==
             syn_sig_ra::RecordLookupStatus::found &&
             job.status == "failed" &&
-            job.error_code == "PACK_JSON_RANGE",
+            job.error_code == "PACK_JSON_RANGE" &&
+            !job.generator_binary_sha256.empty(),
         "stable CLI error should be persisted"
     );
+    std::string retried_job;
+    require(
+        store.retry_job(failed_job, owner, retried_job, error) ==
+            syn_sig_ra::JobLifecycleStatus::succeeded,
+        "a failed pinned job should queue an exact-input retry");
+    config.signal_synth_cli = success_cli;
+    require(
+        syn_sig_ra::run_worker_once(config, claimed_job, error) ==
+            syn_sig_ra::WorkerRunStatus::failed_job &&
+            claimed_job == retried_job,
+        "pinned retry should use its preserved failing generator and recipe");
+    require(
+        store.find_job(retried_job, owner, job, error) ==
+            syn_sig_ra::RecordLookupStatus::found &&
+            job.status == "failed" && job.error_code == "PACK_JSON_RANGE",
+        "pinned retry should reproduce the original stable failure");
 
     require(remove_tree(root), "worker test tree should be removed");
     return EXIT_SUCCESS;

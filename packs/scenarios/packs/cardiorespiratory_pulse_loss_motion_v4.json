@@ -1,0 +1,17 @@
+{
+  "schema_version": 4,
+  "scenario_id": "cardiorespiratory_pulse_loss_motion_v4",
+  "name": "PRV pulse loss low perfusion and motion",
+  "description": "Five-minute PRV exclusion stress case with deterministic pulse loss, low perfusion, PPG motion and concurrent respiratory accelerometer reference.",
+  "author": "Synsigra",
+  "tags": ["low_perfusion", "motion", "pulse_loss", "prv", "respiration"],
+  "duration_seconds": 300,
+  "sample_rate_hz": 100,
+  "seed": 8503001,
+  "ecg": {"heart_rate_bpm": 72, "rr_variability_seconds": 0.035, "ectopic_every_n_beats": 0, "second_degree_av_pattern": "unspecified", "q_wave_territory": "unspecified", "rhythm_episodes": [], "flutter_conduction_pattern": "fixed", "pacing_mode": "ventricular", "pacing_non_capture_every_n_beats": 0, "fidelity_policy": "allow_parameterized", "conditions": [{"code": "NORM", "severity": 1}]},
+  "ppg": {"enabled": true, "pulse_delay_ms": 220, "rise_time_ms": 130, "decay_time_ms": 330, "amplitude_au": 1, "baseline_au": 0, "dicrotic_delay_ms": 190, "dicrotic_width_ms": 90, "dicrotic_amplitude_ratio": 0.12, "pulse_delay_variation_ms": 0, "pulse_delay_variation_hz": 0, "missing_pulse_every_n_beats": 17, "seed": 8503002, "pulse_delay_jitter_ms": 8, "low_frequency_amplitude_modulation_ratio": 0, "low_frequency_amplitude_modulation_hz": 0.1, "rise_time_variation_ratio": 0.08, "decay_time_variation_ratio": 0.1, "pac_pulse_amplitude_scale": 1, "pvc_pulse_amplitude_scale": 1, "paced_pulse_amplitude_scale": 1, "perfusion_episodes": [{"start_seconds": 110, "duration_seconds": 80, "amplitude_scale": 0.35, "rise_time_scale": 1.3, "decay_time_scale": 1.25, "weak_pulse_every_n_beats": 3, "weak_pulse_amplitude_scale": 0.25, "missing_pulse_every_n_beats": 7}]},
+  "randomization": {"enabled": false, "seed": 8503003, "envelopes": []},
+  "physiology": {"respiration_frequency_hz": 0.30, "respiratory_rr_amplitude_seconds": 0.04, "ecg_baseline_amplitude_mv": 0.05, "ppg_amplitude_modulation_ratio": 0.18, "ppg_delay_modulation_ms": 45, "accelerometer_respiration_amplitude_g": 0.04, "activity_start_seconds": 130, "activity_duration_seconds": 45, "activity_intensity": 0.55, "seed": 8503004},
+  "output": {"compact": false, "retain_source_channels": true, "include_waveform_csv": true, "include_edf_bdf": false},
+  "artifacts": [{"type": "ppg_motion_periodic", "start_seconds": 135, "duration_seconds": 30, "severity": 0.65, "seed": 8503005, "channels": ["all_ppg"]}]
+}

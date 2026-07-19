@@ -167,6 +167,7 @@ fieldset:disabled { opacity: 0.55; }
 .overlay-option input { margin: 0; accent-color: var(--primary); }
 .overlay-symbol { width: 10px; height: 10px; display: block; border: 2px solid #d4a4ff; }
 .overlay-r_peak .overlay-symbol { border: 0; background: #4ee4ff; clip-path: polygon(50% 0, 0 100%, 100% 100%); }
+.overlay-ecg_fiducial .overlay-symbol { border-color: #ff9fd5; transform: rotate(45deg); }
 .overlay-ppg_onset .overlay-symbol { border: 0; background: #64e6ad; transform: rotate(45deg); }
 .overlay-ppg_peak .overlay-symbol { border-color: #ffd16f; border-radius: 50%; }
 .overlay-artifact .overlay-symbol { width: 13px; background: repeating-linear-gradient(135deg, #ffbf69 0 2px, transparent 2px 4px); border-color: #ffbf69; }

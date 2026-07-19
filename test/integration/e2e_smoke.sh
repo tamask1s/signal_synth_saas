@@ -99,9 +99,13 @@ detect_httpd() {
 
 REPO_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 SIGNAL_SYNTH_ROOT=${SIGNAL_SYNTH_ROOT:-"$REPO_ROOT/../signal_synth"}
-SIGNAL_SYNTH_BUILD_DIR=${SIGNAL_SYNTH_BUILD_DIR:-"$SIGNAL_SYNTH_ROOT/build"}
-SIGNAL_SYNTH_CLI=${SIGNAL_SYNTH_CLI:-"$SIGNAL_SYNTH_BUILD_DIR/signal-synth"}
 SYN_SIG_RA_BUILD_DIR=${SYN_SIG_RA_BUILD_DIR:-"$REPO_ROOT/build/e2e"}
+SIGNAL_SYNTH_BUILD_DIR=${SIGNAL_SYNTH_BUILD_DIR:-"$SYN_SIG_RA_BUILD_DIR/signal_synth_cli"}
+build_signal_synth_cli=0
+if [ -z "${SIGNAL_SYNTH_CLI:-}" ]; then
+    SIGNAL_SYNTH_CLI="$SIGNAL_SYNTH_BUILD_DIR/signal-synth"
+    build_signal_synth_cli=1
+fi
 PACK_ROOT=${SYN_SIG_RA_PACK_ROOT:-"$REPO_ROOT/packs"}
 
 need_command cmake
@@ -126,7 +130,7 @@ if [ ! -d "$SIGNAL_SYNTH_ROOT" ]; then
     fail "sibling signal_synth checkout is missing: $SIGNAL_SYNTH_ROOT"
 fi
 
-if [ ! -x "$SIGNAL_SYNTH_CLI" ]; then
+if [ "$build_signal_synth_cli" = 1 ]; then
     info "building sibling signal_synth CLI"
     cmake \
         -S "$SIGNAL_SYNTH_ROOT" \
@@ -176,6 +180,23 @@ MAIL_ROOT="$WORK_ROOT/mail"
 DB_PATH="$DATA_ROOT/db.sqlite3"
 APACHE_ERROR_LOG="$WORK_ROOT/apache-error.log"
 HTTPD_CONF="$WORK_ROOT/httpd.conf"
+VERIFIER_ROOT="$WORK_ROOT/verifier"
+CHALLENGE_HELPER="$REPO_ROOT/scripts/challenge_artifact.py"
+NOISE_ASSET_ROOT="$PACK_ROOT/noise_assets"
+RUNTIME_BIN="$WORK_ROOT/runtime-bin"
+
+"$REPO_ROOT/scripts/build_verifier_downloads.sh" "$VERIFIER_ROOT" >/dev/null
+VERIFIER_WHEEL="$VERIFIER_ROOT/synsigra-wheel.whl"
+[ -f "$VERIFIER_WHEEL" ] || fail "verifier wheel build did not produce an artifact"
+[ -x "$CHALLENGE_HELPER" ] || fail "challenge helper is not executable"
+[ -d "$NOISE_ASSET_ROOT" ] || fail "approved noise asset root is missing"
+mkdir -p "$RUNTIME_BIN"
+install -m 0755 "$SIGNAL_SYNTH_CLI" "$RUNTIME_BIN/signal-synth"
+install -m 0755 "$CHALLENGE_HELPER" "$RUNTIME_BIN/challenge_artifact.py"
+install -m 0644 "$VERIFIER_WHEEL" "$RUNTIME_BIN/synsigra-wheel.whl"
+SIGNAL_SYNTH_CLI="$RUNTIME_BIN/signal-synth"
+CHALLENGE_HELPER="$RUNTIME_BIN/challenge_artifact.py"
+VERIFIER_WHEEL="$RUNTIME_BIN/synsigra-wheel.whl"
 
 mkdir -p \
     "$DATA_ROOT/jobs" \
@@ -374,6 +395,13 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q 'deleteAccount' "$WORK_ROOT/app.js"; then
     dump_file "$WORK_ROOT/app.js" "web UI JavaScript"
     fail "web UI JavaScript was not executable or did not contain API wiring"
+fi
+if grep -q -- '--profile' "$WORK_ROOT/app.js" ||
+    grep -q 'pre_specified_profile' "$WORK_ROOT/app.js" ||
+    ! grep -q -- '--mode diagnostic' "$WORK_ROOT/app.js" ||
+    ! grep -q 'evidence_eligible=false' "$WORK_ROOT/app.js"; then
+    dump_file "$WORK_ROOT/app.js" "web UI verification workflow"
+    fail "web UI exposed a legacy evidence override or omitted diagnostic labelling"
 fi
 
 curl -fsS "$BASE_URL/v1/packs" >"$WORK_ROOT/packs.json" ||
@@ -639,6 +667,7 @@ PY
     fail "jobs list did not contain the created job"
 
 if ! "$WORKER_BIN" run-once "$DB_PATH" "$SIGNAL_SYNTH_CLI" "$PACK_ROOT" "$DATA_ROOT" \
+    "$NOISE_ASSET_ROOT" "$CHALLENGE_HELPER" "$VERIFIER_WHEEL" \
     >"$WORK_ROOT/worker.stdout" \
     2>"$WORK_ROOT/worker.stderr"; then
     dump_file "$WORK_ROOT/worker.stdout" "worker stdout"
@@ -677,8 +706,32 @@ for key in ("package_fingerprint", "generator_binary_sha256"):
     value = body.get(key, "")
     if not (isinstance(value, str) and value.startswith("sha256:") and len(value) == 71):
         raise SystemExit("invalid " + key)
-if body.get("integration_contract") != "synsigra_core_integration_v1":
+if body.get("integration_contract") != "synsigra_core_integration_v7":
     raise SystemExit("invalid integration contract")
+if body.get("generator_git_commit") != "13fd76d3f57bf5b55ae0ccf18ebd06f06329a819":
+    raise SystemExit("invalid pinned generator commit")
+challenge = body.get("challenge", {})
+if challenge.get("challenge_contract") != "synsigra_challenge_package_v3":
+    raise SystemExit("invalid challenge contract")
+if challenge.get("scoring_manifest_contract") != "synsigra_scoring_manifest_v3":
+    raise SystemExit("invalid scoring contract")
+if challenge.get("submission_contract") != "synsigra_submission_v1":
+    raise SystemExit("invalid submission contract")
+if challenge.get("submission_formats_contract") != "synsigra_submission_formats_v2":
+    raise SystemExit("invalid submission formats contract")
+for key, value in {
+    "measurement_values_contract": "synsigra_measurement_values_v2",
+    "measurement_truth_contract": "synsigra_measurement_truth_v2",
+    "measurement_scoring_contract": "synsigra_measurement_score_v2",
+    "local_verification_contract": "synsigra_local_verification_v2",
+}.items():
+    if challenge.get(key) != value:
+        raise SystemExit("invalid " + key)
+verification = challenge.get("verification", {})
+if verification.get("mode") != "diagnostic" or verification.get("evidence_eligible") is not False or verification.get("matrix_complete") is not None or verification.get("protocol") is not None:
+    raise SystemExit("protocol-free challenge must be explicitly diagnostic")
+if not challenge.get("integrity", {}).get("ok"):
+    raise SystemExit("challenge integrity was not verified")
 if len(body.get("generator_git_commit", "")) != 40:
     raise SystemExit("invalid generator git commit")
 if body.get("generator_build_identity") != "signal_synth/" + body["generator_git_commit"]:
@@ -719,12 +772,6 @@ curl -fsS \
 
 curl -fsS \
     -H "Authorization: Bearer $API_KEY" \
-    -o "$WORK_ROOT/detection-templates.zip" \
-    "$BASE_URL/v1/jobs/$JOB_ID/detection-templates.zip" ||
-    fail "detection template archive download failed"
-
-curl -fsS \
-    -H "Authorization: Bearer $API_KEY" \
     -o "$WORK_ROOT/verification-kit-a.zip" \
     "$BASE_URL/v1/jobs/$JOB_ID/verification-kit.zip" &
 KIT_PID_A=$!
@@ -740,7 +787,7 @@ cmp "$WORK_ROOT/verification-kit-a.zip" "$WORK_ROOT/verification-kit-b.zip" ||
 mv "$WORK_ROOT/verification-kit-a.zip" "$WORK_ROOT/verification-kit.zip"
 DERIVED_ZIP_COUNT=$(find \
     "$DATA_ROOT/derived-artifacts/$PACKAGE_ID" \
-    -maxdepth 1 -type f -name 'verification-kit-v1.zip' | wc -l)
+    -maxdepth 1 -type f -name 'verification-kit-v2.zip' | wc -l)
 [ "$DERIVED_ZIP_COUNT" = "1" ] ||
     fail "concurrent kit requests did not publish exactly one immutable ZIP"
 if find "$DATA_ROOT/derived-artifacts/$PACKAGE_ID" \
@@ -845,61 +892,20 @@ for name in names:
 PY
     fail "downloaded artifacts failed package layout validation"
 
-python3 - "$WORK_ROOT/detection-templates.zip" "$PACKAGE_ID" <<'PY' ||
+python3 - "$WORK_ROOT/verification-kit.zip" <<'PY' ||
+import json
 import sys
 import zipfile
 
-archive_path, package_id = sys.argv[1], sys.argv[2]
+kit_path = sys.argv[1]
+prefix = "verification-kit/"
 expected = {
-    "README.md",
-    "PACKAGE_USE_NOTICE.txt",
-    "SUPPORT_AND_TERMS.txt",
-    "PLATFORM_CAPABILITIES.md",
-    "detections/clean_70_r_peak.csv",
-    "detections/slow_45_r_peak.csv",
-    "detections/fast_120_r_peak.csv",
-    "detections/baseline_powerline_r_peak.csv",
-}
-with zipfile.ZipFile(archive_path) as archive:
-    bad_member = archive.testzip()
-    if bad_member is not None:
-        raise SystemExit("template zip member failed CRC: " + bad_member)
-    names = set(archive.namelist())
-    missing = expected - names
-    if missing:
-        raise SystemExit("template zip missing: " + ", ".join(sorted(missing)))
-    readme = archive.read("README.md").decode("utf-8")
-    if "synsigra-verify" not in readme or package_id not in readme:
-        raise SystemExit("template README does not match verifier workflow")
-    notice = archive.read("PACKAGE_USE_NOTICE.txt").decode("utf-8")
-    if "not represent synthetic results" not in notice:
-        raise SystemExit("template zip lacks package-use claim boundary")
-    capabilities = archive.read("PLATFORM_CAPABILITIES.md").decode("utf-8")
-    if "74 fields" not in capabilities or "20 artifact families" not in capabilities:
-        raise SystemExit("template zip lacks platform capability context")
-    csv = archive.read("detections/clean_70_r_peak.csv").decode("utf-8")
-    if not csv.startswith("time_seconds,sample_index,channel,label,confidence\n"):
-        raise SystemExit("R-peak template CSV header is invalid")
-PY
-    fail "detection template archive failed validation"
-
-python3 - "$WORK_ROOT/verification-kit.zip" "$WORK_ROOT/package.zip" <<'PY' ||
-import sys
-import zipfile
-
-kit_path, package_path = sys.argv[1], sys.argv[2]
-expected = {
-    "SYNSIGRA_README.md",
-    "manifest.json",
-    "provenance.json",
-    "ENGINEERING_CLAIM_BOUNDARY.txt",
-    "PACKAGE_USE_NOTICE.txt",
-    "SUPPORT_AND_TERMS.txt",
-    "PLATFORM_CAPABILITIES.md",
-    "detections/clean_70_r_peak.csv",
-    "detections/slow_45_r_peak.csv",
-    "detections/fast_120_r_peak.csv",
-    "detections/baseline_powerline_r_peak.csv",
+    prefix + "README.txt",
+    prefix + "ENGINEERING_CLAIM_BOUNDARY.txt",
+    prefix + "challenge-metadata.json",
+    prefix + "challenge/manifest.json",
+    prefix + "submission/submission.json",
+    prefix + "submission/formats.json",
 }
 with zipfile.ZipFile(kit_path) as archive:
     bad_member = archive.testzip()
@@ -909,29 +915,28 @@ with zipfile.ZipFile(kit_path) as archive:
     missing = expected - names
     if missing:
         raise SystemExit("verification kit missing: " + ", ".join(sorted(missing)))
-    if "package.zip" in names:
+    if any(name.endswith("package.zip") for name in names):
         raise SystemExit("verification kit still contains a redundant nested package ZIP")
-    readme = archive.read("SYNSIGRA_README.md").decode("utf-8")
-    if "synsigra-verify . detections/" not in readme:
+    readme = archive.read(prefix + "README.txt").decode("utf-8")
+    if "synsigra-verify challenge submission verification-results" not in readme:
         raise SystemExit("verification kit README lacks first-run command")
-    support = archive.read("SUPPORT_AND_TERMS.txt").decode("utf-8")
-    if "no automatic paid" not in support or "without an uptime" not in support:
-        raise SystemExit("verification kit lacks support and billing boundary")
-    capabilities = archive.read("PLATFORM_CAPABILITIES.md").decode("utf-8")
-    if "starter pack" not in capabilities or "24 hours" not in capabilities:
-        raise SystemExit("verification kit lacks wider platform context")
-    kit_info = {item.filename: item for item in archive.infolist()}
-with zipfile.ZipFile(package_path) as package_zip:
-    bad_member = package_zip.testzip()
-    if bad_member is not None:
-        raise SystemExit("source package zip member failed CRC: " + bad_member)
-    original = {item.filename: item for item in package_zip.infolist()}
-    missing_original = set(original) - set(kit_info)
-    if missing_original:
-        raise SystemExit("flattened kit lost package members: " + ", ".join(sorted(missing_original)))
-    for name, item in original.items():
-        if item.CRC != kit_info[name].CRC or item.file_size != kit_info[name].file_size:
-            raise SystemExit("flattened kit changed package member: " + name)
+    metadata = json.loads(archive.read(prefix + "challenge-metadata.json"))
+    manifest = json.loads(archive.read(prefix + "challenge/manifest.json"))
+    if metadata.get("package_id") != manifest.get("package_id"):
+        raise SystemExit("kit metadata package identity mismatch")
+    if metadata.get("challenge_contract") != "synsigra_challenge_package_v3":
+        raise SystemExit("kit metadata challenge contract mismatch")
+    if metadata.get("submission_contract") != "synsigra_submission_v1":
+        raise SystemExit("kit metadata submission contract mismatch")
+    if metadata.get("measurement_values_contract") != "synsigra_measurement_values_v2":
+        raise SystemExit("kit metadata measurement contract mismatch")
+    verification = metadata.get("verification", {})
+    if verification.get("mode") != "diagnostic" or verification.get("evidence_eligible") is not False:
+        raise SystemExit("protocol-free kit must be diagnostic only")
+    if "--mode diagnostic" not in readme:
+        raise SystemExit("protocol-free kit README does not state diagnostic mode")
+    if not metadata.get("integrity", {}).get("ok"):
+        raise SystemExit("kit metadata integrity result is not trusted")
 PY
     fail "verification kit archive failed validation"
 
@@ -950,6 +955,15 @@ if metadata.get("package") != "synsigra":
     raise SystemExit("unexpected verifier package")
 if metadata.get("generator_included") is not False:
     raise SystemExit("verifier download must not include generator")
+for key, value in {
+    "version": "0.10.0",
+    "measurement_values_contract": "synsigra_measurement_values_v2",
+    "measurement_truth_contract": "synsigra_measurement_truth_v2",
+    "measurement_scoring_contract": "synsigra_measurement_score_v2",
+    "local_verification_contract": "synsigra_local_verification_v2",
+}.items():
+    if metadata.get(key) != value:
+        raise SystemExit("verifier metadata mismatch: " + key)
 files = {item.get("filename") for item in metadata.get("files", [])}
 if "synsigra-verifier.zip" not in files or "synsigra-wheel.whl" not in files:
     raise SystemExit("expected verifier bundle and wheel metadata")
@@ -1117,6 +1131,7 @@ print(json.load(open(sys.argv[1], encoding="utf-8"))["job_id"])
 PY
 )
 "$WORKER_BIN" run-once "$DB_PATH" "$SIGNAL_SYNTH_CLI" "$PACK_ROOT" "$DATA_ROOT" \
+    "$NOISE_ASSET_ROOT" "$CHALLENGE_HELPER" "$VERIFIER_WHEEL" \
     >"$WORK_ROOT/custom-worker.stdout" \
     2>"$WORK_ROOT/custom-worker.stderr" || {
     dump_file "$WORK_ROOT/custom-worker.stdout" "custom worker stdout"
@@ -1136,6 +1151,28 @@ import sys
 body = json.load(open(sys.argv[1], encoding="utf-8"))
 if body.get("status") != "succeeded":
     raise SystemExit("custom pack job did not succeed")
+if body.get("integration_contract") != "synsigra_core_integration_v7":
+    raise SystemExit("custom pack job used the wrong integration contract")
+if body.get("generator_git_commit") != "13fd76d3f57bf5b55ae0ccf18ebd06f06329a819":
+    raise SystemExit("custom pack job used the wrong generator commit")
+challenge = body.get("challenge", {})
+for key, value in {
+    "challenge_contract": "synsigra_challenge_package_v3",
+    "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
+    "submission_contract": "synsigra_submission_v1",
+    "submission_formats_contract": "synsigra_submission_formats_v2",
+    "measurement_values_contract": "synsigra_measurement_values_v2",
+    "measurement_truth_contract": "synsigra_measurement_truth_v2",
+    "measurement_scoring_contract": "synsigra_measurement_score_v2",
+    "local_verification_contract": "synsigra_local_verification_v2",
+}.items():
+    if challenge.get(key) != value:
+        raise SystemExit("custom pack challenge mismatch: " + key)
+verification = challenge.get("verification", {})
+if verification.get("mode") != "diagnostic" or verification.get("evidence_eligible") is not False or verification.get("matrix_complete") is not None or verification.get("protocol") is not None:
+    raise SystemExit("custom pack must use explicit diagnostic verification")
+if not challenge.get("integrity", {}).get("ok"):
+    raise SystemExit("custom pack challenge integrity was not verified")
 print(body["package_id"])
 PY
 ) || fail "custom pack job response was invalid"
@@ -1144,6 +1181,45 @@ curl -fsS \
     -o "$WORK_ROOT/custom-manifest.json" \
     "$BASE_URL/v1/artifacts/$CUSTOM_PACKAGE_ID/manifest.json" ||
     fail "custom pack manifest download failed"
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -o "$WORK_ROOT/custom-verification-kit.zip" \
+    "$BASE_URL/v1/jobs/$CUSTOM_JOB_ID/verification-kit.zip" ||
+    fail "custom pack verification kit download failed"
+python3 - "$WORK_ROOT/custom-verification-kit.zip" <<'PY' ||
+import json
+import sys
+import zipfile
+
+prefix = "verification-kit/"
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    if archive.testzip() is not None:
+        raise SystemExit("custom verification kit failed CRC validation")
+    names = set(archive.namelist())
+    required = {
+        prefix + "README.txt",
+        prefix + "challenge-metadata.json",
+        prefix + "challenge/manifest.json",
+        prefix + "submission/submission.json",
+        prefix + "submission/formats.json",
+    }
+    if not required <= names:
+        raise SystemExit("custom verification kit is incomplete")
+    if any(name.endswith("package.zip") for name in names):
+        raise SystemExit("custom verification kit contains a nested package ZIP")
+    readme = archive.read(prefix + "README.txt").decode("utf-8")
+    if "--mode diagnostic" not in readme:
+        raise SystemExit("custom verification kit lacks the diagnostic command")
+    metadata = json.loads(archive.read(prefix + "challenge-metadata.json"))
+    verification = metadata.get("verification", {})
+    if verification.get("mode") != "diagnostic" or verification.get("evidence_eligible") is not False:
+        raise SystemExit("custom verification kit is not diagnostic-only")
+    if metadata.get("measurement_values_contract") != "synsigra_measurement_values_v2":
+        raise SystemExit("custom verification kit has the wrong measurement contract")
+    if not metadata.get("integrity", {}).get("ok"):
+        raise SystemExit("custom verification kit integrity was not verified")
+PY
+    fail "custom pack verification kit validation failed"
 
 curl -fsS -X DELETE -H "Cookie: $SESSION_COOKIE" \
     -H "Content-Type: application/json" \

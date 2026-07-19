@@ -1,0 +1,59 @@
+{
+  "description": "Independent wearable clocks, packet loss, device ECG vectors, PPG anatomical sites and ECG-PPG alignment truth.",
+  "name": "Wearable Multi-rate Timebase Pack v2",
+  "pack_id": "wearable_timebase_v2",
+  "scenarios": [
+    {
+      "id": "independent_clocks",
+      "path": "scenarios/packs/wearable_independent_clocks_v6.json",
+      "targets": [
+        "r_peak",
+        "ppg_systolic_peak",
+        "ecg_ppg_alignment"
+      ]
+    },
+    {
+      "id": "packet_loss_bursts",
+      "path": "scenarios/packs/wearable_packet_loss_v5.json",
+      "targets": [
+        "r_peak",
+        "ppg_systolic_peak",
+        "ecg_ppg_alignment"
+      ]
+    },
+    {
+      "id": "holter_finger",
+      "path": "scenarios/packs/wearable_holter_finger_v6.json",
+      "targets": [
+        "r_peak",
+        "ppg_systolic_peak",
+        "ecg_ppg_alignment"
+      ]
+    },
+    {
+      "id": "patch_wrist",
+      "path": "scenarios/packs/wearable_patch_wrist_v6.json",
+      "targets": [
+        "r_peak",
+        "ppg_systolic_peak",
+        "ecg_ppg_alignment"
+      ]
+    },
+    {
+      "id": "watch_ear",
+      "path": "scenarios/packs/wearable_watch_ear_v6.json",
+      "targets": [
+        "r_peak",
+        "ppg_systolic_peak",
+        "ecg_ppg_alignment"
+      ]
+    }
+  ],
+  "schema_version": 2,
+  "targets": [
+    "r_peak",
+    "ppg_systolic_peak",
+    "ecg_ppg_alignment"
+  ],
+  "version": "2.1"
+}

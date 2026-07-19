@@ -1,0 +1,84 @@
+{
+  "description": "Deterministic clean, analytic and calibrated external-noise cases for R-peak detection and observable RR reconstruction QA.",
+  "name": "R-peak and RR Noise Verification Pack v1",
+  "pack_id": "r_peak_rr_noise_v1",
+  "scenarios": [
+    {
+      "id": "clean_70",
+      "path": "scenarios/packs/rpeak_clean_70.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "slow_45",
+      "path": "scenarios/packs/rpeak_slow_45.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "fast_120",
+      "path": "scenarios/packs/rpeak_fast_120.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "baseline_powerline",
+      "path": "scenarios/packs/sq_baseline_powerline.json",
+      "targets": [
+        "r_peak",
+        "rr_interval",
+        "signal_quality"
+      ]
+    },
+    {
+      "id": "dropout_saturation",
+      "path": "scenarios/packs/sq_dropout_saturation.json",
+      "targets": [
+        "r_peak",
+        "rr_interval",
+        "signal_quality"
+      ]
+    },
+    {
+      "id": "analytic_extreme",
+      "path": "scenarios/packs/rpeak_analytic_noise_extreme_v2.json",
+      "targets": [
+        "r_peak",
+        "rr_interval",
+        "signal_quality"
+      ]
+    },
+    {
+      "id": "external_calibrated",
+      "path": "scenarios/packs/ecg_hybrid_noise_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval",
+        "signal_quality"
+      ]
+    },
+    {
+      "id": "external_extreme",
+      "path": "scenarios/packs/rpeak_external_noise_extreme_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval",
+        "signal_quality"
+      ]
+    }
+  ],
+  "schema_version": 2,
+  "targets": [
+    "r_peak",
+    "rr_interval",
+    "signal_quality"
+  ],
+  "verification_protocol_path": "r_peak_rr_noise_v1_expectations.json",
+  "version": "1.0"
+}

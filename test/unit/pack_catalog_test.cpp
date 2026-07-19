@@ -56,14 +56,14 @@ int main() {
     std::vector<syn_sig_ra::PackSummary> packs;
 
     require(catalog.list(packs, error), "catalog list should succeed: " + error);
-    require(packs.size() >= 10, "catalog should contain the imported release set");
+    require(packs.size() == 18, "catalog should contain the exact v7 release set");
     const syn_sig_ra::PackSummary* r_peak =
         find_pack(packs, "r_peak_stress_v1");
     require(r_peak != 0, "catalog should expose the R-peak pack");
     require(
-        find_pack(packs, "hrv_v1") != 0 &&
+        find_pack(packs, "hrv_robustness_v2") != 0 &&
             find_pack(packs, "ppg_benchmark_v1") != 0 &&
-            find_pack(packs, "wearable_stress_v1") != 0,
+            find_pack(packs, "wearable_timebase_v2") != 0,
         "catalog should expose HRV, PPG and wearable release packs"
     );
     require(
@@ -89,19 +89,23 @@ int main() {
     require(
         r_peak->release_status == "beta" &&
             r_peak->integration_contract_version ==
-                "synsigra_core_integration_v1" &&
+                "synsigra_core_integration_v7" &&
+            r_peak->catalog_version == "3.0" &&
+            r_peak->catalog_source_sha256 ==
+                "sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e" &&
             r_peak->changelog.size() == 1,
         "catalog should expose validated release and compatibility metadata"
     );
     require(
-        r_peak->scoring_mode == "mixed" &&
+        r_peak->scoring_mode == "local" &&
             has_target(r_peak->scoreable_targets, "r_peak", true) &&
-            has_target(r_peak->reference_only_targets, "signal_quality", false),
-        "catalog should distinguish scoreable and reference-only R-peak metadata"
+            has_target(r_peak->scoreable_targets, "signal_quality", true) &&
+            r_peak->reference_only_targets.empty(),
+        "catalog should expose the v7 scoreable target set"
     );
     require(
         r_peak->recommended_profile == "stress" &&
-            r_peak->detector_output_schemas.size() >= 1 &&
+            r_peak->submission_output_schemas.size() >= 1 &&
             r_peak->estimated_package_bytes > 0 &&
             r_peak->total_seconds == 100 &&
             r_peak->minimum_channel_count == 12 &&
@@ -120,10 +124,11 @@ int main() {
         find_pack(packs, "ecg_morphology_stress_v1");
     require(
         morphology != 0 &&
-            morphology->scoring_mode == "reference_only" &&
-            morphology->scoreable_targets.empty() &&
-            has_target(morphology->reference_only_targets, "morphology_assertions", false),
-        "reference-only packs should not look locally scoreable"
+            morphology->version == "1.1" &&
+            morphology->scoring_mode == "local" &&
+            has_target(morphology->scoreable_targets, "morphology_assertions", true) &&
+            morphology->reference_only_targets.empty(),
+        "morphology measurements should be locally scoreable in v7"
     );
     const syn_sig_ra::PackSummary* ppg_benchmark =
         find_pack(packs, "ppg_benchmark_v1");
@@ -153,8 +158,23 @@ int main() {
             syn_sig_ra::pack_summary_json(detail).find("\"reference_only_targets\"") !=
                 std::string::npos &&
             syn_sig_ra::pack_summary_json(detail).find("\"recommended_profile\":\"stress\"") !=
+                std::string::npos &&
+            syn_sig_ra::pack_summary_json(detail).find("\"submission_output_schemas\"") !=
+                std::string::npos &&
+            syn_sig_ra::pack_summary_json(detail).find("detector_output_schemas") ==
                 std::string::npos,
         "pack JSON should include scenario, release and rich discovery summaries"
+    );
+
+    const syn_sig_ra::PackSummary* protocol_pack =
+        find_pack(packs, "r_peak_rr_noise_v1");
+    require(
+        protocol_pack != 0 && protocol_pack->verification_protocol_available &&
+            protocol_pack->verification_protocol_contract ==
+                "synsigra_verification_protocol_v2" &&
+            protocol_pack->verification_protocol_sha256.compare(0, 7, "sha256:") == 0 &&
+            protocol_pack->external_noise_asset_ids.size() == 1,
+        "catalog should expose normalized protocol and approved external-noise metadata"
     );
 
     require(

@@ -54,13 +54,17 @@ def main():
 
     args.out.mkdir(parents=True, exist_ok=True)
     package_id = job["package_id"]
-    for filename in ("manifest.json", "package.zip"):
-        content, _ = request(
-            args.base, args.key,
-            "/v1/artifacts/{}/{}".format(package_id, filename),
-        )
-        (args.out / filename).write_bytes(content)
-    print(json.dumps({"job_id": job_id, "package_id": package_id, "out": str(args.out)}))
+    content, _ = request(
+        args.base, args.key,
+        "/v1/jobs/{}/verification-kit.zip".format(job_id),
+    )
+    kit = args.out / "verification-kit.zip"
+    kit.write_bytes(content)
+    print(json.dumps({
+        "job_id": job_id,
+        "package_id": package_id,
+        "verification_kit": str(kit),
+    }))
 
 
 if __name__ == "__main__":

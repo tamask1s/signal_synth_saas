@@ -23,7 +23,6 @@
 
 #include <cctype>
 #include <cerrno>
-#include <cstdint>
 #include <climits>
 #include <ctime>
 #include <cstdlib>
@@ -380,414 +379,6 @@ std::string json_dump_line(json_t* value) {
     return output;
 }
 
-struct ZipEntry {
-    std::string path;
-    std::string content;
-};
-
-const char kPackageUseNotice[] = R"NOTICE(Synsigra private-beta package use notice
-Version: private-beta-2026-07-17-r4
-
-PERMITTED USE
-This synthetic package and its verifier reports may be used, reproduced and
-archived inside the account holder's organization for algorithm development,
-regression testing, benchmarking, reproducibility and engineering evaluation.
-Contractors may use it only while acting for that organization under equivalent
-confidentiality and use restrictions.
-
-PROHIBITED USE
-Do not sell, sublicense or publish this package as a standalone dataset. Do not
-use it to identify or model a real person. Do not represent synthetic results as
-diagnostic, patient-monitoring, clinical-validation, certification or
-medical-device conformity evidence.
-
-Keep the manifest, package fingerprint, provenance.json and
-ENGINEERING_CLAIM_BOUNDARY.txt with archived evidence. This notice does not
-replace or alter those package identity and provenance records.
-
-The beta materials are provided as-is and as-available to the extent permitted
-by law. Full terms: https://www.timeonion.com/syn_sig_ra/legal/terms
-)NOTICE";
-
-const char kSupportAndTermsNotice[] = R"NOTICE(Synsigra private-beta support and service notice
-Version: private-beta-2026-07-17-r4
-
-The private beta is free, collects no payment method, has no automatic paid
-conversion, and is provided on a best-effort basis without an uptime or
-response-time SLA. Generated artifacts are normally cached for 7 days; keep
-local copies of evidence you need.
-
-Private support: synsigra@gmail.com
-Operator: Kis Tamás, 2040 Budaörs, Tátra u. 6, Hungary
-
-Never email passwords, API keys, account-action links, PHI, personal data, real
-patient data, proprietary detector output, generated signal files, or source
-code. Send only safe IDs, UTC timestamps, and exact error codes. Support is
-normally reviewed within three business days as a target, not a contractual
-SLA.
-
-Privacy and no-PHI notice:
-https://www.timeonion.com/syn_sig_ra/legal/privacy
-)NOTICE";
-
-const char kPlatformCapabilities[] = R"NOTICE(# Synsigra platform capabilities
-
-This job is one reproducible verification slice. A short or simple starter pack
-does not represent the limits of the Synsigra authoring platform.
-
-The current authoring contract exposes 74 fields, a 71-entry condition catalog,
-20 artifact families, 8 verification target types, and deterministic seeds.
-
-## Configurable dimensions
-
-- Duration from 0.01 seconds to 24 hours, subject to package limits.
-- Sample rates from 100 Hz to 1 MHz, including standard ECG/PPG rates.
-- ECG rate, RR variability, ectopy, rhythm/conduction patterns, episodes,
-  pacing controls, and parameterized 12-lead morphology where supported.
-- HRV LF/HF structure, SDNN, respiration, and activity-linked modulation.
-- PPG pulse timing, shape, perfusion, missing/weak pulses, timing jitter,
-  amplitude modulation, and pulse-transit-time variation.
-- ECG noise, dropout, saturation, lead/electrode faults, drift, dropped
-  samples, quantization, clipping, and PPG motion/ambient/sensor artifacts.
-- Targets for R peaks, PPG peaks/onsets, beat classification, HRV, signal
-  quality, morphology assertions, and ECG-PPG alignment.
-
-Catalog entries declare native, parameterized, or catalog-only support.
-Unsupported combinations are rejected rather than silently approximated.
-
-Synsigra output is synthetic engineering QA evidence, not patient data,
-clinical evidence, or a medical-device authorization. The manifest and
-provenance inside this job remain authoritative for the exact generated slice.
-
-Live product: https://www.timeonion.com/syn_sig_ra/
-)NOTICE";
-
-void append_beta_notices(std::vector<ZipEntry>& entries) {
-    ZipEntry package_notice;
-    package_notice.path = "PACKAGE_USE_NOTICE.txt";
-    package_notice.content = kPackageUseNotice;
-    entries.push_back(package_notice);
-    ZipEntry support_notice;
-    support_notice.path = "SUPPORT_AND_TERMS.txt";
-    support_notice.content = kSupportAndTermsNotice;
-    entries.push_back(support_notice);
-    ZipEntry capabilities;
-    capabilities.path = "PLATFORM_CAPABILITIES.md";
-    capabilities.content = kPlatformCapabilities;
-    entries.push_back(capabilities);
-}
-
-void append_u16(std::string& output, std::uint16_t value) {
-    output.push_back(static_cast<char>(value & 0xffu));
-    output.push_back(static_cast<char>((value >> 8) & 0xffu));
-}
-
-void append_u32(std::string& output, std::uint32_t value) {
-    output.push_back(static_cast<char>(value & 0xffu));
-    output.push_back(static_cast<char>((value >> 8) & 0xffu));
-    output.push_back(static_cast<char>((value >> 16) & 0xffu));
-    output.push_back(static_cast<char>((value >> 24) & 0xffu));
-}
-
-std::uint32_t crc32(const std::string& data) {
-    std::uint32_t crc = 0xffffffffu;
-    for (std::string::const_iterator it = data.begin(); it != data.end(); ++it) {
-        crc ^= static_cast<unsigned char>(*it);
-        for (int bit = 0; bit < 8; ++bit) {
-            const std::uint32_t mask = (crc & 1u) ? 0xedb88320u : 0u;
-            crc = (crc >> 1) ^ mask;
-        }
-    }
-    return crc ^ 0xffffffffu;
-}
-
-std::string zip_store_archive(const std::vector<ZipEntry>& entries) {
-    std::string output;
-    std::string central_directory;
-    for (std::vector<ZipEntry>::const_iterator it = entries.begin();
-         it != entries.end(); ++it) {
-        const std::uint32_t offset = static_cast<std::uint32_t>(output.size());
-        const std::uint32_t crc = crc32(it->content);
-        const std::uint32_t size = static_cast<std::uint32_t>(it->content.size());
-        append_u32(output, 0x04034b50u);
-        append_u16(output, 20);
-        append_u16(output, 0);
-        append_u16(output, 0);
-        append_u16(output, 0);
-        append_u16(output, 0);
-        append_u32(output, crc);
-        append_u32(output, size);
-        append_u32(output, size);
-        append_u16(output, static_cast<std::uint16_t>(it->path.size()));
-        append_u16(output, 0);
-        output += it->path;
-        output += it->content;
-
-        append_u32(central_directory, 0x02014b50u);
-        append_u16(central_directory, 20);
-        append_u16(central_directory, 20);
-        append_u16(central_directory, 0);
-        append_u16(central_directory, 0);
-        append_u16(central_directory, 0);
-        append_u16(central_directory, 0);
-        append_u32(central_directory, crc);
-        append_u32(central_directory, size);
-        append_u32(central_directory, size);
-        append_u16(central_directory, static_cast<std::uint16_t>(it->path.size()));
-        append_u16(central_directory, 0);
-        append_u16(central_directory, 0);
-        append_u16(central_directory, 0);
-        append_u16(central_directory, 0);
-        append_u32(central_directory, 0);
-        append_u32(central_directory, offset);
-        central_directory += it->path;
-    }
-    const std::uint32_t central_offset = static_cast<std::uint32_t>(output.size());
-    output += central_directory;
-    append_u32(output, 0x06054b50u);
-    append_u16(output, 0);
-    append_u16(output, 0);
-    append_u16(output, static_cast<std::uint16_t>(entries.size()));
-    append_u16(output, static_cast<std::uint16_t>(entries.size()));
-    append_u32(output, static_cast<std::uint32_t>(central_directory.size()));
-    append_u32(output, central_offset);
-    append_u16(output, 0);
-    return output;
-}
-
-std::string detection_template_extension(const syn_sig_ra::PackTargetSummary& target) {
-    for (std::vector<std::string>::const_iterator it =
-             target.accepted_formats.begin();
-         it != target.accepted_formats.end(); ++it) {
-        if (*it == "hrv_json_v1") {
-            return ".json";
-        }
-    }
-    return ".csv";
-}
-
-std::string detection_template_content(
-    const syn_sig_ra::PackTargetSummary& target,
-    const std::string& case_id
-) {
-    if (detection_template_extension(target) == ".json") {
-        std::ostringstream output;
-        output << "{\n"
-               << "  \"schema_version\": 1,\n"
-               << "  \"case_id\": \"" << case_id << "\",\n"
-               << "  \"target\": \"" << target.target << "\",\n"
-               << "  \"metrics\": {\n"
-               << "    \"sdnn_ms\": 0.0,\n"
-               << "    \"rmssd_ms\": 0.0,\n"
-               << "    \"mean_rr_ms\": 0.0,\n"
-               << "    \"lf_hf_ratio\": 0.0\n"
-               << "  }\n"
-               << "}\n";
-        return output.str();
-    }
-    if (target.target == "ecg_beat_classification") {
-        return "time_seconds,sample_index,label,confidence\n"
-               "0.000,0,N,1.0\n";
-    }
-    return "time_seconds,sample_index,channel,label,confidence\n"
-           "0.000,0,,event,1.0\n";
-}
-
-bool build_detection_template_entries(
-    const syn_sig_ra::PackSummary& pack,
-    std::vector<ZipEntry>& templates,
-    std::string& error
-) {
-    templates.clear();
-    for (std::vector<syn_sig_ra::PackTargetSummary>::const_iterator target =
-             pack.scoreable_targets.begin();
-         target != pack.scoreable_targets.end(); ++target) {
-        const std::string extension = detection_template_extension(*target);
-        for (std::vector<std::string>::const_iterator case_id =
-                 target->case_ids.begin();
-             case_id != target->case_ids.end(); ++case_id) {
-            ZipEntry entry;
-            entry.path = "detections/" + *case_id + "_" + target->target + extension;
-            entry.content = detection_template_content(*target, *case_id);
-            templates.push_back(entry);
-        }
-    }
-    if (templates.empty()) {
-        error = "pack has no locally scoreable detector-output templates";
-        return false;
-    }
-    return true;
-}
-
-std::string detection_template_readme(
-    const syn_sig_ra::JobRecord& job,
-    const syn_sig_ra::PackSummary& pack,
-    const std::vector<ZipEntry>& template_entries
-) {
-    const std::string package_file = job.package_id + "-package.zip";
-    const std::string output_dir = "verification-" + job.package_id;
-    const std::string profile = pack.recommended_profile.empty()
-        ? "regression" : pack.recommended_profile;
-    std::ostringstream output;
-    output << "# Detection templates for " << job.job_id << "\n\n"
-           << "Pack: `" << pack.pack_id << "` " << pack.version << "\n\n"
-           << "Copy this `detections/` folder next to the downloaded package, "
-           << "replace example rows with your algorithm output, then run:\n\n"
-           << "```sh\n"
-           << "synsigra-verify \"" << package_file << "\" detections/ \""
-           << output_dir << "\" --profile " << profile << " --force\n"
-           << "```\n\n"
-           << "The verifier writes `verification_summary.json`, "
-           << "`verification_summary.csv`, and `verification_report.html` "
-           << "under `" << output_dir << "/`.\n\n"
-           << "Only locally scoreable targets are included. Reference-only "
-           << "targets are intentionally not detector-output requirements.\n\n"
-           << "## Files\n\n";
-    for (std::vector<ZipEntry>::const_iterator it = template_entries.begin();
-         it != template_entries.end(); ++it) {
-        output << "- `" << it->path << "`\n";
-    }
-    output << "\n## Column notes\n\n"
-           << "- Event-detection CSV required column: `time_seconds`, in seconds from case start.\n"
-           << "- Event-detection CSV optional columns: `sample_index`, `channel`, `label`, `confidence`.\n"
-           << "- Beat-classification CSV required columns: `time_seconds`, `label`.\n"
-           << "- HRV JSON templates provide a minimal `metrics` object; replace values with algorithm output.\n";
-    return output.str();
-}
-
-bool build_detection_template_zip(
-    const syn_sig_ra::JobRecord& job,
-    const syn_sig_ra::PackSummary& pack,
-    std::string& zip,
-    std::string& error
-) {
-    std::vector<ZipEntry> templates;
-    if (!build_detection_template_entries(pack, templates, error)) {
-        return false;
-    }
-    std::vector<ZipEntry> entries;
-    ZipEntry readme;
-    readme.path = "README.md";
-    readme.content = detection_template_readme(job, pack, templates);
-    entries.push_back(readme);
-    append_beta_notices(entries);
-    entries.insert(entries.end(), templates.begin(), templates.end());
-    zip = zip_store_archive(entries);
-    return true;
-}
-
-std::string verification_kit_readme(
-    const syn_sig_ra::JobRecord& job,
-    const syn_sig_ra::PackSummary* pack,
-    bool has_detection_templates
-) {
-    const std::string profile =
-        pack != nullptr && !pack->recommended_profile.empty()
-            ? pack->recommended_profile
-            : "regression";
-    std::ostringstream output;
-    output << "# Synsigra verification kit\n\n"
-           << "Job: `" << job.job_id << "`\n\n"
-           << "Pack: `" << job.selected_pack_id << "`";
-    if (pack != nullptr && !pack->version.empty()) {
-        output << " " << pack->version;
-    }
-    output << "\n\n"
-           << "Package ID: `" << job.package_id << "`\n\n"
-           << "This ZIP is a convenience bundle for local algorithm QA. It "
-           << "does not contain the C++ generator or generator source.\n\n"
-           << "## Included files\n\n"
-           << "- Challenge files such as `manifest.json`, `cases/`, "
-           << "`provenance.json`, reports, and interchange formats are "
-           << "present directly in this extracted directory.\n"
-           << "- `PACKAGE_USE_NOTICE.txt`: private-beta package permission "
-           << "and prohibited-use boundary.\n"
-           << "- `SUPPORT_AND_TERMS.txt`: support, availability, retention "
-           << "and billing expectations.\n"
-           << "- `PLATFORM_CAPABILITIES.md`: the wider authoring surface, so "
-           << "this pack is not mistaken for the platform limit.\n"
-           << "- `provenance.json` and `ENGINEERING_CLAIM_BOUNDARY.txt` "
-           << "record generator identity, "
-           << "contract identity, fingerprints and the engineering QA claim "
-           << "boundary.\n";
-    if (has_detection_templates) {
-        output << "- `detections/`: starter detector-output templates. Replace "
-               << "example rows with your algorithm output while keeping the "
-               << "filenames.\n";
-    } else {
-        output << "- No `detections/` templates are included because this job "
-               << "is either a custom pack or has no local scoring policy.\n";
-    }
-    output << "\n## Install the local verifier\n\n"
-           << "Download the generator-free verifier wheel or bundle from the "
-           << "Synsigra UI Verifier panel, then install it locally:\n\n"
-           << "```sh\n"
-           << "python -m pip install synsigra-wheel.whl\n"
-           << "```\n\n";
-    if (has_detection_templates) {
-        output << "## Run verification\n\n"
-               << "```sh\n"
-               << "synsigra-verify . detections/ verification-results "
-               << "--profile " << profile << " --force\n"
-               << "```\n\n"
-               << "Outputs are written to `verification-results/`, including "
-               << "`verification_summary.json`, `verification_summary.csv`, "
-               << "`verification_report.html`, and per-case evidence under "
-               << "`verification/`.\n\n"
-               << "Exit code `0` means pass, `1` means verification/input/"
-               << "scoring/threshold failure, and `2` means invalid CLI usage.\n";
-    } else {
-        output << "## Reference/manual QA workflow\n\n"
-               << "Inspect `manifest.json`, `provenance.json` "
-               << "and `ENGINEERING_CLAIM_BOUNDARY.txt` locally. If the "
-               << "package manifest declares scoreable targets, follow that "
-               << "manifest contract to create detector outputs and run "
-               << "`synsigra-verify` with your own detections directory.\n";
-    }
-    return output.str();
-}
-
-syn_sig_ra::DerivedArtifactStatus build_verification_kit_file(
-    const syn_sig_ra::JobRecord& job,
-    const std::string& data_root,
-    const std::string& package_directory,
-    const syn_sig_ra::PackSummary* pack,
-    syn_sig_ra::PreparedArtifact& artifact,
-    std::string& error
-) {
-    std::vector<ZipEntry> templates;
-    bool has_templates = false;
-    if (pack != nullptr) {
-        std::string template_error;
-        has_templates =
-            build_detection_template_entries(*pack, templates, template_error);
-    }
-    std::vector<ZipEntry> entries;
-    ZipEntry readme;
-    readme.path = "SYNSIGRA_README.md";
-    readme.content = verification_kit_readme(job, pack, has_templates);
-    entries.push_back(readme);
-    append_beta_notices(entries);
-    entries.insert(entries.end(), templates.begin(), templates.end());
-    std::vector<syn_sig_ra::ArtifactOverlayEntry> overlay;
-    for (std::vector<ZipEntry>::const_iterator it = entries.begin();
-         it != entries.end(); ++it) {
-        syn_sig_ra::ArtifactOverlayEntry item;
-        item.path = it->path;
-        item.content = it->content;
-        overlay.push_back(item);
-    }
-    return syn_sig_ra::prepare_cached_zip_overlay(
-        data_root,
-        job.package_id,
-        package_directory + "/package.zip",
-        "verification-kit-v1",
-        overlay,
-        artifact,
-        error
-    );
-}
-
 json_t* job_json_object(
     const syn_sig_ra::JobRecord& job,
     const std::string& public_base_path
@@ -801,6 +392,17 @@ json_t* job_json_object(
         "pack_id",
         json_string(job.selected_pack_id.c_str())
     );
+    json_object_set_new(
+        root, "pack_version", json_string(job.selected_pack_version.c_str()));
+    if (!job.catalog_version.empty()) {
+        json_t* catalog = json_object();
+        json_object_set_new(
+            catalog, "version", json_string(job.catalog_version.c_str()));
+        json_object_set_new(
+            catalog, "source_sha256",
+            json_string(job.catalog_source_sha256.c_str()));
+        json_object_set_new(root, "catalog", catalog);
+    }
     json_object_set_new(
         root,
         "created_at",
@@ -831,6 +433,19 @@ json_t* job_json_object(
             job.generator_build_identity.c_str()));
         json_object_set_new(root, "generator_binary_sha256", json_string(
             job.generator_binary_sha256.c_str()));
+        if (!job.challenge_metadata_json.empty()) {
+            json_error_t metadata_error;
+            json_t* metadata = json_loadb(
+                job.challenge_metadata_json.data(),
+                job.challenge_metadata_json.size(),
+                JSON_REJECT_DUPLICATES,
+                &metadata_error);
+            if (json_is_object(metadata)) {
+                json_object_set_new(root, "challenge", metadata);
+            } else if (metadata != nullptr) {
+                json_decref(metadata);
+            }
+        }
         if (job.package_id.empty()) {
             json_object_set_new(
                 root, "artifact_status", json_string("expired")
@@ -867,16 +482,6 @@ json_t* job_json_object(
                 (
                     public_base_path + "/v1/artifacts/" + job.package_id +
                     "/package.zip"
-                ).c_str()
-            )
-        );
-        json_object_set_new(
-            root,
-            "detection_templates_url",
-            json_string(
-                (
-                    public_base_path + "/v1/jobs/" + job.job_id +
-                    "/detection-templates.zip"
                 ).c_str()
             )
         );
@@ -1960,7 +1565,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <div>
         <p class="eyebrow">Developer workspace</p>
         <h1 id="page-heading">Algorithm QA workspace</h1>
-        <p id="page-description" class="lede">Choose a synthetic biosignal challenge, generate a deterministic package, verify your detector locally, and archive the evidence.</p>
+        <p id="page-description" class="lede">Choose a synthetic biosignal challenge, generate a deterministic package, verify your algorithm locally, and archive the evidence.</p>
       </div>
       <div class="status-card">
         <div class="label"><span class="status-dot" aria-hidden="true"></span> Service status</div>
@@ -1993,7 +1598,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
           <section id="overview" class="hero">
             <div>
               <h2>What do you want to do next?</h2>
-              <p class="muted">For most detector development, start with a curated pack. Use scenario editing only when you need a custom edge case.</p>
+              <p class="muted">For most algorithm development, start with a curated pack. Use scenario editing only when you need a custom edge case.</p>
             </div>
             <div id="workspace-next-action" class="selected-pack">Loading your next action…</div>
           </section>
@@ -2001,7 +1606,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
             <a class="step-card primary-step" href="/syn_sig_ra/packs">
               <span class="step-number">1</span>
               <strong>Use a curated challenge</strong>
-              <span>Pick by detector target, difficulty, scoring mode, and recommended use.</span>
+              <span>Pick by algorithm target, difficulty, scoring mode, and recommended use.</span>
             </a>
             <a class="step-card" href="/syn_sig_ra/scenarios">
               <span class="step-number">2</span>
@@ -2024,7 +1629,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
             <span>Choose pack</span>
             <span>Generate job</span>
             <span>Download verification kit</span>
-            <span>Run detector locally</span>
+            <span>Run algorithm locally</span>
             <span>Run verifier</span>
             <span>Archive package + provenance</span>
           </aside>
@@ -2038,10 +1643,10 @@ const char kUiHtml[] = R"HTML(<!doctype html>
               <a class="button-link secondary" href="/syn_sig_ra/scenarios">Open scenario editor</a>
             </div>
             <div class="capability-stats" aria-label="Current Synsigra authoring contract">
-              <div><strong>74</strong><span>authoring fields</span></div>
+              <div><strong>142</strong><span>authoring fields</span></div>
               <div><strong>71</strong><span>catalog entries</span></div>
               <div><strong>20</strong><span>artifact families</span></div>
-              <div><strong>8</strong><span>verification targets</span></div>
+              <div><strong>16</strong><span>verification targets</span></div>
             </div>
             <div class="cards capability-cards">
               <article class="card"><h3>Time, sampling, repeatability</h3><p class="muted">0.01 seconds to 24 hours, 100 Hz to 1 MHz, standard presets, deterministic 64-bit seeds, and controlled randomization.</p></article>
@@ -2049,7 +1654,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
               <article class="card"><h3>HRV and physiology modulation</h3><p class="muted">SDNN and LF/HF structure, respiratory frequency/amplitude, RR bounds, and activity-linked modulation.</p></article>
               <article class="card"><h3>PPG timing and shape</h3><p class="muted">Pulse delay, rise/decay, dicrotic shape, perfusion, weak/missing pulses, jitter, amplitude modulation, and PTT variation.</p></article>
               <article class="card"><h3>Noise and device faults</h3><p class="muted">Baseline, powerline and EMG noise; dropout, saturation, motion, drift, clipping, quantization, lead/electrode and sensor faults.</p></article>
-              <article class="card"><h3>Ground truth and evidence</h3><p class="muted">R-peak, PPG, beat, HRV, quality, morphology and alignment targets with manifests, fingerprints, provenance, reports, and local scoring.</p></article>
+              <article class="card"><h3>Ground truth and evidence</h3><p class="muted">Point, interval, delineation, HRV, QTc, morphology, optical, variability, respiratory and burden targets with manifests, fingerprints, provenance, reports, and local scoring.</p></article>
             </div>
             <p class="muted capability-footnote">The condition catalog explicitly distinguishes native, parameterized, and catalog-only support. Unsupported combinations are rejected.</p>
           </section>
@@ -2173,7 +1778,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         <div class="panel-heading">
           <div>
             <h2>Choose a challenge pack</h2>
-            <p class="muted compact">Start from the detector goal. You do not need to know pack IDs.</p>
+            <p class="muted compact">Start from the algorithm output or measurement. You do not need to know pack IDs.</p>
           </div>
           <button id="refresh-packs" class="secondary">Refresh</button>
         </div>
@@ -2440,16 +2045,17 @@ const char kQuickstartHtml[] = R"HTML(<!doctype html>
         <li>Open <a href="/syn_sig_ra/generate">Generate job</a>. Use the default project or create a project if your role allows it, then create the challenge job.</li>
         <li>Open <a href="/syn_sig_ra/jobs">Jobs</a> and wait for <code>succeeded</code>.</li>
         <li>Optionally open <a href="/syn_sig_ra/viewer">Synsigra Lab</a> from the completed job to inspect selected signal channels. The viewer transfers only the visible time range, not the complete waveform.</li>
-        <li>Open the completed job's <a href="/syn_sig_ra/verify">verification runbook</a>. Download <code>verification-kit.zip</code>, or download <code>manifest.json</code>, <code>package.zip</code>, and <code>detection-templates.zip</code> separately.</li>
-        <li>Unzip the verification kit, then replace example rows under <code>detections/</code> with your algorithm output. Keep <code>provenance.json</code> and <code>ENGINEERING_CLAIM_BOUNDARY.txt</code> from the package with your evidence archive.</li>
+        <li>Open the completed job's <a href="/syn_sig_ra/verify">verification runbook</a> and download the single <code>verification-kit.zip</code>.</li>
+        <li>Unzip the kit, run your algorithm locally against <code>verification-kit/challenge/</code>, then replace the example identity and output rows under <code>verification-kit/submission/</code>. Keep declared paths, targets and formats unchanged.</li>
         <li>Download the verifier bundle or wheel from the runbook page and install it locally without cloning the generator repository.</li>
         <li>Copy the exact <code>synsigra-verify</code> command from the runbook. The extracted kit directory itself is the challenge package.</li>
         <li>Inspect <code>verification_summary.json</code>, <code>verification_summary.csv</code>, and <code>verification_report.html</code>.</li>
       </ol>
       <pre class="output">python -m pip install synsigra-wheel.whl
 unzip "job_123-verification-kit.zip" -d synsigra-kit
-cd synsigra-kit
-synsigra-verify . detections/ verification-results --profile stress --force</pre>
+cd synsigra-kit/verification-kit
+synsigra-verify challenge submission verification-results --force</pre>
+      <p>For a challenge with protocol v2, this runs the complete immutable evidence matrix and embedded acceptance policy. Do not add profile, case, or target overrides. A kit without protocol v2 shows an explicit <code>--mode diagnostic</code> command and can never produce evidence.</p>
       <p>Exit code <code>0</code> means pass, <code>1</code> means verification/input/scoring/threshold failure, and <code>2</code> means invalid CLI usage.</p>
       <p><a href="/syn_sig_ra/docs/api">Rendered API reference</a> · <a href="/syn_sig_ra/docs/troubleshooting">Troubleshooting</a> · <a href="/syn_sig_ra/">Back to app</a></p>
     </section>
@@ -2511,8 +2117,7 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>GET</td><td><code>/v1/jobs/{job_id}/viewer</code></td><td>Describe viewable signal cases and channels</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/jobs/{job_id}/viewer/window</code></td><td>Read selected channels for one bounded binary viewport</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/jobs/{job_id}/viewer/overlays</code></td><td>Read bounded ground-truth events and intervals for one viewport</td><td>Organization</td></tr>
-          <tr><td>GET</td><td><code>/v1/jobs/{job_id}/detection-templates.zip</code></td><td>Detector-output templates for completed curated jobs</td><td>Organization</td></tr>
-          <tr><td>GET/HEAD</td><td><code>/v1/jobs/{job_id}/verification-kit.zip</code></td><td>Stream or resume one immutable flat kit with README, manifest, data, and templates</td><td>Organization</td></tr>
+          <tr><td>GET/HEAD</td><td><code>/v1/jobs/{job_id}/verification-kit.zip</code></td><td>Stream or resume the role-selected challenge and submission-template kit</td><td>Organization</td></tr>
           <tr><td>GET/HEAD</td><td><code>/v1/artifacts/{package_id}/manifest.json</code></td><td>Download immutable manifest with checksum metadata</td><td>Organization</td></tr>
           <tr><td>GET/HEAD</td><td><code>/v1/artifacts/{package_id}/package.zip</code></td><td>Stream or resume package ZIP with Range and checksum metadata</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/usage</code></td><td>Caller usage and limits</td><td>Authenticated</td></tr>
@@ -2567,13 +2172,13 @@ const char kTroubleshootingHtml[] = R"HTML(<!doctype html>
           <tr><td><code>404 *_not_found</code></td><td>Check the ID. Cross-organization resources intentionally return 404.</td></tr>
           <tr><td><code>409 job_*_invalid_state</code></td><td>Cancel only queued jobs; retry only failed/cancelled jobs; delete only non-running jobs.</td></tr>
           <tr><td><code>409 pack_generator_incompatible</code></td><td>Select a current curated pack. Deprecated/incompatible packs cannot be generated.</td></tr>
-          <tr><td><code>409 job_templates_unavailable</code></td><td>Wait until the job succeeds. Template ZIPs are only available for completed curated jobs with scoreable targets.</td></tr>
+          <tr><td><code>409 job_kit_unavailable</code></td><td>Wait until the job succeeds. The role-selected submission template is delivered inside the verification kit.</td></tr>
           <tr><td><code>429 request_rate_limit</code></td><td>Slow the client down. The private-beta limit is 120 requests/minute per key.</td></tr>
           <tr><td><code>429 concurrent_job_limit</code></td><td>Wait for queued/running jobs to finish. Current limit is 2 active jobs per organization.</td></tr>
           <tr><td><code>429 monthly_job_limit</code></td><td>Monthly job quota is exhausted. Use existing packages or contact the operator.</td></tr>
           <tr><td>Failed job</td><td>Open the job card and read the error. If it is a generator/catalog issue, keep the job ID and report it.</td></tr>
           <tr><td>Expired artifact</td><td>Click <strong>Download verification kit</strong> normally. The UI prepares the exact version in the background, verifies the package fingerprint, and starts the download. Historical jobs without preserved inputs fail explicitly.</td></tr>
-          <tr><td>Verifier exit <code>1</code></td><td>Check package path, detection filenames, required columns, units, selected profile, and per-case report.</td></tr>
+          <tr><td>Verifier exit <code>1</code></td><td>Check challenge integrity, declared submission paths/formats, required fields, units, protocol matrix, policy checks, and per-case report.</td></tr>
           <tr><td>Verifier exit <code>2</code></td><td>Fix CLI arguments. Start from the command in the completed-job recipe panel.</td></tr>
         </tbody>
       </table>
@@ -2606,7 +2211,7 @@ const char kTermsHtml[] = R"HTML(<!doctype html>
       <h2>Not medical or clinical use</h2>
       <p>Synsigra is not intended for diagnosis, prevention, monitoring, prediction, prognosis or treatment of disease; clinical decisions; patient monitoring; clinical validation or certification; or medical-device conformity assessment. Synthetic results are engineering evidence only.</p>
       <h2>Synthetic data and no-PHI rule</h2>
-      <p>Except for your own account email and display name, do not submit PHI, patient identifiers, medical records, real patient waveforms or annotations, clinical notes, another person's personal data, detector source code or confidential detector output. Detector code and output are intended to remain local.</p>
+      <p>Except for your own account email and display name, do not submit PHI, patient identifiers, medical records, real patient waveforms or annotations, clinical notes, another person's personal data, algorithm source code or confidential algorithm output. Algorithm code and output are intended to remain local.</p>
       <h2>Accounts and acceptable use</h2>
       <p>Protect passwords and API keys. Do not bypass limits, probe another organization, interfere with the service, distribute malware, infringe third-party rights or use the beta unlawfully. Access may be limited or suspended to protect the service and its intended-use boundary.</p>
       <h2>Package use permission</h2>
@@ -2616,7 +2221,7 @@ const char kTermsHtml[] = R"HTML(<!doctype html>
       <h2>As-is beta</h2>
       <p>To the extent permitted by law, the service and generated materials are provided as-is and as-available without warranties of uninterrupted availability, fitness for a particular purpose or suitability for regulated or clinical use. Nothing excludes liability that cannot lawfully be excluded.</p>
       <h2>Support</h2>
-      <p><a href="mailto:synsigra@gmail.com">Email private support</a>. Include only a safe job/package ID, UTC timestamp, browser version, and exact error code. Never send credentials, account-action links, PHI, personal data, real patient data, generated signals, proprietary detector output, or source code.</p>
+      <p><a href="mailto:synsigra@gmail.com">Email private support</a>. Include only a safe job/package ID, UTC timestamp, browser version, and exact error code. Never send credentials, account-action links, PHI, personal data, real patient data, generated signals, proprietary algorithm output, or source code.</p>
       <p><a href="/syn_sig_ra/legal/privacy">Privacy &amp; No-PHI Notice</a> · <a href="/syn_sig_ra/legal/support">Support &amp; service expectations</a> · <a href="/syn_sig_ra/account">Back to account</a></p>
     </section>
   </main>
@@ -2672,7 +2277,7 @@ const char kSupportHtml[] = R"HTML(<!doctype html>
       <h1>Support, availability and billing</h1>
       <h2>Get support</h2>
       <p><a class="button-link" href="mailto:synsigra@gmail.com?subject=Synsigra%20support">Email private support</a> <a href="mailto:synsigra@gmail.com?subject=Synsigra%20technical%20demo">Request a technical demo</a></p>
-      <p>Include a safe job or package ID, UTC timestamp, browser version, and exact error code. Never include passwords, API keys, account-action links, PHI, personal data, real patient data, generated signals, proprietary detector output, or source code.</p>
+      <p>Include a safe job or package ID, UTC timestamp, browser version, and exact error code. Never include passwords, API keys, account-action links, PHI, personal data, real patient data, generated signals, proprietary algorithm output, or source code.</p>
       <p>Operator: Kis Tamás, 2040 Budaörs, Tátra u. 6, Hungary · <a href="mailto:synsigra@gmail.com">synsigra@gmail.com</a></p>
       <h2>Response and availability</h2>
       <p>Support is normally reviewed within three business days, as a target rather than an SLA. The service is best-effort with no guaranteed uptime, recovery time or response time. Keep local copies of packages and evidence you need.</p>
@@ -3756,7 +3361,7 @@ const char kUiJs[] = R"JS((() => {
 
   const $ = (id) => document.getElementById(id);
   const cleanEcgTemplate = {
-    schema_version: 1,
+    schema_version: 2,
     scenario_id: "ecg_clean_001",
     name: "Clean ECG",
     description: "Deterministic clean ECG engineering scenario.",
@@ -3771,23 +3376,34 @@ const char kUiJs[] = R"JS((() => {
       ectopic_every_n_beats: 0,
       second_degree_av_pattern: "unspecified",
       q_wave_territory: "unspecified",
-      episode_type: "none",
-      episode_start_seconds: 2,
-      episode_duration_seconds: 4,
-      episode_rate_bpm: 170,
+      rhythm_episodes: [],
+      flutter_conduction_pattern: "fixed",
+      pacing_mode: "ventricular",
+      pacing_non_capture_every_n_beats: 0,
       fidelity_policy: "allow_parameterized",
       conditions: [{ code: "NORM", severity: 1 }]
+    },
+    ppg: {
+      enabled: false,
+      pulse_delay_ms: 180,
+      rise_time_ms: 120,
+      decay_time_ms: 300,
+      amplitude_au: 1,
+      baseline_au: 0,
+      dicrotic_delay_ms: 180,
+      dicrotic_width_ms: 80,
+      dicrotic_amplitude_ratio: 0.15
     }
   };
 
   const pageDetails = {
     workspace: {
       title: "Algorithm QA workspace",
-      description: "Choose a synthetic biosignal challenge, generate a deterministic package, verify your detector locally, and archive the evidence."
+      description: "Choose a synthetic biosignal challenge, generate a deterministic package, verify your algorithm locally, and archive the evidence."
     },
     packs: {
       title: "Choose a challenge pack",
-      description: "Start with your detector goal, then compare scoreable targets, difficulty and intended workflow."
+      description: "Start with your algorithm output or measurement, then compare scoreable targets, difficulty and intended workflow."
     },
     generate: {
       title: "Generate a challenge package",
@@ -4144,13 +3760,21 @@ const char kUiJs[] = R"JS((() => {
 
   const targetCopy = {
     r_peak: ["R-peak detection", "ECG beat timing with local precision/recall scoring"],
+    rr_interval: ["R–R intervals", "Observable beat-to-beat interval reconstruction with tolerance scoring"],
     ppg_systolic_peak: ["PPG systolic peaks", "Pulse-peak timing with local scoring"],
     ppg_pulse_onset: ["PPG pulse onset", "Pulse-foot timing with local scoring"],
     ecg_beat_classification: ["ECG beat classification", "Beat labels such as normal, PAC, PVC, or paced"],
-    hrv: ["Heart-rate variability (HRV)", "Five-minute HRV metric verification"],
-    signal_quality: ["Signal quality / artifacts", "Reference labels for noise and artifact intervals"],
-    morphology_assertions: ["ECG morphology", "Reference assertions for morphology and conditions"],
-    ecg_ppg_alignment: ["ECG–PPG alignment", "Reference timing between cardiac and pulse channels"]
+    rhythm_episode: ["Rhythm episodes", "Episode interval detection and overlap scoring"],
+    rhythm_burden: ["Rhythm burden", "Per-record rhythm-duration measurements and tolerance scoring"],
+    ecg_delineation: ["ECG delineation", "Wave-onset, peak, and offset fiducials with local point-event scoring"],
+    qtc: ["QTc verification", "QT/QTc measurement values across declared correction formulae"],
+    hrv: ["Heart-rate variability (HRV)", "Frequency-, time-, and nonlinear HRV metric verification"],
+    signal_quality: ["Signal quality / artifacts", "Noise and artifact intervals with local overlap scoring"],
+    morphology_assertions: ["ECG morphology", "Beat-, lead-, axis-, and phenotype-level measurement scoring"],
+    ecg_ppg_alignment: ["ECG–PPG alignment", "Cardiac-to-pulse timing measurements with local scoring"],
+    ppg_optical: ["Optical PPG / SpO₂", "Optical-channel and oxygenation measurements under controlled stress"],
+    prv: ["Pulse-rate variability (PRV)", "PPG-derived variability measurements compared with synthetic truth"],
+    respiratory_rate: ["Respiratory rate", "Cardiorespiratory rate measurements from synthetic multimodal signals"]
   };
 
   const packIntentCopy = {
@@ -4307,8 +3931,10 @@ const char kUiJs[] = R"JS((() => {
       </div>
       <p class="compact"><strong>Why this match:</strong> ${escapeHtml(targetReason)}</p>
       <p class="compact">${scoreable.length ? "Scoreable locally: " + escapeHtml(scoreable.map(targetTitle).join(", ")) : "Reference-only / no local scoring command."}</p>
+      <p>${releaseBoundaryBadges(pack)}</p>
       ${referenceOnly.length ? `<p class="muted compact">Reference-only: ${escapeHtml(referenceOnly.map(targetTitle).join(", "))}</p>` : ""}
       <details><summary>Pack scope and recommended use</summary><p><strong>Use for:</strong> ${escapeHtml((pack.recommended_for || []).join("; ") || "n/a")}</p><p><strong>Avoid for:</strong> ${escapeHtml((pack.not_recommended_for || []).join("; ") || "n/a")}</p></details>
+      ${protocolDetails(pack)}
     `;
   }
 
@@ -4322,6 +3948,36 @@ const char kUiJs[] = R"JS((() => {
       `${escapeHtml(channelRange(pack))} channel(s)`,
       `${escapeHtml(formatBytes(estimated.bytes))}`
     ].join(" · ");
+  }
+
+  function protocolDetails(pack) {
+    const envelope = pack.verification_protocol || {};
+    const protocol = envelope.document;
+    if (!envelope.available || !protocol) return "";
+    const required = protocol.required_case_targets || [];
+    const targets = [...new Set(required.flatMap((item) => item.targets || []))];
+    const matrixSize = required.reduce((total, item) => total + (item.targets || []).length, 0);
+    const policy = protocol.acceptance_profile || {};
+    return `
+      <details>
+        <summary>Evidence protocol v2</summary>
+        <p>${escapeHtml(protocol.context_of_use || "Engineering QA protocol")}</p>
+        <p><strong>Protocol:</strong> ${escapeHtml(protocol.protocol_id || "n/a")} · <strong>embedded policy:</strong> ${escapeHtml(policy.profile_id || "n/a")}</p>
+        <p><strong>Required matrix:</strong> ${escapeHtml(required.length)} cases / ${escapeHtml(matrixSize)} case-target checks · ${escapeHtml(targets.map(targetTitle).join(", ") || "n/a")}</p>
+        <p class="muted compact">Evidence mode runs this complete immutable matrix and embedded numeric policy. Profile, case, and target overrides are diagnostic-only and cannot produce evidence.</p>
+        <pre class="output">${escapeHtml(JSON.stringify(policy.targets || {}, null, 2))}</pre>
+        <span class="fingerprint">${escapeHtml(envelope.sha256 || "")}</span>
+      </details>
+    `;
+  }
+
+  function releaseBoundaryBadges(pack) {
+    const protocol = pack.verification_protocol || {};
+    const external = pack.external_noise || {};
+    return [
+      protocol.available ? '<span class="tag mode">evidence protocol v2</span>' : '<span class="tag warning">diagnostic only</span>',
+      external.used ? '<span class="tag mode">approved external noise</span>' : ""
+    ].join("");
   }
 
   function renderPacks() {
@@ -4339,12 +3995,13 @@ const char kUiJs[] = R"JS((() => {
         <p>
           <span class="badge ${escapeHtml(pack.release_status || "")}">${escapeHtml(pack.release_status || "unknown")}</span>
           <span class="tag mode">${escapeHtml(pack.scoring_mode || "unknown scoring")}</span>
+          ${releaseBoundaryBadges(pack)}
         </p>
         <p class="muted">${escapeHtml(pack.description || "")}</p>
         <p class="muted">${packFacts(pack)}</p>
         <p><strong>Scoreable locally</strong>${targetTags(pack.scoreable_targets, "scoreable")}</p>
         <p><strong>Reference-only</strong>${targetTags(pack.reference_only_targets, "reference")}</p>
-        <p class="muted">Verifier profile: ${escapeHtml(pack.recommended_profile || "none")} · schemas: ${escapeHtml((pack.detector_output_schemas || []).join(", ") || "n/a")}</p>
+        <p class="muted">Verification: ${(pack.verification_protocol || {}).available ? "package-authoritative evidence" : "diagnostic only (non-evidence)"} · submission schemas: ${escapeHtml((pack.submission_output_schemas || []).join(", ") || "n/a")}</p>
         <p class="tag-list">${(pack.difficulty || []).map((item) => `<span class="tag">${escapeHtml(item)}</span>`).join("")}</p>
         <button class="primary" data-select-pack="${escapeHtml(pack.pack_id)}">Use this pack</button>
         <details>
@@ -4362,7 +4019,7 @@ const char kUiJs[] = R"JS((() => {
         </details>
         <details>
           <summary>Compatibility and changelog</summary>
-          <p class="muted">Core contract: ${escapeHtml(pack.integration_contract || "n/a")}</p>
+          <p class="muted">Core contract: ${escapeHtml(pack.integration_contract || "n/a")} · catalog ${escapeHtml(pack.catalog_version || "n/a")}</p>
           <p class="muted">Local verifier min: ${escapeHtml((pack.generator_compatibility || {}).local_verifier_min_version || "n/a")}</p>
           ${pack.deprecation_message ? `<p class="error">${escapeHtml(pack.deprecation_message)}</p>` : ""}
           <ul>
@@ -4371,6 +4028,7 @@ const char kUiJs[] = R"JS((() => {
             `).join("")}
           </ul>
         </details>
+        ${protocolDetails(pack)}
         <span class="fingerprint">${escapeHtml(pack.pack_fingerprint || "")}</span>
       </article>
     `).join("") || (visible.length
@@ -4399,7 +4057,7 @@ const char kUiJs[] = R"JS((() => {
       ${packFacts(pack)}<br>
       Scoreable: ${targetNames(pack.scoreable_targets).map(escapeHtml).join(", ") || "none"}<br>
       Reference-only: ${targetNames(pack.reference_only_targets).map(escapeHtml).join(", ") || "none"}<br>
-      Recommended verifier profile: ${escapeHtml(pack.recommended_profile || "none")}
+      Verification: ${(pack.verification_protocol || {}).available ? "package-authoritative evidence protocol" : "diagnostic only (non-evidence)"}
     `;
   }
 
@@ -5310,7 +4968,7 @@ const char kUiJs[] = R"JS((() => {
     $("scenario-preview").innerHTML = `
       <h3>Preflight ${preview.success ? "<span class=\"ok\">safe to save</span>" : "<span class=\"error\">needs attention</span>"}</h3>
       <p>${preview.success ? "<span class=\"badge succeeded\">safe to compose pack</span>" : "<span class=\"badge failed\">not ready for pack composition</span>"}</p>
-      <p class="muted">${escapeHtml(preview.scoring_mode || "unknown")} · profile ${escapeHtml(preview.recommended_verifier_profile || "n/a")} · ${escapeHtml(formatBytes(summary.estimated_package_bytes || 0))} estimated package</p>
+      <p class="muted">${escapeHtml(preview.scoring_mode || "unknown")} · diagnostic threshold hint (non-evidence): ${escapeHtml(preview.recommended_verifier_profile || "n/a")} · ${escapeHtml(formatBytes(summary.estimated_package_bytes || 0))} estimated package</p>
       <p><strong>Scoreable</strong>${targetTags(scoreable, "scoreable")}</p>
       <p><strong>Reference-only</strong>${targetTags(referenceOnly, "reference")}</p>
       ${!scoreable.length && referenceOnly.length ? `<p class="muted compact">This scenario can still be useful for manual/reference QA, but it will not produce a local scoring command for those targets.</p>` : ""}
@@ -5913,71 +5571,64 @@ const char kUiJs[] = R"JS((() => {
     return `"${String(value).replace(/(["\\$`])/g, "\\$1")}"`;
   }
 
-  function firstScoreableTarget(pack) {
-    return (pack && pack.scoreable_targets && pack.scoreable_targets[0]) || null;
-  }
-
-  function scoreableTargets(pack) {
-    return targetNames((pack && pack.scoreable_targets) || []);
-  }
-
-  function referenceTargets(pack) {
-    return targetNames((pack && pack.reference_only_targets) || []);
-  }
-
-  function detectionShape(pack) {
-    const target = firstScoreableTarget(pack);
-    if (!target) return "detections/";
-    const caseId = (target.case_ids || [])[0] || "case_id";
-    const targetName = target.target || "target";
-    return [
-      "detections/",
-      `  ${caseId}_${targetName}.csv     # accepted fallback name`,
-      `  ${caseId}_${targetName}.json    # JSON is also accepted`,
-      `  ${caseId}.csv                   # accepted when the case has one scoreable target`
-    ].join("\n");
-  }
-
   function verificationContext(job) {
     const pack = packById(job.pack_id);
+    const challenge = job.challenge || {};
+    const targets = Array.isArray(challenge.targets) ? challenge.targets : [];
+    const outputs = Array.isArray(challenge.submission_outputs)
+      ? challenge.submission_outputs
+      : [];
     const packageFile = `${job.package_id}-package.zip`;
     const manifestFile = `${job.package_id}-manifest.json`;
     const kitFile = `${job.job_id}-verification-kit.zip`;
     const kitDir = `${job.job_id}-verification-kit`;
-    const templatesFile = `${job.job_id}-detection-templates.zip`;
     const outputDir = "verification-results";
-    const scoreable = scoreableTargets(pack);
-    const referenceOnly = referenceTargets(pack);
-    const profile = (pack && pack.recommended_profile) || "regression";
-    const command = `unzip ${shellQuote(kitFile)} -d ${shellQuote(kitDir)}\ncd ${shellQuote(kitDir)}\nsynsigra-verify . detections/ ${shellQuote(outputDir)} --profile ${profile} --force`;
-    const filtered = scoreable.length
-      ? `synsigra-verify . detections/ ${shellQuote(outputDir)} --profile ${profile} --target ${scoreable[0]} --force`
-      : "";
+    const scoreable = targets.filter((target) => target.supported)
+      .map((target) => target.target);
+    const referenceOnly = targets.filter((target) => !target.supported)
+      .map((target) => target.target);
+    const protocol = challenge.verification_protocol || null;
+    const verification = challenge.verification || {};
+    const evidenceEligible = verification.evidence_eligible === true;
+    const mode = evidenceEligible ? "evidence" : "diagnostic";
+    const modeArgument = evidenceEligible ? "" : " --mode diagnostic";
+    const command = `unzip ${shellQuote(kitFile)} -d ${shellQuote(kitDir)}\ncd ${shellQuote(`${kitDir}/verification-kit`)}\nsynsigra-verify challenge submission ${shellQuote(outputDir)}${modeArgument} --force`;
     return {
       pack,
+      challenge,
       packageFile,
       manifestFile,
       kitFile,
       kitDir,
-      templatesFile,
       outputDir,
       scoreable,
       referenceOnly,
-      profile,
-      command,
-      filtered
+      outputs,
+      protocol,
+      verification,
+      evidenceEligible,
+      mode,
+      command
     };
+  }
+
+  function submissionShape(context) {
+    const paths = context.outputs.map((output) => `  ${output.path}`);
+    const visible = paths.slice(0, 16);
+    if (paths.length > visible.length) {
+      visible.push(`  … ${paths.length - visible.length} more declared output file(s)`);
+    }
+    return ["submission/", "  submission.json", "  formats.json", ...visible].join("\n");
   }
 
   function verifierRecipe(job) {
     if (job.status !== "succeeded" || !job.package_id) return "";
     const context = verificationContext(job);
-    const pack = context.pack;
-    if (!pack || pack.source === "custom") {
+    if (context.challenge.challenge_contract !== "synsigra_challenge_package_v3" || !context.outputs.length) {
       return `
         <details class="verify-note">
-          <summary>Local verification recipe</summary>
-          <p>Download the package ZIP, run your algorithm locally, then use the verifier contract from the generated manifest. Custom pack scoring metadata is not expanded in this UI yet.</p>
+          <summary>Verification metadata unavailable</summary>
+          <p class="error">This job has no validated v7 submission contract. Generate a new job before attempting local verification.</p>
         </details>
       `;
     }
@@ -5987,7 +5638,7 @@ const char kUiJs[] = R"JS((() => {
       return `
         <details class="verify-note">
           <summary>Reference-only package</summary>
-          <p>This pack has no local scoring policy, so there is no detector-template ZIP and no <code>synsigra-verify</code> scoring command. Use the downloaded package for reference artifact inspection and contract/manual QA.</p>
+          <p>This challenge declares no locally scoreable output. Use the downloaded challenge for reference artifact inspection and contract/manual QA.</p>
           <p><strong>Reference targets:</strong> ${escapeHtml(referenceOnly.join(", ") || "n/a")}</p>
         </details>
       `;
@@ -5997,16 +5648,15 @@ const char kUiJs[] = R"JS((() => {
         <summary>First-run local verification recipe</summary>
         <p><strong>Scoreable targets:</strong> ${escapeHtml(scoreable.join(", "))}</p>
         <p><strong>Reference-only targets:</strong> ${escapeHtml(referenceOnly.join(", ") || "none")}</p>
-        <p>Download the detection-template ZIP, replace the example rows with your algorithm output, and keep the <code>detections/</code> filenames. Then install the verifier from the UI's <strong>Verifier</strong> panel.</p>
+        <p>Download the verification kit, run your proprietary algorithm locally, then replace only the example algorithm identity and output rows under <code>submission/</code>. Keep every declared path, target and format unchanged.</p>
         <pre class="output">python -m pip install synsigra-wheel.whl</pre>
-        <p>Accepted detection file shape:</p>
-        <pre class="output">${escapeHtml(detectionShape(pack))}</pre>
-        <p>Run all scoreable targets with the recommended profile:</p>
+        <p>Role-selected submission layout:</p>
+        <pre class="output">${escapeHtml(submissionShape(context))}</pre>
+        <p><strong>${context.evidenceEligible ? "Evidence mode" : "Diagnostic mode — not evidence"}:</strong> ${context.evidenceEligible ? "the packaged protocol fixes the complete case-target matrix and numeric policy; do not add overrides." : "this package has no protocol v2, so the verifier must run explicitly in non-evidence diagnostic mode."}</p>
         <pre class="output">${escapeHtml(context.command)}</pre>
         <button class="secondary" data-copy-text="${escapeHtml(context.command)}">Copy verify command</button>
-        <p class="muted compact">Optional single-target smoke run:</p>
-        <pre class="output">${escapeHtml(context.filtered)}</pre>
         <p>Machine-readable summaries are written to <code>${escapeHtml(context.outputDir)}/verification_summary.json</code> and <code>${escapeHtml(context.outputDir)}/verification_summary.csv</code>; the HTML report is <code>${escapeHtml(context.outputDir)}/verification_report.html</code>.</p>
+        ${context.evidenceEligible ? `<p class="muted compact">Protocol ${escapeHtml((context.verification.protocol || {}).protocol_id || "n/a")} · policy ${escapeHtml((context.verification.protocol || {}).acceptance_profile_id || "n/a")} · matrix complete · outcome pending local verification.</p>` : `<p class="warning compact">Diagnostic reports are always marked evidence_eligible=false, even when their selected thresholds pass.</p>`}
         <p class="muted compact">CI semantics: exit 0 = pass, exit 1 = verification/input/scoring/threshold failure, exit 2 = invalid CLI usage.</p>
       </details>
     `;
@@ -6064,7 +5714,6 @@ const char kUiJs[] = R"JS((() => {
     const job = jobs.find((item) => item.job_id === state.runbookJobId) || jobs[0];
     state.runbookJobId = job.job_id;
     const context = verificationContext(job);
-    const pack = context.pack;
     const expired = job.artifact_status === "expired";
     const scoreable = context.scoreable;
     const referenceOnly = context.referenceOnly;
@@ -6073,16 +5722,15 @@ const char kUiJs[] = R"JS((() => {
       : "python -m pip install synsigra-wheel.whl\nsynsigra-verify --help";
     const scoreableSteps = scoreable.length ? `
       <li>
-        <strong>Replace detector templates.</strong>
-            <p>Unzip <code>${escapeHtml(context.kitFile)}</code> into <code>${escapeHtml(context.kitDir)}/</code>, edit files under its <code>detections/</code>, and keep the expected filenames.</p>
-        <pre class="output">${escapeHtml(detectionShape(pack))}</pre>
+        <strong>Produce the declared local submission.</strong>
+        <p>Unzip <code>${escapeHtml(context.kitFile)}</code>. Run your proprietary algorithm against <code>verification-kit/challenge/</code>, then replace the example algorithm identity and output rows under <code>verification-kit/submission/</code>. Do not rename paths, targets or formats.</p>
+        <pre class="output">${escapeHtml(submissionShape(context))}</pre>
       </li>
       <li>
         <strong>Run the verifier locally.</strong>
         <pre class="output">${escapeHtml(context.command)}</pre>
         <button class="secondary" data-copy-text="${escapeHtml(context.command)}">Copy verify command</button>
-        <p class="muted compact">Optional smoke target:</p>
-        <pre class="output">${escapeHtml(context.filtered)}</pre>
+        ${context.evidenceEligible ? `<p class="muted compact">The immutable protocol v2, complete matrix, embedded policy, protocol SHA-256 and evidence result are recorded in the local report. Keep that report with the challenge and algorithm build.</p>` : `<p class="warning compact">This is an exploratory diagnostic run. It cannot produce evidence PASS.</p>`}
       </li>
       <li>
         <strong>Interpret outputs.</strong>
@@ -6116,13 +5764,12 @@ const char kUiJs[] = R"JS((() => {
           <div class="actions">
             <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="manifest.json" ${expired ? "disabled" : ""}>Manifest</button>
             <button class="secondary" data-download="${escapeHtml(job.package_id)}" data-file="package.zip" ${expired ? "disabled" : ""}>Package ZIP</button>
-            ${hasDetectionTemplates(job) ? `<button class="secondary" data-download-templates="${escapeHtml(job.job_id)}" ${expired ? "disabled" : ""}>Detection templates ZIP</button>` : ""}
           </div>
         </details>
         <ol>
           <li>
             <strong>Download files.</strong>
-            <p>Preferred: <code>${escapeHtml(context.kitFile)}</code>. Individual files: <code>${escapeHtml(context.manifestFile)}</code>, <code>${escapeHtml(context.packageFile)}</code>${hasDetectionTemplates(job) ? `, <code>${escapeHtml(context.templatesFile)}</code>` : ""}.</p>
+            <p>Preferred: <code>${escapeHtml(context.kitFile)}</code>. Individual challenge files for custom integrations: <code>${escapeHtml(context.manifestFile)}</code> and <code>${escapeHtml(context.packageFile)}</code>.</p>
           </li>
           <li>
             <strong>Install the generator-free verifier.</strong>
@@ -6132,22 +5779,11 @@ const char kUiJs[] = R"JS((() => {
           ${scoreableSteps}
           <li>
             <strong>Archive evidence.</strong>
-            <p>Keep the extracted kit or original kit ZIP, <code>manifest.json</code>, <code>provenance.json</code>, <code>ENGINEERING_CLAIM_BOUNDARY.txt</code>, detector build/config, detections, verifier reports, and this job ID.</p>
+            <p>Keep the extracted kit or original kit ZIP, <code>manifest.json</code>, <code>provenance.json</code>, <code>ENGINEERING_CLAIM_BOUNDARY.txt</code>, algorithm build/config, completed submission, verifier reports, and this job ID.</p>
           </li>
         </ol>
       </article>
     `;
-  }
-
-  function hasDetectionTemplates(job) {
-    const pack = packById(job.pack_id);
-    return Boolean(
-      job.status === "succeeded" &&
-      job.package_id &&
-      pack &&
-      pack.source !== "custom" &&
-      targetNames(pack.scoreable_targets).length
-    );
   }
 
   async function loadJobs(options = {}) {
@@ -6256,6 +5892,9 @@ const char kUiJs[] = R"JS((() => {
             <summary>Reproducibility details</summary>
             <dl class="meta-grid">
               <dt>Project</dt><dd>${escapeHtml(job.project_id || "—")}</dd>
+              <dt>Pack version</dt><dd>${escapeHtml(job.pack_version || "—")}</dd>
+              <dt>Catalog snapshot</dt><dd>${escapeHtml((job.catalog && job.catalog.version) || "custom authored")}</dd>
+              <dt>Catalog SHA-256</dt><dd class="fingerprint">${escapeHtml((job.catalog && job.catalog.source_sha256) || "—")}</dd>
               <dt>Started</dt><dd>${escapeHtml(formatDate(job.started_at))}</dd>
               <dt>Completed</dt><dd>${escapeHtml(formatDate(job.completed_at))}</dd>
               <dt>Core contract</dt><dd class="fingerprint">${escapeHtml(job.integration_contract || "—")}</dd>
@@ -6264,6 +5903,8 @@ const char kUiJs[] = R"JS((() => {
               <dt>Build identity</dt><dd class="fingerprint">${escapeHtml(job.generator_build_identity || "—")}</dd>
               <dt>Binary SHA-256</dt><dd class="fingerprint">${escapeHtml(job.generator_binary_sha256 || "—")}</dd>
               <dt>Package fingerprint</dt><dd class="fingerprint">${escapeHtml(job.package_fingerprint || "—")}</dd>
+              <dt>Challenge integrity</dt><dd>${escapeHtml(job.challenge && job.challenge.integrity && job.challenge.integrity.ok ? "verified before and after archive" : "—")}</dd>
+              <dt>Verifier contract</dt><dd>${escapeHtml((job.challenge && job.challenge.verifier_version) || "—")}</dd>
             </dl>
           </details>
           ${artifactExpired}
@@ -6345,22 +5986,6 @@ const char kUiJs[] = R"JS((() => {
         throw new Error(text || response.statusText);
       }
       await saveResponseAsFile(response, `${packageId}-${file}`);
-    } catch (error) {
-      showToast(error.message, "error");
-    }
-  }
-
-  async function downloadDetectionTemplates(jobId) {
-    try {
-      const response = await fetch(`${base}/v1/jobs/${encodeURIComponent(jobId)}/detection-templates.zip`, {
-        credentials: "same-origin",
-        headers: headers(false)
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || response.statusText);
-      }
-      await saveResponseAsFile(response, `${jobId}-detection-templates.zip`);
     } catch (error) {
       showToast(error.message, "error");
     }
@@ -6869,11 +6494,6 @@ const char kUiJs[] = R"JS((() => {
       prepareVerificationKit(prepareJobId);
       return true;
     }
-    const templateJobId = target.getAttribute("data-download-templates");
-    if (templateJobId) {
-      downloadDetectionTemplates(templateJobId);
-      return true;
-    }
     const copyValue = target.getAttribute("data-copy-text");
     if (copyValue) {
       copyText(copyValue);
@@ -7348,6 +6968,42 @@ RouteResponse route_request(
                 contract.challenge_package.c_str()));
             json_object_set_new(producer, "scoring_manifest", json_string(
                 contract.scoring_manifest.c_str()));
+            json_object_set_new(producer, "cpp_facade", json_string(
+                contract.cpp_facade.c_str()));
+            json_object_set_new(producer, "pack_schema_version", json_integer(
+                contract.pack_schema_version));
+            json_object_set_new(producer, "verification_protocol", json_string(
+                contract.verification_protocol.c_str()));
+            json_object_set_new(producer, "submission", json_string(
+                contract.submission.c_str()));
+            json_object_set_new(producer, "submission_formats", json_string(
+                contract.submission_formats.c_str()));
+            json_object_set_new(producer, "measurement_values", json_string(
+                contract.measurement_values.c_str()));
+            json_object_set_new(producer, "measurement_truth", json_string(
+                contract.measurement_truth.c_str()));
+            json_object_set_new(producer, "measurement_scoring", json_string(
+                contract.measurement_scoring.c_str()));
+            json_object_set_new(producer, "local_verification", json_string(
+                contract.local_verification.c_str()));
+            json_object_set_new(producer, "scenario_authoring", json_string(
+                contract.scenario_authoring.c_str()));
+            json_object_set_new(producer, "scenario_templates", json_string(
+                contract.scenario_templates.c_str()));
+            json_object_set_new(producer, "python_verifier", json_string(
+                contract.python_verifier.c_str()));
+            json_object_set_new(producer, "external_noise_truth", json_string(
+                contract.external_noise_truth.c_str()));
+            json_error_t contract_document_error;
+            json_t* contract_document = json_loadb(
+                contract.canonical_json.data(), contract.canonical_json.size(),
+                JSON_REJECT_DUPLICATES, &contract_document_error);
+            if (json_is_object(contract_document)) {
+                json_object_set_new(
+                    producer, "contract_document", contract_document);
+            } else if (contract_document != nullptr) {
+                json_decref(contract_document);
+            }
             json_object_set_new(body, "accepted_core", producer);
         }
         json_object_set_new(body, "pack_catalog", json_boolean(packs_ok));
@@ -8619,7 +8275,7 @@ RouteResponse route_request(
             return response;
         }
         json_t* pack_json = json_object();
-        json_object_set_new(pack_json, "schema_version", json_integer(1));
+        json_object_set_new(pack_json, "schema_version", json_integer(2));
         json_object_set_new(pack_json, "pack_id", json_string(pack_id.c_str()));
         json_object_set_new(pack_json, "name", json_string(json_string_value(name)));
         json_object_set_new(pack_json, "version", json_string("1.0"));
@@ -9154,6 +8810,9 @@ RouteResponse route_request(
             );
             std::string source_pack_path;
             std::string selected_pack_fingerprint;
+            std::string selected_pack_version;
+            std::string selected_catalog_version;
+            std::string selected_catalog_source_sha256;
             if (pack_status == PackLookupStatus::not_found) {
                 CustomPackRecord custom_pack;
                 const RecordLookupStatus custom_status =
@@ -9181,6 +8840,7 @@ RouteResponse route_request(
                 }
                 source_pack_path = custom_pack.source_pack_path;
                 selected_pack_fingerprint = custom_pack.pack_fingerprint;
+                selected_pack_version = custom_pack.version;
             }
             if (pack_status != PackLookupStatus::found &&
                 pack_status != PackLookupStatus::not_found) {
@@ -9194,7 +8854,7 @@ RouteResponse route_request(
             }
             if (pack_status == PackLookupStatus::found) {
                 if (pack.integration_contract_version !=
-                    "synsigra_core_integration_v1") {
+                    "synsigra_core_integration_v7") {
                     return json_response(
                         409,
                         "{\"error\":{\"code\":\"pack_generator_incompatible\","
@@ -9215,6 +8875,9 @@ RouteResponse route_request(
                 source_pack_path =
                     pack_root + "/" + job_request.pack_id + ".json";
                 selected_pack_fingerprint = pack.pack_fingerprint;
+                selected_pack_version = pack.version;
+                selected_catalog_version = pack.catalog_version;
+                selected_catalog_source_sha256 = pack.catalog_source_sha256;
             }
             UsageSummary usage;
             unsigned long long disk_free = 0;
@@ -9272,6 +8935,9 @@ RouteResponse route_request(
                     job_request.pack_id,
                     source_pack_path,
                     selected_pack_fingerprint,
+                    selected_pack_version,
+                    selected_catalog_version,
+                    selected_catalog_source_sha256,
                     job_id,
                     error
                 )) {
@@ -9527,87 +9193,6 @@ RouteResponse route_request(
             response.internal_error = error;
             return response;
         }
-        if (action == "detection-templates.zip") {
-            if (method != "GET") {
-                return json_response(
-                    405,
-                    "{\"error\":{\"code\":\"method_not_allowed\","
-                    "\"message\":\"Detection templates only accept GET.\"}}\n"
-                );
-            }
-            JobRecord job;
-            std::string error;
-            const RecordLookupStatus lookup = metadata_store->find_job(
-                job_id,
-                authenticated_identity,
-                job,
-                error
-            );
-            if (lookup == RecordLookupStatus::not_found) {
-                return json_response(
-                    404,
-                    "{\"error\":{\"code\":\"job_not_found\","
-                    "\"message\":\"The requested job does not exist.\"}}\n"
-                );
-            }
-            if (lookup == RecordLookupStatus::storage_error) {
-                RouteResponse response = json_response(
-                    503,
-                    "{\"error\":{\"code\":\"metadata_unavailable\","
-                    "\"message\":\"Job storage is unavailable.\"}}\n"
-                );
-                response.internal_error = error;
-                return response;
-            }
-            if (job.status != "succeeded" || job.package_id.empty()) {
-                return json_response(
-                    409,
-                    "{\"error\":{\"code\":\"job_templates_unavailable\","
-                    "\"message\":\"Detection templates are available after a curated job succeeds.\"}}\n"
-                );
-            }
-            PackSummary pack;
-            const PackLookupStatus pack_status =
-                PackCatalog(pack_root).find(job.selected_pack_id, pack, error);
-            if (pack_status == PackLookupStatus::not_found) {
-                return json_response(
-                    409,
-                    "{\"error\":{\"code\":\"custom_pack_templates_unavailable\","
-                    "\"message\":\"Detection-template ZIP generation is currently available for curated packs.\"}}\n"
-                );
-            }
-            if (pack_status != PackLookupStatus::found) {
-                RouteResponse response = json_response(
-                    500,
-                    "{\"error\":{\"code\":\"pack_catalog_invalid\","
-                    "\"message\":\"The configured pack catalog is invalid.\"}}\n"
-                );
-                response.internal_error = error;
-                return response;
-            }
-            std::string zip;
-            if (!build_detection_template_zip(job, pack, zip, error)) {
-                return json_response(
-                    409,
-                    "{\"error\":{\"code\":\"pack_templates_unavailable\","
-                    "\"message\":\"This pack has no locally scoreable detector-output templates.\"}}\n"
-                );
-            }
-            RouteResponse response;
-            response.disposition = RouteDisposition::handled;
-            response.status = 200;
-            response.content_type = "application/zip";
-            response.body = zip;
-            response.content_disposition =
-                "attachment; filename=\"" + job.package_id +
-                "-detection-templates.zip\"";
-            response.cache_control = "no-store";
-            record_nonblocking_audit(
-                *metadata_store, authenticated_identity,
-                "artifact.downloaded", "package", job.package_id,
-                "{\"kind\":\"detection_templates\"}", response);
-            return response;
-        }
         if (action == "verification-kit.zip") {
             if (method != "GET" && method != "HEAD") {
                 return json_response(
@@ -9683,29 +9268,23 @@ RouteResponse route_request(
                     "artifact storage key does not match configured data root";
                 return response;
             }
-            PackSummary pack;
-            const PackSummary* pack_pointer = nullptr;
-            const PackLookupStatus pack_status =
-                PackCatalog(pack_root).find(job.selected_pack_id, pack, error);
-            if (pack_status == PackLookupStatus::found) {
-                pack_pointer = &pack;
-            } else if (pack_status != PackLookupStatus::not_found) {
-                RouteResponse response = json_response(
-                    500,
-                    "{\"error\":{\"code\":\"pack_catalog_invalid\","
-                    "\"message\":\"The configured pack catalog is invalid.\"}}\n"
-                );
-                response.internal_error = error;
-                return response;
-            }
+            const std::string::size_type separator =
+                signal_synth_cli.rfind('/');
+            const std::string release_bin = separator == std::string::npos
+                ? std::string() : signal_synth_cli.substr(0, separator);
+            const std::string helper = release_bin + "/challenge_artifact.py";
+            const std::string verifier = release_bin + "/synsigra-wheel.whl";
             PreparedArtifact artifact;
+            std::string challenge_metadata;
             const DerivedArtifactStatus kit_status =
-                build_verification_kit_file(
-                    job,
+                prepare_verification_kit(
                     data_root,
-                    expected_storage,
-                    pack_pointer,
+                    job.package_id,
+                    expected_storage + "/package.zip",
+                    helper,
+                    verifier,
                     artifact,
+                    challenge_metadata,
                     error
                 );
             if (kit_status != DerivedArtifactStatus::ok) {

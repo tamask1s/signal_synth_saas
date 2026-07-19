@@ -13,11 +13,6 @@ struct StoredPackage {
     long long size_bytes;
 };
 
-struct ArtifactOverlayEntry {
-    std::string path;
-    std::string content;
-};
-
 struct PreparedArtifact {
     std::string path;
     std::string sha256;
@@ -50,6 +45,31 @@ bool store_immutable_package(
     std::string& error
 );
 
+bool discard_stored_package(
+    const std::string& data_root,
+    const std::string& package_id,
+    std::string& error
+);
+
+bool inspect_challenge_package(
+    const std::string& helper_path,
+    const std::string& verifier_wheel,
+    const std::string& challenge_path,
+    std::string& metadata_json,
+    std::string& error
+);
+
+DerivedArtifactStatus prepare_verification_kit(
+    const std::string& data_root,
+    const std::string& package_id,
+    const std::string& source_zip,
+    const std::string& helper_path,
+    const std::string& verifier_wheel,
+    PreparedArtifact& artifact,
+    std::string& metadata_json,
+    std::string& error
+);
+
 bool purge_account_storage(
     const std::string& data_root,
     const std::vector<std::string>& package_ids,
@@ -63,16 +83,6 @@ DerivedArtifactStatus prepare_cached_file_metadata(
     const std::string& package_id,
     const std::string& source_path,
     const std::string& cache_key,
-    PreparedArtifact& artifact,
-    std::string& error
-);
-
-DerivedArtifactStatus prepare_cached_zip_overlay(
-    const std::string& data_root,
-    const std::string& package_id,
-    const std::string& source_zip,
-    const std::string& cache_key,
-    const std::vector<ArtifactOverlayEntry>& entries,
     PreparedArtifact& artifact,
     std::string& error
 );

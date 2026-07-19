@@ -67,9 +67,10 @@ file(MAKE_DIRECTORY
 find_package(Git QUIET)
 set(
     SYN_SIG_RA_EXPECTED_SIGNAL_SYNTH_COMMIT
-    "ef2c1d9cd00a07c62617619aa939a6996052867e"
+    "13fd76d3f57bf5b55ae0ccf18ebd06f06329a819"
     CACHE STRING
     "Exact signal_synth commit accepted by this SaaS release"
+    FORCE
 )
 if(NOT Git_FOUND)
     message(FATAL_ERROR "Git is required to verify the pinned signal_synth producer")

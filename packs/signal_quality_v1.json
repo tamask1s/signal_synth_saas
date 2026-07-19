@@ -40,10 +40,10 @@
       ]
     }
   ],
-  "schema_version": 1,
+  "schema_version": 2,
   "targets": [
     "signal_quality",
     "ppg_systolic_peak"
   ],
-  "version": "1.0"
+  "version": "1.1"
 }

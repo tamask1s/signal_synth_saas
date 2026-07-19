@@ -1,5 +1,5 @@
 {
-  "description": "Curated conduction, ST-T/ischemia, hypertrophy, infarction, lead-fault, and acquisition-fault reference cases.",
+  "description": "Curated conduction, ST-T/ischemia, hypertrophy, infarction, lead-fault, and acquisition-fault measurement QA cases.",
   "name": "ECG Morphology Stress Pack v1",
   "pack_id": "ecg_morphology_stress_v1",
   "scenarios": [
@@ -39,10 +39,10 @@
       ]
     }
   ],
-  "schema_version": 1,
+  "schema_version": 2,
   "targets": [
     "morphology_assertions",
     "signal_quality"
   ],
-  "version": "1.0"
+  "version": "1.1"
 }

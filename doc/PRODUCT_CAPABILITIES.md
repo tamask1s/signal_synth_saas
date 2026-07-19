@@ -1,84 +1,79 @@
 # Synsigra product capabilities
 
-This document is the source-traceable capability summary for the Synsigra SaaS. It describes the current Signal Synth authoring contract used by this repository, rather than the contents of any one starter pack.
-
-> A basic pack is one deliberately small validation slice. It is not the platform limit.
+This is the product-level capability summary for the exact core v7 release. A
+small curated pack is one validated slice, not the platform limit. The live
+`/v1/authoring/schema`, `/v1/authoring/templates`, `/v1/packs`, and `/readyz`
+responses remain authoritative.
 
 ## Current authoring surface
 
-The capability inventory is generated from the bundled core with:
+The pinned core reports:
 
-```sh
-build/signal_synth_live/signal-synth authoring schema
-```
+- authoring metadata `synsigra_authoring_v18`;
+- templates `synsigra_templates_v5`;
+- scenario schemas 2 through 9 (latest 9);
+- 142 configurable authoring fields in 18 groups;
+- 71 condition definitions with explicit fidelity support;
+- 20 analytic artifact families;
+- 16 locally scoreable verification targets;
+- approved external-noise assets with checksum, license, channel/rate, and
+  redistribution policy.
 
-At the time of this update, the schema reports:
+Unknown fields, invalid ranges, and unsupported cross-field combinations are
+rejected. Catalog presence alone does not imply native pathology synthesis.
 
-- authoring metadata version `synsigra_authoring_v6` and scenario schema v4;
-- 74 configurable authoring fields;
-- 71 condition catalog entries with explicit native, parameterized, or catalog-only support;
-- 20 artifact families;
-- 8 verification target types; and
-- 12 logical field groups.
+## Configurable signal space
 
-Unsupported condition or parameter combinations are rejected explicitly. Catalog presence alone does not imply native synthesis support.
+- Time, sampling rate, deterministic seeds, compact/full output, and controlled
+  randomization envelopes.
+- ECG heart rate, RR variation, ectopy, rhythm episodes, pacing/non-capture,
+  repolarization/QT adaptation, 12-lead morphology, extended P/QRS/T/U
+  components, fusion beats, conditions, and fidelity policy.
+- HRV mean HR/SDNN, VLF/LF/HF center/bandwidth/power relationships, LF/HF
+  ratio, respiratory modulation, and RR bounds.
+- PPG transit timing, shape, dicrotic component, jitter/modulation, beat-linked
+  amplitude, weak/missing pulses, perfusion, red/infrared optical channels,
+  sensor effects, calibration, and oxygenation episodes.
+- Wearable ECG/PPG/accelerometer stream rates, independent device clocks,
+  offset/drift/jitter, packet loss, placement, and resampling truth.
+- Respiration, activity, cardiorespiratory coupling, PRV, respiratory rate, and
+  ECG/PPG alignment.
+- ECG/PPG artifact intervals including baseline, powerline, EMG, dropout,
+  saturation, motion, ambient light, lead/device faults, clock drift, dropped
+  samples, quantization, and clipping.
+- Approved external noise mixed by asset/channel/offset/SNR/taper/lead, with
+  source bytes withheld from rendered-output-only challenges and explicit
+  release truth.
 
-## What can be varied
+Duration may extend to 24 hours and sample rate up to 1 MHz where sample-count,
+memory, artifact, and SaaS resource bounds permit. Common presets include 100,
+125, 200, 250, 360, 500, and 1000 Hz.
 
-### Time, sampling, and reproducibility
+## Verification and evidence
 
-- Duration from 0.01 seconds to 86,400 seconds (24 hours), subject to sample-count and package limits.
-- Sample rates from 100 Hz to 1 MHz, with common presets at 100, 125, 200, 250, 360, 500, and 1,000 Hz.
-- Deterministic unsigned 64-bit seeds for repeatable generation.
-- Controlled randomization envelopes for ECG heart rate and RR timing, PPG timing and amplitude, HRV parameters, and activity.
+The 16 targets cover point events (`r_peak`, PPG peaks/onsets, ECG beat
+classes, lead-specific delineation), intervals (`rhythm_episode`,
+`signal_quality`), HRV metrics, and measurements (`rr_interval`, `qtc`,
+`morphology_assertions`, `ecg_ppg_alignment`, `ppg_optical`, `prv`,
+`respiratory_rate`, `rhythm_burden`).
 
-### ECG physiology and morphology
+Stable customer output families are point-event JSON/CSV, interval-event
+JSON/CSV, and uniform measurement-value JSON/CSV v2. HRV uses that same
+measurement-v2 family rather than a dedicated HRV payload. Package v3 binds
+all files by role, media type, size, and SHA-256. It includes the applicable
+waveforms, ground truth, summaries, provenance, warnings, claim boundary,
+submission templates, and optional pre-specified verification protocol.
 
-- Heart rate from 10 to 400 bpm, RR variability, and ectopic cadence.
-- Parameterized 12-lead morphology and condition severity.
-- Rhythm, conduction, atrial and ventricular timeline, AV-pattern, Q-wave territory, episode, pacing, noncapture, and fidelity controls where supported by the selected condition.
-- Native and parameterized support is declared per catalog entry; unsupported combinations fail instead of silently producing a misleading trace.
-
-### HRV, respiration, and activity modulation
-
-- Mean heart rate, SDNN, LF/HF ratio, LF/HF center frequencies and bandwidths.
-- Respiratory frequency and amplitude, RR bounds, and physiology-linked respiratory modulation.
-- Activity-driven modulation for time-varying scenarios.
-
-### PPG timing and morphology
-
-- Pulse transit delay, rise and decay, amplitude and baseline.
-- Dicrotic timing, width, and amplitude.
-- Beat-to-beat timing jitter, low-frequency amplitude modulation, morphology variation, and PAC/PVC/paced amplitude scaling.
-- Perfusion episodes, weak or missing pulses, clock drift, and pulse-transit-time variation.
-
-### Noise, artifacts, and device failure
-
-The authoring contract exposes 20 artifact families:
-
-- ECG baseline wander, powerline interference, EMG noise, dropout, and saturation;
-- lead reversal, lead swap, electrode misplacement, gain mismatch, and offset drift;
-- clock drift, dropped samples, quantization, ADC clipping, and per-lead targeting;
-- PPG dropout, periodic/burst/broadband motion, ambient light, and sensor saturation.
-
-Artifacts can be combined with physiology and timing changes to test behavior beyond clean, stationary traces.
-
-## Verification targets and evidence
-
-Scenarios can target:
-
-- R-peak detection;
-- PPG systolic peaks and pulse onsets;
-- ECG beat classification;
-- HRV;
-- signal quality;
-- morphology assertions;
-- ECG–PPG alignment.
-
-Generated packages include the applicable waveform data, annotations, metrics, warnings, provenance, fingerprints, claim boundaries, and human-readable reports. Depending on scenario settings and supported output paths, the engine can emit CSV, WFDB, EDF+, BDF+, and compact package representations.
+The pure-Python verifier 0.10.0 validates archive/path safety, manifest and
+role shape, identity, integrity, submission schema, per-target scoring, and
+protocol policy. Evidence mode is package-authoritative: it requires a
+protocol-v2 package and runs its full matrix with its embedded numeric policy.
+Explicit diagnostic mode may filter or use a custom policy, but its reports are
+always non-evidence. It is generator-free. Customer algorithms and output can
+remain local.
 
 ## Product boundary
 
-Synsigra is an engineering verification tool. Synthetic output is not patient data, clinical evidence, a medical-device authorization, or a substitute for validation on representative real-world data. The SaaS exposes a curated, validated subset of the underlying engine contract and records the exact generator build used for each job.
-
-When this document and the live authoring schema differ, the live schema and per-pack provenance are authoritative.
+Synsigra produces synthetic engineering evidence. It does not execute customer
+algorithms, accept patient data, make diagnostic claims, replace representative
+real-world testing, or provide medical-device authorization/certification.

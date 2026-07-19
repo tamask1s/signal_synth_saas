@@ -132,7 +132,7 @@ int main() {
             ui.body.find("What do you want to do next?") != std::string::npos &&
             ui.body.find("A test space, not a single waveform") !=
                 std::string::npos &&
-            ui.body.find("74</strong><span>authoring fields") !=
+            ui.body.find("142</strong><span>authoring fields") !=
                 std::string::npos &&
             ui.body.find("A pack is a validated slice") != std::string::npos &&
             ui.body.find("pack-target-goals") != std::string::npos &&
@@ -230,8 +230,9 @@ int main() {
             docs_api.body.find("Rendered API reference") != std::string::npos &&
             docs_api.body.find("/v1/downloads/verifier") != std::string::npos &&
             docs_api.body.find("/v1/authoring/preview") != std::string::npos &&
-            docs_api.body.find("detection-templates.zip") != std::string::npos &&
             docs_api.body.find("verification-kit.zip") != std::string::npos &&
+            docs_api.body.find("role-selected challenge and submission-template kit") !=
+                std::string::npos &&
             docs_api.body.find("/v1/jobs/{job_id}/viewer/window") !=
                 std::string::npos &&
             docs_api.body.find("/v1/jobs/{job_id}/viewer/overlays") !=
@@ -271,7 +272,11 @@ int main() {
             ui_js.body.find("Preparing exact package") != std::string::npos &&
             ui_js.body.find("REFERENCE_ONLY_TARGET") != std::string::npos &&
             ui_js.body.find("validationMessageClass") != std::string::npos &&
-            ui_js.body.find("Detection templates ZIP") != std::string::npos &&
+            ui_js.body.find("Detection templates ZIP") == std::string::npos &&
+            ui_js.body.find("--profile") == std::string::npos &&
+            ui_js.body.find("pre_specified_profile") == std::string::npos &&
+            ui_js.body.find("--mode diagnostic") != std::string::npos &&
+            ui_js.body.find("evidence_eligible=false") != std::string::npos &&
             ui_js.body.find("Reproducibility details") != std::string::npos &&
             ui_js.body.find("renderVerificationRunbook") != std::string::npos &&
             ui_js.body.find("selectPackForGeneration") != std::string::npos &&
@@ -813,8 +818,7 @@ int main() {
         "\"ectopic_every_n_beats\":0,"
         "\"second_degree_av_pattern\":\"unspecified\","
         "\"q_wave_territory\":\"unspecified\","
-        "\"episode_type\":\"none\",\"episode_start_seconds\":2,"
-        "\"episode_duration_seconds\":4,\"episode_rate_bpm\":170,"
+        "\"rhythm_episodes\":[],"
         "\"flutter_conduction_pattern\":\"fixed\","
         "\"pacing_mode\":\"ventricular\","
         "\"pacing_non_capture_every_n_beats\":0,"
@@ -841,7 +845,9 @@ int main() {
         preview.status == 200 &&
             preview.body.find("\"success\":true") != std::string::npos &&
             preview.body.find("\"estimated_package_bytes\"") != std::string::npos,
-        "scenario preview should use core pack analysis"
+        "scenario preview should use core pack analysis: " +
+            std::to_string(preview.status) + " " + preview.body + " " +
+            preview.internal_error
     );
 
     const std::string download_root =

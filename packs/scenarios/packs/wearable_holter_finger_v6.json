@@ -1,0 +1,17 @@
+{
+  "schema_version": 6,
+  "scenario_id": "wearable_holter_finger_v6",
+  "name": "Holter ECG and finger PPG",
+  "description": "Holter lead-II approximation paired with a finger-transmissive optical PPG profile.",
+  "author": "Synsigra",
+  "tags": ["finger", "holter", "optical", "wearable"],
+  "duration_seconds": 30,
+  "sample_rate_hz": 500,
+  "seed": 8401001,
+  "ecg": {"heart_rate_bpm": 68, "rr_variability_seconds": 0.02, "ectopic_every_n_beats": 0, "second_degree_av_pattern": "unspecified", "q_wave_territory": "unspecified", "rhythm_episodes": [], "flutter_conduction_pattern": "fixed", "pacing_mode": "ventricular", "pacing_non_capture_every_n_beats": 0, "fidelity_policy": "allow_parameterized", "conditions": [{"code": "NORM", "severity": 1}]},
+  "ppg": {"enabled": true, "pulse_delay_ms": 180, "rise_time_ms": 115, "decay_time_ms": 300, "amplitude_au": 1, "baseline_au": 0, "dicrotic_delay_ms": 180, "dicrotic_width_ms": 80, "dicrotic_amplitude_ratio": 0.15, "pulse_delay_variation_ms": 5, "pulse_delay_variation_hz": 0.08, "missing_pulse_every_n_beats": 0, "seed": 8401002, "pulse_delay_jitter_ms": 2, "low_frequency_amplitude_modulation_ratio": 0.05, "low_frequency_amplitude_modulation_hz": 0.06, "rise_time_variation_ratio": 0.03, "decay_time_variation_ratio": 0.04, "pac_pulse_amplitude_scale": 1, "pvc_pulse_amplitude_scale": 1, "paced_pulse_amplitude_scale": 1, "perfusion_episodes": [], "optical": {"enabled": true, "profile_id": "finger_transmissive_v1", "calibration_id": "engineering_linear_v1", "calibration_intercept_percent": 110, "calibration_slope_percent": -25, "minimum_spo2_percent": 70, "maximum_spo2_percent": 100, "baseline_spo2_percent": 97, "infrared_perfusion_index_percent": 2, "red": {"dc_au": 1, "sensor_gain": 1, "delay_ms": 8, "noise_std_au": 0.0005, "ambient_offset_au": 0, "motion_sensitivity": 0.8, "ambient_sensitivity": 0.5, "crosstalk_ratio": 0.005, "minimum_output_au": 0, "maximum_output_au": 2.5, "quantization_bits": 16, "seed": 8401003}, "infrared": {"dc_au": 1.2, "sensor_gain": 1, "delay_ms": 12, "noise_std_au": 0.0004, "ambient_offset_au": 0, "motion_sensitivity": 0.6, "ambient_sensitivity": 0.4, "crosstalk_ratio": 0.005, "minimum_output_au": 0, "maximum_output_au": 2.5, "quantization_bits": 16, "seed": 8401004}, "oxygenation_episodes": []}},
+  "randomization": {"enabled": false, "seed": 8401005, "envelopes": []},
+  "physiology": {"respiration_frequency_hz": 0.2, "respiratory_rr_amplitude_seconds": 0.02, "ecg_baseline_amplitude_mv": 0.02, "ppg_amplitude_modulation_ratio": 0.06, "activity_start_seconds": 0, "activity_duration_seconds": 0, "activity_intensity": 0, "seed": 8401006},
+  "output": {"compact": false, "retain_source_channels": true, "include_waveform_csv": true, "include_edf_bdf": false},
+  "wearable": {"ecg_profile_id": "holter_lead_ii_v1", "ecg": {"enabled": true, "sample_rate_hz": 250, "clock_offset_ms": 2, "clock_drift_ppm": 15, "timestamp_jitter_ms": 0.1, "packet_size_samples": 25, "packet_loss_probability": 0, "packet_loss_burst_packets": 1, "seed": 8401011}, "ppg": {"enabled": true, "sample_rate_hz": 100, "clock_offset_ms": 10, "clock_drift_ppm": -20, "timestamp_jitter_ms": 0.3, "packet_size_samples": 10, "packet_loss_probability": 0, "packet_loss_burst_packets": 1, "seed": 8401012}, "accelerometer": {"enabled": false}}
+}

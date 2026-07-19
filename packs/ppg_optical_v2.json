@@ -1,0 +1,50 @@
+{
+  "description": "Engineering red/infrared optical physiology, sensor-electronics and local measurement-scoring QA pack.",
+  "name": "PPG Optical Physiology v2",
+  "pack_id": "ppg_optical_v2",
+  "scenarios": [
+    {
+      "id": "normoxia",
+      "path": "scenarios/ppg_multichannel_optical_v6.json",
+      "targets": [
+        "ppg_optical",
+        "ppg_systolic_peak",
+        "ppg_pulse_onset"
+      ]
+    },
+    {
+      "id": "desaturation",
+      "path": "scenarios/packs/ppg_optical_desaturation_v6.json",
+      "targets": [
+        "ppg_optical",
+        "ppg_systolic_peak",
+        "ppg_pulse_onset"
+      ]
+    },
+    {
+      "id": "low_perfusion",
+      "path": "scenarios/packs/ppg_optical_low_perfusion_v6.json",
+      "targets": [
+        "ppg_optical",
+        "ppg_systolic_peak",
+        "ppg_pulse_onset"
+      ]
+    },
+    {
+      "id": "interference",
+      "path": "scenarios/packs/ppg_optical_interference_v6.json",
+      "targets": [
+        "ppg_optical",
+        "ppg_systolic_peak",
+        "ppg_pulse_onset"
+      ]
+    }
+  ],
+  "schema_version": 2,
+  "targets": [
+    "ppg_optical",
+    "ppg_systolic_peak",
+    "ppg_pulse_onset"
+  ],
+  "version": "1.0"
+}

@@ -59,6 +59,10 @@ sudo install -s -m 0755 "$release_root/bin/syn_sig_ra_admin" \
   /usr/local/bin/syn_sig_ra_admin
 sudo install -s -m 0755 "$release_root/bin/syn_sig_ra_worker" \
   /usr/local/bin/syn_sig_ra_worker
+sudo install -m 0755 "$release_root/bin/challenge_artifact.py" \
+  /opt/signal_synth/bin/challenge_artifact.py
+sudo install -m 0644 "$release_root/downloads/verifier/synsigra-wheel.whl" \
+  /opt/signal_synth/bin/synsigra-wheel.whl
 
 sudo rm -rf /opt/signal_synth_saas/packs \
   /opt/signal_synth_saas/downloads/verifier \
@@ -77,6 +81,9 @@ sudo find /opt/signal_synth_saas/packs /opt/signal_synth_saas/downloads/verifier
 
 sudo install -m 0644 "$release_root/ops/apache/synsigra-apache.logrotate" \
   /etc/logrotate.d/synsigra-apache22
+sudo install -m 0644 "$release_root/ops/systemd/syn_sig_ra_worker.service" \
+  /etc/systemd/system/syn_sig_ra_worker.service
+sudo systemctl daemon-reload
 nginx_target=$(synsigra_nginx_target)
 sudo install -m 0644 "$release_root/ops/nginx/timeonion.conf" "$nginx_target"
 sudo install -d -o apache -g nogroup -m 0750 \

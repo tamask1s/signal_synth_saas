@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Synsigra SaaS API
-  version: 0.1.0
-  description: Private-beta API for deterministic synthetic signal QA packages. Synthetic engineering data only; do not submit PHI.
+  version: 0.2.0
+  description: Complete private-beta API for deterministic synthetic biosignal challenge generation, bounded waveform viewing, algorithm-submission verification, and owned authoring resources. The live authoring endpoints expose the core's dynamic field and template catalogs. Synthetic engineering data only; do not submit PHI. The generator is server-only; users receive challenge artifacts and the generator-free verifier.
 servers:
   - url: https://www.timeonion.com/syn_sig_ra
 components:
@@ -56,6 +56,33 @@ components:
           properties:
             code: {type: string}
             message: {type: string}
+    AcceptedCore:
+      type: object
+      required: [integration_contract, version, git_commit, build_identity, cpp_facade, pack_schema_version, challenge_package, scoring_manifest, verification_protocol, submission, submission_formats, measurement_values, measurement_truth, measurement_scoring, local_verification, scenario_authoring, scenario_templates, python_verifier, external_noise_truth, contract_document]
+      properties:
+        integration_contract: {type: string, enum: [synsigra_core_integration_v7]}
+        version: {type: string, enum: [0.10.0-dev]}
+        git_commit: {type: string, enum: [13fd76d3f57bf5b55ae0ccf18ebd06f06329a819]}
+        build_identity: {type: string, enum: [signal_synth/13fd76d3f57bf5b55ae0ccf18ebd06f06329a819]}
+        cpp_facade: {type: string, enum: [1.5.0]}
+        pack_schema_version: {type: integer, enum: [2]}
+        challenge_package: {type: string, enum: [synsigra_challenge_package_v3]}
+        scoring_manifest: {type: string, enum: [synsigra_scoring_manifest_v3]}
+        verification_protocol: {type: string, enum: [synsigra_verification_protocol_v2]}
+        submission: {type: string, enum: [synsigra_submission_v1]}
+        submission_formats: {type: string, enum: [synsigra_submission_formats_v2]}
+        measurement_values: {type: string, enum: [synsigra_measurement_values_v2]}
+        measurement_truth: {type: string, enum: [synsigra_measurement_truth_v2]}
+        measurement_scoring: {type: string, enum: [synsigra_measurement_score_v2]}
+        local_verification: {type: string, enum: [synsigra_local_verification_v2]}
+        scenario_authoring: {type: string, enum: [synsigra_authoring_v18]}
+        scenario_templates: {type: string, enum: [synsigra_templates_v5]}
+        python_verifier: {type: string, enum: [0.10.0]}
+        external_noise_truth: {type: string, enum: [synsigra_external_noise_truth_v1]}
+        contract_document:
+          type: object
+          description: The complete canonical core contract, including supported comparison/interval/delineation/measurement targets, customer output schemas, scenario versions, external-noise policy, HRV measurement metadata, and canonical commands.
+          additionalProperties: true
     PackTarget:
       type: object
       required: [target, support, scoreable, score_type, case_count, case_ids]
@@ -84,21 +111,31 @@ components:
         channel_count: {type: integer}
         sample_count: {type: integer, format: int64}
         estimated_package_bytes: {type: integer, format: int64}
+        external_noise: {type: boolean}
+        external_noise_release_allowed: {type: boolean}
+        external_noise_asset_ids: {type: array, items: {type: string}}
     Pack:
       type: object
-      required: [pack_id, display_name, version, scoreable_targets, reference_only_targets, scoring_mode]
+      required: [pack_id, display_name, version, catalog_version, catalog_source_sha256, release_set_id, targets, scoreable_targets, reference_only_targets, submission_output_schemas, scoring_mode, integration_contract, generator_compatibility, output_artifact_roles, verification_protocol, external_noise]
       properties:
         pack_id: {type: string}
         display_name: {type: string}
         version: {type: string}
         description: {type: string}
+        catalog_version: {type: string, enum: ['3.0']}
+        catalog_source_sha256: {type: string, enum: ['sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e']}
+        release_set_id: {type: string}
         release_status: {type: string, enum: [beta, stable, deprecated]}
         released_at: {type: string, format: date}
         targets: {type: array, items: {type: string}}
         scoring_mode: {type: string, enum: [local, mixed, reference_only]}
         scoreable_targets: {type: array, items: {$ref: '#/components/schemas/PackTarget'}}
         reference_only_targets: {type: array, items: {$ref: '#/components/schemas/PackTarget'}}
-        detector_output_schemas: {type: array, items: {type: string}}
+        submission_output_schemas:
+          type: array
+          items:
+            type: string
+            enum: [point_events_json_v1, point_events_csv_v1, interval_events_json_v1, interval_events_csv_v1, measurement_values_json_v2, measurement_values_csv_v2]
         recommended_profile: {type: string, nullable: true}
         supported_threshold_profiles: {type: array, items: {type: string}}
         recommended_for: {type: array, items: {type: string}}
@@ -126,14 +163,17 @@ components:
             size_class: {type: string}
         scenarios: {type: array, items: {$ref: '#/components/schemas/PackScenario'}}
         scenario_count: {type: integer}
-        integration_contract: {type: string, enum: [synsigra_core_integration_v1]}
+        integration_contract: {type: string, enum: [synsigra_core_integration_v7]}
         generator_compatibility:
           type: object
+          required: [local_verifier_min_version, challenge_package_contract, scoring_manifest_contract, submission_contract, verification_protocol_contract, integration_contract]
           properties:
-            local_verifier_min_version: {type: string}
-            challenge_package_contract: {type: string}
-            scoring_manifest_contract: {type: string}
-            integration_contract: {type: string, enum: [synsigra_core_integration_v1]}
+            local_verifier_min_version: {type: string, enum: [0.10.0]}
+            challenge_package_contract: {type: string, enum: [synsigra_challenge_package_v3]}
+            scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
+            submission_contract: {type: string, enum: [synsigra_submission_v1]}
+            verification_protocol_contract: {type: string, enum: [synsigra_verification_protocol_v2]}
+            integration_contract: {type: string, enum: [synsigra_core_integration_v7]}
         output_artifact_roles: {type: array, items: {type: string}}
         primary_badges: {type: array, items: {type: string}}
         changelog:
@@ -146,30 +186,147 @@ components:
               summary: {type: string}
         deprecation_message: {type: string}
         pack_fingerprint: {type: string}
+        verification_protocol:
+          type: object
+          required: [available, contract, sha256, document]
+          properties:
+            available: {type: boolean}
+            contract: {type: string, enum: [synsigra_verification_protocol_v2]}
+            sha256: {type: string}
+            document: {type: object, nullable: true, additionalProperties: true}
+        external_noise:
+          type: object
+          required: [used, release_allowed, asset_ids]
+          properties:
+            used: {type: boolean}
+            release_allowed: {type: boolean, enum: [true]}
+            asset_ids: {type: array, items: {type: string}}
+    ChallengeMetadata:
+      type: object
+      required: [schema_version, contract, verifier_version, challenge_contract, package_id, pack_version, pack_fingerprint, generator_version, generator_git_commit, scoring_manifest_contract, submission_contract, submission_formats_contract, measurement_values_contract, measurement_truth_contract, measurement_scoring_contract, local_verification_contract, case_count, targets, cases, submission_outputs, submission_formats, verification_protocol, verification, external_noise, roles, integrity]
+      properties:
+        schema_version: {type: integer, enum: [1]}
+        contract: {type: string, enum: [synsigra_saas_challenge_metadata_v1]}
+        verifier_version: {type: string, enum: [0.10.0]}
+        challenge_contract: {type: string, enum: [synsigra_challenge_package_v3]}
+        package_id:
+          type: string
+          description: Core challenge identity from manifest.json; this is not the SaaS pkg_ artifact identifier.
+        name: {type: string}
+        pack_version: {type: string}
+        pack_fingerprint: {type: string}
+        generator_version: {type: string, enum: [0.10.0-dev]}
+        generator_git_commit: {type: string, enum: [13fd76d3f57bf5b55ae0ccf18ebd06f06329a819]}
+        scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
+        submission_contract: {type: string, enum: [synsigra_submission_v1]}
+        submission_formats_contract: {type: string, enum: [synsigra_submission_formats_v2]}
+        measurement_values_contract: {type: string, enum: [synsigra_measurement_values_v2]}
+        measurement_truth_contract: {type: string, enum: [synsigra_measurement_truth_v2]}
+        measurement_scoring_contract: {type: string, enum: [synsigra_measurement_score_v2]}
+        local_verification_contract: {type: string, enum: [synsigra_local_verification_v2]}
+        case_count: {type: integer, minimum: 1}
+        targets: {type: array, items: {type: object, additionalProperties: true}}
+        cases: {type: array, items: {type: object, additionalProperties: true}}
+        submission_outputs:
+          type: array
+          description: Authoritative editable algorithm-output templates selected by manifest role; never infer filenames.
+          items:
+            type: object
+            required: [case_id, target, format, path]
+            properties:
+              case_id: {type: string}
+              target: {type: string}
+              format: {type: string}
+              path: {type: string}
+        submission_formats: {type: object, additionalProperties: true}
+        verification_protocol: {type: object, nullable: true, additionalProperties: true}
+        verification:
+          type: object
+          description: Package-derived local-verification state. SaaS indexes it but never recomputes local scoring or policy outcomes.
+          required: [mode, evidence_eligible, matrix_complete, evidence_result, policy_result, notice, protocol]
+          properties:
+            mode: {type: string, enum: [evidence, diagnostic]}
+            evidence_eligible: {type: boolean}
+            matrix_complete: {type: boolean, nullable: true}
+            evidence_result: {type: string, enum: [not_run]}
+            policy_result: {type: string, enum: [not_run]}
+            notice: {type: string}
+            protocol:
+              type: object
+              nullable: true
+              properties:
+                protocol_id: {type: string}
+                contract: {type: string, enum: [synsigra_verification_protocol_v2]}
+                path: {type: string}
+                size_bytes: {type: integer, format: int64}
+                sha256: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+                context_of_use: {type: string}
+                scoring_contract: {type: string, enum: [synsigra_local_verification_v2]}
+                acceptance_profile_id: {type: string}
+                required_case_target_count: {type: integer, minimum: 1}
+                evidence_boundary: {type: string}
+        external_noise:
+          type: object
+          description: Release-gate result and content identities for approved private noise inputs; source bytes are never included.
+          required: [used, release_allowed, assets, truth_paths]
+          properties:
+            used: {type: boolean}
+            release_allowed: {type: boolean, enum: [true]}
+            assets:
+              type: array
+              items:
+                type: object
+                required: [asset_id, content_sha256, redistribution, source_uri, license]
+                properties:
+                  asset_id: {type: string}
+                  content_sha256: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+                  redistribution: {type: string, enum: [rendered_output, source_and_output]}
+                  source_uri: {type: string}
+                  license: {type: string}
+            truth_paths: {type: array, items: {type: string}}
+        roles:
+          type: object
+          additionalProperties: {type: array, items: {type: string}}
+        integrity:
+          type: object
+          required: [ok]
+          properties:
+            ok: {type: boolean, enum: [true]}
+          additionalProperties: true
     Job:
       type: object
-      required: [job_id, project_id, pack_id, status, created_at]
+      required: [job_id, project_id, pack_id, pack_version, status, created_at]
       properties:
         job_id: {type: string}
         project_id: {type: string}
         pack_id: {type: string}
+        pack_version: {type: string}
+        catalog:
+          type: object
+          description: Present for curated jobs; omitted for immutable custom-pack snapshots.
+          required: [version, source_sha256]
+          properties:
+            version: {type: string, enum: ['3.0']}
+            source_sha256: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
         status:
           type: string
           enum: [queued, running, succeeded, failed, cancelled]
         created_at: {type: string, format: date-time}
         started_at: {type: string, format: date-time}
         completed_at: {type: string, format: date-time}
-        package_id: {type: string}
+        package_id:
+          type: string
+          description: SaaS artifact identifier used by the package download endpoints.
         artifact_status: {type: string, enum: [available, expired]}
         package_fingerprint: {type: string}
-        integration_contract: {type: string, enum: [synsigra_core_integration_v1]}
+        integration_contract: {type: string, enum: [synsigra_core_integration_v7]}
         generator_version: {type: string}
         generator_git_commit: {type: string}
         generator_build_identity: {type: string}
         generator_binary_sha256: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
         manifest_url: {type: string}
         archive_url: {type: string}
-        detection_templates_url: {type: string}
+        challenge: {$ref: '#/components/schemas/ChallengeMetadata'}
         verification_kit_url: {type: string}
         error:
           type: object
@@ -223,7 +380,7 @@ components:
       type: object
       required: [kind, source, label, channel, start_sample, end_sample, interval, count]
       properties:
-        kind: {type: string, enum: [artifact, episode, r_peak, beat_class, ppg_onset, ppg_peak, low_perfusion, missing_pulse]}
+        kind: {type: string, enum: [artifact, episode, r_peak, beat_class, ecg_fiducial, ppg_onset, ppg_peak, low_perfusion, missing_pulse]}
         source: {type: string, description: Ground-truth provenance such as ground_truth, construction, or measurement.}
         label: {type: string}
         channel: {type: string, description: One channel or a comma-separated affected-channel list.}
@@ -251,7 +408,17 @@ components:
       properties:
         schema_version: {type: integer}
         package: {type: string, example: synsigra}
-        version: {type: string, example: 0.2.0}
+        version: {type: string, enum: [0.10.0]}
+        core_git_commit: {type: string, enum: [13fd76d3f57bf5b55ae0ccf18ebd06f06329a819]}
+        challenge_contract: {type: string, enum: [synsigra_challenge_package_v3]}
+        scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
+        verification_protocol_contract: {type: string, enum: [synsigra_verification_protocol_v2]}
+        submission_contract: {type: string, enum: [synsigra_submission_v1]}
+        submission_formats_contract: {type: string, enum: [synsigra_submission_formats_v2]}
+        measurement_values_contract: {type: string, enum: [synsigra_measurement_values_v2]}
+        measurement_truth_contract: {type: string, enum: [synsigra_measurement_truth_v2]}
+        measurement_scoring_contract: {type: string, enum: [synsigra_measurement_score_v2]}
+        local_verification_contract: {type: string, enum: [synsigra_local_verification_v2]}
         console_script: {type: string, example: synsigra-verify}
         generator_included: {type: boolean, example: false}
         generated_at: {type: string, format: date-time}
@@ -313,7 +480,23 @@ paths:
     get:
       summary: Component readiness
       responses:
-        '200': {description: DB, exact linked/CLI core identity, catalog, and artifact store are ready}
+        '200':
+          description: DB, exact linked/CLI core identity, catalog, and artifact store are ready. `accepted_core.contract_document` is the complete canonical core capability contract.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, database, generator, accepted_core, pack_catalog, artifact_store, generation_capacity]
+                properties:
+                  status: {type: string, enum: [ready]}
+                  database: {type: boolean, enum: [true]}
+                  generator: {type: boolean, enum: [true]}
+                  accepted_core: {$ref: '#/components/schemas/AcceptedCore'}
+                  pack_catalog: {type: boolean, enum: [true]}
+                  artifact_store: {type: boolean, enum: [true]}
+                  generation_capacity: {type: boolean, enum: [true]}
+                  disk_free_bytes: {type: integer, format: int64}
+                  disk_reserve_bytes: {type: integer, format: int64}
         '503': {description: One or more components are not ready}
   /v1/packs:
     get:
@@ -607,13 +790,13 @@ paths:
   /v1/projects:
     get:
       summary: List caller organization projects
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       responses:
         '200': {description: Project list}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
     post:
       summary: Create project (owner/admin)
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       requestBody:
         required: true
         content:
@@ -692,7 +875,7 @@ paths:
   /v1/jobs:
     get:
       summary: List jobs
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       parameters:
         - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
         - {in: query, name: offset, schema: {type: integer, minimum: 0, default: 0}}
@@ -700,7 +883,7 @@ paths:
         '200': {description: Paginated jobs}
     post:
       summary: Create challenge job
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       requestBody:
         required: true
         content:
@@ -721,20 +904,20 @@ paths:
       - {in: path, name: job_id, required: true, schema: {type: string}}
     get:
       summary: Read job
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       responses:
         '200': {description: Job, content: {application/json: {schema: {$ref: '#/components/schemas/Job'}}}}
         '404': {description: Not found}
     delete:
       summary: Soft-delete non-running job
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       responses:
         '200': {description: Deleted}
         '409': {description: Running job cannot be deleted}
   /v1/jobs/{job_id}/cancel:
     post:
       summary: Cancel queued job
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       parameters:
         - {in: path, name: job_id, required: true, schema: {type: string}}
       responses:
@@ -743,7 +926,7 @@ paths:
   /v1/jobs/{job_id}/retry:
     post:
       summary: Retry failed or cancelled job as a new job
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       parameters:
         - {in: path, name: job_id, required: true, schema: {type: string}}
       responses:
@@ -753,34 +936,17 @@ paths:
     post:
       summary: Queue an exact-version rebuild for an expired succeeded job
       description: Uses the immutable pack recipe and SHA-256-addressed historical generator release. A newer generator is never substituted and a package fingerprint mismatch fails the new job.
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       parameters:
         - {in: path, name: job_id, required: true, schema: {type: string}}
       responses:
         '202': {description: Exact-version rebuild queued as a new job}
         '409': {description: Invalid state, recipe unavailable, or historical generator unavailable}
         '507': {description: Rebuild paused to preserve disk reserve}
-  /v1/jobs/{job_id}/detection-templates.zip:
-    get:
-      summary: Download detector-output templates for a completed curated job
-      description: Returns a ZIP containing README.md plus one template file per scoreable case/target. Reference-only targets are excluded.
-      security: [{cookieAuth: []}, {bearerAuth: []}]
-      parameters:
-        - {in: path, name: job_id, required: true, schema: {type: string}}
-      responses:
-        '200':
-          description: Detection-template ZIP
-          content:
-            application/zip:
-              schema:
-                type: string
-                format: binary
-        '404': {description: Job not found}
-        '409': {description: Job not succeeded, custom pack unsupported, or no scoreable targets}
   /v1/jobs/{job_id}/verification-kit.zip:
     get:
-      summary: Download a job-local verification starter kit
-      description: Returns an immutable, file-backed challenge ZIP augmented with SYNSIGRA_README.md, notices, and curated detector-output templates when available. After one unzip, the extracted directory can be passed directly to synsigra-verify; there is no nested package ZIP. The kit does not include the generator or verifier wheel. Single byte ranges and browser resume are supported; multipart ranges are rejected.
+      summary: Download the single generator-free verification kit for a curated or custom job
+      description: Returns verification-kit v2. After one unzip it contains the immutable integrity-protected `challenge/`, a role-selected editable `submission/`, exact README command, engineering claim boundary, and normalized challenge metadata. A protocol-v2 package runs `synsigra-verify challenge submission verification-results --force` in package-authoritative evidence mode; a package without protocol v2 uses explicit diagnostic mode and is never evidence-eligible. There is no nested package ZIP and no filename guessing. The kit does not include the generator or verifier wheel. Single byte ranges and browser resume are supported; multipart ranges are rejected. Concurrent first downloads converge on one checksum-addressed cached artifact.
       security: [{cookieAuth: []}, {bearerAuth: []}]
       parameters:
         - {in: path, name: job_id, required: true, schema: {type: string}}
@@ -801,7 +967,7 @@ paths:
         '206': {description: Requested byte range with Content-Range and the immutable artifact headers}
         '416': {description: Invalid, multipart, or unsatisfiable byte range}
         '404': {description: Job or artifact not found}
-        '409': {description: Job not succeeded or artifacts expired}
+        '409': {description: Job not succeeded, artifacts expired, or the rendered challenge fails strict v3 integrity/role/contract validation}
         '507': {description: Derived-kit creation paused to preserve disk reserve}
     head:
       summary: Read verification-kit size, checksum, range support, and expiry without a response body
@@ -832,7 +998,7 @@ paths:
               schema: {$ref: '#/components/schemas/SignalViewerSource'}
         '401': {description: Unauthorized}
         '404': {description: Job or retained artifact not found, including cross-organization access}
-        '409': {description: Job not completed, artifact expired, no supported WFDB data, or package predates viewer preparation}
+        '409': {description: Job not completed, artifact expired, or no supported WFDB data is available}
   /v1/jobs/{job_id}/viewer/window:
     get:
       summary: Read a bounded binary signal viewport
@@ -863,7 +1029,7 @@ paths:
   /v1/jobs/{job_id}/viewer/overlays:
     get:
       summary: Read bounded ground-truth overlays for a signal viewport
-      description: Reads the generator's authoritative R peaks, ECG beat classes, PPG onset/peak fiducials, artifacts, clinical episodes, low-perfusion pulses, and expected missing-pulse intervals from a prepared read-only index. Only items intersecting the requested sample range are read. Dense point streams are clustered to keep the JSON response within max_items; intervals remain explicit.
+      description: Reads the generator's authoritative R peaks, ECG beat classes, lead-specific ECG delineation fiducials, PPG onset/peak fiducials, artifacts, clinical episodes, low-perfusion pulses, and expected missing-pulse intervals from a prepared read-only index. Only items intersecting the requested sample range are read. Dense point streams are clustered to keep the JSON response within max_items; intervals remain explicit.
       security: [{cookieAuth: []}, {bearerAuth: []}]
       parameters:
         - {in: path, name: job_id, required: true, schema: {type: string}}
@@ -920,25 +1086,25 @@ paths:
   /v1/usage:
     get:
       summary: Caller usage and limits
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       responses:
         '200': {description: Usage summary}
   /v1/metrics:
     get:
       summary: Owner/admin operational metrics
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       responses:
         '200': {description: Operational counters and worker heartbeat}
         '403': {description: Role forbidden}
   /v1/scenarios:
     get:
       summary: List caller-owned scenario drafts
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       responses:
         '200': {description: Scenario draft list including saved target_intent values}
     post:
       summary: Validate and create an editable scenario draft
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       requestBody:
         required: true
         content:
@@ -964,13 +1130,13 @@ paths:
       - {in: path, name: scenario_id, required: true, schema: {type: string}}
     get:
       summary: Read caller-owned scenario draft
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       responses:
         '200': {description: Scenario draft}
         '404': {description: Missing or owned by another user}
     put:
       summary: Replace and revalidate scenario draft
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       requestBody:
         required: true
         content:
@@ -992,19 +1158,19 @@ paths:
         '422': {description: Invalid draft updated with validation errors}
     delete:
       summary: Delete scenario draft
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       responses:
         '200': {description: Draft deleted}
         '404': {description: Missing or owned by another user}
   /v1/custom-packs:
     get:
       summary: List caller-owned immutable custom packs
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       responses:
         '200': {description: Custom pack list}
     post:
       summary: Compose a custom pack from valid owned scenario drafts
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       requestBody:
         required: true
         content:
@@ -1027,13 +1193,13 @@ paths:
       - {in: path, name: pack_id, required: true, schema: {type: string}}
     get:
       summary: Read caller-owned custom pack
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       responses:
         '200': {description: Custom pack}
         '404': {description: Missing or owned by another user}
     delete:
       summary: Hide custom pack while retaining immutable job snapshots
-      security: [{bearerAuth: []}]
+      security: [{cookieAuth: []}, {bearerAuth: []}]
       responses:
         '200': {description: Custom pack deleted}
         '404': {description: Missing or owned by another user}

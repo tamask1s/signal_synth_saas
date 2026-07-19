@@ -1,0 +1,32 @@
+[Unit]
+Description=Synsigra bounded challenge generation worker
+After=local-fs.target
+
+[Service]
+Type=simple
+User=apache
+Group=nogroup
+UMask=0077
+ExecStart=/usr/local/bin/syn_sig_ra_worker run-loop /var/lib/syn_sig_ra/db.sqlite3 /opt/signal_synth/bin/signal-synth /opt/signal_synth_saas/packs /var/lib/syn_sig_ra /opt/signal_synth_saas/packs/noise_assets /opt/signal_synth/bin/challenge_artifact.py /opt/signal_synth/bin/synsigra-wheel.whl
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+ReadWritePaths=/var/lib/syn_sig_ra
+ReadOnlyPaths=/opt/signal_synth /opt/signal_synth_saas/packs
+MemoryMax=5G
+TasksMax=64
+LimitNOFILE=512
+
+[Install]
+WantedBy=multi-user.target

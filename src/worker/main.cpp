@@ -62,11 +62,12 @@ int run_once(
 
 int main(int argc, char** argv) {
     const std::string mode = argc > 1 ? argv[1] : "";
-    if (argc != 6 || (mode != "run-once" && mode != "run-loop")) {
+    if (argc != 9 || (mode != "run-once" && mode != "run-loop")) {
         std::cerr
             << "usage: " << argv[0]
             << " <run-once|run-loop> <database> <signal-synth-cli>"
-            << " <pack-root> <data-root>\n";
+            << " <pack-root> <data-root> <noise-asset-root>"
+            << " <challenge-helper> <verifier-wheel>\n";
         return EXIT_FAILURE;
     }
     syn_sig_ra::WorkerConfig config;
@@ -74,6 +75,9 @@ int main(int argc, char** argv) {
     config.signal_synth_cli = argv[3];
     config.pack_root = argv[4];
     config.data_root = argv[5];
+    config.noise_asset_root = argv[6];
+    config.challenge_helper = argv[7];
+    config.verifier_wheel = argv[8];
     if (mode == "run-once") {
         return run_once(config, true);
     }

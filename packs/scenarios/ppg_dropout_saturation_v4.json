@@ -14,10 +14,7 @@
     "ectopic_every_n_beats": 0,
     "second_degree_av_pattern": "unspecified",
     "q_wave_territory": "unspecified",
-    "episode_type": "none",
-    "episode_start_seconds": 2,
-    "episode_duration_seconds": 4,
-    "episode_rate_bpm": 170,
+    "rhythm_episodes": [],
     "flutter_conduction_pattern": "fixed",
     "pacing_mode": "ventricular",
     "pacing_non_capture_every_n_beats": 0,
@@ -37,7 +34,6 @@
     "pulse_delay_variation_ms": 8,
     "pulse_delay_variation_hz": 0.08,
     "missing_pulse_every_n_beats": 0,
-    "clock_drift_ppm": 0,
     "seed": 5105002,
     "pulse_delay_jitter_ms": 5,
     "low_frequency_amplitude_modulation_ratio": 0.1,
@@ -59,7 +55,7 @@
   },
   "output": {"compact": false, "retain_source_channels": true, "include_waveform_csv": true, "include_edf_bdf": true},
   "artifacts": [
-    {"type": "ppg_dropout", "start_seconds": 12, "duration_seconds": 8, "severity": 0.9, "seed": 5305101, "channels": ["ppg_green"]},
-    {"type": "ppg_sensor_saturation", "start_seconds": 36, "duration_seconds": 8, "severity": 0.85, "seed": 5305102, "channels": ["ppg_green"]}
+    {"type": "ppg_dropout", "start_seconds": 12, "duration_seconds": 8, "severity": 0.9, "seed": 5305101, "channels": ["all_ppg"]},
+    {"type": "ppg_sensor_saturation", "start_seconds": 36, "duration_seconds": 8, "severity": 0.85, "seed": 5305102, "channels": ["all_ppg"]}
   ]
 }

@@ -44,6 +44,9 @@ struct JobRecord {
     std::string selected_pack_id;
     std::string source_pack_path;
     std::string pack_fingerprint;
+    std::string selected_pack_version;
+    std::string catalog_version;
+    std::string catalog_source_sha256;
     std::string package_id;
     std::string package_fingerprint;
     std::string integration_contract_version;
@@ -53,6 +56,7 @@ struct JobRecord {
     std::string generator_build_identity;
     std::string generator_binary_sha256;
     std::string challenge_receipt_json;
+    std::string challenge_metadata_json;
     std::string manifest_hash;
     std::string artifact_storage_key;
     std::string error_code;
@@ -70,6 +74,9 @@ struct PackageRecord {
     std::string project_id;
     std::string user_id;
     std::string package_fingerprint;
+    std::string selected_pack_version;
+    std::string catalog_version;
+    std::string catalog_source_sha256;
     std::string integration_contract_version;
     std::string integration_contract_json;
     std::string generator_version;
@@ -77,6 +84,7 @@ struct PackageRecord {
     std::string generator_build_identity;
     std::string generator_binary_sha256;
     std::string challenge_receipt_json;
+    std::string challenge_metadata_json;
     std::string manifest_hash;
     std::string artifact_storage_key;
     long long size_bytes;
@@ -490,6 +498,9 @@ public:
         const std::string& pack_id,
         const std::string& source_pack_path,
         const std::string& pack_fingerprint,
+        const std::string& selected_pack_version,
+        const std::string& catalog_version,
+        const std::string& catalog_source_sha256,
         std::string& job_id,
         std::string& error
     );
@@ -569,6 +580,7 @@ public:
         const std::string& generator_build_identity,
         const std::string& generator_binary_sha256,
         const std::string& challenge_receipt_json,
+        const std::string& challenge_metadata_json,
         const std::string& normalized_cli_command,
         const std::string& manifest_hash,
         const std::string& artifact_storage_key,

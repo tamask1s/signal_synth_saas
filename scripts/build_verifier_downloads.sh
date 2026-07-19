@@ -5,6 +5,8 @@ repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 signal_synth_root=${SIGNAL_SYNTH_ROOT:-"$repo_dir/../signal_synth"}
 out_dir=${1:-"$repo_dir/downloads/verifier"}
 work_dir=${TMPDIR:-/tmp}/synsigra_verifier_downloads_$$
+expected_core=13fd76d3f57bf5b55ae0ccf18ebd06f06329a819
+expected_version=0.10.0
 
 cleanup() {
   rm -rf "$work_dir"
@@ -15,6 +17,15 @@ if [ ! -f "$signal_synth_root/setup.cfg" ]; then
   echo "signal_synth Python package metadata not found at $signal_synth_root/setup.cfg" >&2
   exit 2
 fi
+core_commit=$(git -C "$signal_synth_root" rev-parse HEAD)
+[ "$core_commit" = "$expected_core" ] || {
+  echo "signal_synth must be pinned to $expected_core; found $core_commit" >&2
+  exit 2
+}
+[ -z "$(git -C "$signal_synth_root" status --porcelain)" ] || {
+  echo "signal_synth must be clean before verifier packaging" >&2
+  exit 2
+}
 
 version=$(
   awk '
@@ -28,6 +39,10 @@ if [ -z "$version" ]; then
   echo "unable to read synsigra package version from setup.cfg" >&2
   exit 2
 fi
+[ "$version" = "$expected_version" ] || {
+  echo "expected synsigra verifier $expected_version; found $version" >&2
+  exit 2
+}
 
 mkdir -p "$work_dir/dist" "$work_dir/bundle/wheels" "$out_dir"
 python3 - "$signal_synth_root" "$work_dir/dist" "$version" <<'PY'
@@ -64,7 +79,7 @@ for path in sorted(package_root.rglob("*")):
 metadata = """Metadata-Version: 2.1
 Name: synsigra
 Version: {version}
-Summary: Local synthetic biosignal challenge loading and verification SDK
+Summary: Generator-free Synsigra challenge verification SDK
 Author: Synsigra
 License: Proprietary engineering QA tooling
 Requires-Python: >=3.8
@@ -106,12 +121,14 @@ cp "$wheel" "$work_dir/bundle/wheels/$wheel_file"
 cat >"$work_dir/bundle/README.md" <<EOF
 # Synsigra local verifier bundle
 
-This bundle contains the generator-free Synsigra Python verifier package.
+This bundle contains the generator-free Synsigra 0.10.0 Python verifier.
 
 It does not contain the C++ signal generator, generator source code, or any
 tool that can create new challenge packages. It only installs the local
-\`synsigra-verify\` command used to score your own detector outputs against a
-downloaded Synsigra challenge package.
+\`synsigra-verify\` command used to score your algorithm submission against a
+downloaded Synsigra v3 challenge package. It supports every manifest-declared
+point-event, interval and uniform measurement-v2 submission role. HRV uses the
+same measurement interface as RR, QT/QTc and the other scalar targets.
 
 ## Install
 
@@ -120,16 +137,22 @@ python -m pip install "wheels/$wheel_file"
 synsigra-verify --help
 \`\`\`
 
-## Verify a downloaded package
+## Verify a downloaded verification kit
 
-1. Download \`package.zip\` and the detector-template ZIP from the Synsigra UI.
-2. Unzip the detector templates and replace rows under \`detections/\` with
-   your algorithm output.
-3. Run:
+1. Download the single verification-kit ZIP from the completed Synsigra job.
+2. Unzip it and enter its \`verification-kit/\` directory.
+3. Edit the algorithm name/version and replace the example output rows under
+   \`submission/\`. Keep the manifest-declared paths, targets and formats.
+4. Run:
 
 \`\`\`sh
-synsigra-verify package.zip detections/ verification-results/ --profile regression --force
+synsigra-verify challenge submission verification-results --force
 \`\`\`
+
+For a protocol-v2 package this is evidence mode: the complete package matrix
+and embedded numeric policy are authoritative, and profile/case/target
+overrides are forbidden. When a package has no protocol, its kit README uses
+explicit \`--mode diagnostic\`; such a run is useful but never evidence-eligible.
 
 The verifier exits with:
 
@@ -166,6 +189,9 @@ with zipfile.ZipFile(str(archive_path), "w", compression=zipfile.ZIP_DEFLATED) a
     archive.write(str(bundle_root / "wheels" / wheel_file), "wheels/" + wheel_file)
 PY
 
+find "$out_dir" -maxdepth 1 -type f \
+  \( -name 'synsigra-*.whl' -o -name 'synsigra-verifier*.zip' \
+     -o -name 'metadata.json' \) -delete
 install -m 0644 "$wheel" "$out_dir/$wheel_file"
 install -m 0644 "$wheel" "$out_dir/synsigra-wheel.whl"
 install -m 0644 "$work_dir/$bundle_file" "$out_dir/$bundle_file"
@@ -176,9 +202,19 @@ bundle_sha=$(sha256sum "$out_dir/synsigra-verifier.zip" | awk '{print $1}')
 generated_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 cat >"$out_dir/metadata.json" <<EOF
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "package": "synsigra",
   "version": "$version",
+  "core_git_commit": "$core_commit",
+  "challenge_contract": "synsigra_challenge_package_v3",
+  "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
+  "verification_protocol_contract": "synsigra_verification_protocol_v2",
+  "submission_contract": "synsigra_submission_v1",
+  "submission_formats_contract": "synsigra_submission_formats_v2",
+  "measurement_values_contract": "synsigra_measurement_values_v2",
+  "measurement_truth_contract": "synsigra_measurement_truth_v2",
+  "measurement_scoring_contract": "synsigra_measurement_score_v2",
+  "local_verification_contract": "synsigra_local_verification_v2",
   "console_script": "synsigra-verify",
   "generator_included": false,
   "generated_at": "$generated_at",
@@ -205,7 +241,7 @@ cat >"$out_dir/metadata.json" <<EOF
     "python -m pip install wheels/$wheel_file",
     "synsigra-verify --help"
   ],
-  "verify_example": "synsigra-verify package.zip detections/ verification-results/ --profile regression --force"
+  "verify_example": "synsigra-verify challenge submission verification-results --force"
 }
 EOF
 

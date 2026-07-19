@@ -1,0 +1,68 @@
+{
+  "description": "Curated lead-specific P, QRS, J-point, and T delineation QA with explicit atrial and ventricular truth anchors.",
+  "name": "ECG Delineation Verification Pack v2",
+  "pack_id": "ecg_delineation_v2",
+  "scenarios": [
+    {
+      "id": "clean_70",
+      "path": "scenarios/packs/rpeak_clean_70.json",
+      "targets": [
+        "ecg_delineation"
+      ]
+    },
+    {
+      "id": "slow_45",
+      "path": "scenarios/packs/rpeak_slow_45.json",
+      "targets": [
+        "ecg_delineation"
+      ]
+    },
+    {
+      "id": "fast_120",
+      "path": "scenarios/packs/rpeak_fast_120.json",
+      "targets": [
+        "ecg_delineation"
+      ]
+    },
+    {
+      "id": "clbbb",
+      "path": "scenarios/catalog/morph_clbbb.json",
+      "targets": [
+        "ecg_delineation"
+      ]
+    },
+    {
+      "id": "ischemia_anterolateral",
+      "path": "scenarios/catalog/morph_iscal.json",
+      "targets": [
+        "ecg_delineation"
+      ]
+    },
+    {
+      "id": "afib_absent_p",
+      "path": "scenarios/catalog/rhythm_afib.json",
+      "targets": [
+        "ecg_delineation"
+      ]
+    },
+    {
+      "id": "mobitz_ii_nonconducted_p",
+      "path": "scenarios/catalog/rhythm_mobitz_ii_pause.json",
+      "targets": [
+        "ecg_delineation"
+      ]
+    },
+    {
+      "id": "baseline_powerline",
+      "path": "scenarios/packs/sq_baseline_powerline.json",
+      "targets": [
+        "ecg_delineation"
+      ]
+    }
+  ],
+  "schema_version": 2,
+  "targets": [
+    "ecg_delineation"
+  ],
+  "version": "2.0"
+}

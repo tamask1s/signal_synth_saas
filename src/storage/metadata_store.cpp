@@ -11,7 +11,7 @@
 
 namespace {
 
-const int kSchemaVersion = 1;
+const int kSchemaVersion = 2;
 const int kRequestLimitPerMinute = 120;
 const int kConcurrentJobLimit = 2;
 const int kMonthlyJobLimit = 100;
@@ -19,10 +19,10 @@ const int kMonthlyJobLimit = 100;
 const char kSchemaSql[] = R"SQL(
 CREATE TABLE metadata_schema (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-    contract TEXT NOT NULL CHECK (contract = 'synsigra_saas_metadata_v1')
+    contract TEXT NOT NULL CHECK (contract = 'synsigra_saas_metadata_v2')
 );
 INSERT INTO metadata_schema (singleton,contract)
-VALUES (1,'synsigra_saas_metadata_v1');
+VALUES (1,'synsigra_saas_metadata_v2');
 
 CREATE TABLE organizations (
     id TEXT PRIMARY KEY,
@@ -120,9 +120,12 @@ CREATE TABLE jobs (
     status TEXT NOT NULL
         CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'cancelled')),
     request_json TEXT NOT NULL,
-    selected_pack_id TEXT,
-    source_pack_path TEXT,
-    pack_fingerprint TEXT,
+    selected_pack_id TEXT NOT NULL,
+    source_pack_path TEXT NOT NULL,
+    pack_fingerprint TEXT NOT NULL,
+    selected_pack_version TEXT NOT NULL,
+    catalog_version TEXT NOT NULL,
+    catalog_source_sha256 TEXT NOT NULL,
     package_fingerprint TEXT,
     integration_contract_version TEXT,
     integration_contract_json TEXT,
@@ -131,6 +134,7 @@ CREATE TABLE jobs (
     generator_build_identity TEXT,
     generator_binary_sha256 TEXT,
     challenge_receipt_json TEXT,
+    challenge_metadata_json TEXT,
     normalized_cli_command TEXT,
     manifest_hash TEXT,
     artifact_storage_key TEXT,
@@ -153,8 +157,11 @@ CREATE TABLE packages (
     organization_id TEXT NOT NULL,
     project_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
-    pack_fingerprint TEXT,
+    pack_fingerprint TEXT NOT NULL,
     package_fingerprint TEXT NOT NULL,
+    selected_pack_version TEXT NOT NULL,
+    catalog_version TEXT NOT NULL,
+    catalog_source_sha256 TEXT NOT NULL,
     integration_contract_version TEXT NOT NULL,
     integration_contract_json TEXT NOT NULL,
     generator_version TEXT,
@@ -162,6 +169,7 @@ CREATE TABLE packages (
     generator_build_identity TEXT,
     generator_binary_sha256 TEXT,
     challenge_receipt_json TEXT NOT NULL,
+    challenge_metadata_json TEXT NOT NULL,
     manifest_hash TEXT NOT NULL,
     artifact_storage_key TEXT NOT NULL UNIQUE,
     size_bytes INTEGER NOT NULL DEFAULT 0 CHECK (size_bytes >= 0),
@@ -424,9 +432,12 @@ syn_sig_ra::JobRecord job_columns(sqlite3_stmt* statement) {
     job.created_at = column_text(statement, 22);
     job.started_at = column_text(statement, 23);
     job.completed_at = column_text(statement, 24);
-    if (sqlite3_column_count(statement) > 25) {
-        job.deleted_at = column_text(statement, 25);
-    }
+    job.selected_pack_version = column_text(statement, 25);
+    job.catalog_version = column_text(statement, 26);
+    job.catalog_source_sha256 = column_text(statement, 27);
+    job.challenge_metadata_json = column_text(statement, 28);
+    if (sqlite3_column_count(statement) == 30)
+        job.deleted_at = column_text(statement, 29);
     return job;
 }
 
@@ -517,7 +528,7 @@ bool MetadataStore::initialize(std::string& error) {
                 "SELECT contract FROM metadata_schema WHERE singleton=1;",
                 -1, &marker, nullptr) == SQLITE_OK &&
             sqlite3_step(marker) == SQLITE_ROW &&
-            column_text(marker, 0) == "synsigra_saas_metadata_v1";
+            column_text(marker, 0) == "synsigra_saas_metadata_v2";
         sqlite3_finalize(marker);
         if (!valid) {
             error = "SQLite schema marker is invalid; run the destructive pre-beta reset";
@@ -543,7 +554,7 @@ bool MetadataStore::initialize(std::string& error) {
     }
     if (!execute("BEGIN IMMEDIATE;", error)) return false;
     const bool succeeded = execute(kSchemaSql, error) &&
-        execute("PRAGMA user_version = 1;", error);
+        execute("PRAGMA user_version = 2;", error);
     if (!succeeded || !execute("COMMIT;", error)) {
         std::string rollback_error;
         execute("ROLLBACK;", rollback_error);
@@ -2314,6 +2325,9 @@ bool MetadataStore::create_job(
     const std::string& pack_id,
     const std::string& source_pack_path,
     const std::string& pack_fingerprint,
+    const std::string& selected_pack_version,
+    const std::string& catalog_version,
+    const std::string& catalog_source_sha256,
     std::string& job_id,
     std::string& error
 ) {
@@ -2324,8 +2338,9 @@ bool MetadataStore::create_job(
     const char* sql =
         "INSERT INTO jobs "
         "(id, organization_id, project_id, user_id, status, request_json, "
-        "selected_pack_id, source_pack_path, pack_fingerprint) "
-        "VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?7, ?8);";
+        "selected_pack_id, source_pack_path, pack_fingerprint, "
+        "selected_pack_version, catalog_version, catalog_source_sha256) "
+        "VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?7, ?8, ?9, ?10, ?11);";
     const bool succeeded =
         sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) ==
             SQLITE_OK &&
@@ -2337,6 +2352,9 @@ bool MetadataStore::create_job(
         bind_text(statement, 6, pack_id) &&
         bind_text(statement, 7, source_pack_path) &&
         bind_text(statement, 8, pack_fingerprint) &&
+        bind_text(statement, 9, selected_pack_version) &&
+        bind_text(statement, 10, catalog_version) &&
+        bind_text(statement, 11, catalog_source_sha256) &&
         sqlite3_step(statement) == SQLITE_DONE;
     if (!succeeded) {
         error = sqlite3_errmsg(database_);
@@ -2364,7 +2382,9 @@ RecordLookupStatus MetadataStore::find_job(
         "j.generator_git_commit, j.generator_build_identity, "
         "j.generator_binary_sha256, j.challenge_receipt_json, j.manifest_hash, "
         "j.artifact_storage_key, j.error_code, j.error_message, "
-        "j.created_at, j.started_at, j.completed_at "
+        "j.created_at, j.started_at, j.completed_at, "
+        "j.selected_pack_version, j.catalog_version, "
+        "j.catalog_source_sha256, j.challenge_metadata_json "
         "FROM jobs j LEFT JOIN packages p "
         "ON p.job_id = j.id AND p.deleted_at IS NULL "
         "WHERE j.id = ?1 AND j.organization_id = ?2 "
@@ -2423,7 +2443,9 @@ bool MetadataStore::list_jobs(
         "j.generator_git_commit, j.generator_build_identity, "
         "j.generator_binary_sha256, j.challenge_receipt_json, j.manifest_hash, "
         "j.artifact_storage_key, j.error_code, j.error_message, "
-        "j.created_at, j.started_at, j.completed_at "
+        "j.created_at, j.started_at, j.completed_at, "
+        "j.selected_pack_version, j.catalog_version, "
+        "j.catalog_source_sha256, j.challenge_metadata_json "
         "FROM jobs j LEFT JOIN packages p "
         "ON p.job_id = j.id AND p.deleted_at IS NULL "
         "WHERE j.organization_id = ?1 "
@@ -2476,7 +2498,9 @@ bool MetadataStore::list_account_jobs(
         "j.generator_build_identity,j.generator_binary_sha256,"
         "j.challenge_receipt_json,j.manifest_hash,j.artifact_storage_key,"
         "j.error_code,j.error_message,j.created_at,j.started_at,j.completed_at,"
-        "COALESCE(j.deleted_at,'') FROM jobs j LEFT JOIN packages p "
+        "j.selected_pack_version,j.catalog_version,j.catalog_source_sha256,"
+        "j.challenge_metadata_json,COALESCE(j.deleted_at,'') "
+        "FROM jobs j LEFT JOIN packages p "
         "ON p.job_id=j.id WHERE j.organization_id=?1 "
         "ORDER BY j.created_at DESC,j.id DESC;";
     if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) != SQLITE_OK ||
@@ -2554,15 +2578,68 @@ JobLifecycleStatus MetadataStore::retry_job(
     if (existing.status != "failed" && existing.status != "cancelled") {
         return JobLifecycleStatus::invalid_state;
     }
-    if (!create_job(
-            owner,
-            existing.project_id,
-            existing.request_json,
-            existing.selected_pack_id,
-            existing.source_pack_path,
-            existing.pack_fingerprint,
-            new_job_id,
-            error)) {
+    if (existing.generator_binary_sha256.empty()) {
+        if (!create_job(
+                owner,
+                existing.project_id,
+                existing.request_json,
+                existing.selected_pack_id,
+                existing.source_pack_path,
+                existing.pack_fingerprint,
+                existing.selected_pack_version,
+                existing.catalog_version,
+                existing.catalog_source_sha256,
+                new_job_id,
+                error)) {
+            return JobLifecycleStatus::storage_error;
+        }
+        return JobLifecycleStatus::succeeded;
+    }
+    if (existing.source_pack_path.empty() ||
+        existing.integration_contract_version.empty() ||
+        existing.integration_contract_json.empty() ||
+        existing.generator_version.empty() ||
+        existing.generator_git_commit.empty() ||
+        existing.generator_build_identity.empty()) {
+        return JobLifecycleStatus::invalid_state;
+    }
+    if (!random_id("job_", new_job_id, error)) {
+        return JobLifecycleStatus::storage_error;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO jobs "
+        "(id, organization_id, project_id, user_id, status, request_json, "
+        "selected_pack_id, source_pack_path, pack_fingerprint, "
+        "package_fingerprint, integration_contract_version, "
+        "integration_contract_json, generator_version, generator_git_commit, "
+        "generator_build_identity, generator_binary_sha256, "
+        "selected_pack_version, catalog_version, catalog_source_sha256) "
+        "VALUES (?1,?2,?3,?4,'queued',?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18);";
+    const bool succeeded =
+        sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
+        bind_text(statement, 1, new_job_id) &&
+        bind_text(statement, 2, owner.organization_id) &&
+        bind_text(statement, 3, existing.project_id) &&
+        bind_text(statement, 4, owner.user_id) &&
+        bind_text(statement, 5, existing.request_json) &&
+        bind_text(statement, 6, existing.selected_pack_id) &&
+        bind_text(statement, 7, existing.source_pack_path) &&
+        bind_text(statement, 8, existing.pack_fingerprint) &&
+        bind_text(statement, 9, existing.package_fingerprint) &&
+        bind_text(statement, 10, existing.integration_contract_version) &&
+        bind_text(statement, 11, existing.integration_contract_json) &&
+        bind_text(statement, 12, existing.generator_version) &&
+        bind_text(statement, 13, existing.generator_git_commit) &&
+        bind_text(statement, 14, existing.generator_build_identity) &&
+        bind_text(statement, 15, existing.generator_binary_sha256) &&
+        bind_text(statement, 16, existing.selected_pack_version) &&
+        bind_text(statement, 17, existing.catalog_version) &&
+        bind_text(statement, 18, existing.catalog_source_sha256) &&
+        sqlite3_step(statement) == SQLITE_DONE;
+    if (!succeeded) error = sqlite3_errmsg(database_);
+    sqlite3_finalize(statement);
+    if (!succeeded) {
         return JobLifecycleStatus::storage_error;
     }
     return JobLifecycleStatus::succeeded;
@@ -2601,8 +2678,9 @@ JobLifecycleStatus MetadataStore::rebuild_job_exact(
         "selected_pack_id, source_pack_path, pack_fingerprint, "
         "package_fingerprint, integration_contract_version, "
         "integration_contract_json, generator_version, generator_git_commit, "
-        "generator_build_identity, generator_binary_sha256) "
-        "VALUES (?1,?2,?3,?4,'queued',?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15);";
+        "generator_build_identity, generator_binary_sha256, "
+        "selected_pack_version, catalog_version, catalog_source_sha256) "
+        "VALUES (?1,?2,?3,?4,'queued',?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18);";
     bool succeeded =
         sqlite3_prepare_v2(database_, insert_sql, -1, &insert, nullptr) ==
             SQLITE_OK &&
@@ -2621,6 +2699,9 @@ JobLifecycleStatus MetadataStore::rebuild_job_exact(
         bind_text(insert, 13, existing.generator_git_commit) &&
         bind_text(insert, 14, existing.generator_build_identity) &&
         bind_text(insert, 15, existing.generator_binary_sha256) &&
+        bind_text(insert, 16, existing.selected_pack_version) &&
+        bind_text(insert, 17, existing.catalog_version) &&
+        bind_text(insert, 18, existing.catalog_source_sha256) &&
         sqlite3_step(insert) == SQLITE_DONE;
     sqlite3_finalize(insert);
 
@@ -2791,7 +2872,8 @@ RecordLookupStatus MetadataStore::claim_next_job(
         "selected_pack_id, source_pack_path, pack_fingerprint, created_at, "
         "package_fingerprint, integration_contract_version, "
         "integration_contract_json, generator_version, generator_git_commit, "
-        "generator_build_identity, generator_binary_sha256 "
+        "generator_build_identity, generator_binary_sha256, "
+        "selected_pack_version, catalog_version, catalog_source_sha256 "
         "FROM jobs WHERE status = 'queued' AND deleted_at IS NULL "
         "ORDER BY created_at, id LIMIT 1;";
     if (sqlite3_prepare_v2(
@@ -2837,6 +2919,9 @@ RecordLookupStatus MetadataStore::claim_next_job(
     claimed.generator_git_commit = column_text(select, 13);
     claimed.generator_build_identity = column_text(select, 14);
     claimed.generator_binary_sha256 = column_text(select, 15);
+    claimed.selected_pack_version = column_text(select, 16);
+    claimed.catalog_version = column_text(select, 17);
+    claimed.catalog_source_sha256 = column_text(select, 18);
     sqlite3_finalize(select);
 
     sqlite3_stmt* update = nullptr;
@@ -2911,6 +2996,7 @@ bool MetadataStore::complete_job_with_package(
     const std::string& generator_build_identity,
     const std::string& generator_binary_sha256,
     const std::string& challenge_receipt_json,
+    const std::string& challenge_metadata_json,
     const std::string& normalized_cli_command,
     const std::string& manifest_hash,
     const std::string& artifact_storage_key,
@@ -2924,11 +3010,12 @@ bool MetadataStore::complete_job_with_package(
     const char* package_sql =
         "INSERT INTO packages "
         "(id, job_id, organization_id, project_id, user_id, pack_fingerprint, "
-        "package_fingerprint, integration_contract_version, integration_contract_json, "
+        "package_fingerprint, selected_pack_version, catalog_version, "
+        "catalog_source_sha256, integration_contract_version, integration_contract_json, "
         "generator_version, generator_git_commit, generator_build_identity, "
-        "generator_binary_sha256, challenge_receipt_json, manifest_hash, "
+        "generator_binary_sha256, challenge_receipt_json, challenge_metadata_json, manifest_hash, "
         "artifact_storage_key, size_bytes) "
-        "VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17);";
+        "VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21);";
     bool succeeded =
         sqlite3_prepare_v2(
             database_,
@@ -2944,16 +3031,20 @@ bool MetadataStore::complete_job_with_package(
         bind_text(package_statement, 5, job.user_id) &&
         bind_text(package_statement, 6, job.pack_fingerprint) &&
         bind_text(package_statement, 7, package_fingerprint) &&
-        bind_text(package_statement, 8, integration_contract_version) &&
-        bind_text(package_statement, 9, integration_contract_json) &&
-        bind_text(package_statement, 10, generator_version) &&
-        bind_text(package_statement, 11, generator_git_commit) &&
-        bind_text(package_statement, 12, generator_build_identity) &&
-        bind_text(package_statement, 13, generator_binary_sha256) &&
-        bind_text(package_statement, 14, challenge_receipt_json) &&
-        bind_text(package_statement, 15, manifest_hash) &&
-        bind_text(package_statement, 16, artifact_storage_key) &&
-        sqlite3_bind_int64(package_statement, 17, size_bytes) == SQLITE_OK &&
+        bind_text(package_statement, 8, job.selected_pack_version) &&
+        bind_text(package_statement, 9, job.catalog_version) &&
+        bind_text(package_statement, 10, job.catalog_source_sha256) &&
+        bind_text(package_statement, 11, integration_contract_version) &&
+        bind_text(package_statement, 12, integration_contract_json) &&
+        bind_text(package_statement, 13, generator_version) &&
+        bind_text(package_statement, 14, generator_git_commit) &&
+        bind_text(package_statement, 15, generator_build_identity) &&
+        bind_text(package_statement, 16, generator_binary_sha256) &&
+        bind_text(package_statement, 17, challenge_receipt_json) &&
+        bind_text(package_statement, 18, challenge_metadata_json) &&
+        bind_text(package_statement, 19, manifest_hash) &&
+        bind_text(package_statement, 20, artifact_storage_key) &&
+        sqlite3_bind_int64(package_statement, 21, size_bytes) == SQLITE_OK &&
         sqlite3_step(package_statement) == SQLITE_DONE;
     sqlite3_finalize(package_statement);
 
@@ -2964,7 +3055,7 @@ bool MetadataStore::complete_job_with_package(
         "generator_version=?5, generator_git_commit=?6, "
         "generator_build_identity=?7, generator_binary_sha256=?8, "
         "challenge_receipt_json=?9, normalized_cli_command=?10, manifest_hash=?11, "
-        "artifact_storage_key=?12, "
+        "artifact_storage_key=?12, challenge_metadata_json=?13, "
         "completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
         "WHERE id = ?1 AND status = 'running' AND deleted_at IS NULL;";
     succeeded = succeeded &&
@@ -2987,6 +3078,7 @@ bool MetadataStore::complete_job_with_package(
         bind_text(job_statement, 10, normalized_cli_command) &&
         bind_text(job_statement, 11, manifest_hash) &&
         bind_text(job_statement, 12, artifact_storage_key) &&
+        bind_text(job_statement, 13, challenge_metadata_json) &&
         sqlite3_step(job_statement) == SQLITE_DONE &&
         sqlite3_changes(database_) == 1;
     sqlite3_finalize(job_statement);
@@ -3049,7 +3141,9 @@ RecordLookupStatus MetadataStore::find_package(
         "p.generator_build_identity, p.generator_binary_sha256, "
         "p.challenge_receipt_json, p.manifest_hash, p.artifact_storage_key, "
         "p.size_bytes, p.created_at, "
-        "strftime('%Y-%m-%dT%H:%M:%fZ',p.created_at,'+7 days') "
+        "strftime('%Y-%m-%dT%H:%M:%fZ',p.created_at,'+7 days'), "
+        "p.selected_pack_version, p.catalog_version, "
+        "p.catalog_source_sha256, p.challenge_metadata_json "
         "FROM packages p JOIN jobs j ON j.id = p.job_id "
         "WHERE p.id = ?1 AND p.organization_id = ?2 "
         "AND p.deleted_at IS NULL "
@@ -3096,6 +3190,10 @@ RecordLookupStatus MetadataStore::find_package(
     loaded.size_bytes = sqlite3_column_int64(statement, 15);
     loaded.created_at = column_text(statement, 16);
     loaded.expires_at = column_text(statement, 17);
+    loaded.selected_pack_version = column_text(statement, 18);
+    loaded.catalog_version = column_text(statement, 19);
+    loaded.catalog_source_sha256 = column_text(statement, 20);
+    loaded.challenge_metadata_json = column_text(statement, 21);
     sqlite3_finalize(statement);
     package = loaded;
     return RecordLookupStatus::found;

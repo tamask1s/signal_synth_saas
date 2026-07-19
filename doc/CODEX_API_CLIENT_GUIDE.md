@@ -108,14 +108,22 @@ The live schema is authoritative. At the time this guide was written:
 
 | Target | Support | Requirement |
 |---|---|---|
-| `r_peak` | local scoring | none |
-| `ecg_beat_classification` | local scoring | none |
+| `r_peak` | local scoring | ECG source |
+| `rr_interval` | local scoring | ECG source |
+| `ecg_beat_classification` | local scoring | ECG source |
+| `rhythm_episode` | local scoring | explicit rhythm episodes |
+| `rhythm_burden` | local scoring | explicit rhythm episodes |
+| `ecg_delineation` | local scoring | ECG source |
+| `qtc` | local scoring | ECG source |
+| `morphology_assertions` | local scoring | at least one ECG condition |
 | `hrv` | local scoring | `hrv.enabled`, duration at least 300 seconds |
+| `signal_quality` | local scoring | analytic artifact or external-noise interval |
 | `ppg_systolic_peak` | local scoring | `ppg.enabled` |
 | `ppg_pulse_onset` | local scoring | `ppg.enabled` |
-| `signal_quality` | reference only | at least one artifact interval |
-| `morphology_assertions` | reference only | at least one ECG condition |
-| `ecg_ppg_alignment` | reference only | `ppg.enabled` |
+| `ecg_ppg_alignment` | local scoring | `ppg.enabled` |
+| `ppg_optical` | local scoring | `ppg.optical.enabled` |
+| `prv` | local scoring | `ppg.enabled` |
+| `respiratory_rate` | local scoring | at least one respiratory coupling |
 
 The authoring schema includes field metadata, target requirements, ECG
 conditions, artifacts, ranges, enum options, and array item contracts. The
@@ -254,8 +262,8 @@ reasonable shared target list is:
 ["r_peak", "ecg_beat_classification", "signal_quality", "morphology_assertions"]
 ```
 
-The first two are locally scoreable; the latter two are reference-only. Every
-scenario needs an artifact and a supported condition for this target list.
+All four are locally scoreable in core v7. Every scenario needs an artifact
+and a supported condition for this shared target list.
 
 For five-minute HRV, start from `ecg_hrv_benchmark`, keep duration at least 300
 seconds, ensure `hrv.enabled` is true, and normally use:
@@ -380,12 +388,12 @@ test "$status" = succeeded || {
 HTTP 429 is a request/concurrency/monthly quota. HTTP 507 means disk-reserve
 protection paused generation. Report these states; do not retry aggressively.
 
-### 10. Download and validate the package
+### 10. Download and validate the verification kit
 
-The preferred artifact is one flat verification-kit ZIP. It contains the
-challenge at its root plus `SYNSIGRA_README.md`, provenance, claim-boundary
-material, and detector templates where available. There is no nested
-`package.zip`.
+The preferred artifact is one verification-kit ZIP. After one unzip it contains
+an immutable `verification-kit/challenge/`, an editable role-selected
+`verification-kit/submission/`, the exact README command, normalized challenge
+metadata, and claim boundary. There is no nested `package.zip`.
 
 ```sh
 OUTPUT_FILE="${PACK_ID}-${JOB_ID}-verification-kit.zip"
@@ -395,7 +403,7 @@ curl -sS --fail-with-body \
   -o "$OUTPUT_FILE"
 test -s "$OUTPUT_FILE"
 python3 -c \
-  'import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); assert "manifest.json" in z.namelist(); assert "package.zip" not in z.namelist(); print(len(z.namelist()), "entries")' \
+  'import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); n=set(z.namelist()); assert "verification-kit/challenge/manifest.json" in n; assert "verification-kit/submission/submission.json" in n; assert not any(x.endswith("package.zip") for x in n); print(len(n), "entries")' \
   "$OUTPUT_FILE"
 sha256sum "$OUTPUT_FILE"
 ```
@@ -415,16 +423,17 @@ Good behavior:
 1. Clarify total versus per-case duration and which arrhythmias matter. If
    defaults are authorized, disclose three 60-second cases and representative
    PVC/PAC, PSVT, and AFIB coverage.
-2. Choose local R-peak and beat-classification targets, with reference-only
-   signal-quality and morphology targets if useful.
+2. Choose the locally scored R-peak, beat-classification, signal-quality, and
+   morphology targets that match the requested algorithm surface.
 3. Fetch live catalogs, distribute compatible artifacts across coherent cases,
    set 500 Hz and distinct seeds, then preview all cases.
-4. Surface reference-only warnings without calling them errors.
+4. Surface any core compatibility warning without calling it a generation
+   error.
 5. Save, compose, generate, download, and report the case plan and ZIP path.
 
 Bad behavior includes inventing artifact names, forcing every rhythm into one
-case, claiming every target has a scorer, interpreting three minutes per case
-without disclosure, or continuing after incompatible preview.
+case, interpreting three minutes per case without disclosure, or continuing
+after incompatible preview.
 
 ### HRV quick request
 
@@ -448,7 +457,7 @@ Report concisely:
 - pack ID and job ID;
 - case count, duration semantics, sample rate, targets, major artifacts, and
   conditions;
-- locally scoreable versus reference-only targets;
+- locally scored targets and any explicit compatibility/reference warning;
 - downloaded path and SHA-256;
 - preview warnings or a precise failure.
 
@@ -458,8 +467,7 @@ Example:
 Created and downloaded the ECG stress package.
 
 - Interpretation: 3 minutes total, split into three 60-second cases at 500 Hz
-- Local scoring: R-peak, ECG beat classification
-- Reference-only: signal quality, morphology assertions
+- Local scoring: R-peak, ECG beat classification, signal quality, morphology assertions
 - Pack: custom_pack_...
 - Job: job_...
 - File: ./custom_pack_...-job_...-verification-kit.zip

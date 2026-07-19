@@ -67,6 +67,7 @@ mkdir -p \
   "$payload/downloads/verifier" \
   "$payload/ops/nginx" \
   "$payload/ops/apache" \
+  "$payload/ops/systemd" \
   "$payload/frontend"
 
 install -s -m 0755 "$build_dir/mod_syn_sig_ra.so" \
@@ -76,12 +77,16 @@ install -s -m 0755 "$build_dir/syn_sig_ra_admin" \
 install -s -m 0755 "$build_dir/syn_sig_ra_worker" \
   "$payload/bin/syn_sig_ra_worker"
 install -s -m 0755 "$signal_synth_cli" "$payload/bin/signal-synth"
+install -m 0755 "$repo_dir/scripts/challenge_artifact.py" \
+  "$payload/bin/challenge_artifact.py"
 cp -R "$repo_dir/packs/." "$payload/packs/"
 cp -R "$repo_dir/downloads/verifier/." "$payload/downloads/verifier/"
 install -m 0644 "$repo_dir/ops/nginx/timeonion.conf" \
   "$payload/ops/nginx/timeonion.conf"
 install -m 0644 "$repo_dir/ops/apache/synsigra-apache22.logrotate" \
   "$payload/ops/apache/synsigra-apache.logrotate"
+install -m 0644 "$repo_dir/ops/systemd/syn_sig_ra_worker.service" \
+  "$payload/ops/systemd/syn_sig_ra_worker.service"
 unzip -q "$repo_dir/doc/synsigra_main_landing_package_v10.zip" \
   -d "$work/landing"
 cp -R "$work/landing/synsigra_main_landing_package/main/." \

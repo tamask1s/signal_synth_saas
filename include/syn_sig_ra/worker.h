@@ -12,6 +12,9 @@ struct WorkerConfig {
     std::string signal_synth_cli;
     std::string pack_root;
     std::string data_root;
+    std::string noise_asset_root;
+    std::string challenge_helper;
+    std::string verifier_wheel;
 };
 
 struct CliChallengeResult {

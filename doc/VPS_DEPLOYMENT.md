@@ -118,9 +118,11 @@ sudo install -d -m 0755 /opt/signal_synth/examples
 sudo rsync -a examples/scenarios /opt/signal_synth/examples/
 ```
 
-The current built-in SaaS pack uses relative scenario paths that resolve from
-`/opt/signal_synth_saas/packs` to `/opt/signal_synth/examples/...`, so the
-scenario tree must be installed with the CLI.
+The curated importer copies the complete declared scenario tree, verification
+protocols, and approved noise registry into the release's
+`/opt/signal_synth_saas/packs` directory. The production worker therefore does
+not resolve curated pack inputs through a separately deployed core examples
+tree; only the pinned `signal-synth` binary is required at runtime.
 
 ## Build the Apache module and tools
 
@@ -281,30 +283,19 @@ sudo /usr/local/apache2/bin/apachectl graceful
 
 ## Worker service
 
-Create `/etc/systemd/system/syn_sig_ra_worker.service`:
+Install the versioned service definition; do not maintain a second handwritten
+copy of its command line:
 
-```systemd
-[Unit]
-Description=Synsigra SaaS worker
-After=network.target apache22.service
-
-[Service]
-Type=simple
-User=apache
-Group=nogroup
-ExecStart=/usr/local/bin/syn_sig_ra_worker run-loop /var/lib/syn_sig_ra/db.sqlite3 /opt/signal_synth/bin/signal-synth /opt/signal_synth_saas/packs /var/lib/syn_sig_ra
-Restart=always
-RestartSec=2
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/lib/syn_sig_ra
-UMask=0077
-
-[Install]
-WantedBy=multi-user.target
+```sh
+sudo install -m 0644 ops/systemd/syn_sig_ra_worker.service \
+  /etc/systemd/system/syn_sig_ra_worker.service
 ```
+
+The unit passes the exact generator, curated-pack root, approved external-noise
+root, challenge-artifact helper, and verifier wheel to the worker. It denies all
+network access, makes the application trees read-only, and allows writes only
+below `/var/lib/syn_sig_ra`. The normal release deployment installs this same
+file automatically.
 
 Enable and start it:
 

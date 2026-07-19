@@ -1,0 +1,37 @@
+{
+  "description": "Deterministic cardiorespiratory references for PRV, respiratory rate and explicit HRV-versus-PRV behavior under timing and pulse-quality stress.",
+  "name": "PRV and Respiratory Rate Pack v1",
+  "pack_id": "cardiorespiratory_v1",
+  "scenarios": [
+    {
+      "id": "clean_coupling",
+      "path": "scenarios/packs/cardiorespiratory_clean_v4.json",
+      "targets": [
+        "prv",
+        "respiratory_rate"
+      ]
+    },
+    {
+      "id": "ptt_variation",
+      "path": "scenarios/packs/cardiorespiratory_ptt_variation_v4.json",
+      "targets": [
+        "prv",
+        "respiratory_rate"
+      ]
+    },
+    {
+      "id": "pulse_loss_motion",
+      "path": "scenarios/packs/cardiorespiratory_pulse_loss_motion_v4.json",
+      "targets": [
+        "prv",
+        "respiratory_rate"
+      ]
+    }
+  ],
+  "schema_version": 2,
+  "targets": [
+    "prv",
+    "respiratory_rate"
+  ],
+  "version": "1.0"
+}

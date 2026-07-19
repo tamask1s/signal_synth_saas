@@ -9,7 +9,7 @@ curl -fsS "$base/healthz"
 printf '\n'
 ready=$(curl -fsS "$base/readyz")
 printf '%s' "$ready" | python3 -c \
-  'import json,sys; x=json.load(sys.stdin); c=x["accepted_core"]; assert x["status"]=="ready"; assert c["integration_contract"]=="synsigra_core_integration_v1"; assert c["git_commit"]=="ef2c1d9cd00a07c62617619aa939a6996052867e"; assert c["build_identity"]=="signal_synth/"+c["git_commit"]; assert c["challenge_package"]=="synsigra_challenge_package_v1"; assert c["scoring_manifest"]=="synsigra_scoring_manifest_v1"'
+  'import json,sys; x=json.load(sys.stdin); c=x["accepted_core"]; d=c["contract_document"]; assert x["status"]=="ready"; assert c["integration_contract"]=="synsigra_core_integration_v7"; assert c["git_commit"]=="13fd76d3f57bf5b55ae0ccf18ebd06f06329a819"; assert c["build_identity"]=="signal_synth/"+c["git_commit"]; assert c["cpp_facade"]=="1.5.0" and c["pack_schema_version"]==2; assert c["challenge_package"]=="synsigra_challenge_package_v3"; assert c["scoring_manifest"]=="synsigra_scoring_manifest_v3"; assert c["verification_protocol"]=="synsigra_verification_protocol_v2"; assert c["submission"]=="synsigra_submission_v1"; assert c["submission_formats"]=="synsigra_submission_formats_v2"; assert c["measurement_values"]=="synsigra_measurement_values_v2"; assert c["measurement_truth"]=="synsigra_measurement_truth_v2"; assert c["measurement_scoring"]=="synsigra_measurement_score_v2"; assert c["local_verification"]=="synsigra_local_verification_v2"; assert c["scenario_authoring"]=="synsigra_authoring_v18"; assert c["scenario_templates"]=="synsigra_templates_v5"; assert c["python_verifier"]=="0.10.0"; assert c["external_noise_truth"]=="synsigra_external_noise_truth_v1"; assert d["contract"]==c["integration_contract"] and d["generator"]["git_commit"]==c["git_commit"]'
 printf '%s' "$ready"
 printf '\n'
 legal=$(curl -fsS "$base/v1/legal")
@@ -31,7 +31,10 @@ if [ "${SYN_SIG_RA_BASELINE_ONLY:-0}" = 1 ]; then
 fi
 curl -fsS -H "Authorization: Bearer $key" "$base/v1/usage"
 printf '\n'
-curl -fsS -H "Authorization: Bearer $key" "$base/v1/downloads/verifier"
+verifier=$(curl -fsS -H "Authorization: Bearer $key" "$base/v1/downloads/verifier")
+printf '%s' "$verifier" | python3 -c \
+  'import json,sys; x=json.load(sys.stdin); assert x["schema_version"]==2 and x["version"]=="0.10.0" and x["generator_included"] is False; assert x["core_git_commit"]=="13fd76d3f57bf5b55ae0ccf18ebd06f06329a819"; assert x["challenge_contract"]=="synsigra_challenge_package_v3" and x["scoring_manifest_contract"]=="synsigra_scoring_manifest_v3"; assert x["submission_contract"]=="synsigra_submission_v1" and x["submission_formats_contract"]=="synsigra_submission_formats_v2"; assert x["measurement_values_contract"]=="synsigra_measurement_values_v2" and x["measurement_truth_contract"]=="synsigra_measurement_truth_v2" and x["measurement_scoring_contract"]=="synsigra_measurement_score_v2" and x["local_verification_contract"]=="synsigra_local_verification_v2"; assert x["verify_example"]=="synsigra-verify challenge submission verification-results --force"'
+printf '%s' "$verifier"
 printf '\n'
 curl -fsS -H "Authorization: Bearer $key" "$base/v1/metrics"
 printf '\n'
@@ -56,6 +59,8 @@ printf 'check=openapi\n'
 openapi=$(curl -fsS "$base/openapi.yaml")
 case "$openapi" in *"/v1/jobs/{job_id}/viewer/window:"*) ;; *) exit 1 ;; esac
 case "$openapi" in *"/v1/account/export:"*) ;; *) exit 1 ;; esac
+case "$openapi" in *"synsigra_core_integration_v7"*"synsigra_challenge_package_v3"*"ChallengeMetadata:"*) ;; *) exit 1 ;; esac
+case "$openapi" in *"detection-templates.zip"*) exit 1 ;; *) ;; esac
 viewer_auth_status=$(curl -sS -o /dev/null -w '%{http_code}' \
   "$base/v1/jobs/job_verify_probe/viewer")
 [ "$viewer_auth_status" = "401" ] || {
@@ -63,10 +68,13 @@ viewer_auth_status=$(curl -sS -o /dev/null -w '%{http_code}' \
   exit 1
 }
 printf 'check=jobs-and-viewer\n'
+packs=$(curl -fsS "$base/v1/packs")
+printf '%s' "$packs" | python3 -c \
+  'import json,sys; x=json.load(sys.stdin); p=x["packs"]; assert len(p)==18; assert all(v["catalog_version"]=="3.0" and v["catalog_source_sha256"]=="sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e" and v["integration_contract"]=="synsigra_core_integration_v7" and v["generator_compatibility"]["challenge_package_contract"]=="synsigra_challenge_package_v3" and v["generator_compatibility"]["scoring_manifest_contract"]=="synsigra_scoring_manifest_v3" and v["generator_compatibility"]["submission_contract"]=="synsigra_submission_v1" and v["generator_compatibility"]["verification_protocol_contract"]=="synsigra_verification_protocol_v2" for v in p)'
 jobs=$(curl -fsS -H "Authorization: Bearer $key" \
   "$base/v1/jobs?limit=100&offset=0")
 printf '%s' "$jobs" | python3 -c \
-  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; done=[j for j in jobs if j.get("status")=="succeeded"]; assert done; assert all(j.get("integration_contract")=="synsigra_core_integration_v1" and j.get("generator_git_commit")=="ef2c1d9cd00a07c62617619aa939a6996052867e" and j.get("generator_build_identity")=="signal_synth/"+j["generator_git_commit"] and j.get("generator_binary_sha256","").startswith("sha256:") and len(j["generator_binary_sha256"])==71 for j in done)'
+  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; done=[j for j in jobs if j.get("status")=="succeeded"]; assert done; assert all(j.get("integration_contract")=="synsigra_core_integration_v7" and j.get("generator_git_commit")=="13fd76d3f57bf5b55ae0ccf18ebd06f06329a819" and j.get("generator_build_identity")=="signal_synth/"+j["generator_git_commit"] and j.get("generator_binary_sha256","").startswith("sha256:") and len(j["generator_binary_sha256"])==71 and j.get("challenge",{}).get("challenge_contract")=="synsigra_challenge_package_v3" and j.get("challenge",{}).get("scoring_manifest_contract")=="synsigra_scoring_manifest_v3" and j.get("challenge",{}).get("submission_contract")=="synsigra_submission_v1" and j.get("challenge",{}).get("submission_formats_contract")=="synsigra_submission_formats_v2" and j.get("challenge",{}).get("measurement_values_contract")=="synsigra_measurement_values_v2" and j.get("challenge",{}).get("measurement_truth_contract")=="synsigra_measurement_truth_v2" and j.get("challenge",{}).get("measurement_scoring_contract")=="synsigra_measurement_score_v2" and j.get("challenge",{}).get("local_verification_contract")=="synsigra_local_verification_v2" and j.get("challenge",{}).get("verification",{}).get("mode") in ("evidence","diagnostic") and j.get("challenge",{}).get("integrity",{}).get("ok") is True for j in done)'
 viewer_job=$(printf '%s' "$jobs" | python3 -c \
   'import json,sys; jobs=json.load(sys.stdin)["jobs"]; print(next((j["job_id"] for j in jobs if j.get("status")=="succeeded" and j.get("package_id") and j.get("artifact_status")!="expired"), ""))')
 if [ -n "$viewer_job" ]; then
@@ -96,13 +104,39 @@ artifact_package=${2:-}
 if [ -n "$artifact_job" ] && [ -n "$artifact_package" ]; then
   artifact_headers=$(mktemp /tmp/synsigra-artifact-head.XXXXXX)
   artifact_range=$(mktemp /tmp/synsigra-artifact-range.XXXXXX)
-  trap 'rm -f "$artifact_headers" "$artifact_range"' EXIT HUP INT TERM
+  artifact_kit=$(mktemp /tmp/synsigra-verification-kit.XXXXXX)
+  trap 'rm -f "$artifact_headers" "$artifact_range" "$artifact_kit"' EXIT HUP INT TERM
   curl -fsSI --max-time 180 -H "Authorization: Bearer $key" \
     "$base/v1/jobs/$artifact_job/verification-kit.zip" >"$artifact_headers"
   grep -qi '^Accept-Ranges: bytes' "$artifact_headers"
   grep -qi '^ETag: "sha256-[0-9a-f]\{64\}"' "$artifact_headers"
   grep -qi '^X-Checksum-SHA256: [0-9a-f]\{64\}' "$artifact_headers"
   grep -qi '^X-Artifact-Expires-At:' "$artifact_headers"
+  curl -fsS --max-time 180 -H "Authorization: Bearer $key" \
+    -o "$artifact_kit" "$base/v1/jobs/$artifact_job/verification-kit.zip"
+  python3 - "$artifact_kit" <<'PY'
+import json
+import sys
+import zipfile
+prefix = "verification-kit/"
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    assert archive.testzip() is None
+    names = set(archive.namelist())
+    required = {
+        prefix + "README.txt",
+        prefix + "ENGINEERING_CLAIM_BOUNDARY.txt",
+        prefix + "challenge-metadata.json",
+        prefix + "challenge/manifest.json",
+        prefix + "submission/submission.json",
+        prefix + "submission/formats.json",
+    }
+    assert required <= names
+    assert not any(name.endswith("package.zip") for name in names)
+    metadata = json.loads(archive.read(prefix + "challenge-metadata.json"))
+    assert metadata["challenge_contract"] == "synsigra_challenge_package_v3"
+    assert metadata["submission_contract"] == "synsigra_submission_v1"
+    assert metadata["integrity"]["ok"] is True
+PY
   range_status=$(curl -sS --max-time 60 -o "$artifact_range" -w '%{http_code}' \
     -H "Authorization: Bearer $key" -H 'Range: bytes=0-127' \
     "$base/v1/artifacts/$artifact_package/package.zip")
@@ -114,7 +148,7 @@ if [ -n "$artifact_job" ] && [ -n "$artifact_package" ]; then
     echo "artifact byte-range check returned the wrong length" >&2
     exit 1
   }
-  rm -f "$artifact_headers" "$artifact_range"
+  rm -f "$artifact_headers" "$artifact_range" "$artifact_kit"
   trap - EXIT HUP INT TERM
 fi
 printf 'check=services\n'

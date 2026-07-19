@@ -34,6 +34,14 @@ synsigra_capture_live_snapshot() {
     "$work/bin/syn_sig_ra_admin" || return 1
   sudo install -m 0755 /opt/signal_synth/bin/signal-synth \
     "$work/bin/signal-synth" || return 1
+  if sudo test -f /opt/signal_synth/bin/challenge_artifact.py; then
+    sudo install -m 0755 /opt/signal_synth/bin/challenge_artifact.py \
+      "$work/bin/challenge_artifact.py" || return 1
+  fi
+  if sudo test -f /opt/signal_synth/bin/synsigra-wheel.whl; then
+    sudo install -m 0644 /opt/signal_synth/bin/synsigra-wheel.whl \
+      "$work/bin/synsigra-wheel.whl" || return 1
+  fi
   sudo tar -C /opt/signal_synth_saas -czf "$work/packs.tar.gz" packs || return 1
   sudo tar -C /opt/signal_synth_saas -czf "$work/verifier.tar.gz" \
     downloads/verifier || return 1
@@ -43,6 +51,8 @@ synsigra_capture_live_snapshot() {
   sudo install -m 0644 "$nginx_target" "$work/ops/nginx.conf" || return 1
   sudo install -m 0644 /etc/logrotate.d/synsigra-apache22 \
     "$work/ops/apache.logrotate" || return 1
+  sudo install -m 0644 /etc/systemd/system/syn_sig_ra_worker.service \
+    "$work/ops/worker.service" || return 1
   if [ -L /opt/signal_synth_saas/current-release ]; then
     readlink -f /opt/signal_synth_saas/current-release > \
       "$work/release-pointer"
@@ -85,6 +95,15 @@ synsigra_restore_live_snapshot() {
     /usr/local/bin/syn_sig_ra_admin || return 1
   sudo install -s -m 0755 "$snapshot/bin/syn_sig_ra_worker" \
     /usr/local/bin/syn_sig_ra_worker || return 1
+  if [ -f "$snapshot/bin/challenge_artifact.py" ]; then
+    sudo install -m 0755 "$snapshot/bin/challenge_artifact.py" \
+      /opt/signal_synth/bin/challenge_artifact.py || return 1
+    sudo install -m 0644 "$snapshot/bin/synsigra-wheel.whl" \
+      /opt/signal_synth/bin/synsigra-wheel.whl || return 1
+  else
+    sudo rm -f /opt/signal_synth/bin/challenge_artifact.py \
+      /opt/signal_synth/bin/synsigra-wheel.whl || return 1
+  fi
 
   sudo rm -rf /opt/signal_synth_saas/packs \
     /opt/signal_synth_saas/downloads/verifier \
@@ -98,6 +117,9 @@ synsigra_restore_live_snapshot() {
   sudo install -m 0644 "$snapshot/ops/nginx.conf" "$nginx_target" || return 1
   sudo install -m 0644 "$snapshot/ops/apache.logrotate" \
     /etc/logrotate.d/synsigra-apache22 || return 1
+  sudo install -m 0644 "$snapshot/ops/worker.service" \
+    /etc/systemd/system/syn_sig_ra_worker.service || return 1
+  sudo systemctl daemon-reload || return 1
   sudo /usr/local/apache2/bin/httpd -t || return 1
   sudo nginx -t || return 1
   sudo systemctl start apache22 || return 1

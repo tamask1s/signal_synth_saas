@@ -3,7 +3,6 @@
 #include "ecg_pack.h"
 
 #include <jansson.h>
-#include <dirent.h>
 #include <sys/stat.h>
 
 #include <algorithm>
@@ -18,6 +17,10 @@
 namespace {
 
 const std::size_t kMaximumPackBytes = 16u * 1024u * 1024u;
+
+bool exact_object(json_t* value, std::size_t size) {
+    return json_is_object(value) && json_object_size(value) == size;
+}
 
 std::string escape_json(const std::string& value) {
     std::ostringstream output;
@@ -60,16 +63,6 @@ std::string escape_json(const std::string& value) {
     }
     output << '"';
     return output.str();
-}
-
-bool has_json_extension(const std::string& filename) {
-    const std::string extension(".json");
-    return filename.size() > extension.size() &&
-           filename.compare(
-               filename.size() - extension.size(),
-               extension.size(),
-               extension
-           ) == 0;
 }
 
 bool read_file(
@@ -120,12 +113,6 @@ std::string string_array_json(const std::vector<std::string>& values) {
     return output;
 }
 
-std::string size_to_string(std::size_t value) {
-    std::ostringstream output;
-    output << value;
-    return output.str();
-}
-
 bool is_semantic_version(const std::string& value) {
     int dots = 0;
     bool digit = false;
@@ -140,97 +127,6 @@ bool is_semantic_version(const std::string& value) {
         }
     }
     return digit && (dots == 1 || dots == 2);
-}
-
-bool load_product_metadata(
-    const std::string& path,
-    syn_sig_ra::PackSummary& pack,
-    std::string& error
-) {
-    std::string content;
-    if (!read_file(path, content, error)) return false;
-    json_error_t parse_error;
-    json_t* root = json_loadb(
-        content.data(), content.size(), JSON_REJECT_DUPLICATES, &parse_error
-    );
-    if (!json_is_object(root)) {
-        if (root != nullptr) json_decref(root);
-        error = "pack product metadata must be a JSON object";
-        return false;
-    }
-    json_t* schema = json_object_get(root, "schema_version");
-    json_t* pack_id = json_object_get(root, "pack_id");
-    json_t* version = json_object_get(root, "version");
-    json_t* status = json_object_get(root, "release_status");
-    json_t* released = json_object_get(root, "released_at");
-    json_t* expected = json_object_get(root, "expected_pack_fingerprint");
-    json_t* contract = json_object_get(root, "integration_contract");
-    json_t* deprecation = json_object_get(root, "deprecation_message");
-    json_t* changelog = json_object_get(root, "changelog");
-    const bool scalar_valid =
-        json_object_size(root) == 9 &&
-        json_is_integer(schema) && json_integer_value(schema) == 1 &&
-        json_is_string(pack_id) && json_is_string(version) &&
-        json_is_string(status) && json_is_string(released) &&
-        json_is_string(expected) && json_is_string(contract) &&
-        json_is_string(deprecation) && json_is_array(changelog) &&
-        json_array_size(changelog) > 0;
-    if (!scalar_valid ||
-        pack.pack_id != json_string_value(pack_id) ||
-        pack.version != json_string_value(version) ||
-        !is_semantic_version(pack.version) ||
-        pack.pack_fingerprint != json_string_value(expected) ||
-        std::string(json_string_value(contract)) !=
-            "synsigra_core_integration_v1" ||
-        (std::string(json_string_value(status)) != "beta" &&
-         std::string(json_string_value(status)) != "stable" &&
-         std::string(json_string_value(status)) != "deprecated")) {
-        json_decref(root);
-        error = "pack product metadata does not match the validated release";
-        return false;
-    }
-    pack.release_status = json_string_value(status);
-    pack.released_at = json_string_value(released);
-    pack.integration_contract_version = json_string_value(contract);
-    pack.deprecation_message = json_string_value(deprecation);
-    std::size_t index = 0;
-    json_t* item = nullptr;
-    pack.changelog.clear();
-    bool current_version_documented = false;
-    json_array_foreach(changelog, index, item) {
-        json_t* item_version = json_object_get(item, "version");
-        json_t* item_date = json_object_get(item, "date");
-        json_t* item_summary = json_object_get(item, "summary");
-        if (!json_is_object(item) || json_object_size(item) != 3 ||
-            !json_is_string(item_version) ||
-            !json_is_string(item_date) || !json_is_string(item_summary) ||
-            !is_semantic_version(json_string_value(item_version))) {
-            json_decref(root);
-            error = "pack changelog entries are invalid";
-            return false;
-        }
-        syn_sig_ra::PackChangelogEntry entry;
-        entry.version = json_string_value(item_version);
-        entry.date = json_string_value(item_date);
-        entry.summary = json_string_value(item_summary);
-        if (entry.version == pack.version) {
-            current_version_documented = true;
-        }
-        pack.changelog.push_back(entry);
-    }
-    if (!current_version_documented) {
-        json_decref(root);
-        error = "current pack version requires a changelog entry";
-        return false;
-    }
-    if (pack.release_status == "deprecated" &&
-        pack.deprecation_message.empty()) {
-        json_decref(root);
-        error = "deprecated packs require a deprecation message";
-        return false;
-    }
-    json_decref(root);
-    return true;
 }
 
 std::string json_string_or_empty(json_t* value) {
@@ -337,17 +233,8 @@ bool read_target_array(
         if (!read_string_array(item, "case_ids", true, target.case_ids, error)) {
             return false;
         }
-        std::vector<std::string> formats;
-        if (!read_string_array(item, "accepted_detection_formats", false, formats, error)) {
-            return false;
-        }
-        target.accepted_formats.insert(
-            target.accepted_formats.end(), formats.begin(), formats.end());
-        if (!read_string_array(item, "accepted_user_output_formats", false, formats, error)) {
-            return false;
-        }
-        target.accepted_formats.insert(
-            target.accepted_formats.end(), formats.begin(), formats.end());
+        if (!read_string_array(item, "accepted_formats", expected_scoreable,
+                target.accepted_formats, error)) return false;
         if (!read_string_array(item, "reference_artifacts", false, target.reference_artifacts, error)) {
             return false;
         }
@@ -400,7 +287,81 @@ bool attach_case_metadata(
         it->channel_count = int_field(case_object, "channel_count");
         it->sample_count = integer_field(case_object, "sample_count");
         it->estimated_package_bytes = integer_field(case_object, "estimated_package_bytes");
+        json_t* external = json_object_get(case_object, "external_noise");
+        json_t* release_allowed =
+            json_object_get(case_object, "external_noise_release_allowed");
+        if (!json_is_boolean(external) || !json_is_boolean(release_allowed) ||
+            !read_string_array(case_object, "external_noise_asset_ids", true,
+                it->external_noise_asset_ids, error)) {
+            error = "curated catalog external-noise case metadata is invalid";
+            return false;
+        }
+        it->uses_external_noise = json_boolean_value(external);
+        it->external_noise_release_allowed = json_boolean_value(release_allowed);
+        if (it->uses_external_noise && !it->external_noise_release_allowed) {
+            error = "curated catalog contains a non-releasable external-noise case";
+            return false;
+        }
+        if (it->uses_external_noise) {
+            pack.uses_external_noise = true;
+            for (std::vector<std::string>::const_iterator asset =
+                     it->external_noise_asset_ids.begin();
+                 asset != it->external_noise_asset_ids.end(); ++asset) {
+                if (std::find(pack.external_noise_asset_ids.begin(),
+                        pack.external_noise_asset_ids.end(), *asset) ==
+                    pack.external_noise_asset_ids.end()) {
+                    pack.external_noise_asset_ids.push_back(*asset);
+                }
+            }
+        }
     }
+    return true;
+}
+
+bool valid_sha256(json_t* value) {
+    if (!json_is_string(value)) return false;
+    const std::string text(json_string_value(value));
+    if (text.size() != 71 || text.compare(0, 7, "sha256:") != 0) return false;
+    return text.find_first_not_of("0123456789abcdef", 7) == std::string::npos;
+}
+
+bool curated_pack_ids(
+    const std::string& path,
+    std::vector<std::string>& ids,
+    std::string& error
+) {
+    std::string content;
+    if (!read_file(path, content, error)) return false;
+    json_error_t parse_error;
+    json_t* root = json_loadb(
+        content.data(), content.size(), JSON_REJECT_DUPLICATES, &parse_error);
+    json_t* packs = root == nullptr ? nullptr : json_object_get(root, "packs");
+    json_t* count = root == nullptr ? nullptr : json_object_get(root, "pack_count");
+    if (!exact_object(root, 13) ||
+        json_string_or_empty(json_object_get(root, "catalog_version")) != "3.0" ||
+        json_string_or_empty(json_object_get(root, "source_catalog_sha256")) !=
+            "sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e" ||
+        !json_is_array(packs) || !json_is_integer(count) ||
+        json_integer_value(count) != 18 || json_array_size(packs) != 18) {
+        if (root != nullptr) json_decref(root);
+        error = "curated pack catalog index is invalid";
+        return false;
+    }
+    ids.clear();
+    std::size_t index = 0;
+    json_t* item = nullptr;
+    json_array_foreach(packs, index, item) {
+        json_t* id = json_object_get(item, "pack_id");
+        if (!json_is_string(id) ||
+            !syn_sig_ra::is_valid_pack_id(json_string_value(id)) ||
+            std::find(ids.begin(), ids.end(), json_string_value(id)) != ids.end()) {
+            json_decref(root);
+            error = "curated pack catalog index contains an invalid pack ID";
+            return false;
+        }
+        ids.push_back(json_string_value(id));
+    }
+    json_decref(root);
     return true;
 }
 
@@ -416,22 +377,37 @@ bool load_curated_catalog_metadata(
     }
     json_error_t parse_error;
     json_t* root = json_loadb(
-        content.data(), content.size(), JSON_REJECT_DUPLICATES, &parse_error
-    );
-    if (!json_is_object(root)) {
+        content.data(), content.size(), JSON_REJECT_DUPLICATES, &parse_error);
+    json_t* packs = root == nullptr ? nullptr : json_object_get(root, "packs");
+    json_t* pack_count = root == nullptr ? nullptr : json_object_get(root, "pack_count");
+    const bool header_valid = exact_object(root, 13) &&
+        json_is_integer(json_object_get(root, "schema_version")) &&
+        json_integer_value(json_object_get(root, "schema_version")) == 1 &&
+        json_string_or_empty(json_object_get(root, "metadata_type")) ==
+            "synsigra_curated_pack_catalog" &&
+        json_string_or_empty(json_object_get(root, "metadata_version")) ==
+            "synsigra_curated_pack_metadata_export_v1" &&
+        json_string_or_empty(json_object_get(root, "catalog_id")) ==
+            "synsigra_verification_packs" &&
+        json_string_or_empty(json_object_get(root, "catalog_version")) == "3.0" &&
+        json_string_or_empty(json_object_get(root, "release_set_status")) == "beta" &&
+        json_is_string(json_object_get(root, "release_set_id")) &&
+        json_string_length(json_object_get(root, "release_set_id")) > 0 &&
+        valid_sha256(json_object_get(root, "source_catalog_sha256")) &&
+        json_string_or_empty(json_object_get(root, "source_catalog_sha256")) ==
+            "sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e" &&
+        json_is_array(packs) && json_is_integer(pack_count) &&
+        json_integer_value(pack_count) == 18 && json_array_size(packs) == 18;
+    if (!header_valid) {
         if (root != nullptr) json_decref(root);
-        error = "curated pack catalog metadata must be a JSON object";
+        error = "curated pack catalog metadata has an unsupported 3.0 header";
         return false;
     }
-    json_t* metadata_type = json_object_get(root, "metadata_type");
-    json_t* packs = json_object_get(root, "packs");
-    if (!json_is_string(metadata_type) ||
-        std::string(json_string_value(metadata_type)) != "synsigra_curated_pack_catalog" ||
-        !json_is_array(packs)) {
-        json_decref(root);
-        error = "curated pack catalog metadata has an invalid header";
-        return false;
-    }
+    pack.catalog_version = json_string_value(json_object_get(root, "catalog_version"));
+    pack.catalog_source_sha256 =
+        json_string_value(json_object_get(root, "source_catalog_sha256"));
+    pack.release_set_id = json_string_value(json_object_get(root, "release_set_id"));
+
     json_t* match = nullptr;
     std::size_t index = 0;
     json_t* item = nullptr;
@@ -439,33 +415,90 @@ bool load_curated_catalog_metadata(
         json_t* pack_id = json_object_get(item, "pack_id");
         if (json_is_object(item) && json_is_string(pack_id) &&
             pack.pack_id == json_string_value(pack_id)) {
+            if (match != nullptr) {
+                json_decref(root);
+                error = "curated pack catalog contains a duplicate pack ID";
+                return false;
+            }
             match = item;
-            break;
         }
     }
-    if (match == nullptr) {
-        json_decref(root);
-        error = "curated pack catalog does not contain pack metadata";
-        return false;
-    }
-    json_t* version = json_object_get(match, "version");
-    json_t* name = json_object_get(match, "name");
-    json_t* scoring_mode = json_object_get(match, "scoring_mode");
+    json_t* version = match == nullptr ? nullptr : json_object_get(match, "version");
+    json_t* name = match == nullptr ? nullptr : json_object_get(match, "name");
+    json_t* description = match == nullptr ? nullptr : json_object_get(match, "description");
+    json_t* scoring_mode = match == nullptr ? nullptr : json_object_get(match, "scoring_mode");
+    json_t* status = match == nullptr ? nullptr : json_object_get(match, "release_status");
+    json_t* released = match == nullptr ? nullptr : json_object_get(match, "release_date");
+    json_t* deprecation = match == nullptr ? nullptr : json_object_get(match, "deprecation_message");
     if (!json_is_string(version) || !json_is_string(name) ||
-        !json_is_string(scoring_mode) ||
+        !json_is_string(description) || !json_is_string(scoring_mode) ||
+        !json_is_string(status) || !json_is_string(released) ||
+        !json_is_string(deprecation) || !is_semantic_version(json_string_value(version)) ||
         pack.version != json_string_value(version) ||
-        pack.display_name != json_string_value(name)) {
+        pack.display_name != json_string_value(name) ||
+        pack.description != json_string_value(description) ||
+        (json_string_or_empty(status) != "beta" &&
+         json_string_or_empty(status) != "stable" &&
+         json_string_or_empty(status) != "deprecated")) {
         json_decref(root);
-        error = "curated pack catalog metadata does not match pack/product metadata";
+        error = "curated catalog metadata does not match the validated pack";
         return false;
     }
+    pack.integration_contract_version = "synsigra_core_integration_v7";
     pack.scoring_mode = json_string_value(scoring_mode);
+    pack.release_status = json_string_value(status);
+    pack.released_at = json_string_value(released);
+    pack.deprecation_message = json_string_value(deprecation);
+    if (pack.release_status == "deprecated" && pack.deprecation_message.empty()) {
+        json_decref(root);
+        error = "deprecated packs require a deprecation message";
+        return false;
+    }
+
+    pack.changelog.clear();
+    bool version_documented = false;
+    json_t* changelog = json_object_get(match, "changelog");
+    if (!json_is_array(changelog) || json_array_size(changelog) == 0) {
+        json_decref(root);
+        error = "curated pack changelog is missing";
+        return false;
+    }
+    json_array_foreach(changelog, index, item) {
+        json_t* entry_version = json_object_get(item, "version");
+        json_t* entry_date = json_object_get(item, "date");
+        std::vector<std::string> changes;
+        if (!exact_object(item, 3) || !json_is_string(entry_version) ||
+            !json_is_string(entry_date) ||
+            !is_semantic_version(json_string_value(entry_version)) ||
+            !read_string_array(item, "changes", true, changes, error) ||
+            changes.empty()) {
+            json_decref(root);
+            error = "curated pack changelog is invalid";
+            return false;
+        }
+        syn_sig_ra::PackChangelogEntry entry;
+        entry.version = json_string_value(entry_version);
+        entry.date = json_string_value(entry_date);
+        for (std::size_t change = 0; change < changes.size(); ++change) {
+            if (change != 0) entry.summary += " ";
+            entry.summary += changes[change];
+        }
+        version_documented = version_documented || entry.version == pack.version;
+        pack.changelog.push_back(entry);
+    }
+    if (!version_documented) {
+        json_decref(root);
+        error = "current pack version is missing from the changelog";
+        return false;
+    }
+
     json_t* recommended_profile = json_object_get(match, "recommended_profile");
     pack.recommended_profile =
         json_is_string(recommended_profile) ? json_string_value(recommended_profile) : "";
-    if (!read_target_array(match, "scoreable_targets", true, pack.scoreable_targets, error) ||
+    if (!read_string_array(match, "targets", true, pack.targets, error) ||
+        !read_target_array(match, "scoreable_targets", true, pack.scoreable_targets, error) ||
         !read_target_array(match, "reference_only_targets", false, pack.reference_only_targets, error) ||
-        !read_string_array(match, "detector_output_schemas", true, pack.detector_output_schemas, error) ||
+        !read_string_array(match, "submission_output_schemas", true, pack.submission_output_schemas, error) ||
         !read_string_array(match, "supported_threshold_profiles", true, pack.supported_threshold_profiles, error) ||
         !read_string_array(match, "recommended_for", true, pack.recommended_for, error) ||
         !read_string_array(match, "not_recommended_for", true, pack.not_recommended_for, error) ||
@@ -476,15 +509,33 @@ bool load_curated_catalog_metadata(
         json_decref(root);
         return false;
     }
+
     json_t* duration = json_object_get(match, "duration");
     json_t* estimated = json_object_get(match, "estimated_package");
     json_t* channels = json_object_get(match, "channels");
     json_t* compatibility = json_object_get(match, "generator_compatibility");
+    std::vector<int> scenario_versions;
     if (!json_is_object(duration) || !json_is_object(estimated) ||
-        !json_is_object(channels) || !json_is_object(compatibility)) {
+        !json_is_object(channels) || !exact_object(compatibility, 8) ||
+        json_string_or_empty(json_object_get(compatibility, "minimum_generator_version")) != "0.10.0-dev" ||
+        integer_field(compatibility, "pack_schema_version") != 2 ||
+        !read_int_array(compatibility, "scenario_schema_versions", scenario_versions, error) ||
+        scenario_versions.empty() ||
+        json_string_or_empty(json_object_get(compatibility, "challenge_package_contract")) != "synsigra_challenge_package_v3" ||
+        json_string_or_empty(json_object_get(compatibility, "scoring_manifest_contract")) != "synsigra_scoring_manifest_v3" ||
+        json_string_or_empty(json_object_get(compatibility, "submission_contract")) != "synsigra_submission_v1" ||
+        json_string_or_empty(json_object_get(compatibility, "verification_protocol_contract")) != "synsigra_verification_protocol_v2" ||
+        json_string_or_empty(json_object_get(compatibility, "local_verifier_min_version")) != "0.10.0") {
         json_decref(root);
-        error = "curated pack catalog numeric summaries are invalid";
+        error = "curated pack generator compatibility is not the v7 tuple";
         return false;
+    }
+    for (std::size_t schema_index = 0; schema_index < scenario_versions.size(); ++schema_index) {
+        if (scenario_versions[schema_index] < 2 || scenario_versions[schema_index] > 9) {
+            json_decref(root);
+            error = "curated pack uses an unsupported scenario schema";
+            return false;
+        }
     }
     pack.minimum_case_seconds = int_field(duration, "minimum_case_seconds");
     pack.maximum_case_seconds = int_field(duration, "maximum_case_seconds");
@@ -494,30 +545,77 @@ bool load_curated_catalog_metadata(
     pack.estimated_package_bytes = integer_field(estimated, "bytes");
     pack.peak_memory_bytes = integer_field(estimated, "peak_memory_bytes");
     pack.package_size_class = json_string_or_empty(json_object_get(estimated, "size_class"));
-    pack.local_verifier_min_version =
-        json_string_or_empty(json_object_get(compatibility, "local_verifier_min_version"));
-    pack.challenge_package_contract =
-        json_string_or_empty(json_object_get(compatibility, "challenge_package_contract"));
-    pack.scoring_manifest_contract =
-        json_string_or_empty(json_object_get(compatibility, "scoring_manifest_contract"));
+    pack.local_verifier_min_version = "0.10.0";
+    pack.challenge_package_contract = "synsigra_challenge_package_v3";
+    pack.scoring_manifest_contract = "synsigra_scoring_manifest_v3";
+    pack.submission_contract = "synsigra_submission_v1";
+    pack.verification_protocol_contract = "synsigra_verification_protocol_v2";
 
     pack.output_artifact_roles.clear();
     json_t* artifacts = json_object_get(match, "output_artifacts");
-    if (json_is_array(artifacts)) {
-        json_array_foreach(artifacts, index, item) {
-            json_t* role = json_object_get(item, "role");
-            if (json_is_object(item) && json_is_string(role)) {
-                pack.output_artifact_roles.push_back(json_string_value(role));
-            }
-        }
+    if (!json_is_array(artifacts)) {
+        json_decref(root);
+        error = "curated pack output artifacts are invalid";
+        return false;
     }
-    json_t* ui = json_object_get(match, "ui");
-    if (json_is_object(ui)) {
-        if (!read_string_array(ui, "primary_badges", false, pack.primary_badges, error)) {
+    json_array_foreach(artifacts, index, item) {
+        json_t* role = json_object_get(item, "role");
+        if (!json_is_object(item) || !json_is_string(role)) {
             json_decref(root);
+            error = "curated pack output artifact role is invalid";
             return false;
         }
+        pack.output_artifact_roles.push_back(json_string_value(role));
     }
+    json_t* ui = json_object_get(match, "ui");
+    if (!json_is_object(ui) ||
+        !read_string_array(ui, "primary_badges", true, pack.primary_badges, error)) {
+        json_decref(root);
+        error = "curated pack UI metadata is invalid";
+        return false;
+    }
+
+    json_t* protocol = json_object_get(match, "verification_protocol");
+    json_t* protocol_available =
+        json_is_object(protocol) ? json_object_get(protocol, "available") : nullptr;
+    json_t* protocol_document =
+        json_is_object(protocol) ? json_object_get(protocol, "document") : nullptr;
+    if (!exact_object(protocol, 5) || !json_is_boolean(protocol_available) ||
+        !json_is_string(json_object_get(protocol, "artifact_role")) ||
+        !json_is_string(json_object_get(protocol, "source_content_sha256")) ||
+        !json_is_string(json_object_get(protocol, "source_path"))) {
+        json_decref(root);
+        error = "curated pack verification protocol metadata is invalid";
+        return false;
+    }
+    pack.verification_protocol_available = json_boolean_value(protocol_available);
+    if (pack.verification_protocol_available) {
+        if (json_string_or_empty(json_object_get(protocol, "artifact_role")) !=
+                "verification_protocol_json" ||
+            !valid_sha256(json_object_get(protocol, "source_content_sha256")) ||
+            !json_is_object(protocol_document)) {
+            json_decref(root);
+            error = "curated pack verification protocol is incomplete";
+            return false;
+        }
+        char* canonical = json_dumps(protocol_document, JSON_COMPACT | JSON_SORT_KEYS);
+        if (canonical == nullptr) {
+            json_decref(root);
+            error = "curated pack verification protocol cannot be encoded";
+            return false;
+        }
+        pack.verification_protocol_json = canonical;
+        free(canonical);
+        pack.verification_protocol_sha256 =
+            json_string_value(json_object_get(protocol, "source_content_sha256"));
+    } else if (!json_is_null(protocol_document) ||
+               json_string_length(json_object_get(protocol, "artifact_role")) != 0 ||
+               json_string_length(json_object_get(protocol, "source_content_sha256")) != 0) {
+        json_decref(root);
+        error = "unavailable verification protocol must not carry content";
+        return false;
+    }
+
     if (!attach_case_metadata(match, pack, error)) {
         json_decref(root);
         return false;
@@ -586,6 +684,9 @@ json_t* scenario_summary_json_value(const syn_sig_ra::PackScenarioSummary& scena
     json_object_set_new(root, "channel_count", json_integer(scenario.channel_count));
     json_object_set_new(root, "sample_count", json_integer(static_cast<json_int_t>(scenario.sample_count)));
     json_object_set_new(root, "estimated_package_bytes", json_integer(static_cast<json_int_t>(scenario.estimated_package_bytes)));
+    json_object_set_new(root, "external_noise", json_boolean(scenario.uses_external_noise));
+    json_object_set_new(root, "external_noise_release_allowed", json_boolean(scenario.external_noise_release_allowed));
+    json_object_set_new(root, "external_noise_asset_ids", string_array_json_value(scenario.external_noise_asset_ids));
     return root;
 }
 
@@ -629,6 +730,9 @@ std::string pack_summary_json(const PackSummary& pack) {
     }
     json_object_set_new(root, "scenarios", scenarios);
     json_object_set_new(root, "scenario_count", json_integer(static_cast<json_int_t>(pack.scenarios.size())));
+    json_object_set_new(root, "catalog_version", json_string(pack.catalog_version.c_str()));
+    json_object_set_new(root, "catalog_source_sha256", json_string(pack.catalog_source_sha256.c_str()));
+    json_object_set_new(root, "release_set_id", json_string(pack.release_set_id.c_str()));
     json_object_set_new(root, "release_status", json_string(pack.release_status.c_str()));
     json_object_set_new(root, "released_at", json_string(pack.released_at.c_str()));
     json_object_set_new(root, "integration_contract", json_string(pack.integration_contract_version.c_str()));
@@ -647,7 +751,7 @@ std::string pack_summary_json(const PackSummary& pack) {
     json_object_set_new(root, "scoring_mode", json_string(pack.scoring_mode.c_str()));
     json_object_set_new(root, "scoreable_targets", target_array_json_value(pack.scoreable_targets));
     json_object_set_new(root, "reference_only_targets", target_array_json_value(pack.reference_only_targets));
-    json_object_set_new(root, "detector_output_schemas", string_array_json_value(pack.detector_output_schemas));
+    json_object_set_new(root, "submission_output_schemas", string_array_json_value(pack.submission_output_schemas));
     if (pack.recommended_profile.empty()) {
         json_object_set_new(root, "recommended_profile", json_null());
     } else {
@@ -678,10 +782,33 @@ std::string pack_summary_json(const PackSummary& pack) {
     json_object_set_new(compatibility, "local_verifier_min_version", json_string(pack.local_verifier_min_version.c_str()));
     json_object_set_new(compatibility, "challenge_package_contract", json_string(pack.challenge_package_contract.c_str()));
     json_object_set_new(compatibility, "scoring_manifest_contract", json_string(pack.scoring_manifest_contract.c_str()));
+    json_object_set_new(compatibility, "submission_contract", json_string(pack.submission_contract.c_str()));
+    json_object_set_new(compatibility, "verification_protocol_contract", json_string(pack.verification_protocol_contract.c_str()));
     json_object_set_new(compatibility, "integration_contract", json_string(pack.integration_contract_version.c_str()));
     json_object_set_new(root, "generator_compatibility", compatibility);
     json_object_set_new(root, "output_artifact_roles", string_array_json_value(pack.output_artifact_roles));
     json_object_set_new(root, "primary_badges", string_array_json_value(pack.primary_badges));
+    json_t* protocol = json_object();
+    json_object_set_new(protocol, "available", json_boolean(pack.verification_protocol_available));
+    json_object_set_new(protocol, "contract", json_string(pack.verification_protocol_contract.c_str()));
+    json_object_set_new(protocol, "sha256", json_string(pack.verification_protocol_sha256.c_str()));
+    if (pack.verification_protocol_available) {
+        json_error_t protocol_error;
+        json_t* document = json_loadb(
+            pack.verification_protocol_json.data(),
+            pack.verification_protocol_json.size(),
+            JSON_REJECT_DUPLICATES,
+            &protocol_error);
+        json_object_set_new(protocol, "document", document == nullptr ? json_null() : document);
+    } else {
+        json_object_set_new(protocol, "document", json_null());
+    }
+    json_object_set_new(root, "verification_protocol", protocol);
+    json_t* external_noise = json_object();
+    json_object_set_new(external_noise, "used", json_boolean(pack.uses_external_noise));
+    json_object_set_new(external_noise, "release_allowed", json_true());
+    json_object_set_new(external_noise, "asset_ids", string_array_json_value(pack.external_noise_asset_ids));
+    json_object_set_new(root, "external_noise", external_noise);
     char* dumped = json_dumps(root, JSON_COMPACT);
     std::string output = dumped == nullptr ? "{}" : dumped;
     if (dumped != nullptr) free(dumped);
@@ -747,10 +874,6 @@ PackLookupStatus PackCatalog::load_file(
         pack.scenarios.push_back(scenario);
     }
     pack.pack_fingerprint = result.pack_fingerprint;
-    if (!load_product_metadata(
-            pack_root_ + "/" + expected_pack_id + ".product", pack, error)) {
-        return PackLookupStatus::catalog_error;
-    }
     if (!load_curated_catalog_metadata(
             pack_root_ + "/curated_pack_metadata_v1.catalog", pack, error)) {
         return PackLookupStatus::catalog_error;
@@ -763,49 +886,27 @@ bool PackCatalog::list(
     std::string& error
 ) const {
     packs.clear();
-    DIR* directory = opendir(pack_root_.c_str());
-    if (directory == nullptr) {
-        error = "unable to open configured pack root";
+    std::vector<std::string> ids;
+    if (!curated_pack_ids(
+            pack_root_ + "/curated_pack_metadata_v1.catalog", ids, error))
         return false;
-    }
-
-    bool succeeded = true;
-    for (dirent* entry = readdir(directory);
-         entry != nullptr;
-         entry = readdir(directory)) {
-        const std::string filename(entry->d_name);
-        if (!has_json_extension(filename)) {
-            continue;
-        }
-        const std::string pack_id =
-            filename.substr(0, filename.size() - 5);
-        if (!is_valid_pack_id(pack_id)) {
-            error = "pack root contains an unsafe JSON filename";
-            succeeded = false;
-            break;
-        }
-
+    for (std::vector<std::string>::const_iterator id = ids.begin();
+         id != ids.end(); ++id) {
         PackSummary pack;
         const PackLookupStatus status = load_file(
-            pack_id,
-            pack_root_ + "/" + filename,
+            *id,
+            pack_root_ + "/" + *id + ".json",
             pack,
             error
         );
         if (status != PackLookupStatus::found) {
             if (error.empty()) {
-                error = "unable to load pack catalog file: " + filename;
+                error = "unable to load curated pack: " + *id;
             }
-            succeeded = false;
-            break;
+            packs.clear();
+            return false;
         }
         packs.push_back(pack);
-    }
-    closedir(directory);
-
-    if (!succeeded) {
-        packs.clear();
-        return false;
     }
     std::sort(packs.begin(), packs.end(), pack_id_less);
     return true;

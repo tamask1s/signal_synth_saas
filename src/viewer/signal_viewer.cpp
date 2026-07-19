@@ -67,6 +67,20 @@ bool json_index(json_t* object, const char* key, unsigned long long& output) {
     return true;
 }
 
+bool json_signed_index(json_t* object, const char* key, long long& output) {
+    json_t* value = json_is_object(object) ? json_object_get(object, key) : nullptr;
+    if (json_is_integer(value)) {
+        output = static_cast<long long>(json_integer_value(value));
+        return true;
+    }
+    if (!json_is_real(value)) return false;
+    const double number = json_real_value(value);
+    if (!std::isfinite(number) || number < -1.0 ||
+        number > 9007199254740991.0 || std::floor(number) != number) return false;
+    output = static_cast<long long>(number);
+    return true;
+}
+
 unsigned long long sample_at_seconds(
     double seconds,
     const ParsedWfdb& metadata,
@@ -209,6 +223,39 @@ bool build_overlay_database(
                     json_text(beat, "beat_class", "unknown"), "ecg",
                     sample, sample, false, false, 0.0, error);
             }
+        }
+
+        json_t* fiducials = json_object_get(root, "fiducials");
+        for (std::size_t index = 0;
+             succeeded && json_is_array(fiducials) &&
+                 index < json_array_size(fiducials);
+             ++index) {
+            json_t* fiducial = json_array_get(fiducials, index);
+            if (!json_bool(fiducial, "present")) continue;
+            const std::string kind(json_text(fiducial, "kind"));
+            const std::string source(json_text(fiducial, "source"));
+            if (kind.empty() || source.empty()) continue;
+            unsigned long long sample = 0;
+            double seconds = 0.0;
+            if (!json_index(fiducial, "sample_index", sample)) {
+                if (!json_number(fiducial, "time_seconds", seconds)) continue;
+                sample = sample_at_seconds(seconds, metadata);
+            }
+            sample = std::min(sample, metadata.sample_count - 1u);
+            long long lead_index = -1;
+            if (!json_signed_index(fiducial, "lead_index", lead_index) ||
+                lead_index < -1) continue;
+            std::string channel("ecg");
+            if (lead_index >= 0 &&
+                static_cast<std::size_t>(lead_index) < metadata.channels.size()) {
+                channel = metadata.channels[static_cast<std::size_t>(lead_index)].name;
+            }
+            double amplitude = 0.0;
+            const bool has_amplitude =
+                json_number(fiducial, "amplitude_mv", amplitude);
+            succeeded = insert_overlay(
+                insert, "ecg_fiducial", source.c_str(), kind, channel,
+                sample, sample, false, has_amplitude, amplitude, error);
         }
 
         json_t* ppg = json_object_get(root, "ppg_fiducials");

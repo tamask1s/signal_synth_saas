@@ -1,798 +1,346 @@
-# Synsigra SaaS
+# Synsigra user manual
 
-Synsigra SaaS is the hosted orchestration layer for deterministic synthetic biosignal challenge-package generation. It lets an algorithm developer or QA team create reproducible ECG/PPG/HRV test packages, download waveform and ground-truth artifacts, run proprietary algorithms locally, and verify the algorithm output against packaged reference data.
+Synsigra creates deterministic synthetic ECG, PPG, HRV, wearable, optical,
+cardiorespiratory, noise, rhythm, morphology, and timing challenges for
+algorithm development and QA. It is useful for repeatable regression tests,
+edge-case coverage, stress testing, and synthetic AI training-data workflows.
 
-The service is intentionally thin: signal generation and authoritative scoring contracts remain in the sibling [`signal_synth`](https://github.com/tamask1s/signal_synth) project. The SaaS layer handles browser access, projects, curated/custom packs, job orchestration, artifact retention, usage limits, and operational visibility.
+The hosted product is at <https://www.timeonion.com/syn_sig_ra>. It generates
+signals on the server, but verification runs locally: proprietary algorithms,
+source code, and completed algorithm output do not need to leave the user's
+environment.
 
-Live beta UI:
+Synsigra is engineering QA software. It is not diagnostic software, a
+patient-data service, clinical evidence, certification, or a replacement for
+validation on representative real-world data. Do not submit PHI or real patient
+signals.
 
-```text
-https://www.timeonion.com/syn_sig_ra/
-```
+## What the product does
 
-API base URL:
+The normal workflow is:
 
-```text
-https://www.timeonion.com/syn_sig_ra
-```
+1. Register with an email address, verify ownership, and sign in.
+2. Choose one of 18 curated challenge packs or author a custom pack.
+3. Generate a deterministic challenge in an organization project.
+4. Inspect its waveforms and ground truth in Synsigra Lab.
+5. Download one verification-kit ZIP.
+6. Run the proprietary algorithm locally and write its output into the kit's
+   manifest-declared `submission/` files.
+7. Install the generator-free verifier wheel and create local verification
+   results with the package's pre-specified profile.
 
-> Synthetic engineering data only. Do not enter patient data, personal identifiers, clinical notes, PHI, or other personal data. Synsigra SaaS is engineering QA tooling, not a medical diagnostic device, patient monitor, certified validator, or clinical validation system.
+Generated jobs preserve the pack version, catalog identity, pack and package
+fingerprints, exact generator commit/binary hash, challenge contracts, and
+integrity result. Curated and custom packs use the same post-render validation,
+download, and verification workflow.
 
-## Current status
+## UI guide
 
-- HTTPS is enabled. Public HTTP requests are redirected to the canonical HTTPS origin.
-- Browser access uses server-side sessions through `Secure`, `HttpOnly`, `SameSite=Lax` cookies.
-- The browser UI does not ask users to paste API keys.
-- API keys are created from the account panel for scripts and CI; each secret is shown once and only a SHA-256 hash is retained server-side.
-- E-mail ownership verification and forgotten-password recovery are implemented with expiring, single-use links. New registration is available when the deployment has a transactional SMTP provider configured.
-- The current curated beta catalog is imported from `signal_synth/examples/catalog/curated_pack_metadata_v1.json` and contains ECG, HRV, PPG, signal-quality and wearable stress packs, not only the R-peak smoke pack.
-- Generated packages are immutable while cached. Default artifact cache retention is 7 days.
-- Registration requires explicit acceptance of the versioned Private Beta Terms
-  and Privacy & No-PHI Notice. The accepted version and UTC timestamp are stored.
-- The private beta is free, has no payment method or automatic paid conversion,
-  and is provided best-effort without an uptime or support-response SLA.
-- The service operator is Kis Tamás, 2040 Budaörs, Tátra u. 6, Hungary.
-  Private support, privacy, account, and technical-demo contact:
-  `synsigra@gmail.com`.
+The product navigation is deliberately task-oriented:
 
-Public beta documents:
+- **Start** explains the next useful action and current workspace state.
+- **Choose pack** starts with the algorithm goal, then allows intent,
+  difficulty, modality, and scoring filters. Pack cards show compatible target
+  families, output schemas, size estimates, verification protocol, and external
+  noise policy before generation.
+- **Generate** confirms the selected pack and project and opens the accepted job
+  immediately.
+- **Jobs** shows queued, running, succeeded, failed, cancelled, expired, and
+  deleted work. A job can be cancelled while queued, retried after a failed or
+  cancelled run, deleted when not running, and exactly rebuilt after retained
+  files expire.
+- **Verify** provides the generator-free verifier download and a job-specific,
+  copyable local recipe.
+- **Scenarios** is a guided, target-first authoring flow. It loads live core
+  field metadata and templates, displays only relevant controls first, previews
+  compatibility, and retains an advanced JSON editor for the complete surface.
+- **Custom packs** composes validated owned scenario snapshots. Later draft
+  edits or deletion cannot mutate a queued or completed custom-pack job.
+- **Lab** displays retained WFDB signals without downloading the whole file. It
+  fetches only the visible binary viewport, caches a bounded number of client
+  viewports, supports horizontal/time and vertical/amplitude/spacing zoom,
+  stacked or overlaid channels, panning, channel selection, and bounded ground-
+  truth overlays. Available overlays include R peaks, beat classes,
+  lead-specific ECG delineation fiducials, PPG peaks/onsets, rhythm/artifact
+  intervals, perfusion events, and expected missing pulses.
+- **Account** manages the profile, password, personal API keys, account export,
+  and permanent workspace deletion.
+- **Docs** serves the live OpenAPI document, rendered API reference, quickstart,
+  and troubleshooting guide.
 
-- [Product capabilities and authoring boundaries](doc/PRODUCT_CAPABILITIES.md)
-- [Private Beta Terms](doc/PRIVATE_BETA_TERMS.md)
-- [Privacy and No-PHI Notice](doc/PRIVACY_NO_PHI_NOTICE.md)
-- [Support, availability, and billing expectations](doc/PRIVATE_BETA_SUPPORT.md)
-- [Security baseline and incident checklist](doc/SECURITY_BASELINE.md)
-- [Secret rotation runbook](doc/SECRET_ROTATION.md)
+The browser uses the signed-in session. It does not ask a human user to paste an
+API key.
 
-## Product boundary
+## Accounts and API keys
 
-Synsigra SaaS is for offline-first algorithm verification:
+Registration is open. It requires the current private-beta terms, a verified
+email address, and a password of at least 12 characters. Email verification
+starts a browser session. Sign-in, sign-out, resend-verification, forgot-password,
+and single-use password-reset flows are available. A password change invalidates
+older sessions and returns one replacement session to the initiating browser.
 
-1. Select or compose a deterministic synthetic challenge pack.
-2. Generate a package in the SaaS worker.
-3. Download the single **Verification kit ZIP**, which contains the package,
-   manifest, capability/boundary notices, and detector templates when applicable.
-4. Run your algorithm locally against the package files.
-5. Verify local detector outputs against packaged ground truth using the Synsigra local verifier.
-6. Archive the package, manifest, provenance bundle, detector build/configuration, detections, and verification reports together.
+Personal API-key secrets are shown once. Keys can be listed without their
+secret, rotated atomically, and revoked. Owner/admin users can export
+organization audit events. The Account export includes owned metadata but never
+password material, API-key hashes/secrets, session tokens, or email-action
+tokens.
 
-Large package and verification-kit ZIPs are delivered as immutable files rather
-than assembled in Apache memory. The UI hands them to the browser's native
-download manager, so downloads do not require a second full-size browser Blob
-and may be resumed. `HEAD` returns size, `ETag`, `X-Checksum-SHA256`,
-`Accept-Ranges: bytes`, and `X-Artifact-Expires-At`; `GET` accepts one standard
-byte range and returns `206 Content-Range`. Multipart and unsatisfiable ranges
-return `416`.
-
-The SaaS does **not** execute customer detector code and does **not** receive proprietary algorithm output unless the user explicitly sends it elsewhere outside this product workflow.
-
-Non-goals:
-
-- clinical decision support;
-- patient record storage;
-- PHI or clinical note handling;
-- regulated medical-device validation claims;
-- server-side execution of user algorithms;
-- a generic ECG/PPG datastore.
-
-## Quick start: browser
-
-1. Open `https://www.timeonion.com/syn_sig_ra/`.
-2. Use the persistent **Account** profile action to register with an e-mail address, display name, and a password of at least 12 characters. Read and accept the linked Private Beta Terms and Privacy & No-PHI Notice; the server records the exact accepted version. The registration page stays open with a clear inbox prompt; opening the verification link signs you in and continues directly to **Packs**.
-3. Existing users can sign in directly. When sign-in was requested from another page, Synsigra returns to that validated destination. If you forget the password, choose **Email me a reset link** on Account. The link is single-use, expires after 30 minutes, invalidates older browser sessions, and continues to the Workspace after signing in.
-4. Use the persistent product menu for **Workspace**, **Packs**, **Generate**, **Jobs**, **Lab**, and **Verify**. The secondary navigation groups the guided workflow, signal inspection, custom scenario/pack tools, and developer settings. Workspace also recommends the next useful action based on account and job state.
-5. Check the service status card:
-   - `health` means the Apache application responds;
-   - `ready` means the database, generator, pack catalog, and artifact store are available.
-6. Open **Choose pack** (`/syn_sig_ra/packs`) and filter by detector target, workflow intent, scoring mode, and difficulty. Use the recommendation or comparison table if you do not know pack IDs.
-7. Open **Generate job** (`/syn_sig_ra/generate`), select the `Default` project or create another project if your role permits, confirm the pack, and create a job. Successful creation automatically opens **Jobs** and focuses the new job card.
-8. Keep **Jobs** (`/syn_sig_ra/jobs`) open and wait for `succeeded`. Status polling updates only changed content; it does not reload the page.
-9. Choose **View signals** on a completed job, or open **Synsigra Lab** (`/syn_sig_ra/viewer`), to inspect cases and channels without downloading the complete waveform into the browser.
-10. Open **Verify locally** (`/syn_sig_ra/verify`) from the completed job's **Open verification runbook** action.
-11. Download the verification kit, install the generator-free verifier, replace detection-template rows with algorithm output, copy the exact `synsigra-verify` command, then archive the evidence bundle.
-
-Successful project, scenario, custom-pack, authentication and job actions show a short
-in-app confirmation. Browser back/forward navigation remains available, and each
-application page has its own shareable URL under `/syn_sig_ra/...`.
-
-## Recommended verification workflow
-
-### 1. Generate and preserve the package
-
-For each experiment, preserve at least:
-
-- job ID;
-- pack ID and semantic version;
-- pack fingerprint;
-- package ID;
-- package fingerprint;
-- generator version;
-- generator build identity;
-- `manifest.json`;
-- `provenance.json`;
-- `ENGINEERING_CLAIM_BOUNDARY.txt`;
-- `package.zip`.
-
-The fastest path is the completed job's **Verification kit ZIP**. It contains
-`SYNSIGRA_README.md`, `manifest.json`, `provenance.json`, the challenge
-`cases/` directory, `PACKAGE_USE_NOTICE.txt`, `SUPPORT_AND_TERMS.txt`,
-`PLATFORM_CAPABILITIES.md`, and detector-output templates when the pack has
-locally scoreable targets. There is no redundant nested package ZIP: unzip the
-kit once and use that directory directly with the verifier. The notice files state the permitted internal engineering
-use, prohibited clinical claims, support channel, no-SLA status, retention and
-free-beta billing boundary.
-
-`PLATFORM_CAPABILITIES.md` explains the wider configurable space—including
-duration, sampling, physiology modulation, noise, artifacts, PPG behavior, and
-verification targets—so a short starter scenario is not confused with the
-platform limit. The exact job manifest and provenance remain authoritative.
-
-A fingerprint change means the test input changed. Do not compare results as though they came from the same fixture.
-
-### 2. Run your detector locally
-
-Run the algorithm against whichever generated format it supports:
-
-- `waveform.csv`;
-- WFDB files;
-- EDF/BDF files;
-- case-level scenario or annotation files, where appropriate.
-
-The **Choose pack** page and `/v1/packs` show which targets are locally scoreable and which are reference-only before you create a job. For a completed curated job, the **Verify locally** runbook shows exact filenames, recommended threshold profile, output directory, accepted detection folder shape, copyable commands, and archive guidance.
-
-Click **Verification kit ZIP** on the completed job for the normal complete
-bundle. Individual manifests, package ZIPs, and a template-only ZIP are
-available under **Advanced artifact downloads** and through the API for custom
-integrations.
-
-After downloading the normal kit:
-
-```sh
-unzip job_REPLACE_ME-verification-kit.zip -d synsigra-kit
-cd synsigra-kit
-synsigra-verify . detections/ verification-results --profile regression --force
-```
-
-The template-only endpoint is:
+One personal API key is sufficient for an automated client. No email, password,
+CSRF token, or login request is needed. The key identifies its user,
+organization, and role. Use:
 
 ```http
-GET /v1/jobs/{job_id}/detection-templates.zip
+Authorization: Bearer YOUR_ONE_TIME_SECRET
 ```
 
-The full job-local kit is available from:
+Store the secret outside source control and send it only to
+`https://www.timeonion.com/syn_sig_ra`. A complete natural-language/Codex client
+workflow is in [doc/CODEX_API_CLIENT_GUIDE.md](doc/CODEX_API_CLIENT_GUIDE.md).
 
-```http
-GET /v1/jobs/{job_id}/verification-kit.zip
-```
+## Verification targets
 
-Reference-only targets are deliberately not included as detector-output requirements.
+The current core exposes 16 locally scoreable target families:
 
-Detection files live under a local `detections/` directory. The verifier accepts recommended names from the package plus fallback names:
+| Target | Algorithm output or measurement | Main prerequisite |
+|---|---|---|
+| `r_peak` | ECG R-peak point events | ECG source |
+| `rr_interval` | RR measurements | ECG source |
+| `ppg_systolic_peak` | PPG peak point events | PPG enabled |
+| `ppg_pulse_onset` | PPG onset point events | PPG enabled |
+| `ecg_beat_classification` | Beat point events/classes | ECG source |
+| `rhythm_episode` | Rhythm intervals | Explicit rhythm episodes |
+| `rhythm_burden` | Episode count/duration/fraction | Explicit rhythm episodes |
+| `signal_quality` | Quality/artifact intervals | Analytic or external noise |
+| `ecg_delineation` | Lead-specific ECG fiducials | ECG source |
+| `qtc` | QTc measurement values | ECG source |
+| `hrv` | Time, nonlinear, VLF/LF/HF metrics | HRV enabled; at least 300 s |
+| `morphology_assertions` | Morphology measurements/assertions | ECG conditions |
+| `ecg_ppg_alignment` | ECG-to-PPG timing measurements | PPG enabled |
+| `ppg_optical` | Red/IR/SpO2 optical measurements | Optical PPG enabled |
+| `prv` | Pulse-rate-variability measurements | PPG enabled |
+| `respiratory_rate` | Respiratory-rate measurements | Respiratory coupling |
 
-```text
-detections/
-├── <case_id>_<target>.csv
-├── <case_id>_<target>.json
-└── <case_id>.csv              # accepted when the case has one scoreable target
-```
+Stable submission format families are:
 
-Minimal R-peak CSV:
+- `point_events_json_v1` and `point_events_csv_v1`;
+- `interval_events_json_v1` and `interval_events_csv_v1`;
+- `measurement_values_json_v2` and `measurement_values_csv_v2`.
 
-```csv
-time_seconds
-0.82
-1.68
-2.54
-```
+RR, QT/QTc, HRV, morphology, alignment, optical, PRV, respiration, and rhythm
+burden all use the one measurement-v2 family. Its 14-column CSV form and JSON
+form preserve window bounds, method ID, preprocessing-policy ID, scope,
+channel/lead, formula and beat/time anchor as part of measurement identity.
 
-Optional columns include:
+Never guess a filename or format. The succeeded job's `challenge.submission_outputs`
+and the kit's `submission/submission.json` are authoritative.
 
-```text
-sample_index, channel, label, confidence
-```
+## Curated packs
 
-JSON detection documents are also supported by the Synsigra local verifier.
+The immutable catalog 3.0 release contains 18 packs:
 
-### 3. Verify locally with the Synsigra SDK
-
-Open the UI's **Verifier** panel and download either:
-
-- `synsigra-verifier.zip`: README, smoke script, and wheel;
-- `synsigra-wheel.whl`: wheel only.
-
-The downloadable artifacts contain only the Python verifier package and helper scripts. They do not contain the C++ generator, generator binary, or generator source.
-
-Install the wheel locally:
-
-```sh
-python -m pip install synsigra-wheel.whl
-```
-
-If you downloaded `pkg_123-package.zip` from the UI and generated detections under `detections/`, run:
-
-```sh
-synsigra-verify "pkg_123-package.zip" detections/ "verification-pkg_123" \
-  --profile stress \
-  --force
-```
-
-The completed-job panel fills in the package ID and recommended profile for the selected pack. Useful filters:
-
-```sh
-synsigra-verify "pkg_123-package.zip" detections/ "verification-pkg_123" \
-  --case clean_70 \
-  --target r_peak \
-  --profile stress \
-  --force
-```
-
-The verifier checks package integrity, scores compatible case/target pairs, applies the selected threshold profile, and writes:
-
-- `verification_summary.json`;
-- `verification_summary.csv`;
-- `verification_report.html`;
-- per-case/per-target details under `verification/`.
-
-CI exit codes:
-
-- `0`: verification passed;
-- `1`: package/input/scoring/threshold-policy failure;
-- `2`: invalid CLI usage.
-
-Reference-only packs or targets intentionally do not have a local scoring policy. Use their artifacts for manual inspection, contract checks, or later template-based work.
-
-## Browser UI capabilities
-
-### Guided pages
-
-The default browser UI is a multi-page guided workspace:
-
-| Route | Purpose |
+| Pack | Focus |
 |---|---|
-| `/syn_sig_ra/workspace` | Start page and next-action prompt. |
-| `/syn_sig_ra/packs` | Goal-first pack recommendation with optional advanced filters. |
-| `/syn_sig_ra/generate` | Project/pack confirmation and job creation. |
-| `/syn_sig_ra/jobs` | Job status, polling, lifecycle actions, downloads, and runbook entry points. |
-| `/syn_sig_ra/viewer` | Synsigra Lab signal viewer for retained completed jobs. |
-| `/syn_sig_ra/verify` | Completed-job verification runbook plus verifier downloads. |
-| `/syn_sig_ra/scenarios` | Scenario draft authoring and preview. |
-| `/syn_sig_ra/custom-packs` | Custom pack composition from valid drafts. |
-| `/syn_sig_ra/account` | Account, API keys, usage, and owner/admin metrics. |
-| `/syn_sig_ra/advanced` | Documentation and API references. |
+| `r_peak_rr_noise_v1` | R peaks, RR values, signal quality, verification protocol, analytic/external noise |
+| `ecg_qtc_verification_v1` | R peaks, delineation, QTc formula/rate cases |
+| `ecg_extended_morphology_v1` | Delineation, extended morphology, beat classification |
+| `advanced_rhythm_burden_v1` | Rhythm intervals and burden measurements |
+| `r_peak_stress_v1` | R-peak and artifact stress regression |
+| `hrv_robustness_v2` | HRV v2 metrics and contamination robustness |
+| `ecg_beat_classification_v1` | Normal, PAC, PVC, paced beat classes |
+| `ecg_rhythm_v1` | Rhythm transitions, ectopy, pacing, episodes |
+| `signal_quality_v1` | ECG/PPG quality intervals and PPG peaks |
+| `ecg_morphology_stress_v1` | Morphology assertions under signal-quality stress |
+| `ppg_alignment_v1` | PPG peaks, ECG/PPG timing, quality |
+| `combined_worst_case_v1` | Mixed ECG, PPG, HRV, and quality stress |
+| `wearable_timebase_v2` | Multi-device wearable clocks and ECG/PPG alignment |
+| `ppg_benchmark_v1` | PPG peak and onset benchmarks |
+| `ppg_optical_v2` | Red/infrared optical PPG and oxygenation cases |
+| `ecg_delineation_v2` | Lead-specific P/QRS/T/U fiducials |
+| `cardiorespiratory_v1` | PRV and respiratory-rate coupling |
+| `ecg_hybrid_noise_v1` | Combined analytic and approved external-noise stress |
 
-The app keeps stable URLs and browser back/forward behavior. Existing `/syn_sig_ra/` and `/syn_sig_ra/ui` URLs continue to open the workspace.
+The catalog API returns the complete target, case, profile, protocol, role,
+modality, duration, rate, channel, estimated-size, changelog, fingerprint, and
+external-noise metadata. A small starter pack is a deliberate validation slice,
+not the platform's generation limit.
 
-### Synsigra Lab signal viewer
+## Custom authoring
 
-Every newly generated package that contains supported WFDB `format 16` signals
-gets a server-side viewer source. Open it from a succeeded job's **View signals**
-action or from **Lab**. The viewer supports:
+The UI and API obtain authoring fields and templates directly from the live
+core. The current contract is `synsigra_authoring_v18`, with 142 fields, 71
+condition definitions, 20 artifact families, 16 targets, 18 logical groups,
+scenario schemas 2 through 9, and template contract `synsigra_templates_v5`.
 
-- selecting any retained completed job, case, and subset of channels;
-- stacked or overlaid channel display;
-- a bottom position slider and drag-to-pan canvas;
-- horizontal `+`/`−` time zoom, plus Ctrl/⌘ + wheel zoom around the pointer;
-- vertical `+`/`−` amplitude zoom and **Fit amplitude**;
-- a separate vertical spacing `+`/`−` control that changes plot height in 1.5×
-  steps without changing the selected amplitude-zoom setting;
-- keyboard left/right pan and `+`/`−` time zoom on the focused canvas;
-- physical-unit labels derived from WFDB gain, zero, and unit metadata;
-- switchable ground-truth R-peak, ECG beat-class, PPG onset/peak,
-  artifact, episode, low-perfusion, and expected-missing-pulse overlays;
-- click-to-inspect sample/time, channel values or min/max buckets, and nearby
-  annotations;
-- local-only CSV v2 or JSON v1 detector overlays. The browser File API parses
-  these files and does not upload them to Synsigra.
+It covers, among other controls:
 
-The signal stage is not sticky: both columns move together with the normal
-browser page scroll, with no second nested sidebar scrollbar. Initially, the
-plot and position slider together are approximately one browser viewport tall.
-Spacing `+` grows the plot and channel distances by 1.5×; spacing `−` divides
-them by 1.5, with two bounded steps in either direction. Only **ECG R peaks**
-are enabled by default when available. Other truth layers remain one click
-away, avoiding an unreadable first view.
+- duration, sampling rate, deterministic seeds, compact/full output;
+- heart rate, RR variability, rhythm episodes, pacing, QT adaptation;
+- ECG conditions, 12-lead morphology, extended components, and fusion beats;
+- HRV mean/SDNN, VLF/LF/HF centers, bandwidths, powers, ratio, respiratory
+  modulation, and RR limits;
+- PPG timing, shape, weak/missing pulses, perfusion, optical red/IR channels,
+  oxygenation episodes, and sensor effects;
+- wearable stream rates, clock offset/drift/jitter, packet loss, and device
+  placement;
+- cardiorespiratory coupling, activity, respiration, randomization envelopes;
+- analytic ECG/PPG artifacts and licensed, checksum-pinned external noise.
 
-Stacked lanes do not clamp a channel at its lane boundary. Increasing vertical
-scale may deliberately let a waveform overlap a neighboring lane, preserving
-the real amplitude instead of flattening or cropping it. At wide time scales,
-the renderer joins the exact per-bucket minima and maxima into a continuous,
-lightly filled envelope. It does not invent an averaged center waveform; the
-envelope boundaries and vertical ranges come directly from the retained extrema.
+Unknown fields and unsupported combinations are rejected. A condition catalog
+entry is not by itself proof of native synthesis; the core's fidelity metadata
+and validation response are authoritative.
 
-The page does not fetch a complete signal. It requests only the selected
-channels and visible time span as a bounded binary response. Close zoom reads
-raw samples; wide zoom uses exact minimum/maximum buckets from a power-of-two
-pyramid prepared when the job completes. Therefore response memory and transfer
-size depend on canvas width and selected channels, not on whether the source is
-megabytes or gigabytes. Obsolete viewport requests are cancelled while panning.
-Amplitude-only changes redraw locally and make no API request. Each successful
-read prefetches roughly one viewport on either side. Pan, slider, and time-zoom
-interactions redraw that cache immediately; an uncached or higher-resolution
-read is issued after 140 ms without another interaction. This avoids flooding
-Apache during wheel/drag bursts while still refining the stopped viewport.
-Multiple prefetched viewports and zoom levels remain in a client-side LRU
-cache, so returning to a covered range at a sufficient resolution does not
-request it again. The waveform and overlay payload budgets are 28 MiB and
-4 MiB respectively (32 MiB total); least-recently-used segments are evicted at
-the limit. A higher-resolution zoom is intentionally a different cache entry.
-
-Authoritative overlay data is prepared from each case's generator-produced
-`annotations.json` into a read-only, sample-range-indexed SQLite file next to
-the waveform pyramid. The API reads only the intersecting range. Very dense
-point events are clustered to a bounded response while semantic intervals stay
-explicit, so whole-record views do not load the complete annotation document.
-
-The reusable browser component lives under `web/viewer/`: `signal-viewer.js`
-contains the HTTP data-source contract, binary decoder, and canvas renderer;
-`app.js` is only the hosted SaaS/session/job adapter. A future desktop wrapper
-can serve the same prepared filesystem source without copying account or job
-code. `HttpSignalDataSource` accepts custom `describePath` and `windowPath`
-functions, so a local server does not need to imitate SaaS job URLs; it only
-needs to return the same metadata, binary-window, and overlay contracts.
-
-### Service status
-
-The UI reports:
-
-- service liveness and build version;
-- database readiness;
-- generator readiness;
-- pack catalog readiness;
-- artifact-store readiness;
-- free server disk space.
-
-### Accounts and access
-
-Supported organization roles:
-
-| Role | Capabilities |
-|---|---|
-| `owner` | Read/write jobs and drafts, create projects, manage product operations, view owner/admin metrics. |
-| `admin` | Same product operations as owner. |
-| `developer` | Read/write jobs, scenarios, and custom packs. |
-| `viewer` | Read-only access to resources available to that identity. |
-
-Notes:
-
-- Accounts and API keys belong to a user in an organization.
-- Cross-organization resources deliberately return `404`.
-- New accounts must verify e-mail ownership before login or API-key creation.
-- The account page can resend verification mail and request/complete forgotten-password recovery without exposing whether an address exists.
-- Signed-in users can update their display name, change their password, and download a JSON export of their profile, projects, current and deleted job metadata, scenarios, custom packs, API-key metadata, legal acceptances, and audit history. Passwords, hashes, key secrets, sessions, and e-mail action tokens are never exported.
-- Sign out invalidates the server-side browser session. A successful password reset or signed-in password change invalidates all older browser sessions for that user.
-- API keys can be listed and revoked from the UI.
-- A single-member workspace owner can permanently delete the account after re-entering the current password and the exact destructive confirmation. The server removes the owned database records and artifact trees; only an anonymous deletion receipt remains. Copies already downloaded to another device cannot be revoked.
-
-### Verifier downloads and runbooks
-
-The **Verify locally** page provides authenticated downloads for users who need to verify local detector output without cloning `signal_synth`, and a pack-aware runbook for completed jobs.
-
-Available files:
-
-- `synsigra-verifier.zip`: README, `verify_smoke.sh`, and the wheel under `wheels/`;
-- `synsigra-wheel.whl`: direct pure-Python wheel download.
-
-The metadata endpoint also shows SHA-256 fingerprints and install commands. These files install `synsigra-verify`; they do not include the generator binary/source and cannot generate challenge packages.
-
-For scoreable packs, the runbook shows:
-
-- preferred `verification-kit.zip` download;
-- individual `manifest.json`, `package.zip`, and `detection-templates.zip` downloads;
-- exact expected local filenames;
-- accepted detection file shape;
-- copyable verifier install command;
-- copyable `synsigra-verify` command;
-- output report paths and exit-code meaning;
-- evidence archive checklist including `provenance.json` and `ENGINEERING_CLAIM_BOUNDARY.txt`.
-
-For reference-only packs, the runbook replaces scoring instructions with manual QA guidance.
-
-### Projects
-
-Jobs belong to projects. The UI lists available projects and lets owners/admins create additional projects.
-
-### Goal-based curated pack chooser
-
-The **Choose pack** page lets users start from an algorithm-development goal instead of a pack ID:
-
-- friendly primary algorithm output;
-- workflow intent: first smoke test, regression, stress, benchmark, or reference inspection;
-- optional scoring mode and difficulty constraints under **Advanced pack filters**.
-
-The page shows one explained recommendation and lists the remaining matches as alternatives, so the same pack is not repeated as a recommendation, comparison row, and card. **Help me choose** and **Reset all choices** retain an obvious route back to the complete curated catalog. The catalog fields include:
-
-- stable pack ID;
-- semantic version;
-- release status;
-- release date;
-- purpose;
-- scoreable targets versus reference-only targets;
-- detector output schemas;
-- recommended verifier profile and supported threshold profiles;
-- scenario/case count;
-- estimated duration, sampling rates, channel count, and package size;
-- difficulty/stress tags;
-- recommended-for and not-recommended-for guidance;
-- scenarios with per-case duration/rate/channel metadata;
-- authoritative pack fingerprint;
-- compatible generator contract/version;
-- changelog;
-- deprecation message, if applicable.
-
-Built-in curated pack files are immutable product releases. A changed curated release requires a semantic version update, changelog, reviewed fingerprint, and generator compatibility declaration.
-
-The committed `packs/*.json` and `packs/*.product` files are generated from the sibling `signal_synth` release-set artifact with:
+For automation, fetch these before authoring instead of hard-coding fields:
 
 ```sh
-python3 scripts/import_curated_release_set.py \
-  --metadata ../signal_synth/examples/catalog/curated_pack_metadata_v1.json \
-  --source-root ../signal_synth \
-  --out packs \
-  --clean \
-  --signal-synth-cli /opt/signal_synth/bin/signal-synth
-```
-
-The import also stores `packs/curated_pack_metadata_v1.catalog`, which the SaaS API uses for discovery metadata. The `.product` sidecars retain the fingerprint of the SaaS-imported pack JSON after path normalization.
-
-### Scenario drafts
-
-The scenario editor supports creating, validating, updating, listing, and deleting user-owned drafts.
-
-Key properties:
-
-- Authoring starts by asking what the user's algorithm detects or measures; friendly target names explain local scoring versus reference-only ground truth.
-- The chosen target intent is stored beside the draft, drives compatible template/curated-case filtering, and is inherited by custom pack composition.
-- **Show all core starting points** and the Advanced JSON editor preserve access to the full core feature set.
-- **Apply missing target requirements** can add required PPG/HRV sections, minimum HRV duration, artifacts, or ECG conditions, followed by authoritative core preflight.
-- Core-provided templates can create valid drafts without hand-writing JSON.
-- The grouped form renderer uses core authoring metadata for labels, ranges, units, defaults, enum options, visibility rules, and item-editor schemas.
-- Conditions use a searchable core catalog with severity controls. Artifacts expose type, timing, severity, seed, and channel selection. PPG perfusion episodes and controlled-randomization envelopes have repeatable form editors, and tags use a chip editor.
-- Curated scenarios can be cloned/forked into editable drafts.
-- Preview shows scoreable targets, reference-only targets, duration, sample count, channel count, estimated package size, estimated peak memory, detector schemas, and target compatibility messages before pack composition.
-- The preflight panel explicitly shows whether the draft is safe to save and safe to compose into a pack.
-- Validation errors are grouped by scenario section, and validation paths are clickable in the UI to open and focus the relevant form control where possible.
-- Raw JSON mode is hidden under **Advanced JSON editor** for expert use and remains synchronized with every form edit.
-- Local JSON formatting catches syntax errors before submission.
-- Valid drafts are canonicalized and receive a SHA-256 document fingerprint.
-- Invalid drafts are saved as editable drafts and return actionable validation entries with code, JSON path, and message.
-- Drafts are scoped to the exact owner identity.
-- Viewer-role credentials cannot modify drafts.
-- The scenario contract is validated by the sibling `signal_synth` implementation.
-
-Do not place PHI, personal data, patient identifiers, or clinical free text in draft names or scenario fields.
-
-### Custom pack composer
-
-Custom packs are immutable snapshots assembled from valid scenario drafts.
-
-The composer accepts:
-
-- pack name;
-- description;
-- target list inherited from the selected scenario drafts, with an explicit Advanced override;
-- selected valid scenario drafts.
-
-The UI asks for scenarios first, automatically unions their saved target intents, and keeps manual target cards under **Advanced target override**. It provides searchable valid/invalid draft selection and a scenario-by-target coverage matrix. Before enabling creation it calls the authoritative core preview for every selected scenario, then summarizes scoreable and reference-only targets, total duration, samples, estimated package size, peak memory, and compatibility messages.
-
-The API repeats authoritative pack analysis before writing a snapshot. It returns HTTP 422 for incompatible scenario-target combinations, so bypassing the browser cannot create a pack that the core has rejected.
-
-Composition copies canonical scenario documents into a snapshot. Later edits or deletion of source drafts do not change the pack. Deleting a custom pack hides it from new-job selection, while retained job/package snapshots remain reproducible.
-
-### Jobs
-
-The UI supports:
-
-- creating jobs from curated or custom packs;
-- automatic status polling;
-- loading older jobs;
-- queued-job cancellation;
-- retrying failed or cancelled jobs as new records;
-- soft-deleting non-running jobs;
-- downloading `manifest.json`, `package.zip`, and curated-job detection-template ZIPs;
-- streaming or resuming large package and verification-kit ZIPs without loading
-  the complete archive into an Apache worker or browser Blob;
-- opening generated WFDB cases in Synsigra Lab with bounded binary viewport reads;
-- opening the completed-job verification runbook as the primary success action;
-- viewing project, lifecycle timestamps, generator identity, build identity, and package fingerprint;
-- showing completed-job local verification recipes with copyable commands, collapsed by default to keep long job lists scannable;
-- displaying `queued`, `running`, `succeeded`, `failed`, `cancelled`, and artifact-expired states.
-
-Running jobs cannot currently be force-cancelled. The API returns `409` because terminating the external generator is not yet considered safe.
-
-### Usage and metrics
-
-All users can see:
-
-- requests in the last minute;
-- active jobs;
-- monthly jobs and configured limits;
-- monthly package count;
-- stored bytes.
-
-Owners/admins additionally see:
-
-- queue depth;
-- running workers;
-- monthly failures;
-- quota rejections;
-- last worker heartbeat.
-
-Current private-beta limits:
-
-| Limit | Value |
-|---|---:|
-| Requests per minute per API key | 120 |
-| Concurrent queued/running jobs per organization | 2 |
-| Jobs per month per organization | 100 |
-
-## Job and artifact lifecycle
-
-Job states:
-
-```text
-queued → running → succeeded
-                 ↘ failed
-queued → cancelled
-```
-
-A retry creates a new queued job and preserves the original. Deletion is a soft delete.
-
-Default artifact cache retention is 7 days. A soft-deleted job becomes immediately eligible for cleanup. After expiry:
-
-- job metadata remains;
-- lifecycle timestamps remain;
-- pack/package fingerprints remain;
-- generator identity remains;
-- direct artifact downloads return `404`;
-- viewer data is removed with the cached package;
-- the UI/API reports `artifact_status: expired`.
-
-Jobs created by the current worker also preserve a compact immutable pack
-recipe and the exact generator executable addressed by its SHA-256 build
-identity. When a user downloads an expired job again, the UI transparently
-queues a new exact-version job, waits for it, and starts the download. The API
-exposes the same operation as `POST /v1/jobs/{job_id}/rebuild`. The rebuild
-uses pinned inputs and rejects any package-fingerprint change.
-If either historical input is absent, the rebuild fails explicitly; the latest
-generator is never substituted.
-
-The normal user-facing download is **Verification kit ZIP**. Individual
-`manifest.json`, `package.zip`, and template-only downloads remain under the
-runbook's **Advanced artifact downloads** section and in the API.
-
-## Package contents
-
-`package.zip` is a ZIP-compatible challenge package. Important top-level files include:
-
-| Path | Purpose |
-|---|---|
-| `manifest.json` | Package identity, file roles, case IDs, hashes, scenario identities, generator identities. |
-| `provenance.json` | Generator, verifier, contract, scenario, render, fingerprint, and claim-boundary identity. |
-| `ENGINEERING_CLAIM_BOUNDARY.txt` | Plain-text boundary that states this is synthetic engineering QA evidence, not clinical validation. |
-| `pack.json` | Pack metadata and case ordering. |
-| `summary.json` / `summary.csv` | Pack-level generation summary. |
-| `index.html` | Human-readable package overview. |
-| `cases/<case-id>/scenario.json` | Canonical scenario. |
-| `cases/<case-id>/waveform.csv` | Waveform samples. |
-| `cases/<case-id>/annotations.json` | Deterministic ground truth. |
-| `cases/<case-id>/ground_truth_metrics.json` | Reference metrics. |
-| `cases/<case-id>/report.html` | Case report. |
-| WFDB / EDF / BDF files | Interchange formats for compatible tools. |
-
-Treat `manifest.json`, `provenance.json`, `ENGINEERING_CLAIM_BOUNDARY.txt`, document fingerprints, package fingerprint, and generator build identity as the evidence chain.
-
-Challenge jobs always produce the service's complete export/report set. The job API intentionally has no per-request format switches.
-
-## HTTP API
-
-Base URL:
-
-```text
-https://www.timeonion.com/syn_sig_ra
-```
-
-Browser calls use the secure session cookie. Scripts and CI use bearer API keys:
-
-```http
-Authorization: Bearer <api-key>
-```
-
-| Method | Path | Purpose | Auth |
-|---|---|---|---|
-| `GET` | `/healthz` | Liveness/build | Public |
-| `GET` | `/readyz` | Component readiness/disk | Public |
-| `GET` | `/openapi.yaml` | Complete live machine-readable API contract | Public |
-| `GET` | `/v1/legal` | Current terms version, legal/support URLs, retention and billing status | Public |
-| `GET` | `/v1/packs` | Curated pack list | Public |
-| `GET` | `/v1/packs/{pack_id}` | Curated pack detail | Public |
-| `POST` | `/v1/auth/register` | Accept current terms, create unverified account and send verification link | Public |
-| `POST` | `/v1/auth/verify-email` | Consume verification token and start session | Public |
-| `POST` | `/v1/auth/resend-verification` | Request another verification link (generic response) | Public |
-| `POST` | `/v1/auth/password-reset/request` | Request password-reset link (generic response) | Public |
-| `POST` | `/v1/auth/password-reset/complete` | Consume reset token, change password, start session | Public |
-| `POST` | `/v1/auth/login` | Start browser session for verified account | Public |
-| `GET` | `/v1/auth/me` | Current account | Session |
-| `POST` | `/v1/auth/logout` | End browser session | Session |
-| `PATCH` | `/v1/account` | Update the signed-in display name | Authenticated |
-| `POST` | `/v1/account/password` | Change password, invalidate sessions, and replace the current browser session | Authenticated |
-| `GET` | `/v1/account/export` | Download account/workspace/legal/audit JSON without secrets | Authenticated |
-| `DELETE` | `/v1/account` | Permanently delete a single-member owner workspace with password re-authentication | Authenticated owner |
-| `GET` | `/v1/projects` | Project list and caller role | Authenticated |
-| `POST` | `/v1/projects` | Create project | Owner/admin |
-| `GET` | `/v1/api-keys` | List personal API keys | Authenticated |
-| `POST` | `/v1/api-keys` | Create one-time API key secret | Authenticated |
-| `DELETE` | `/v1/api-keys/{id}` | Revoke personal API key | Authenticated |
-| `POST` | `/v1/api-keys/{id}/rotate` | Atomically replace a personal key; return the new secret once | Authenticated |
-| `GET` | `/v1/audit-events?format=json\|csv` | Organization security audit export | Owner/admin |
-| `GET` | `/v1/downloads/verifier` | Verifier download metadata | Authenticated |
-| `GET` | `/v1/downloads/verifier/{filename}` | Download generator-free verifier bundle/wheel | Authenticated |
-| `GET` | `/v1/authoring/schema` | Core scenario-authoring schema metadata | Authenticated |
-| `GET` | `/v1/authoring/templates` | Core scenario templates | Authenticated |
-| `POST` | `/v1/authoring/preview` | Preview scenario package analysis | Authenticated |
-| `GET` | `/v1/authoring/curated-scenarios/{pack_id}/{case_id}` | Clone curated scenario JSON | Authenticated |
-| `GET` | `/v1/scenarios` | List owned drafts | Authenticated |
-| `POST` | `/v1/scenarios` | Validate/create draft | Developer+ |
-| `GET` | `/v1/scenarios/{id}` | Draft detail | Owner identity |
-| `PUT` | `/v1/scenarios/{id}` | Replace/revalidate draft | Developer+ |
-| `DELETE` | `/v1/scenarios/{id}` | Delete draft | Developer+ |
-| `GET` | `/v1/custom-packs` | List owned custom packs | Authenticated |
-| `POST` | `/v1/custom-packs` | Compose immutable pack | Developer+ |
-| `GET` | `/v1/custom-packs/{id}` | Custom pack detail | Owner identity |
-| `DELETE` | `/v1/custom-packs/{id}` | Hide custom pack | Developer+ |
-| `GET` | `/v1/jobs?limit=25&offset=0` | Paginated job list | Authenticated |
-| `POST` | `/v1/jobs` | Queue curated/custom pack | Developer+ |
-| `GET` | `/v1/jobs/{id}` | Job status/detail | Organization |
-| `DELETE` | `/v1/jobs/{id}` | Soft-delete non-running job | Developer+ |
-| `POST` | `/v1/jobs/{id}/cancel` | Cancel queued job | Developer+ |
-| `POST` | `/v1/jobs/{id}/retry` | Retry failed/cancelled job | Developer+ |
-| `POST` | `/v1/jobs/{id}/rebuild` | Queue exact-version rebuild for expired artifact | Developer+ |
-| `GET` | `/v1/jobs/{id}/viewer` | Viewable case/channel metadata | Organization |
-| `GET` | `/v1/jobs/{id}/viewer/window` | Bounded binary signal viewport | Organization |
-| `GET` | `/v1/jobs/{id}/viewer/overlays` | Bounded ground-truth events and intervals | Organization |
-| `GET` | `/v1/jobs/{id}/detection-templates.zip` | Download detector-output templates | Organization |
-| `GET` | `/v1/jobs/{id}/verification-kit.zip` | Download one flat kit with challenge files and verification helpers | Organization |
-| `GET` | `/v1/artifacts/{package_id}/manifest.json` | Download manifest | Organization |
-| `GET` | `/v1/artifacts/{package_id}/package.zip` | Download ZIP | Organization |
-| `GET` | `/v1/usage` | Usage and limits | Authenticated |
-| `GET` | `/v1/metrics` | Operational metrics | Owner/admin |
-
-Create a job from a script:
-
-```sh
-read -r -s SYN_SIG_RA_API_KEY
 BASE=https://www.timeonion.com/syn_sig_ra
-
-curl -fsS \
-  -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"project_id":"org_live_default","pack_id":"r_peak_stress_v1"}' \
-  "$BASE/v1/jobs"
+curl -fsS "$BASE/openapi.yaml" -o synsigra-openapi.yaml
+curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
+  "$BASE/v1/authoring/schema" -o authoring-schema.json
+curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
+  "$BASE/v1/authoring/templates" -o authoring-templates.json
 ```
 
-The create-job body accepts exactly `project_id` and `pack_id`; unsupported fields are rejected.
+Preview every final scenario/target combination before saving it. Every target
+selected for a custom pack applies to every selected scenario.
 
-Signal-window example:
+## Download and local verification
+
+The job page exposes one recommended customer artifact:
+
+```text
+verification-kit.zip
+└── verification-kit/
+    ├── challenge/                 immutable challenge package v3
+    ├── submission/                editable role-selected working template
+    ├── README.txt                 exact command and package profile
+    ├── ENGINEERING_CLAIM_BOUNDARY.txt
+    └── challenge-metadata.json    normalized contracts, roles and integrity
+```
+
+There is no redundant nested `package.zip`. The generator and its source are
+not distributed. The raw `manifest.json` and `package.zip` endpoints remain
+available for API consumers that need lower-level immutable artifacts, but they
+are not additional steps in the normal UI workflow.
+
+Download and use a kit:
 
 ```sh
 curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
-  "$BASE/v1/jobs/$JOB_ID/viewer"
-
-curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
-  "$BASE/v1/jobs/$JOB_ID/viewer/window?case_id=clean_70&start_sample=0&sample_count=5000&points=1600&channels=0" \
-  -o viewport.synsigv1
-
-curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
-  "$BASE/v1/jobs/$JOB_ID/viewer/overlays?case_id=clean_70&start_sample=0&sample_count=5000&max_items=4000" \
-  -o overlays.json
+  -o verification-kit.zip \
+  "$BASE/v1/jobs/JOB_ID/verification-kit.zip"
+unzip verification-kit.zip
+cd verification-kit
 ```
 
-The v1 binary response starts with an 80-byte little-endian header: 8-byte
-`SYNSIGV1` magic, `uint16` version and header size, `uint32` flags, channel and
-bucket counts, five `uint64` sample fields, `float64` sample rate, payload
-offset, and a reserved word. It is followed by selected `uint32` channel indices
-and channel-major signed `int16` minimum/maximum pairs. The live
-`/openapi.yaml` contract is authoritative for parameters and error responses.
+Install the separately downloadable, pure-Python, generator-free verifier:
 
-## Operations summary
-
-The production shape is:
-
-```text
-nginx : public HTTP/HTTPS edge, TLS, canonical redirects
-Apache module : localhost backend under /syn_sig_ra
-SQLite : metadata database
-filesystem data root : immutable packages and snapshots
-worker service : queued generation jobs
-linked signal_synth library + CLI : one pinned producer identity
+```sh
+curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
+  -o synsigra-wheel.whl "$BASE/v1/downloads/verifier/synsigra-wheel.whl"
+python -m pip install synsigra-wheel.whl
+synsigra-verify --help
 ```
 
-Operational endpoints:
+Edit the algorithm name/version and replace example rows under `submission/`.
+Keep target names, paths, units, and formats unchanged. Then copy the exact
+command from the job and kit README. A protocol-v2 kit uses the complete
+package-authoritative evidence matrix and embedded numeric policy:
 
-| Endpoint | Use |
+```sh
+synsigra-verify challenge submission verification-results --force
+```
+
+Do not add a profile, case, or target override to an evidence run. If a
+package has no protocol v2, the kit instead uses explicit
+`--mode diagnostic`; that run is useful for exploration but is never
+evidence-eligible.
+
+The verifier first enforces ZIP/path safety, manifest roles, listed files,
+sizes, hashes, package/scoring/submission identity, and submission schema. It
+then creates per-target results and a top-level evidence summary. Exit status is
+`0` for a passing verification, `1` for integrity/input/scoring/threshold
+failure, and `2` for invalid CLI use.
+
+Keep the immutable challenge, completed submission, exact algorithm build and
+configuration, verification results, and generator/package identities together
+as reproducible engineering evidence.
+
+## Retention and exact rebuilds
+
+Generated server artifacts are retained for seven days. Job metadata,
+immutable recipe, package fingerprint, and exact producer identity remain. If a
+user downloads an expired successful job, the UI can queue a rebuild using the
+preserved SHA-256-addressed generator release. A newer generator is never
+silently substituted, and a fingerprint mismatch fails the rebuild.
+
+Verification kits and package ZIPs support `HEAD`, strong SHA-256 ETags,
+checksums, expiry headers, byte ranges, and browser resume. The Lab API reads
+only bounded visible data, so retained multi-gigabyte waveform sources do not
+have to be transferred to the browser.
+
+## API map
+
+The exact machine-readable contract is always the live
+[`/openapi.yaml`](https://www.timeonion.com/syn_sig_ra/openapi.yaml). The main
+routes are:
+
+| Area | Routes |
 |---|---|
-| `/healthz` | Confirms the Apache module can answer. |
-| `/readyz` | Confirms DB, pinned linked/CLI core identity, catalog, disk, and artifact store; publishes the accepted non-secret core contract. |
-| `/v1/usage` | Customer-facing usage counters and limits. |
-| `/v1/metrics` | Owner/admin operational counters and worker heartbeat. |
+| Public/service | `GET /healthz`, `/readyz`, `/openapi.yaml`, `/v1/legal`, `/v1/packs`, `/v1/packs/{id}` |
+| Registration/session | `POST /v1/auth/register`, `/verify-email`, `/resend-verification`, `/login`, `/logout`, `/password-reset/request`, `/password-reset/complete`; `GET /v1/auth/me` |
+| Account | `GET/PATCH/DELETE /v1/account`, `POST /v1/account/password`, `GET /v1/account/export` |
+| API keys/audit | `GET/POST /v1/api-keys`, `DELETE /v1/api-keys/{id}`, `POST /v1/api-keys/{id}/rotate`, `GET /v1/audit-events` |
+| Discovery/authoring | `GET /v1/authoring/schema`, `/templates`, `/curated-scenarios/{pack}/{case}`; `POST /v1/authoring/preview` |
+| Drafts/custom packs | `GET/POST /v1/scenarios`, `GET/PUT/DELETE /v1/scenarios/{id}`, `GET/POST /v1/custom-packs`, `GET/DELETE /v1/custom-packs/{id}` |
+| Projects/jobs | `GET /v1/projects`, `GET/POST /v1/jobs`, `GET/DELETE /v1/jobs/{id}`, `POST /v1/jobs/{id}/cancel`, `/retry`, `/rebuild` |
+| Downloads | `GET/HEAD /v1/jobs/{id}/verification-kit.zip`, `GET/HEAD /v1/artifacts/{package}/{manifest.json|package.zip}`, `GET /v1/downloads/verifier[/{filename}]` |
+| Lab | `GET /v1/jobs/{id}/viewer`, `/viewer/window`, `/viewer/overlays` |
+| Usage/operations | `GET /v1/usage`, `GET /v1/metrics` (owner/admin) |
 
-The SaaS is pinned to `signal_synth@ef2c1d9cd00a07c62617619aa939a6996052867e` and accepts only
-`synsigra_core_integration_v1`. Build configuration fails for a different or
-dirty sibling checkout. Worker receipts are strict JSON, and each completed
-job records the core version/commit/build identity, generator binary SHA-256,
-canonical integration contract, canonical receipt, pack/package fingerprints,
-and artifact location.
+Browser sessions and bearer keys are organization-scoped. Cross-organization
+resource access intentionally returns 404. Write access requires an owner,
+admin, or developer role; selected account/audit operations require owner/admin.
+JSON write endpoints require `application/json` and reject extra/duplicate
+fields. Rate, concurrency, monthly-job, output-size, disk-reserve, CPU, memory,
+file, wall-time, and no-network worker bounds are enforced.
 
-Operational scripts documented in `doc/` create checksummed, versioned release
-artifacts, enforce the target Apache ABI, deploy with a live smoke gate, and
-automatically restore the complete pre-deploy runtime snapshot if installation
-or smoke verification fails. Explicit rollback, retention cleanup, backup, and
-restore drills use the same checked workflow. The separate
-`scripts/reset_prebeta_state.sh --confirm-destroy-prebeta-state` command is the
-only supported way to discard pre-beta state; normal deploy never migrates or
-deletes the database.
+## Frozen release contract
 
-## Repository layout
+This release intentionally has no old core compatibility layer. It requires the
+clean sibling checkout `../signal_synth` at commit
+`13fd76d3f57bf5b55ae0ccf18ebd06f06329a819` and the exact tuple:
 
-```text
-apache/                 Apache integration files
-include/syn_sig_ra/      Public/internal C++ headers
-src/                    SaaS module, API, auth, jobs, catalog, worker logic
-test/                   Unit/integration tests
-packs/                  Built-in curated pack definitions and product sidecars
-scripts/                Build/deploy/verify/backup/retention helper scripts
-ops/                    nginx, letsencrypt, and service configuration assets
-doc/                    API, operations, tenancy, custom-pack, deployment docs
-var.example/            Example runtime state layout
-```
+- generator `0.10.0-dev`, C++ facade `1.5.0`;
+- integration `synsigra_core_integration_v7`, pack schema `2`;
+- challenge `synsigra_challenge_package_v3`;
+- scoring `synsigra_scoring_manifest_v3`;
+- verification protocol `synsigra_verification_protocol_v2`;
+- submission `synsigra_submission_v1` and formats
+  `synsigra_submission_formats_v2`;
+- measurements `synsigra_measurement_values_v2`,
+  `synsigra_measurement_truth_v2`, and `synsigra_measurement_score_v2`;
+- local verification report `synsigra_local_verification_v2`;
+- authoring `synsigra_authoring_v18`, templates `synsigra_templates_v5`;
+- verifier `0.10.0`, external-noise truth
+  `synsigra_external_noise_truth_v1`;
+- curated catalog `3.0` with 18 packs and source hash
+  `sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e`.
 
-## Build and deployment references
-
-Start here for implementation and operations details:
-
-- [`doc/DEVELOPER_REFERENCE.md`](doc/DEVELOPER_REFERENCE.md)
-- [`doc/VPS_DEPLOYMENT.md`](doc/VPS_DEPLOYMENT.md)
-- [`doc/OPERATIONS.md`](doc/OPERATIONS.md)
-- [`doc/RETENTION_BACKUP.md`](doc/RETENTION_BACKUP.md)
-- [`doc/openapi.yaml`](doc/openapi.yaml)
-
-The current deployment uses nginx as the public TLS edge and one custom Apache
-2.2 backend bound to localhost. Apache 2.4 is not installed as a second live
-server: GitHub CI uses it only for portability E2E and creates an ABI-labelled
-compatibility artifact. Production artifacts are built against and accepted
-only by the live Apache 2.2 ABI. The sibling `signal_synth` CLI is packaged in
-the same release artifact and invoked by the SaaS worker.
-
-## Security and limitations
-
-- HTTPS terminates at nginx.
-- The Apache application backend listens only on localhost.
-- Browser authentication uses revocable, expiring server-side sessions.
-- API key secrets are displayed once and stored only as SHA-256 hashes.
-- Passwords are stored using salted PBKDF2-HMAC-SHA256.
-- E-mail verification and password-reset tokens are stored only as SHA-256 hashes, expire, are single-use, and are send/submission rate-limited. Recovery request responses do not disclose whether an account exists.
-- Production e-mail delivery requires authenticated SMTP. For this low-volume beta, the supported ready-to-run path is Gmail SMTP with a Google App Password; see [`ops/mail/README.md`](ops/mail/README.md). If delivery is not configured, new registration and recovery sending return a controlled service-unavailable response; existing verified accounts remain usable.
-- The product accepts synthetic engineering scenarios only.
-- Do not upload PHI, personal data, patient identifiers, or clinical free text.
-- The service does not execute customer detector code.
-- Built-in and composed pack snapshots are immutable.
-- Generated reports are engineering verification evidence, not clinical validation evidence.
+Configuration, startup, readiness, worker post-render validation, and release
+verification fail closed if these identities diverge. `/readyz` publishes the
+complete canonical core contract as `accepted_core.contract_document`.
 
 ## Further documentation
 
-- In-app [one-page quickstart](https://www.timeonion.com/syn_sig_ra/docs/quickstart)
-- In-app [rendered API reference](https://www.timeonion.com/syn_sig_ra/docs/api)
-- [Live self-describing OpenAPI contract](https://www.timeonion.com/syn_sig_ra/openapi.yaml)
-- In-app [troubleshooting guide](https://www.timeonion.com/syn_sig_ra/docs/troubleshooting)
 - [Customer API guide](doc/API_GUIDE.md)
-- [Codex natural-language API client guide](doc/CODEX_API_CLIENT_GUIDE.md)
-- [Raw OpenAPI reference](doc/openapi.yaml)
-- [Scenario drafts](doc/SCENARIO_DRAFTS.md)
-- [Custom packs](doc/CUSTOM_PACKS.md)
-- [Pack catalog release policy](doc/PACK_CATALOG.md)
-- [Tenancy and authorization](doc/TENANCY.md)
-- [Retention and backup](doc/RETENTION_BACKUP.md)
-- [Operations and observability](doc/OPERATIONS.md)
+- [Codex/natural-language API client guide](doc/CODEX_API_CLIENT_GUIDE.md)
+- [Custom pack model](doc/CUSTOM_PACKS.md)
+- [Operations](doc/OPERATIONS.md)
+- [Security baseline](doc/SECURITY_BASELINE.md)
+- [Private-beta terms](doc/PRIVATE_BETA_TERMS.md)
+- [Privacy and no-PHI notice](doc/PRIVACY_NO_PHI_NOTICE.md)
+- [Support policy](doc/PRIVATE_BETA_SUPPORT.md)
 - [Developer reference](doc/DEVELOPER_REFERENCE.md)
-- [VPS deployment runbook](doc/VPS_DEPLOYMENT.md)
-- [SaaS product plan](doc/SAAS_PRODUCT_PLAN.md)
-- [Codex handoff after core release-set export](doc/SAAS_CODEX_HANDOFF_2026_07_06.md)
+
+Private-beta support: `synsigra@gmail.com`.
+Operator: Kis Tamás, 2040 Budaörs, Tátra u. 6, Hungary
