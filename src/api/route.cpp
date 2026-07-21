@@ -1238,7 +1238,6 @@ bool safe_download_filename(const std::string& filename) {
     }
     return filename == "metadata.json" ||
            filename == "synsigra-verifier.zip" ||
-           filename == "synsigra-wheel.whl" ||
            (starts_with(filename, "synsigra-verifier-") &&
             ends_with(filename, ".zip")) ||
            (starts_with(filename, "synsigra-") &&
@@ -2097,9 +2096,9 @@ const char kQuickstartHtml[] = R"HTML(<!doctype html>
         <li>Unzip the kit, run your algorithm locally against <code>verification-kit/challenge/</code>, then replace the example identity and output rows under <code>verification-kit/submission/</code>. Keep declared paths, targets and formats unchanged.</li>
         <li>Download the verifier bundle or wheel from the runbook page and install it locally without cloning the generator repository.</li>
         <li>Copy the exact <code>synsigra-verify</code> command from the runbook. The extracted kit directory itself is the challenge package.</li>
-        <li>Inspect <code>verification_summary.json</code>, <code>verification_summary.csv</code>, and <code>verification_report.html</code>.</li>
+        <li>Open <code>verification-results/index.html</code>; it links every case-target detail page. Archive it with the single canonical <code>evidence.json</code>.</li>
       </ol>
-      <pre class="output">python -m pip install synsigra-wheel.whl
+      <pre class="output">python -m pip install synsigra-0.11.0-py3-none-any.whl
 unzip "job_123-verification-kit.zip" -d synsigra-kit
 cd synsigra-kit/verification-kit
 synsigra-verify challenge submission verification-results --force</pre>
@@ -5702,13 +5701,13 @@ const char kUiJs[] = R"JS((() => {
         <p><strong>Scoreable targets:</strong> ${escapeHtml(scoreable.join(", "))}</p>
         <p><strong>Reference-only targets:</strong> ${escapeHtml(referenceOnly.join(", ") || "none")}</p>
         <p>Download the verification kit, run your proprietary algorithm locally, then replace only the example algorithm identity and output rows under <code>submission/</code>. Keep every declared path, target and format unchanged.</p>
-        <pre class="output">python -m pip install synsigra-wheel.whl</pre>
+        <pre class="output">python -m pip install synsigra-0.11.0-py3-none-any.whl</pre>
         <p>Role-selected submission layout:</p>
         <pre class="output">${escapeHtml(submissionShape(context))}</pre>
         <p><strong>${context.evidenceEligible ? "Evidence mode" : "Diagnostic mode — not evidence"}:</strong> ${context.evidenceEligible ? "the packaged protocol fixes the complete case-target matrix and numeric policy; do not add overrides." : "this package has no protocol v2, so the verifier must run explicitly in non-evidence diagnostic mode."}</p>
         <pre class="output">${escapeHtml(context.command)}</pre>
         <button class="secondary" data-copy-text="${escapeHtml(context.command)}">Copy verify command</button>
-        <p>Machine-readable summaries are written to <code>${escapeHtml(context.outputDir)}/verification_summary.json</code> and <code>${escapeHtml(context.outputDir)}/verification_summary.csv</code>; the HTML report is <code>${escapeHtml(context.outputDir)}/verification_report.html</code>.</p>
+        <p>Open <code>${escapeHtml(context.outputDir)}/index.html</code>; it links every case-target detail page. <code>${escapeHtml(context.outputDir)}/evidence.json</code> is the single canonical machine-readable record.</p>
         ${context.evidenceEligible ? `<p class="muted compact">Protocol ${escapeHtml((context.verification.protocol || {}).protocol_id || "n/a")} · policy ${escapeHtml((context.verification.protocol || {}).acceptance_profile_id || "n/a")} · matrix complete · outcome pending local verification.</p>` : `<p class="warning compact">Diagnostic reports are always marked evidence_eligible=false, even when their selected thresholds pass.</p>`}
         <p class="muted compact">CI semantics: exit 0 = pass, exit 1 = verification/input/scoring/threshold failure, exit 2 = invalid CLI usage.</p>
       </details>
@@ -5772,7 +5771,7 @@ const char kUiJs[] = R"JS((() => {
     const referenceOnly = context.referenceOnly;
     const installCommands = state.verifierDownloads && state.verifierDownloads.install
       ? state.verifierDownloads.install.join("\n")
-      : "python -m pip install synsigra-wheel.whl\nsynsigra-verify --help";
+      : "python -m pip install synsigra-0.11.0-py3-none-any.whl\nsynsigra-verify --help";
     const scoreableSteps = scoreable.length ? `
       <li>
         <strong>Produce the declared local submission.</strong>
@@ -5787,7 +5786,7 @@ const char kUiJs[] = R"JS((() => {
       </li>
       <li>
         <strong>Interpret outputs.</strong>
-        <p>Read <code>${escapeHtml(context.outputDir)}/verification_report.html</code>, <code>verification_summary.json</code>, and <code>verification_summary.csv</code>. CI exit code <code>0</code> means pass, <code>1</code> means verification/input/scoring/threshold failure, <code>2</code> means invalid CLI usage.</p>
+        <p>Open <code>${escapeHtml(context.outputDir)}/index.html</code> and follow its links to case-target details. Archive it with <code>evidence.json</code>. CI exit code <code>0</code> means pass, <code>1</code> means verification/input/scoring/threshold failure, <code>2</code> means invalid CLI usage.</p>
       </li>
     ` : `
       <li>
@@ -5832,7 +5831,7 @@ const char kUiJs[] = R"JS((() => {
           ${scoreableSteps}
           <li>
             <strong>Archive evidence.</strong>
-            <p>Keep the extracted kit or original kit ZIP, <code>manifest.json</code>, <code>provenance.json</code>, <code>ENGINEERING_CLAIM_BOUNDARY.txt</code>, algorithm build/config, completed submission, verifier reports, and this job ID.</p>
+            <p>Keep the extracted kit or original kit ZIP, algorithm build/config, completed submission, <code>verification-results/index.html</code>, <code>verification-results/evidence.json</code>, its linked detail pages, and this job ID.</p>
           </li>
         </ol>
       </article>

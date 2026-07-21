@@ -922,7 +922,7 @@ RouteResponse handle_mcp_request(
                     json_array_append_new(steps, json_string(
                         "From verification-kit/, run: synsigra-verify challenge submission verification-results --force. Use --mode diagnostic only when the package explicitly says it has no evidence protocol."));
                     json_array_append_new(steps, json_string(
-                        "Inspect verification-results/verification_report.html, verification_summary.json and verification_summary.csv. Archive them with the challenge provenance."));
+                        "Open verification-results/index.html and follow its case-target links. Archive the result directory, including the canonical evidence.json, with the challenge provenance."));
                     json_object_set_new(guide, "steps", steps);
                     json_object_set_new(guide, "evidence_command", json_string(
                         "synsigra-verify challenge submission verification-results --force"));

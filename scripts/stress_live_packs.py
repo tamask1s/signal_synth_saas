@@ -140,7 +140,7 @@ def list_packs(client: Client, selected: list[str]) -> list[dict[str, Any]]:
     for pack in valid:
         if pack.get("catalog_version") != "3.0":
             raise RuntimeError("pack list contains a non-3.0 catalog entry")
-        if pack.get("catalog_source_sha256") != "sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e":
+        if pack.get("catalog_source_sha256") != "sha256:3a8b53b43dbecdeb834ed3faf0fddb8a859464ff4b822caaaa31830f5a06c88f":
             raise RuntimeError("pack list contains an unexpected catalog hash")
         if pack.get("integration_contract") != "synsigra_core_integration_v7":
             raise RuntimeError("pack list contains a non-v7 entry")
@@ -207,20 +207,20 @@ def validate_zip(path: pathlib.Path, required_members: list[str] | None = None) 
 def validate_job(job: dict[str, Any], pack: dict[str, Any]) -> None:
     if job.get("integration_contract") != "synsigra_core_integration_v7":
         raise RuntimeError("job has the wrong integration contract")
-    if job.get("generator_git_commit") != "13fd76d3f57bf5b55ae0ccf18ebd06f06329a819":
+    if job.get("generator_git_commit") != "2531c5c21a1917f9704fa9562d0a32ebacc821da":
         raise RuntimeError("job was not rendered by the pinned generator")
     if job.get("pack_version") != pack.get("version"):
         raise RuntimeError("job pack version differs from the selected catalog entry")
     catalog = job.get("catalog")
     if not isinstance(catalog, dict) or catalog.get("version") != "3.0":
         raise RuntimeError("job does not preserve catalog 3.0 identity")
-    if catalog.get("source_sha256") != "sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e":
+    if catalog.get("source_sha256") != "sha256:3a8b53b43dbecdeb834ed3faf0fddb8a859464ff4b822caaaa31830f5a06c88f":
         raise RuntimeError("job has the wrong catalog hash")
     challenge = job.get("challenge")
     if not isinstance(challenge, dict):
         raise RuntimeError("job has no normalized challenge metadata")
     expected = {
-        "verifier_version": "0.10.0",
+        "verifier_version": "0.11.0",
         "challenge_contract": "synsigra_challenge_package_v3",
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",
@@ -228,7 +228,7 @@ def validate_job(job: dict[str, Any], pack: dict[str, Any]) -> None:
         "measurement_values_contract": "synsigra_measurement_values_v2",
         "measurement_truth_contract": "synsigra_measurement_truth_v2",
         "measurement_scoring_contract": "synsigra_measurement_score_v2",
-        "local_verification_contract": "synsigra_local_verification_v2",
+        "local_verification_contract": "synsigra_local_verification_v3",
     }
     for key, value in expected.items():
         if challenge.get(key) != value:
@@ -276,9 +276,8 @@ def validate_kit(path: pathlib.Path, job: dict[str, Any]) -> None:
     prefix = "verification-kit/"
     required = [
         prefix + "README.txt",
-        prefix + "ENGINEERING_CLAIM_BOUNDARY.txt",
-        prefix + "challenge-metadata.json",
         prefix + "challenge/manifest.json",
+        prefix + "challenge/ENGINEERING_CLAIM_BOUNDARY.txt",
         prefix + "submission/submission.json",
         prefix + "submission/formats.json",
     ]
@@ -287,15 +286,16 @@ def validate_kit(path: pathlib.Path, job: dict[str, Any]) -> None:
         names = archive.namelist()
         if any(name.endswith("package.zip") for name in names):
             raise RuntimeError("verification kit contains a nested package ZIP")
-        metadata = json.loads(
-            archive.read(prefix + "challenge-metadata.json").decode("utf-8")
+        if prefix + "ENGINEERING_CLAIM_BOUNDARY.txt" in names or \
+                prefix + "challenge-metadata.json" in names:
+            raise RuntimeError("verification kit contains redundant top-level metadata")
+        manifest = json.loads(
+            archive.read(prefix + "challenge/manifest.json").decode("utf-8")
         )
-        if metadata.get("challenge_contract") != "synsigra_challenge_package_v3":
-            raise RuntimeError("verification kit metadata contract mismatch")
-        if metadata.get("integrity", {}).get("ok") is not True:
-            raise RuntimeError("verification kit metadata is not integrity-trusted")
-        if metadata != job.get("challenge"):
-            raise RuntimeError("verification kit metadata differs from job metadata")
+        if manifest.get("contract") != "synsigra_challenge_package_v3":
+            raise RuntimeError("verification kit challenge contract mismatch")
+        if manifest.get("package_id") != job.get("challenge", {}).get("package_id"):
+            raise RuntimeError("verification kit package identity mismatch")
 
 
 def delete_job(client: Client, job_id: str) -> None:

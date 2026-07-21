@@ -135,7 +135,7 @@ expected={
  "measurement_values_contract":"synsigra_measurement_values_v2",
  "measurement_truth_contract":"synsigra_measurement_truth_v2",
  "measurement_scoring_contract":"synsigra_measurement_score_v2",
- "local_verification_contract":"synsigra_local_verification_v2",
+ "local_verification_contract":"synsigra_local_verification_v3",
 }
 assert all(c.get(k)==v for k,v in expected.items())
 assert c["verification"]["mode"]=="diagnostic"

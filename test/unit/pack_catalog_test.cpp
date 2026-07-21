@@ -92,7 +92,7 @@ int main() {
                 "synsigra_core_integration_v7" &&
             r_peak->catalog_version == "3.0" &&
             r_peak->catalog_source_sha256 ==
-                "sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e" &&
+                "sha256:3a8b53b43dbecdeb834ed3faf0fddb8a859464ff4b822caaaa31830f5a06c88f" &&
             r_peak->changelog.size() == 1,
         "catalog should expose validated release and compatibility metadata"
     );

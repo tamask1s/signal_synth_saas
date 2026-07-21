@@ -78,10 +78,10 @@ int main() {
     tuple_mutations.push_back(std::make_pair("synsigra_measurement_values_v2", "synsigra_measurement_values_v3"));
     tuple_mutations.push_back(std::make_pair("synsigra_measurement_truth_v2", "synsigra_measurement_truth_v3"));
     tuple_mutations.push_back(std::make_pair("synsigra_measurement_score_v2", "synsigra_measurement_score_v3"));
-    tuple_mutations.push_back(std::make_pair("synsigra_local_verification_v2", "synsigra_local_verification_v3"));
+    tuple_mutations.push_back(std::make_pair("synsigra_local_verification_v3", "synsigra_local_verification_v4"));
     tuple_mutations.push_back(std::make_pair("synsigra_authoring_v18", "synsigra_authoring_v19"));
     tuple_mutations.push_back(std::make_pair("synsigra_templates_v5", "synsigra_templates_v6"));
-    tuple_mutations.push_back(std::make_pair("\"python_verifier\":\"0.10.0\"", "\"python_verifier\":\"0.10.1\""));
+    tuple_mutations.push_back(std::make_pair("\"python_verifier\":\"0.11.0\"", "\"python_verifier\":\"0.12.0\""));
     tuple_mutations.push_back(std::make_pair("synsigra_external_noise_truth_v1", "synsigra_external_noise_truth_v2"));
     for (std::vector<std::pair<std::string, std::string> >::const_iterator it =
              tuple_mutations.begin(); it != tuple_mutations.end(); ++it) {

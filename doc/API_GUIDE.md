@@ -85,9 +85,11 @@ Its layout is:
 challenge/                  immutable integrity-protected challenge v3
 submission/                 editable role-selected algorithm template
 README.txt                  exact package-specific command
-ENGINEERING_CLAIM_BOUNDARY.txt
-challenge-metadata.json
 ```
+
+Provenance and the engineering claim boundary occur once under `challenge/`.
+The job response contains the normalized trusted metadata, so the kit does not
+duplicate it as a second JSON document.
 
 The raw `manifest.json` and `package.zip` endpoints are available for clients
 that explicitly need lower-level immutable artifacts. They are not extra steps
@@ -99,9 +101,9 @@ ZIP.
 Download the pure-Python verifier; it has no generator binary or source:
 
 ```sh
-curl -fsS -H "$AUTH" -o synsigra-wheel.whl \
-  "$BASE/v1/downloads/verifier/synsigra-wheel.whl"
-python -m pip install synsigra-wheel.whl
+curl -fsS -H "$AUTH" -o synsigra-0.11.0-py3-none-any.whl \
+  "$BASE/v1/downloads/verifier/synsigra-0.11.0-py3-none-any.whl"
+python -m pip install synsigra-0.11.0-py3-none-any.whl
 ```
 
 Edit the algorithm name/version and replace the example output values under
@@ -112,6 +114,10 @@ For a protocol-v2 kit this is the complete package-authoritative evidence run:
 ```sh
 synsigra-verify challenge submission verification-results --force
 ```
+
+Open `verification-results/index.html`; it links every case-target detail
+page. `verification-results/evidence.json` is the single canonical
+machine-readable record.
 
 Do not append a profile, case, or target override to evidence mode. A kit
 without protocol v2 instead shows explicit `--mode diagnostic`; diagnostic

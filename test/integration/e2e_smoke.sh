@@ -755,7 +755,7 @@ for key in ("package_fingerprint", "generator_binary_sha256"):
         raise SystemExit("invalid " + key)
 if body.get("integration_contract") != "synsigra_core_integration_v7":
     raise SystemExit("invalid integration contract")
-if body.get("generator_git_commit") != "13fd76d3f57bf5b55ae0ccf18ebd06f06329a819":
+if body.get("generator_git_commit") != "2531c5c21a1917f9704fa9562d0a32ebacc821da":
     raise SystemExit("invalid pinned generator commit")
 challenge = body.get("challenge", {})
 if challenge.get("challenge_contract") != "synsigra_challenge_package_v3":
@@ -770,7 +770,7 @@ for key, value in {
     "measurement_values_contract": "synsigra_measurement_values_v2",
     "measurement_truth_contract": "synsigra_measurement_truth_v2",
     "measurement_scoring_contract": "synsigra_measurement_score_v2",
-    "local_verification_contract": "synsigra_local_verification_v2",
+    "local_verification_contract": "synsigra_local_verification_v3",
 }.items():
     if challenge.get(key) != value:
         raise SystemExit("invalid " + key)
@@ -948,9 +948,8 @@ kit_path = sys.argv[1]
 prefix = "verification-kit/"
 expected = {
     prefix + "README.txt",
-    prefix + "ENGINEERING_CLAIM_BOUNDARY.txt",
-    prefix + "challenge-metadata.json",
     prefix + "challenge/manifest.json",
+    prefix + "challenge/ENGINEERING_CLAIM_BOUNDARY.txt",
     prefix + "submission/submission.json",
     prefix + "submission/formats.json",
 }
@@ -964,26 +963,17 @@ with zipfile.ZipFile(kit_path) as archive:
         raise SystemExit("verification kit missing: " + ", ".join(sorted(missing)))
     if any(name.endswith("package.zip") for name in names):
         raise SystemExit("verification kit still contains a redundant nested package ZIP")
+    if prefix + "ENGINEERING_CLAIM_BOUNDARY.txt" in names or \
+            prefix + "challenge-metadata.json" in names:
+        raise SystemExit("verification kit contains redundant top-level metadata")
     readme = archive.read(prefix + "README.txt").decode("utf-8")
     if "synsigra-verify challenge submission verification-results" not in readme:
         raise SystemExit("verification kit README lacks first-run command")
-    metadata = json.loads(archive.read(prefix + "challenge-metadata.json"))
     manifest = json.loads(archive.read(prefix + "challenge/manifest.json"))
-    if metadata.get("package_id") != manifest.get("package_id"):
-        raise SystemExit("kit metadata package identity mismatch")
-    if metadata.get("challenge_contract") != "synsigra_challenge_package_v3":
-        raise SystemExit("kit metadata challenge contract mismatch")
-    if metadata.get("submission_contract") != "synsigra_submission_v1":
-        raise SystemExit("kit metadata submission contract mismatch")
-    if metadata.get("measurement_values_contract") != "synsigra_measurement_values_v2":
-        raise SystemExit("kit metadata measurement contract mismatch")
-    verification = metadata.get("verification", {})
-    if verification.get("mode") != "diagnostic" or verification.get("evidence_eligible") is not False:
-        raise SystemExit("protocol-free kit must be diagnostic only")
+    if manifest.get("contract") != "synsigra_challenge_package_v3":
+        raise SystemExit("kit challenge contract mismatch")
     if "--mode diagnostic" not in readme:
         raise SystemExit("protocol-free kit README does not state diagnostic mode")
-    if not metadata.get("integrity", {}).get("ok"):
-        raise SystemExit("kit metadata integrity result is not trusted")
 PY
     fail "verification kit archive failed validation"
 
@@ -1003,16 +993,16 @@ if metadata.get("package") != "synsigra":
 if metadata.get("generator_included") is not False:
     raise SystemExit("verifier download must not include generator")
 for key, value in {
-    "version": "0.10.0",
+    "version": "0.11.0",
     "measurement_values_contract": "synsigra_measurement_values_v2",
     "measurement_truth_contract": "synsigra_measurement_truth_v2",
     "measurement_scoring_contract": "synsigra_measurement_score_v2",
-    "local_verification_contract": "synsigra_local_verification_v2",
+    "local_verification_contract": "synsigra_local_verification_v3",
 }.items():
     if metadata.get(key) != value:
         raise SystemExit("verifier metadata mismatch: " + key)
 files = {item.get("filename") for item in metadata.get("files", [])}
-if "synsigra-verifier.zip" not in files or "synsigra-wheel.whl" not in files:
+if "synsigra-verifier.zip" not in files or "synsigra-0.11.0-py3-none-any.whl" not in files:
     raise SystemExit("expected verifier bundle and wheel metadata")
 PY
     fail "verifier download metadata validation failed"
@@ -1200,7 +1190,7 @@ if body.get("status") != "succeeded":
     raise SystemExit("custom pack job did not succeed")
 if body.get("integration_contract") != "synsigra_core_integration_v7":
     raise SystemExit("custom pack job used the wrong integration contract")
-if body.get("generator_git_commit") != "13fd76d3f57bf5b55ae0ccf18ebd06f06329a819":
+if body.get("generator_git_commit") != "2531c5c21a1917f9704fa9562d0a32ebacc821da":
     raise SystemExit("custom pack job used the wrong generator commit")
 challenge = body.get("challenge", {})
 for key, value in {
@@ -1211,7 +1201,7 @@ for key, value in {
     "measurement_values_contract": "synsigra_measurement_values_v2",
     "measurement_truth_contract": "synsigra_measurement_truth_v2",
     "measurement_scoring_contract": "synsigra_measurement_score_v2",
-    "local_verification_contract": "synsigra_local_verification_v2",
+    "local_verification_contract": "synsigra_local_verification_v3",
 }.items():
     if challenge.get(key) != value:
         raise SystemExit("custom pack challenge mismatch: " + key)
@@ -1245,8 +1235,8 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     names = set(archive.namelist())
     required = {
         prefix + "README.txt",
-        prefix + "challenge-metadata.json",
         prefix + "challenge/manifest.json",
+        prefix + "challenge/ENGINEERING_CLAIM_BOUNDARY.txt",
         prefix + "submission/submission.json",
         prefix + "submission/formats.json",
     }
@@ -1254,17 +1244,15 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
         raise SystemExit("custom verification kit is incomplete")
     if any(name.endswith("package.zip") for name in names):
         raise SystemExit("custom verification kit contains a nested package ZIP")
+    if prefix + "ENGINEERING_CLAIM_BOUNDARY.txt" in names or \
+            prefix + "challenge-metadata.json" in names:
+        raise SystemExit("custom verification kit contains redundant top-level metadata")
     readme = archive.read(prefix + "README.txt").decode("utf-8")
     if "--mode diagnostic" not in readme:
         raise SystemExit("custom verification kit lacks the diagnostic command")
-    metadata = json.loads(archive.read(prefix + "challenge-metadata.json"))
-    verification = metadata.get("verification", {})
-    if verification.get("mode") != "diagnostic" or verification.get("evidence_eligible") is not False:
-        raise SystemExit("custom verification kit is not diagnostic-only")
-    if metadata.get("measurement_values_contract") != "synsigra_measurement_values_v2":
-        raise SystemExit("custom verification kit has the wrong measurement contract")
-    if not metadata.get("integrity", {}).get("ok"):
-        raise SystemExit("custom verification kit integrity was not verified")
+    manifest = json.loads(archive.read(prefix + "challenge/manifest.json"))
+    if manifest.get("contract") != "synsigra_challenge_package_v3":
+        raise SystemExit("custom verification kit has the wrong challenge contract")
 PY
     fail "custom pack verification kit validation failed"
 

@@ -20,9 +20,9 @@ import zipfile
 import synsigra
 
 
-VERIFIER_VERSION = "0.10.0"
-KIT_CONTRACT = "synsigra_verification_kit_v2"
-CORE_COMMIT = "13fd76d3f57bf5b55ae0ccf18ebd06f06329a819"
+VERIFIER_VERSION = "0.11.0"
+KIT_CONTRACT = "synsigra_verification_kit_v3"
+CORE_COMMIT = "2531c5c21a1917f9704fa9562d0a32ebacc821da"
 MEASUREMENT_COLUMNS = [
     "name", "value", "unit", "status", "scope", "time_seconds",
     "beat_index", "window_start_seconds", "window_end_seconds", "channel",
@@ -395,7 +395,7 @@ def inspect_challenge(path):
             "measurement_values_contract": "synsigra_measurement_values_v2",
             "measurement_truth_contract": "synsigra_measurement_truth_v2",
             "measurement_scoring_contract": "synsigra_measurement_score_v2",
-            "local_verification_contract": "synsigra_local_verification_v2",
+            "local_verification_contract": "synsigra_local_verification_v3",
             "case_count": len(package.cases),
             "targets": targets,
             "cases": cases,
@@ -438,12 +438,15 @@ def _kit_readme(metadata):
     )
     return """Synsigra generator-free verification kit
 
-1. Install the Synsigra verifier 0.10.0 wheel downloaded from the product UI:
-   python -m pip install synsigra-wheel.whl
+1. Install the Synsigra verifier wheel downloaded from the product UI:
+   python -m pip install synsigra-0.11.0-py3-none-any.whl
 2. Replace the placeholder algorithm name/version and example output rows in
    submission/. Keep submission.json paths, target names and formats unchanged.
 3. Run from this verification-kit directory:
    {command}
+4. Open verification-results/index.html. It links every case-target detail
+   page. verification-results/evidence.json is the single canonical
+   machine-readable evidence record.
 
 {mode_text}
 
@@ -452,13 +455,13 @@ burden outputs all use measurement_values_json_v2 (recommended) or the strict
 14-column measurement_values_csv_v2 adapter. Window bounds, method ID and
 preprocessing-policy ID are part of measurement identity and must be preserved.
 
-The challenge/ directory is the immutable, integrity-protected challenge.
+The challenge/ directory is the immutable, integrity-protected challenge and
+contains its manifest, provenance and engineering claim boundary.
 The submission/ directory is a byte-preserved working template selected by
 manifest roles, not filename assumptions. Keep the kit, your algorithm build
 identity/configuration and verification-results together as engineering evidence.
 
-Synthetic engineering QA only. Not for diagnosis, patient monitoring, clinical
-validation certification or standalone conformity assessment.
+Synthetic engineering QA evidence; not diagnosis, nor clinical evidence.
 """.format(command=command, mode_text=mode_text)
 
 
@@ -496,26 +499,6 @@ def build_kit(source, destination):
                     archive,
                     "verification-kit/README.txt",
                     _kit_readme(metadata),
-                )
-                boundary_entries = [
-                    item for item in package.files
-                    if item["path"] == "ENGINEERING_CLAIM_BOUNDARY.txt"
-                    and item["role"] == "readme"
-                ]
-                _require(
-                    len(boundary_entries) == 1,
-                    "top-level engineering claim boundary is missing or ambiguous",
-                )
-                boundary = package.resolve(boundary_entries[0]["path"])
-                _write_file_to_zip(
-                    archive,
-                    boundary,
-                    "verification-kit/ENGINEERING_CLAIM_BOUNDARY.txt",
-                )
-                _write_text_to_zip(
-                    archive,
-                    "verification-kit/challenge-metadata.json",
-                    json.dumps(metadata, indent=2, sort_keys=True) + "\n",
                 )
         with zipfile.ZipFile(temporary, "r") as archive:
             _require(archive.testzip() is None, "verification kit archive is corrupt")

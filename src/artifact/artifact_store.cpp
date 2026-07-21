@@ -533,7 +533,7 @@ bool valid_verification_metadata(json_t* value) {
         !nonempty_json_string(protocol, "sha256") ||
         !nonempty_json_string(protocol, "context_of_use") ||
         !exact_json_string(
-            protocol, "scoring_contract", "synsigra_local_verification_v2") ||
+            protocol, "scoring_contract", "synsigra_local_verification_v3") ||
         !nonempty_json_string(protocol, "acceptance_profile_id") ||
         !json_is_integer(json_object_get(protocol, "required_case_target_count")) ||
         json_integer_value(json_object_get(protocol, "required_case_target_count")) < 1 ||
@@ -555,7 +555,7 @@ bool valid_challenge_metadata(const std::string& text) {
             "synsigra_saas_challenge_metadata_v1" &&
         json_is_string(json_object_get(root, "verifier_version")) &&
         std::string(json_string_value(json_object_get(root, "verifier_version"))) ==
-            "0.10.0" &&
+            "0.11.0" &&
         json_is_string(json_object_get(root, "challenge_contract")) &&
         std::string(json_string_value(json_object_get(root, "challenge_contract"))) ==
             "synsigra_challenge_package_v3" &&
@@ -579,7 +579,7 @@ bool valid_challenge_metadata(const std::string& text) {
             "synsigra_measurement_score_v2" &&
         json_is_string(json_object_get(root, "local_verification_contract")) &&
         std::string(json_string_value(json_object_get(root, "local_verification_contract"))) ==
-            "synsigra_local_verification_v2" &&
+            "synsigra_local_verification_v3" &&
         valid_verification_metadata(json_object_get(root, "verification")) &&
         json_is_object(json_object_get(root, "external_noise")) &&
         json_is_boolean(json_object_get(
@@ -801,7 +801,7 @@ DerivedArtifactStatus prepare_verification_kit(
         const bool kit_contract = json_is_object(metadata) &&
             json_is_string(json_object_get(metadata, "kit_contract")) &&
             std::string(json_string_value(json_object_get(metadata, "kit_contract"))) ==
-                "synsigra_verification_kit_v2";
+                "synsigra_verification_kit_v3";
         if (metadata != nullptr) json_decref(metadata);
         succeeded = kit_contract && valid_challenge_metadata(metadata_json) &&
             regular_file(temporary, final_size);

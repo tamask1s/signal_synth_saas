@@ -64,7 +64,7 @@ all files by role, media type, size, and SHA-256. It includes the applicable
 waveforms, ground truth, summaries, provenance, warnings, claim boundary,
 submission templates, and optional pre-specified verification protocol.
 
-The pure-Python verifier 0.10.0 validates archive/path safety, manifest and
+The pure-Python verifier 0.11.0 validates archive/path safety, manifest and
 role shape, identity, integrity, submission schema, per-target scoring, and
 protocol policy. Evidence mode is package-authoritative: it requires a
 protocol-v2 package and runs its full matrix with its embedded numeric policy.

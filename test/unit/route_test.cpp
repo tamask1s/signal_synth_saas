@@ -863,7 +863,7 @@ int main() {
     write_file(verifier_root + "/metadata.json",
                "{\"schema_version\":1,\"package\":\"synsigra\"}\n");
     write_file(verifier_root + "/synsigra-verifier.zip", "zip");
-    write_file(verifier_root + "/synsigra-wheel.whl", "wheel");
+    write_file(verifier_root + "/synsigra-0.11.0-py3-none-any.whl", "wheel");
     const syn_sig_ra::RouteResponse downloads =
         syn_sig_ra::route_request(
             "GET",
@@ -894,6 +894,35 @@ int main() {
             bundle.content_disposition.find("synsigra-verifier.zip") !=
                 std::string::npos,
         "verifier bundle should be downloadable without exposing generator files"
+    );
+    const syn_sig_ra::RouteResponse wheel =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/downloads/verifier/synsigra-0.11.0-py3-none-any.whl",
+            "/syn_sig_ra",
+            "Bearer route-test-key",
+            &store,
+            download_pack_root
+        );
+    require(
+        wheel.status == 200 &&
+            wheel.content_type == "application/octet-stream" &&
+            wheel.content_disposition.find(
+                "synsigra-0.11.0-py3-none-any.whl") != std::string::npos,
+        "verifier wheel should use a pip-compatible filename"
+    );
+    const syn_sig_ra::RouteResponse invalid_wheel_alias =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/downloads/verifier/synsigra-wheel.whl",
+            "/syn_sig_ra",
+            "Bearer route-test-key",
+            &store,
+            download_pack_root
+        );
+    require(
+        invalid_wheel_alias.status == 400,
+        "non-standard wheel aliases should be rejected"
     );
     const syn_sig_ra::RouteResponse bad_download =
         syn_sig_ra::route_request(
@@ -972,7 +1001,7 @@ int main() {
 
     std::remove((verifier_root + "/metadata.json").c_str());
     std::remove((verifier_root + "/synsigra-verifier.zip").c_str());
-    std::remove((verifier_root + "/synsigra-wheel.whl").c_str());
+    std::remove((verifier_root + "/synsigra-0.11.0-py3-none-any.whl").c_str());
     rmdir(verifier_root.c_str());
     rmdir((download_root + "/downloads").c_str());
     rmdir(download_pack_root.c_str());

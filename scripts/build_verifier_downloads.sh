@@ -5,8 +5,8 @@ repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 signal_synth_root=${SIGNAL_SYNTH_ROOT:-"$repo_dir/../signal_synth"}
 out_dir=${1:-"$repo_dir/downloads/verifier"}
 work_dir=${TMPDIR:-/tmp}/synsigra_verifier_downloads_$$
-expected_core=13fd76d3f57bf5b55ae0ccf18ebd06f06329a819
-expected_version=0.10.0
+expected_core=2531c5c21a1917f9704fa9562d0a32ebacc821da
+expected_version=0.11.0
 
 cleanup() {
   rm -rf "$work_dir"
@@ -121,7 +121,7 @@ cp "$wheel" "$work_dir/bundle/wheels/$wheel_file"
 cat >"$work_dir/bundle/README.md" <<EOF
 # Synsigra local verifier bundle
 
-This bundle contains the generator-free Synsigra 0.10.0 Python verifier.
+This bundle contains the generator-free Synsigra 0.11.0 Python verifier.
 
 It does not contain the C++ signal generator, generator source code, or any
 tool that can create new challenge packages. It only installs the local
@@ -149,6 +149,10 @@ synsigra-verify --help
 synsigra-verify challenge submission verification-results --force
 \`\`\`
 
+Open \`verification-results/index.html\`; it links every case-target detail
+page. \`verification-results/evidence.json\` is the single canonical
+machine-readable evidence record.
+
 For a protocol-v2 package this is evidence mode: the complete package matrix
 and embedded numeric policy are authoritative, and profile/case/target
 overrides are forbidden. When a package has no protocol, its kit README uses
@@ -160,7 +164,7 @@ The verifier exits with:
 - 1 when package/input/scoring/threshold checks fail;
 - 2 when command-line arguments are invalid.
 
-Synthetic engineering QA only. This is not clinical validation software.
+Synthetic engineering QA evidence; not diagnosis, nor clinical evidence.
 EOF
 
 cat >"$work_dir/bundle/verify_smoke.sh" <<'EOF'
@@ -214,7 +218,7 @@ cat >"$out_dir/metadata.json" <<EOF
   "measurement_values_contract": "synsigra_measurement_values_v2",
   "measurement_truth_contract": "synsigra_measurement_truth_v2",
   "measurement_scoring_contract": "synsigra_measurement_score_v2",
-  "local_verification_contract": "synsigra_local_verification_v2",
+  "local_verification_contract": "synsigra_local_verification_v3",
   "console_script": "synsigra-verify",
   "generator_included": false,
   "generated_at": "$generated_at",
@@ -229,7 +233,7 @@ cat >"$out_dir/metadata.json" <<EOF
     },
     {
       "label": "Python wheel",
-      "filename": "synsigra-wheel.whl",
+      "filename": "$wheel_file",
       "versioned_filename": "$wheel_file",
       "content_type": "application/octet-stream",
       "sha256": "sha256:$wheel_sha",

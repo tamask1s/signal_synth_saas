@@ -256,15 +256,15 @@ The job page exposes one recommended customer artifact:
 ```text
 verification-kit.zip
 └── verification-kit/
-    ├── challenge/                 immutable challenge package v3
-    ├── submission/                editable role-selected working template
     ├── README.txt                 exact command and package profile
-    ├── ENGINEERING_CLAIM_BOUNDARY.txt
-    └── challenge-metadata.json    normalized contracts, roles and integrity
+    ├── challenge/                 immutable challenge package v3
+    └── submission/                editable role-selected working template
 ```
 
 There is no redundant nested `package.zip`. The generator and its source are
-not distributed. The raw `manifest.json` and `package.zip` endpoints remain
+not distributed. Provenance and the claim boundary live once in the immutable
+`challenge/` tree; normalized metadata remains available in the job API rather
+than being duplicated in the ZIP. The raw `manifest.json` and `package.zip` endpoints remain
 available for API consumers that need lower-level immutable artifacts, but they
 are not additional steps in the normal UI workflow.
 
@@ -278,12 +278,17 @@ unzip verification-kit.zip
 cd verification-kit
 ```
 
+After running the README command, open `verification-results/index.html`.
+It links every case-target detail page; `verification-results/evidence.json`
+is the single canonical machine-readable evidence record.
+
 Install the separately downloadable, pure-Python, generator-free verifier:
 
 ```sh
 curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
-  -o synsigra-wheel.whl "$BASE/v1/downloads/verifier/synsigra-wheel.whl"
-python -m pip install synsigra-wheel.whl
+  -o synsigra-0.11.0-py3-none-any.whl \
+  "$BASE/v1/downloads/verifier/synsigra-0.11.0-py3-none-any.whl"
+python -m pip install synsigra-0.11.0-py3-none-any.whl
 synsigra-verify --help
 ```
 
@@ -303,7 +308,8 @@ evidence-eligible.
 
 The verifier first enforces ZIP/path safety, manifest roles, listed files,
 sizes, hashes, package/scoring/submission identity, and submission schema. It
-then creates per-target results and a top-level evidence summary. Exit status is
+then creates one canonical evidence record, an HTML entry point and linked
+case-target views. Exit status is
 `0` for a passing verification, `1` for integrity/input/scoring/threshold
 failure, and `2` for invalid CLI use.
 
@@ -354,7 +360,7 @@ file, wall-time, and no-network worker bounds are enforced.
 
 This release intentionally has no old core compatibility layer. It requires the
 clean sibling checkout `../signal_synth` at commit
-`13fd76d3f57bf5b55ae0ccf18ebd06f06329a819` and the exact tuple:
+`2531c5c21a1917f9704fa9562d0a32ebacc821da` and the exact tuple:
 
 - generator `0.10.0-dev`, C++ facade `1.5.0`;
 - integration `synsigra_core_integration_v7`, pack schema `2`;
@@ -365,12 +371,12 @@ clean sibling checkout `../signal_synth` at commit
   `synsigra_submission_formats_v2`;
 - measurements `synsigra_measurement_values_v2`,
   `synsigra_measurement_truth_v2`, and `synsigra_measurement_score_v2`;
-- local verification report `synsigra_local_verification_v2`;
+- local verification report `synsigra_local_verification_v3`;
 - authoring `synsigra_authoring_v18`, templates `synsigra_templates_v5`;
-- verifier `0.10.0`, external-noise truth
+- verifier `0.11.0`, external-noise truth
   `synsigra_external_noise_truth_v1`;
 - curated catalog `3.0` with 18 packs and source hash
-  `sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e`.
+  `sha256:3a8b53b43dbecdeb834ed3faf0fddb8a859464ff4b822caaaa31830f5a06c88f`.
 
 Configuration, startup, readiness, worker post-render validation, and release
 verification fail closed if these identities diverge. `/readyz` publishes the

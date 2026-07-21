@@ -296,7 +296,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -695,7 +695,7 @@
             }
           ],
           "schema_version": 2,
-          "scoring_contract": "synsigra_local_verification_v2",
+          "scoring_contract": "synsigra_local_verification_v3",
           "stress_strata": [
             {
               "case_ids": [
@@ -727,7 +727,7 @@
             "rr_definition": "Difference between consecutive present-QRS construction R-peak times inside the record."
           }
         },
-        "source_content_sha256": "sha256:1295d423e97e5de8ef203610e194785661e4be283e077d95c50ebc1428120e56",
+        "source_content_sha256": "sha256:df62f8e303dd3d7c2bacfd2b2683d7dcd0bbffe86b902e2bbf48cbcabe5d9a1c",
         "source_path": "examples/packs/r_peak_rr_noise_v1_expectations.json"
       },
       "version": "1.0"
@@ -1131,7 +1131,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -1604,7 +1604,7 @@
             }
           ],
           "schema_version": 2,
-          "scoring_contract": "synsigra_local_verification_v2",
+          "scoring_contract": "synsigra_local_verification_v3",
           "stress_strata": [
             {
               "case_ids": [
@@ -1641,7 +1641,7 @@
             "qtc_definition": "Scenario-declared formula applied by the cardiac timing model; formula identity is part of measurement identity."
           }
         },
-        "source_content_sha256": "sha256:46a20cf52f412dc9f723bf4599db2216a08b582b03ee3a3cb77885e16d4e6382",
+        "source_content_sha256": "sha256:33a4947bb83435ebdfcf5c963e34e24f5c79e0f4123216071b029b30d5ca95ca",
         "source_path": "examples/packs/ecg_qtc_verification_v1_expectations.json"
       },
       "version": "1.0"
@@ -1794,7 +1794,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -2171,7 +2171,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -2541,7 +2541,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -3082,7 +3082,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -3706,7 +3706,7 @@
             }
           ],
           "schema_version": 2,
-          "scoring_contract": "synsigra_local_verification_v2",
+          "scoring_contract": "synsigra_local_verification_v3",
           "stress_strata": [
             {
               "case_ids": [
@@ -3746,7 +3746,7 @@
             "spectral_window": "Frequency-domain truth requires at least 300 seconds and uses the declared metric-definition interpolation policy."
           }
         },
-        "source_content_sha256": "sha256:299a7dae0d7ff0d9691900ae27af9331af81977703ff39efe12e043121f69b5b",
+        "source_content_sha256": "sha256:61e4dc1b9a1263a7618c3438991502fe9c829849f9916f0a100e46f6119c771c",
         "source_path": "examples/packs/hrv_robustness_v2_expectations.json"
       },
       "version": "2.0"
@@ -3933,7 +3933,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -4393,7 +4393,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -4828,7 +4828,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -5226,7 +5226,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -5621,7 +5621,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -6032,7 +6032,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -6540,7 +6540,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -7126,7 +7126,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -7566,7 +7566,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -8095,7 +8095,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -8441,7 +8441,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -8763,7 +8763,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.10.0",
+        "local_verifier_min_version": "0.11.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -8972,5 +8972,5 @@
   "release_set_id": "synsigra_curated_release_2026_07_18",
   "release_set_status": "beta",
   "schema_version": 1,
-  "source_catalog_sha256": "sha256:2ab03e48ed533636d2abb5bc5a6f90590f1d9abbb4ed8664ed9efd0dac06892e"
+  "source_catalog_sha256": "sha256:3a8b53b43dbecdeb834ed3faf0fddb8a859464ff4b822caaaa31830f5a06c88f"
 }
