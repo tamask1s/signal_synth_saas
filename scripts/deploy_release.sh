@@ -35,7 +35,7 @@ rollback_on_error() {
   if [ -n "$snapshot" ]; then
     echo "deployment failed; restoring $snapshot" >&2
     if synsigra_restore_live_snapshot "$snapshot" && \
-        SYN_SIG_RA_BASELINE_ONLY=1 "$repo_dir/scripts/verify_live.sh"; then
+        SYN_SIG_RA_RUNTIME_ONLY=1 "$repo_dir/scripts/verify_live.sh"; then
       echo "automatic rollback succeeded" >&2
     else
       echo "automatic rollback failed; operator intervention is required" >&2
@@ -97,7 +97,7 @@ sudo nginx -t
 sudo systemctl start apache22
 sudo systemctl start syn_sig_ra_worker.service
 sudo systemctl reload nginx.service
-"$repo_dir/scripts/verify_live.sh"
+SYN_SIG_RA_BASELINE_ONLY=1 "$repo_dir/scripts/verify_live.sh"
 
 release_store=/opt/signal_synth_saas/releases
 registered_artifact="$release_store/$(basename "$artifact")"

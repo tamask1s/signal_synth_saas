@@ -29,7 +29,7 @@ restore_forward_on_error() {
 }
 trap restore_forward_on_error ERR
 synsigra_restore_live_snapshot "$target"
-SYN_SIG_RA_BASELINE_ONLY=1 "$repo_dir/scripts/verify_live.sh"
+SYN_SIG_RA_RUNTIME_ONLY=1 "$repo_dir/scripts/verify_live.sh"
 sudo ln -sfn "$forward" /opt/signal_synth_saas/last-rollback
 "$repo_dir/scripts/prune_release_history.sh" --apply
 trap - ERR
