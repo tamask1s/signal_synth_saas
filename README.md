@@ -360,7 +360,7 @@ file, wall-time, and no-network worker bounds are enforced.
 
 This release intentionally has no old core compatibility layer. It requires the
 clean sibling checkout `../signal_synth` at commit
-`2531c5c21a1917f9704fa9562d0a32ebacc821da` and the exact tuple:
+`4786338b827315c3a06c1abefe33b94c25c24d7c` and the exact tuple:
 
 - generator `0.10.0-dev`, C++ facade `1.5.0`;
 - integration `synsigra_core_integration_v7`, pack schema `2`;

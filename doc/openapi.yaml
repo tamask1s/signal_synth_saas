@@ -62,8 +62,8 @@ components:
       properties:
         integration_contract: {type: string, enum: [synsigra_core_integration_v7]}
         version: {type: string, enum: [0.10.0-dev]}
-        git_commit: {type: string, enum: [2531c5c21a1917f9704fa9562d0a32ebacc821da]}
-        build_identity: {type: string, enum: [signal_synth/2531c5c21a1917f9704fa9562d0a32ebacc821da]}
+        git_commit: {type: string, enum: [4786338b827315c3a06c1abefe33b94c25c24d7c]}
+        build_identity: {type: string, enum: [signal_synth/4786338b827315c3a06c1abefe33b94c25c24d7c]}
         cpp_facade: {type: string, enum: [1.5.0]}
         pack_schema_version: {type: integer, enum: [2]}
         challenge_package: {type: string, enum: [synsigra_challenge_package_v3]}
@@ -216,7 +216,7 @@ components:
         pack_version: {type: string}
         pack_fingerprint: {type: string}
         generator_version: {type: string, enum: [0.10.0-dev]}
-        generator_git_commit: {type: string, enum: [2531c5c21a1917f9704fa9562d0a32ebacc821da]}
+        generator_git_commit: {type: string, enum: [4786338b827315c3a06c1abefe33b94c25c24d7c]}
         scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
         submission_contract: {type: string, enum: [synsigra_submission_v1]}
         submission_formats_contract: {type: string, enum: [synsigra_submission_formats_v2]}
@@ -409,7 +409,7 @@ components:
         schema_version: {type: integer}
         package: {type: string, example: synsigra}
         version: {type: string, enum: [0.11.0]}
-        core_git_commit: {type: string, enum: [2531c5c21a1917f9704fa9562d0a32ebacc821da]}
+        core_git_commit: {type: string, enum: [4786338b827315c3a06c1abefe33b94c25c24d7c]}
         challenge_contract: {type: string, enum: [synsigra_challenge_package_v3]}
         scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
         verification_protocol_contract: {type: string, enum: [synsigra_verification_protocol_v2]}

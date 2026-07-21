@@ -207,7 +207,7 @@ def validate_zip(path: pathlib.Path, required_members: list[str] | None = None) 
 def validate_job(job: dict[str, Any], pack: dict[str, Any]) -> None:
     if job.get("integration_contract") != "synsigra_core_integration_v7":
         raise RuntimeError("job has the wrong integration contract")
-    if job.get("generator_git_commit") != "2531c5c21a1917f9704fa9562d0a32ebacc821da":
+    if job.get("generator_git_commit") != "4786338b827315c3a06c1abefe33b94c25c24d7c":
         raise RuntimeError("job was not rendered by the pinned generator")
     if job.get("pack_version") != pack.get("version"):
         raise RuntimeError("job pack version differs from the selected catalog entry")

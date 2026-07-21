@@ -20,7 +20,7 @@ fi
 
 key=$(sudo cat /root/syn_sig_ra_api_key)
 printf '%s' "$ready" | python3 -c \
-  'import json,sys; x=json.load(sys.stdin); c=x["accepted_core"]; d=c["contract_document"]; assert x["status"]=="ready"; assert c["integration_contract"]=="synsigra_core_integration_v7"; assert c["git_commit"]=="2531c5c21a1917f9704fa9562d0a32ebacc821da"; assert c["build_identity"]=="signal_synth/"+c["git_commit"]; assert c["cpp_facade"]=="1.5.0" and c["pack_schema_version"]==2; assert c["challenge_package"]=="synsigra_challenge_package_v3"; assert c["scoring_manifest"]=="synsigra_scoring_manifest_v3"; assert c["verification_protocol"]=="synsigra_verification_protocol_v2"; assert c["submission"]=="synsigra_submission_v1"; assert c["submission_formats"]=="synsigra_submission_formats_v2"; assert c["measurement_values"]=="synsigra_measurement_values_v2"; assert c["measurement_truth"]=="synsigra_measurement_truth_v2"; assert c["measurement_scoring"]=="synsigra_measurement_score_v2"; assert c["local_verification"]=="synsigra_local_verification_v3"; assert c["scenario_authoring"]=="synsigra_authoring_v18"; assert c["scenario_templates"]=="synsigra_templates_v5"; assert c["python_verifier"]=="0.11.0"; assert c["external_noise_truth"]=="synsigra_external_noise_truth_v1"; assert d["contract"]==c["integration_contract"] and d["generator"]["git_commit"]==c["git_commit"]'
+  'import json,sys; x=json.load(sys.stdin); c=x["accepted_core"]; d=c["contract_document"]; assert x["status"]=="ready"; assert c["integration_contract"]=="synsigra_core_integration_v7"; assert c["git_commit"]=="4786338b827315c3a06c1abefe33b94c25c24d7c"; assert c["build_identity"]=="signal_synth/"+c["git_commit"]; assert c["cpp_facade"]=="1.5.0" and c["pack_schema_version"]==2; assert c["challenge_package"]=="synsigra_challenge_package_v3"; assert c["scoring_manifest"]=="synsigra_scoring_manifest_v3"; assert c["verification_protocol"]=="synsigra_verification_protocol_v2"; assert c["submission"]=="synsigra_submission_v1"; assert c["submission_formats"]=="synsigra_submission_formats_v2"; assert c["measurement_values"]=="synsigra_measurement_values_v2"; assert c["measurement_truth"]=="synsigra_measurement_truth_v2"; assert c["measurement_scoring"]=="synsigra_measurement_score_v2"; assert c["local_verification"]=="synsigra_local_verification_v3"; assert c["scenario_authoring"]=="synsigra_authoring_v18"; assert c["scenario_templates"]=="synsigra_templates_v5"; assert c["python_verifier"]=="0.11.0"; assert c["external_noise_truth"]=="synsigra_external_noise_truth_v1"; assert d["contract"]==c["integration_contract"] and d["generator"]["git_commit"]==c["git_commit"]'
 printf '%s' "$ready"
 printf '\n'
 legal=$(curl -fsS "$base/v1/legal")
@@ -74,7 +74,7 @@ printf '%s' "$mcp_recommend" | python3 -c \
   'import json,sys; r=json.load(sys.stdin)["result"]["structuredContent"]; assert {"r_peak","rr_interval","hrv","signal_quality"}<=set(r["interpreted_targets"]); assert r["candidates"] and r["recommended_workflow"] in {"inspect_top_curated_pack_then_create_job","use_custom_authoring_for_unmet_requirements"}'
 verifier=$(curl -fsS -H "Authorization: Bearer $key" "$base/v1/downloads/verifier")
 printf '%s' "$verifier" | python3 -c \
-  'import json,sys; x=json.load(sys.stdin); assert x["schema_version"]==2 and x["version"]=="0.11.0" and x["generator_included"] is False; assert x["core_git_commit"]=="2531c5c21a1917f9704fa9562d0a32ebacc821da"; assert x["challenge_contract"]=="synsigra_challenge_package_v3" and x["scoring_manifest_contract"]=="synsigra_scoring_manifest_v3"; assert x["submission_contract"]=="synsigra_submission_v1" and x["submission_formats_contract"]=="synsigra_submission_formats_v2"; assert x["measurement_values_contract"]=="synsigra_measurement_values_v2" and x["measurement_truth_contract"]=="synsigra_measurement_truth_v2" and x["measurement_scoring_contract"]=="synsigra_measurement_score_v2" and x["local_verification_contract"]=="synsigra_local_verification_v3"; assert x["verify_example"]=="synsigra-verify challenge submission verification-results --force"'
+  'import json,sys; x=json.load(sys.stdin); assert x["schema_version"]==2 and x["version"]=="0.11.0" and x["generator_included"] is False; assert x["core_git_commit"]=="4786338b827315c3a06c1abefe33b94c25c24d7c"; assert x["challenge_contract"]=="synsigra_challenge_package_v3" and x["scoring_manifest_contract"]=="synsigra_scoring_manifest_v3"; assert x["submission_contract"]=="synsigra_submission_v1" and x["submission_formats_contract"]=="synsigra_submission_formats_v2"; assert x["measurement_values_contract"]=="synsigra_measurement_values_v2" and x["measurement_truth_contract"]=="synsigra_measurement_truth_v2" and x["measurement_scoring_contract"]=="synsigra_measurement_score_v2" and x["local_verification_contract"]=="synsigra_local_verification_v3"; assert x["verify_example"]=="synsigra-verify challenge submission verification-results --force"'
 printf '%s' "$verifier"
 printf '\n'
 curl -fsS -H "Authorization: Bearer $key" "$base/v1/metrics"
@@ -116,9 +116,9 @@ printf '%s' "$packs" | python3 -c \
 jobs=$(curl -fsS -H "Authorization: Bearer $key" \
   "$base/v1/jobs?limit=100&offset=0")
 printf '%s' "$jobs" | python3 -c \
-  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; current=[j for j in jobs if j.get("status")=="succeeded" and j.get("generator_git_commit")=="2531c5c21a1917f9704fa9562d0a32ebacc821da"]; assert current; assert all(j.get("integration_contract")=="synsigra_core_integration_v7" and j.get("generator_build_identity")=="signal_synth/"+j["generator_git_commit"] and j.get("generator_binary_sha256","").startswith("sha256:") and len(j["generator_binary_sha256"])==71 and j.get("challenge",{}).get("challenge_contract")=="synsigra_challenge_package_v3" and j.get("challenge",{}).get("scoring_manifest_contract")=="synsigra_scoring_manifest_v3" and j.get("challenge",{}).get("submission_contract")=="synsigra_submission_v1" and j.get("challenge",{}).get("submission_formats_contract")=="synsigra_submission_formats_v2" and j.get("challenge",{}).get("measurement_values_contract")=="synsigra_measurement_values_v2" and j.get("challenge",{}).get("measurement_truth_contract")=="synsigra_measurement_truth_v2" and j.get("challenge",{}).get("measurement_scoring_contract")=="synsigra_measurement_score_v2" and j.get("challenge",{}).get("local_verification_contract")=="synsigra_local_verification_v3" and j.get("challenge",{}).get("verification",{}).get("mode") in ("evidence","diagnostic") and j.get("challenge",{}).get("integrity",{}).get("ok") is True for j in current)'
+  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; current=[j for j in jobs if j.get("status")=="succeeded" and j.get("generator_git_commit")=="4786338b827315c3a06c1abefe33b94c25c24d7c"]; assert current; assert all(j.get("integration_contract")=="synsigra_core_integration_v7" and j.get("generator_build_identity")=="signal_synth/"+j["generator_git_commit"] and j.get("generator_binary_sha256","").startswith("sha256:") and len(j["generator_binary_sha256"])==71 and j.get("challenge",{}).get("challenge_contract")=="synsigra_challenge_package_v3" and j.get("challenge",{}).get("scoring_manifest_contract")=="synsigra_scoring_manifest_v3" and j.get("challenge",{}).get("submission_contract")=="synsigra_submission_v1" and j.get("challenge",{}).get("submission_formats_contract")=="synsigra_submission_formats_v2" and j.get("challenge",{}).get("measurement_values_contract")=="synsigra_measurement_values_v2" and j.get("challenge",{}).get("measurement_truth_contract")=="synsigra_measurement_truth_v2" and j.get("challenge",{}).get("measurement_scoring_contract")=="synsigra_measurement_score_v2" and j.get("challenge",{}).get("local_verification_contract")=="synsigra_local_verification_v3" and j.get("challenge",{}).get("verification",{}).get("mode") in ("evidence","diagnostic") and j.get("challenge",{}).get("integrity",{}).get("ok") is True for j in current)'
 viewer_job=$(printf '%s' "$jobs" | python3 -c \
-  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; print(next((j["job_id"] for j in jobs if j.get("status")=="succeeded" and j.get("generator_git_commit")=="2531c5c21a1917f9704fa9562d0a32ebacc821da" and j.get("package_id") and j.get("artifact_status")!="expired"), ""))')
+  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; print(next((j["job_id"] for j in jobs if j.get("status")=="succeeded" and j.get("generator_git_commit")=="4786338b827315c3a06c1abefe33b94c25c24d7c" and j.get("package_id") and j.get("artifact_status")!="expired"), ""))')
 if [ -n "$viewer_job" ]; then
   viewer_metadata=$(curl -fsS -H "Authorization: Bearer $key" \
     "$base/v1/jobs/$viewer_job/viewer")
@@ -139,7 +139,7 @@ if [ -n "$viewer_job" ]; then
 fi
 printf 'check=artifact-delivery\n'
 artifact_pair=$(printf '%s' "$jobs" | python3 -c \
-  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; j=next((j for j in jobs if j.get("status")=="succeeded" and j.get("generator_git_commit")=="2531c5c21a1917f9704fa9562d0a32ebacc821da" and j.get("package_id") and j.get("artifact_status")!="expired"), {}); print(j.get("job_id",""), j.get("package_id",""))')
+  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; j=next((j for j in jobs if j.get("status")=="succeeded" and j.get("generator_git_commit")=="4786338b827315c3a06c1abefe33b94c25c24d7c" and j.get("package_id") and j.get("artifact_status")!="expired"), {}); print(j.get("job_id",""), j.get("package_id",""))')
 set -- $artifact_pair
 artifact_job=${1:-}
 artifact_package=${2:-}
@@ -177,6 +177,18 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     assert prefix + "challenge-metadata.json" not in names
     manifest = json.loads(archive.read(prefix + "challenge/manifest.json"))
     assert manifest["contract"] == "synsigra_challenge_package_v3"
+    notice = "Synthetic engineering QA evidence; not diagnosis, nor clinical evidence"
+    html_names = sorted(
+        name for name in names
+        if name.startswith(prefix + "challenge/") and name.endswith(".html")
+    )
+    assert html_names
+    for name in html_names:
+        page = archive.read(name).decode("utf-8")
+        assert page.count(notice) == 1, name
+        assert ".notice{border-left:4px solid #6b7280" in page, name
+        assert "background:#f3f4f6" in page, name
+        assert "#fef3f2" not in page, name
 PY
   range_status=$(curl -sS --max-time 60 -o "$artifact_range" -w '%{http_code}' \
     -H "Authorization: Bearer $key" -H 'Range: bytes=0-127' \

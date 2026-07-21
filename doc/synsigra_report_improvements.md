@@ -62,7 +62,8 @@ The complete raw comparison remains embedded once in `evidence.json`.
 
 ## Notice and presentation
 
-Every generated result HTML contains exactly this notice once:
+Every generated result HTML and every human-readable HTML shipped inside the
+challenge contains exactly this notice once:
 
 > Synthetic engineering QA evidence; not diagnosis, nor clinical evidence
 
@@ -112,3 +113,5 @@ Core tests enforce:
 - all ten supported target families render;
 - measurement evidence retains truth, prediction, error and tolerance data;
 - source-tree and installed-wheel verification produce the same v3 contract.
+- challenge index, scenario and characterization HTML use the same single,
+  neutral-gray notice and contain no legacy red disclaimer panel.
