@@ -3,6 +3,7 @@ set -eu
 
 base=${SYN_SIG_RA_BASE_URL:-https://www.timeonion.com/syn_sig_ra}
 public_origin=${SYN_SIG_RA_PUBLIC_ORIGIN:-https://www.timeonion.com}
+repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
 curl -fsS "$base/healthz"
 printf '\n'
@@ -115,8 +116,19 @@ printf '%s' "$packs" | python3 -c \
   'import json,sys; x=json.load(sys.stdin); p=x["packs"]; assert len(p)==18; assert all(v["catalog_version"]=="3.0" and v["catalog_source_sha256"]=="sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510" and v["integration_contract"]=="synsigra_core_integration_v7" and v["generator_compatibility"]["challenge_package_contract"]=="synsigra_challenge_package_v3" and v["generator_compatibility"]["scoring_manifest_contract"]=="synsigra_scoring_manifest_v3" and v["generator_compatibility"]["submission_contract"]=="synsigra_submission_v1" and v["generator_compatibility"]["verification_protocol_contract"]=="synsigra_verification_protocol_v2" for v in p)'
 jobs=$(curl -fsS -H "Authorization: Bearer $key" \
   "$base/v1/jobs?limit=100&offset=0")
+usable_current_job=$(printf '%s' "$jobs" | python3 -c \
+  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; print(next((j["job_id"] for j in jobs if j.get("status")=="succeeded" and j.get("generator_git_commit")=="acea9910e1daaf9eec37a78b404cb12b6f24a61f" and j.get("package_id") and j.get("artifact_status")!="expired"), ""))')
+if [ -z "$usable_current_job" ]; then
+  printf 'check=create-current-core-smoke-job\n'
+  python3 "$repo_dir/scripts/stress_live_packs.py" \
+    --base-url "$base" \
+    --pack-id r_peak_rr_noise_v1 \
+    --keep-jobs
+  jobs=$(curl -fsS -H "Authorization: Bearer $key" \
+    "$base/v1/jobs?limit=100&offset=0")
+fi
 printf '%s' "$jobs" | python3 -c \
-  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; current=[j for j in jobs if j.get("status")=="succeeded" and j.get("generator_git_commit")=="acea9910e1daaf9eec37a78b404cb12b6f24a61f"]; assert current; assert all(j.get("integration_contract")=="synsigra_core_integration_v7" and j.get("generator_build_identity")=="signal_synth/"+j["generator_git_commit"] and j.get("generator_binary_sha256","").startswith("sha256:") and len(j["generator_binary_sha256"])==71 and j.get("challenge",{}).get("challenge_contract")=="synsigra_challenge_package_v3" and j.get("challenge",{}).get("scoring_manifest_contract")=="synsigra_scoring_manifest_v3" and j.get("challenge",{}).get("submission_contract")=="synsigra_submission_v1" and j.get("challenge",{}).get("submission_formats_contract")=="synsigra_submission_formats_v2" and j.get("challenge",{}).get("measurement_values_contract")=="synsigra_measurement_values_v2" and j.get("challenge",{}).get("measurement_truth_contract")=="synsigra_measurement_truth_v2" and j.get("challenge",{}).get("measurement_scoring_contract")=="synsigra_measurement_score_v2" and j.get("challenge",{}).get("local_verification_contract")=="synsigra_local_verification_v3" and j.get("challenge",{}).get("verification",{}).get("mode") in ("evidence","diagnostic") and j.get("challenge",{}).get("integrity",{}).get("ok") is True for j in current)'
+  'import json,sys; jobs=json.load(sys.stdin)["jobs"]; current=[j for j in jobs if j.get("status")=="succeeded" and j.get("generator_git_commit")=="acea9910e1daaf9eec37a78b404cb12b6f24a61f"]; assert current and any(j.get("package_id") and j.get("artifact_status")!="expired" for j in current); assert all(j.get("integration_contract")=="synsigra_core_integration_v7" and j.get("generator_build_identity")=="signal_synth/"+j["generator_git_commit"] and j.get("generator_binary_sha256","").startswith("sha256:") and len(j["generator_binary_sha256"])==71 and j.get("challenge",{}).get("challenge_contract")=="synsigra_challenge_package_v3" and j.get("challenge",{}).get("scoring_manifest_contract")=="synsigra_scoring_manifest_v3" and j.get("challenge",{}).get("submission_contract")=="synsigra_submission_v1" and j.get("challenge",{}).get("submission_formats_contract")=="synsigra_submission_formats_v2" and j.get("challenge",{}).get("measurement_values_contract")=="synsigra_measurement_values_v2" and j.get("challenge",{}).get("measurement_truth_contract")=="synsigra_measurement_truth_v2" and j.get("challenge",{}).get("measurement_scoring_contract")=="synsigra_measurement_score_v2" and j.get("challenge",{}).get("local_verification_contract")=="synsigra_local_verification_v3" and j.get("challenge",{}).get("verification",{}).get("mode") in ("evidence","diagnostic") and j.get("challenge",{}).get("integrity",{}).get("ok") is True for j in current)'
 viewer_job=$(printf '%s' "$jobs" | python3 -c \
   'import json,sys; jobs=json.load(sys.stdin)["jobs"]; print(next((j["job_id"] for j in jobs if j.get("status")=="succeeded" and j.get("generator_git_commit")=="acea9910e1daaf9eec37a78b404cb12b6f24a61f" and j.get("package_id") and j.get("artifact_status")!="expired"), ""))')
 if [ -n "$viewer_job" ]; then
