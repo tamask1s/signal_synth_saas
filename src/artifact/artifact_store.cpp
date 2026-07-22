@@ -1,5 +1,6 @@
 #include "syn_sig_ra/artifact_store.h"
 
+#include "syn_sig_ra/build_info.h"
 #include "syn_sig_ra/random_id.h"
 #include "syn_sig_ra/sha256.h"
 #include "syn_sig_ra/signal_viewer.h"
@@ -555,7 +556,7 @@ bool valid_challenge_metadata(const std::string& text) {
             "synsigra_saas_challenge_metadata_v1" &&
         json_is_string(json_object_get(root, "verifier_version")) &&
         std::string(json_string_value(json_object_get(root, "verifier_version"))) ==
-            "0.11.0" &&
+            SYN_SIG_RA_EXPECTED_PYTHON_VERIFIER &&
         json_is_string(json_object_get(root, "challenge_contract")) &&
         std::string(json_string_value(json_object_get(root, "challenge_contract"))) ==
             "synsigra_challenge_package_v3" &&

@@ -20,9 +20,8 @@ import zipfile
 import synsigra
 
 
-VERIFIER_VERSION = "0.11.0"
 KIT_CONTRACT = "synsigra_verification_kit_v3"
-CORE_COMMIT = "acea9910e1daaf9eec37a78b404cb12b6f24a61f"
+CORE_COMMIT = "fed2f39355b40627edfbf83d36498f95cc097325"
 MEASUREMENT_COLUMNS = [
     "name", "value", "unit", "status", "scope", "time_seconds",
     "beat_index", "window_start_seconds", "window_end_seconds", "channel",
@@ -35,6 +34,9 @@ def _verifier_version():
         return importlib.metadata.version("synsigra")
     except importlib.metadata.PackageNotFoundError as error:
         raise RuntimeError("the Synsigra verifier wheel metadata is unavailable") from error
+
+
+VERIFIER_VERSION = _verifier_version()
 
 
 def _require(condition, message):
@@ -439,7 +441,7 @@ def _kit_readme(metadata):
     return """Synsigra generator-free verification kit
 
 1. Install the Synsigra verifier wheel downloaded from the product UI:
-   python -m pip install synsigra-0.11.0-py3-none-any.whl
+   python -m pip install synsigra-{version}-py3-none-any.whl
 2. Replace the placeholder algorithm name/version and example output rows in
    submission/. Keep submission.json paths, target names and formats unchanged.
 3. Run from this verification-kit directory:
@@ -462,7 +464,7 @@ manifest roles, not filename assumptions. Keep the kit, your algorithm build
 identity/configuration and verification-results together as engineering evidence.
 
 Synthetic engineering QA evidence; not diagnosis, nor clinical evidence.
-""".format(command=command, mode_text=mode_text)
+""".format(command=command, mode_text=mode_text, version=VERIFIER_VERSION)
 
 
 def build_kit(source, destination):

@@ -67,7 +67,7 @@ file(MAKE_DIRECTORY
 find_package(Git QUIET)
 set(
     SYN_SIG_RA_EXPECTED_SIGNAL_SYNTH_COMMIT
-    "acea9910e1daaf9eec37a78b404cb12b6f24a61f"
+    "fed2f39355b40627edfbf83d36498f95cc097325"
     CACHE STRING
     "Exact signal_synth commit accepted by this SaaS release"
     FORCE
@@ -95,6 +95,14 @@ if(NOT SIGNAL_SYNTH_GIT_RESULT EQUAL 0 OR
         "signal_synth must be the clean pinned producer "
         "${SYN_SIG_RA_EXPECTED_SIGNAL_SYNTH_COMMIT}; found ${SIGNAL_SYNTH_GIT_COMMIT}")
 endif()
+
+file(STRINGS "${SIGNAL_SYNTH_ROOT}/setup.cfg" SIGNAL_SYNTH_VERIFIER_LINE
+    REGEX "^version = [0-9]+\\.[0-9]+\\.[0-9]+$" LIMIT_COUNT 1)
+if(NOT SIGNAL_SYNTH_VERIFIER_LINE)
+    message(FATAL_ERROR "Unable to read the pinned Synsigra verifier version")
+endif()
+string(REGEX REPLACE "^version = " ""
+    SYN_SIG_RA_EXPECTED_PYTHON_VERIFIER "${SIGNAL_SYNTH_VERIFIER_LINE}")
 
 set(SYN_SIG_RA_GIT_COMMIT "unknown")
 if(Git_FOUND)

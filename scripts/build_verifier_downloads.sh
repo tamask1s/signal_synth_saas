@@ -5,8 +5,7 @@ repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 signal_synth_root=${SIGNAL_SYNTH_ROOT:-"$repo_dir/../signal_synth"}
 out_dir=${1:-"$repo_dir/downloads/verifier"}
 work_dir=${TMPDIR:-/tmp}/synsigra_verifier_downloads_$$
-expected_core=acea9910e1daaf9eec37a78b404cb12b6f24a61f
-expected_version=0.11.0
+expected_core=fed2f39355b40627edfbf83d36498f95cc097325
 
 cleanup() {
   rm -rf "$work_dir"
@@ -35,14 +34,10 @@ version=$(
     }
   ' "$signal_synth_root/setup.cfg"
 )
-if [ -z "$version" ]; then
+if ! printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
   echo "unable to read synsigra package version from setup.cfg" >&2
   exit 2
 fi
-[ "$version" = "$expected_version" ] || {
-  echo "expected synsigra verifier $expected_version; found $version" >&2
-  exit 2
-}
 
 mkdir -p "$work_dir/dist" "$work_dir/bundle/wheels" "$out_dir"
 python3 - "$signal_synth_root" "$work_dir/dist" "$version" <<'PY'
@@ -121,7 +116,7 @@ cp "$wheel" "$work_dir/bundle/wheels/$wheel_file"
 cat >"$work_dir/bundle/README.md" <<EOF
 # Synsigra local verifier bundle
 
-This bundle contains the generator-free Synsigra 0.11.0 Python verifier.
+This bundle contains the generator-free Synsigra $version Python verifier.
 
 It does not contain the C++ signal generator, generator source code, or any
 tool that can create new challenge packages. It only installs the local

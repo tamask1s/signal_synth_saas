@@ -18,13 +18,13 @@ the pinned CLI. Startup and readiness require:
 - catalog version `3.0`;
 - exactly 18 unique curated packs;
 - catalog source hash
-  `sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510`;
+  `sha256:491598ee6f3296af37c9e4943178d7288da0adbafb75af87625f53e7ce3c8612`;
 - integration `synsigra_core_integration_v7`;
 - challenge `synsigra_challenge_package_v3`;
 - scoring `synsigra_scoring_manifest_v3`;
 - submission `synsigra_submission_v1`;
 - verification protocol `synsigra_verification_protocol_v2`;
-- verifier `0.11.0`;
+- verifier `0.12.0`;
 - only external-noise assets whose release truth allows redistribution.
 
 Each API pack response exposes catalog/release identity, pack fingerprint,

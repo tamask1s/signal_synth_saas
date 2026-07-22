@@ -28,6 +28,7 @@ def main() -> int:
     sub.add_parser("push")
     sub.add_parser("core-refresh")
     sub.add_parser("adopt-core")
+    sub.add_parser("promote-core")
     commit = sub.add_parser("commit")
     issue = commit.add_mutually_exclusive_group(required=True)
     issue.add_argument("--issue", type=int)
@@ -48,6 +49,8 @@ def main() -> int:
         command = [str(ROOT.parent / "signal_synth" / "scripts" / "refresh_curated_release.sh")]
     elif args.action == "adopt-core":
         command = ["scripts/adopt_core_release.py"]
+    elif args.action == "promote-core":
+        command = ["scripts/promote_core_release.py"]
     else:
         if args.issue is not None and args.issue < 1:
             parser.error("issue must be positive")
@@ -55,7 +58,29 @@ def main() -> int:
             parser.error("message must contain 1-160 characters")
         issue_value = str(args.issue) if args.issue is not None else "-"
         command = ["scripts/commit_checked.sh", issue_value, args.message, *args.files]
-    subprocess.run(command, cwd=ROOT, check=True)
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,
+    )
+    if result.returncode:
+        print("\n".join(result.stdout.splitlines()[-100:]), file=sys.stderr)
+        raise subprocess.CalledProcessError(result.returncode, command)
+    useful = [
+        line for line in result.stdout.splitlines()
+        if line.startswith((
+            "core_refresh=", "core_adoption=", "core_promotion=",
+            "core=", "catalog=", "verifier=", "updated_pins=",
+            "release_id=", "release_artifact=", "release_checksum=",
+            "deployed_release=", "rollback_snapshot=", "status=",
+        ))
+    ]
+    if useful:
+        print("\n".join(useful))
+    else:
+        print("workflow={} status=ok".format(args.action))
     return 0
 
 

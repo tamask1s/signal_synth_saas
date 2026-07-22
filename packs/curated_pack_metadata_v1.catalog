@@ -231,6 +231,13 @@
       "changelog": [
         {
           "changes": [
+            "Restored the 25 ms RR MAE gate for standard cases and isolated a 30 ms gate to the -12 dB external_extreme acceptance stratum."
+          ],
+          "date": "2026-07-22",
+          "version": "1.2"
+        },
+        {
+          "changes": [
             "Calibrated the stress-pack aggregate RR MAE limit to 30 ms while retaining the 50 ms p95, per-measurement tolerance, coverage, R-peak and signal-quality gates."
           ],
           "date": "2026-07-22",
@@ -303,7 +310,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.12.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -506,9 +513,9 @@
       "scoring_mode": "local",
       "source": {
         "catalog_path": "examples/catalog/verification_packs_v1.json",
-        "pack_fingerprint": "sha256:3f9570ef4aae956b63144ad0a07c9ac4049cfc6a0def16c69526955749ff82be",
+        "pack_fingerprint": "sha256:82c3e24172a7fbacc8444fd155b4b7ba1ce9243f5738e2f87f4dea0daef01a70",
         "pack_path": "../packs/r_peak_rr_noise_v1.json",
-        "source_content_sha256": "sha256:756e53e2765769ccf7e1646b72c6429eb7bea2f513b23ec0ef0cd20b5ad89036"
+        "source_content_sha256": "sha256:cbb2cee2e6aa6c6bc802d8af9703722e991fa69ba7726b71c77fb35ffae18686"
       },
       "submission_output_schemas": [
         "point_events_json_v1",
@@ -595,9 +602,6 @@
                   }
                 },
                 "rr_interval": {
-                  "mean_absolute_error": {
-                    "max": 0.03
-                  },
                   "p95_absolute_error": {
                     "max": 0.05
                   },
@@ -633,6 +637,54 @@
               }
             }
           },
+          "acceptance_strata": [
+            {
+              "acceptance_profile": {
+                "description": "RR aggregate MAE for all cases except the isolated -12 dB external-noise stress case.",
+                "profile_id": "r_peak_rr_noise_v1_rr_standard",
+                "schema_version": 1,
+                "targets": {
+                  "rr_interval": {
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "clean_70",
+                "slow_45",
+                "fast_120",
+                "baseline_powerline",
+                "dropout_saturation",
+                "analytic_extreme",
+                "external_calibrated"
+              ],
+              "id": "rr_standard_cases"
+            },
+            {
+              "acceptance_profile": {
+                "description": "RR aggregate MAE for the isolated -12 dB external-noise stress case.",
+                "profile_id": "r_peak_rr_noise_v1_rr_external_extreme",
+                "schema_version": 1,
+                "targets": {
+                  "rr_interval": {
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.03
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "external_extreme"
+              ],
+              "id": "rr_external_extreme"
+            }
+          ],
           "context_of_use": "Deterministic synthetic engineering QA for ECG R-peak detection and observable R-R interval reconstruction under controlled acquisition disturbances.",
           "contract": "synsigra_verification_protocol_v2",
           "evidence_boundary": "Synthetic engineering evidence only; not FDA qualification, clinical validation, diagnostic performance evidence, or a substitute for sponsor-specific risk analysis and representative clinical data.",
@@ -734,10 +786,10 @@
             "rr_definition": "Difference between consecutive present-QRS construction R-peak times inside the record."
           }
         },
-        "source_content_sha256": "sha256:840ab6c27fba30c7160b0c066eaeb22f0c018f34986b8eaabcb736cbe47899c9",
+        "source_content_sha256": "sha256:f6193b31ce280bcd56b5fd1d4b2c93dd38633667c0b0e08d0d94108d9e06f28f",
         "source_path": "examples/packs/r_peak_rr_noise_v1_expectations.json"
       },
-      "version": "1.1"
+      "version": "1.2"
     },
     {
       "case_count": 12,
@@ -8979,5 +9031,5 @@
   "release_set_id": "synsigra_curated_release_2026_07_18",
   "release_set_status": "beta",
   "schema_version": 1,
-  "source_catalog_sha256": "sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510"
+  "source_catalog_sha256": "sha256:491598ee6f3296af37c9e4943178d7288da0adbafb75af87625f53e7ce3c8612"
 }

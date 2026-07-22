@@ -1,5 +1,6 @@
 #include "syn_sig_ra/pack_catalog.h"
 
+#include "syn_sig_ra/build_info.h"
 #include "ecg_pack.h"
 
 #include <jansson.h>
@@ -17,6 +18,42 @@
 namespace {
 
 const std::size_t kMaximumPackBytes = 16u * 1024u * 1024u;
+
+bool parse_semantic_version(
+    const std::string& value,
+    int& major,
+    int& minor,
+    int& patch
+) {
+    char first_dot = 0;
+    char second_dot = 0;
+    std::istringstream input(value);
+    if (!(input >> major >> first_dot >> minor >> second_dot >> patch) ||
+        first_dot != '.' || second_dot != '.' ||
+        major < 0 || minor < 0 || patch < 0) {
+        return false;
+    }
+    return input.peek() == std::char_traits<char>::eof();
+}
+
+bool supported_verifier_minimum(const std::string& required) {
+    int required_major = 0;
+    int required_minor = 0;
+    int required_patch = 0;
+    int current_major = 0;
+    int current_minor = 0;
+    int current_patch = 0;
+    if (!parse_semantic_version(
+            required, required_major, required_minor, required_patch) ||
+        !parse_semantic_version(
+            SYN_SIG_RA_EXPECTED_PYTHON_VERIFIER,
+            current_major, current_minor, current_patch)) {
+        return false;
+    }
+    if (required_major != current_major) return required_major < current_major;
+    if (required_minor != current_minor) return required_minor < current_minor;
+    return required_patch <= current_patch;
+}
 
 bool exact_object(json_t* value, std::size_t size) {
     return json_is_object(value) && json_object_size(value) == size;
@@ -340,7 +377,7 @@ bool curated_pack_ids(
     if (!exact_object(root, 13) ||
         json_string_or_empty(json_object_get(root, "catalog_version")) != "3.0" ||
         json_string_or_empty(json_object_get(root, "source_catalog_sha256")) !=
-            "sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510" ||
+            "sha256:491598ee6f3296af37c9e4943178d7288da0adbafb75af87625f53e7ce3c8612" ||
         !json_is_array(packs) || !json_is_integer(count) ||
         json_integer_value(count) != 18 || json_array_size(packs) != 18) {
         if (root != nullptr) json_decref(root);
@@ -395,7 +432,7 @@ bool load_curated_catalog_metadata(
         json_string_length(json_object_get(root, "release_set_id")) > 0 &&
         valid_sha256(json_object_get(root, "source_catalog_sha256")) &&
         json_string_or_empty(json_object_get(root, "source_catalog_sha256")) ==
-            "sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510" &&
+            "sha256:491598ee6f3296af37c9e4943178d7288da0adbafb75af87625f53e7ce3c8612" &&
         json_is_array(packs) && json_is_integer(pack_count) &&
         json_integer_value(pack_count) == 18 && json_array_size(packs) == 18;
     if (!header_valid) {
@@ -514,6 +551,8 @@ bool load_curated_catalog_metadata(
     json_t* estimated = json_object_get(match, "estimated_package");
     json_t* channels = json_object_get(match, "channels");
     json_t* compatibility = json_object_get(match, "generator_compatibility");
+    const std::string local_verifier_min_version = json_string_or_empty(
+        json_object_get(compatibility, "local_verifier_min_version"));
     std::vector<int> scenario_versions;
     if (!json_is_object(duration) || !json_is_object(estimated) ||
         !json_is_object(channels) || !exact_object(compatibility, 8) ||
@@ -525,7 +564,7 @@ bool load_curated_catalog_metadata(
         json_string_or_empty(json_object_get(compatibility, "scoring_manifest_contract")) != "synsigra_scoring_manifest_v3" ||
         json_string_or_empty(json_object_get(compatibility, "submission_contract")) != "synsigra_submission_v1" ||
         json_string_or_empty(json_object_get(compatibility, "verification_protocol_contract")) != "synsigra_verification_protocol_v2" ||
-        json_string_or_empty(json_object_get(compatibility, "local_verifier_min_version")) != "0.11.0") {
+        !supported_verifier_minimum(local_verifier_min_version)) {
         json_decref(root);
         error = "curated pack generator compatibility is not the v7 tuple";
         return false;
@@ -545,7 +584,7 @@ bool load_curated_catalog_metadata(
     pack.estimated_package_bytes = integer_field(estimated, "bytes");
     pack.peak_memory_bytes = integer_field(estimated, "peak_memory_bytes");
     pack.package_size_class = json_string_or_empty(json_object_get(estimated, "size_class"));
-    pack.local_verifier_min_version = "0.11.0";
+    pack.local_verifier_min_version = local_verifier_min_version;
     pack.challenge_package_contract = "synsigra_challenge_package_v3";
     pack.scoring_manifest_contract = "synsigra_scoring_manifest_v3";
     pack.submission_contract = "synsigra_submission_v1";

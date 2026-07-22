@@ -205,7 +205,7 @@ int main() {
         "print(json.dumps({"
         "'schema_version':1,"
         "'contract':'synsigra_saas_challenge_metadata_v1',"
-        "'verifier_version':'0.11.0',"
+        "'verifier_version':'0.12.0',"
         "'challenge_contract':'synsigra_challenge_package_v3',"
         "'scoring_manifest_contract':'synsigra_scoring_manifest_v3',"
         "'submission_contract':'synsigra_submission_v1',"
@@ -277,7 +277,7 @@ int main() {
             fingerprint,
             "1.0",
             "3.0",
-            "sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510",
+            "sha256:491598ee6f3296af37c9e4943178d7288da0adbafb75af87625f53e7ce3c8612",
             succeeded_job,
             error
         ),
@@ -630,7 +630,7 @@ int main() {
             fingerprint,
             "1.0",
             "3.0",
-            "sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510",
+            "sha256:491598ee6f3296af37c9e4943178d7288da0adbafb75af87625f53e7ce3c8612",
             failed_job,
             error
         ),

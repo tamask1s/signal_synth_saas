@@ -755,7 +755,7 @@ for key in ("package_fingerprint", "generator_binary_sha256"):
         raise SystemExit("invalid " + key)
 if body.get("integration_contract") != "synsigra_core_integration_v7":
     raise SystemExit("invalid integration contract")
-if body.get("generator_git_commit") != "acea9910e1daaf9eec37a78b404cb12b6f24a61f":
+if body.get("generator_git_commit") != "fed2f39355b40627edfbf83d36498f95cc097325":
     raise SystemExit("invalid pinned generator commit")
 challenge = body.get("challenge", {})
 if challenge.get("challenge_contract") != "synsigra_challenge_package_v3":
@@ -826,7 +826,7 @@ if not downloads.get("verification_kit_url", "").endswith(
         "/v1/jobs/" + sys.argv[2] + "/verification-kit.zip"):
     raise SystemExit("guide omitted the direct kit URL")
 if not downloads.get("verifier_wheel_url", "").endswith(
-        "/v1/downloads/verifier/synsigra-0.11.0-py3-none-any.whl"):
+        "/v1/downloads/verifier/synsigra-0.12.0-py3-none-any.whl"):
     raise SystemExit("guide omitted the canonical verifier wheel URL")
 report = guide.get("result", {})
 if report.get("entrypoint") != "verification-results/index.html" or \
@@ -1039,7 +1039,7 @@ if metadata.get("package") != "synsigra":
 if metadata.get("generator_included") is not False:
     raise SystemExit("verifier download must not include generator")
 for key, value in {
-    "version": "0.11.0",
+    "version": "0.12.0",
     "measurement_values_contract": "synsigra_measurement_values_v2",
     "measurement_truth_contract": "synsigra_measurement_truth_v2",
     "measurement_scoring_contract": "synsigra_measurement_score_v2",
@@ -1048,7 +1048,7 @@ for key, value in {
     if metadata.get(key) != value:
         raise SystemExit("verifier metadata mismatch: " + key)
 files = {item.get("filename") for item in metadata.get("files", [])}
-if "synsigra-verifier.zip" not in files or "synsigra-0.11.0-py3-none-any.whl" not in files:
+if "synsigra-verifier.zip" not in files or "synsigra-0.12.0-py3-none-any.whl" not in files:
     raise SystemExit("expected verifier bundle and wheel metadata")
 PY
     fail "verifier download metadata validation failed"
@@ -1236,7 +1236,7 @@ if body.get("status") != "succeeded":
     raise SystemExit("custom pack job did not succeed")
 if body.get("integration_contract") != "synsigra_core_integration_v7":
     raise SystemExit("custom pack job used the wrong integration contract")
-if body.get("generator_git_commit") != "acea9910e1daaf9eec37a78b404cb12b6f24a61f":
+if body.get("generator_git_commit") != "fed2f39355b40627edfbf83d36498f95cc097325":
     raise SystemExit("custom pack job used the wrong generator commit")
 challenge = body.get("challenge", {})
 for key, value in {

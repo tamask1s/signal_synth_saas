@@ -140,7 +140,7 @@ def list_packs(client: Client, selected: list[str]) -> list[dict[str, Any]]:
     for pack in valid:
         if pack.get("catalog_version") != "3.0":
             raise RuntimeError("pack list contains a non-3.0 catalog entry")
-        if pack.get("catalog_source_sha256") != "sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510":
+        if pack.get("catalog_source_sha256") != "sha256:491598ee6f3296af37c9e4943178d7288da0adbafb75af87625f53e7ce3c8612":
             raise RuntimeError("pack list contains an unexpected catalog hash")
         if pack.get("integration_contract") != "synsigra_core_integration_v7":
             raise RuntimeError("pack list contains a non-v7 entry")
@@ -207,20 +207,20 @@ def validate_zip(path: pathlib.Path, required_members: list[str] | None = None) 
 def validate_job(job: dict[str, Any], pack: dict[str, Any]) -> None:
     if job.get("integration_contract") != "synsigra_core_integration_v7":
         raise RuntimeError("job has the wrong integration contract")
-    if job.get("generator_git_commit") != "acea9910e1daaf9eec37a78b404cb12b6f24a61f":
+    if job.get("generator_git_commit") != "fed2f39355b40627edfbf83d36498f95cc097325":
         raise RuntimeError("job was not rendered by the pinned generator")
     if job.get("pack_version") != pack.get("version"):
         raise RuntimeError("job pack version differs from the selected catalog entry")
     catalog = job.get("catalog")
     if not isinstance(catalog, dict) or catalog.get("version") != "3.0":
         raise RuntimeError("job does not preserve catalog 3.0 identity")
-    if catalog.get("source_sha256") != "sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510":
+    if catalog.get("source_sha256") != "sha256:491598ee6f3296af37c9e4943178d7288da0adbafb75af87625f53e7ce3c8612":
         raise RuntimeError("job has the wrong catalog hash")
     challenge = job.get("challenge")
     if not isinstance(challenge, dict):
         raise RuntimeError("job has no normalized challenge metadata")
     expected = {
-        "verifier_version": "0.11.0",
+        "verifier_version": "0.12.0",
         "challenge_contract": "synsigra_challenge_package_v3",
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",

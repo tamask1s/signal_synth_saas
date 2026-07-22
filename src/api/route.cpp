@@ -2098,7 +2098,7 @@ const char kQuickstartHtml[] = R"HTML(<!doctype html>
         <li>Copy the exact <code>synsigra-verify</code> command from the runbook. The extracted kit directory itself is the challenge package.</li>
         <li>Open <code>verification-results/index.html</code>; it links every case-target detail page. Archive it with the single canonical <code>evidence.json</code>.</li>
       </ol>
-      <pre class="output">python -m pip install synsigra-0.11.0-py3-none-any.whl
+      <pre class="output">python -m pip install synsigra-__SYNSIGRA_VERIFIER_VERSION__-py3-none-any.whl
 unzip "job_123-verification-kit.zip" -d synsigra-kit
 cd synsigra-kit/verification-kit
 synsigra-verify challenge submission verification-results --force</pre>
@@ -5701,7 +5701,7 @@ const char kUiJs[] = R"JS((() => {
         <p><strong>Scoreable targets:</strong> ${escapeHtml(scoreable.join(", "))}</p>
         <p><strong>Reference-only targets:</strong> ${escapeHtml(referenceOnly.join(", ") || "none")}</p>
         <p>Download the verification kit, run your proprietary algorithm locally, then replace only the example algorithm identity and output rows under <code>submission/</code>. Keep every declared path, target and format unchanged.</p>
-        <pre class="output">python -m pip install synsigra-0.11.0-py3-none-any.whl</pre>
+        <pre class="output">python -m pip install synsigra-__SYNSIGRA_VERIFIER_VERSION__-py3-none-any.whl</pre>
         <p>Role-selected submission layout:</p>
         <pre class="output">${escapeHtml(submissionShape(context))}</pre>
         <p><strong>${context.evidenceEligible ? "Evidence mode" : "Diagnostic mode — not evidence"}:</strong> ${context.evidenceEligible ? "the packaged protocol fixes the complete case-target matrix and numeric policy; do not add overrides." : "this package has no protocol v2, so the verifier must run explicitly in non-evidence diagnostic mode."}</p>
@@ -5771,7 +5771,7 @@ const char kUiJs[] = R"JS((() => {
     const referenceOnly = context.referenceOnly;
     const installCommands = state.verifierDownloads && state.verifierDownloads.install
       ? state.verifierDownloads.install.join("\n")
-      : "python -m pip install synsigra-0.11.0-py3-none-any.whl\nsynsigra-verify --help";
+      : "python -m pip install synsigra-__SYNSIGRA_VERIFIER_VERSION__-py3-none-any.whl\nsynsigra-verify --help";
     const scoreableSteps = scoreable.length ? `
       <li>
         <strong>Produce the declared local submission.</strong>
@@ -9738,7 +9738,9 @@ RouteResponse route_request(
         response.status = 200;
         response.content_type = "text/html; charset=utf-8";
         if (uri == public_base_path + "/docs/quickstart") {
-            response.body = kQuickstartHtml;
+            response.body = replace_all(
+                kQuickstartHtml, "__SYNSIGRA_VERIFIER_VERSION__",
+                SYN_SIG_RA_EXPECTED_PYTHON_VERIFIER);
         } else if (uri == public_base_path + "/docs/api") {
             response.body = kApiDocsHtml;
         } else {
@@ -9789,7 +9791,9 @@ RouteResponse route_request(
             response.body = kUiCss;
         } else {
             response.content_type = "application/javascript; charset=utf-8";
-            response.body = kUiJs;
+            response.body = replace_all(
+                kUiJs, "__SYNSIGRA_VERIFIER_VERSION__",
+                SYN_SIG_RA_EXPECTED_PYTHON_VERIFIER);
         }
         return response;
     }

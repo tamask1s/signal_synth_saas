@@ -28,7 +28,7 @@ const char kMeasurementScoring[] = "synsigra_measurement_score_v2";
 const char kLocalVerification[] = "synsigra_local_verification_v3";
 const char kAuthoring[] = "synsigra_authoring_v18";
 const char kTemplates[] = "synsigra_templates_v5";
-const char kPythonVerifier[] = "0.11.0";
+const char kPythonVerifier[] = SYN_SIG_RA_EXPECTED_PYTHON_VERIFIER;
 const char kExternalNoiseTruth[] = "synsigra_external_noise_truth_v1";
 
 bool exact_object(json_t* value, std::size_t size) {

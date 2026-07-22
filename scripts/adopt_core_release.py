@@ -1,38 +1,73 @@
 #!/usr/bin/env python3
-"""Adopt the clean sibling signal_synth HEAD and its curated release set.
+"""Adopt the clean, pushed sibling signal_synth HEAD as one transaction.
 
-The workflow has intentionally no arbitrary command or path arguments. It
-updates the exact producer and catalog pins already tracked by this repository,
-builds a fresh core CLI serially, verifies its embedded identity, and performs
-a clean curated-pack import.
+The workflow has no arbitrary command or path arguments. It builds and
+validates the new producer first, imports packs into a staging directory, and
+only then updates tracked SaaS files. Successful runs are quiet; failures show
+the last useful log lines and restore the original checkout.
 """
 
 import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CORE = ROOT.parent / "signal_synth"
 CORE_BUILD = ROOT / "build" / "signal_synth_live"
 PIN_FILE = ROOT / "CMakeLists.txt"
-CATALOG_FILE = ROOT / "packs" / "curated_pack_metadata_v1.catalog"
+PACK_ROOT = ROOT / "packs"
+CATALOG_FILE = PACK_ROOT / "curated_pack_metadata_v1.catalog"
 CORE_METADATA = CORE / "examples" / "catalog" / "curated_pack_metadata_v1.json"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
+VERSION = re.compile(r"^version = ([0-9]+\.[0-9]+\.[0-9]+)$", re.MULTILINE)
+VERIFIER_VERSION_FILES = tuple(
+    ROOT / value for value in (
+        "README.md",
+        "doc/API_GUIDE.md",
+        "doc/PACK_CATALOG.md",
+        "doc/PRODUCT_CAPABILITIES.md",
+        "doc/openapi.yaml",
+        "scripts/stress_live_packs.py",
+        "scripts/verify_live.sh",
+        "test/integration/e2e_smoke.sh",
+        "test/unit/mcp_server_test.cpp",
+        "test/unit/route_test.cpp",
+        "test/unit/worker_test.cpp",
+    )
+)
+
+
+def command_text(command):
+    return " ".join(str(value) for value in command)
 
 
 def run(command, cwd=ROOT):
-    subprocess.run([str(value) for value in command], cwd=str(cwd), check=True)
+    result = subprocess.run(
+        [str(value) for value in command],
+        cwd=str(cwd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,
+    )
+    if result.returncode:
+        tail = "\n".join(result.stdout.splitlines()[-80:])
+        raise RuntimeError(
+            "command failed ({}): {}\n{}".format(
+                result.returncode, command_text(command), tail
+            ).rstrip()
+        )
+    return result.stdout
 
 
 def output(command, cwd=ROOT):
-    return subprocess.check_output(
-        [str(value) for value in command], cwd=str(cwd), universal_newlines=True
-    ).strip()
+    return run(command, cwd).strip()
 
 
 def read_json(path):
@@ -55,6 +90,13 @@ def current_core_pin():
     return match.group(1)
 
 
+def verifier_version(setup_text, label):
+    match = VERSION.search(setup_text)
+    if not match:
+        raise RuntimeError("unable to read {} verifier version".format(label))
+    return match.group(1)
+
+
 def tracked_files_containing(value):
     result = subprocess.run(
         ["git", "grep", "-l", "-F", "--", value],
@@ -68,12 +110,9 @@ def tracked_files_containing(value):
     return [ROOT / line for line in result.stdout.splitlines() if line]
 
 
-def replace_tracked(old, new, label):
+def replace_paths(paths, old, new, label, required=True):
     if old == new:
         return 0
-    paths = tracked_files_containing(old)
-    if not paths:
-        raise RuntimeError("the old {} pin is not present in tracked files".format(label))
     old_bytes = old.encode("ascii")
     new_bytes = new.encode("ascii")
     count = 0
@@ -83,6 +122,8 @@ def replace_tracked(old, new, label):
         if occurrences:
             path.write_bytes(content.replace(old_bytes, new_bytes))
             count += occurrences
+    if required and not count:
+        raise RuntimeError("the old {} pin is not present".format(label))
     return count
 
 
@@ -91,6 +132,15 @@ def positive_build_jobs():
     if not value.isdigit() or int(value) < 1:
         raise RuntimeError("BUILD_JOBS must be a positive integer")
     return value
+
+
+def restore_checkout(file_backups, pack_backup):
+    if PACK_ROOT.exists():
+        shutil.rmtree(str(PACK_ROOT))
+    shutil.copytree(str(pack_backup), str(PACK_ROOT))
+    for path, content in file_backups.items():
+        if PACK_ROOT not in path.parents:
+            path.write_bytes(content)
 
 
 def main():
@@ -103,16 +153,19 @@ def main():
     new_core = output(["git", "rev-parse", "HEAD"], CORE)
     if not HEX40.fullmatch(new_core):
         raise RuntimeError("signal_synth HEAD is not a full Git commit")
+    if old_core == new_core:
+        raise RuntimeError("signal_synth HEAD is already adopted")
+    if output(["git", "rev-parse", "origin/master"], CORE) != new_core:
+        raise RuntimeError("signal_synth HEAD must be pushed to origin/master first")
 
     old_catalog = read_json(CATALOG_FILE)["source_catalog_sha256"]
     new_catalog = read_json(CORE_METADATA)["source_catalog_sha256"]
     if not SHA256.fullmatch(old_catalog) or not SHA256.fullmatch(new_catalog):
         raise RuntimeError("curated catalog SHA-256 is malformed")
-
-    core_replacements = replace_tracked(old_core, new_core, "core commit")
-    catalog_replacements = replace_tracked(
-        old_catalog, new_catalog, "curated catalog"
-    )
+    old_setup = output(["git", "show", old_core + ":setup.cfg"], CORE)
+    new_setup = (CORE / "setup.cfg").read_text(encoding="utf-8")
+    old_verifier = verifier_version(old_setup, "old core")
+    new_verifier = verifier_version(new_setup, "new core")
 
     jobs = positive_build_jobs()
     run([
@@ -134,29 +187,61 @@ def main():
     if generator.get("build_identity") != "signal_synth/" + new_core:
         raise RuntimeError("fresh core CLI build identity is inconsistent")
 
-    run([
-        sys.executable,
-        ROOT / "scripts" / "import_curated_release_set.py",
-        "--metadata", CORE_METADATA,
-        "--source-root", CORE,
-        "--out", ROOT / "packs",
-        "--signal-synth-cli", cli,
-        "--clean",
-    ])
+    with tempfile.TemporaryDirectory(prefix="synsigra-core-adopt-") as temporary:
+        temporary_root = pathlib.Path(temporary)
+        staged_packs = temporary_root / "packs"
+        pack_backup = temporary_root / "old-packs"
+        run([
+            sys.executable,
+            ROOT / "scripts" / "import_curated_release_set.py",
+            "--metadata", CORE_METADATA,
+            "--source-root", CORE,
+            "--out", staged_packs,
+            "--signal-synth-cli", cli,
+            "--clean",
+        ])
+        if read_json(staged_packs / CATALOG_FILE.name).get(
+                "source_catalog_sha256") != new_catalog:
+            raise RuntimeError("staged catalog does not match the core release set")
 
-    imported = read_json(CATALOG_FILE)
-    if imported.get("source_catalog_sha256") != new_catalog:
-        raise RuntimeError("imported catalog does not match the core release set")
-    if tracked_files_containing(old_core) and old_core != new_core:
-        raise RuntimeError("stale core commit pins remain after adoption")
-    if tracked_files_containing(old_catalog) and old_catalog != new_catalog:
-        raise RuntimeError("stale catalog pins remain after adoption")
-    run(["git", "diff", "--check"])
+        core_paths = tracked_files_containing(old_core)
+        catalog_paths = tracked_files_containing(old_catalog)
+        changed_paths = set(core_paths + catalog_paths + list(VERIFIER_VERSION_FILES))
+        file_backups = dict((path, path.read_bytes()) for path in changed_paths)
+        shutil.copytree(str(PACK_ROOT), str(pack_backup))
+        try:
+            core_replacements = replace_paths(
+                core_paths, old_core, new_core, "core commit")
+            catalog_replacements = replace_paths(
+                catalog_paths, old_catalog, new_catalog, "curated catalog")
+            verifier_replacements = replace_paths(
+                VERIFIER_VERSION_FILES,
+                old_verifier,
+                new_verifier,
+                "verifier version",
+                required=old_verifier != new_verifier,
+            )
+            shutil.rmtree(str(PACK_ROOT))
+            shutil.copytree(str(staged_packs), str(PACK_ROOT))
 
-    print("adopted signal_synth {} -> {}".format(old_core, new_core))
-    print("adopted catalog {} -> {}".format(old_catalog, new_catalog))
-    print("updated {} commit and {} catalog pin occurrences".format(
-        core_replacements, catalog_replacements
+            imported = read_json(CATALOG_FILE)
+            if imported.get("source_catalog_sha256") != new_catalog:
+                raise RuntimeError("imported catalog does not match the core release set")
+            if tracked_files_containing(old_core):
+                raise RuntimeError("stale core commit pins remain after adoption")
+            if old_catalog != new_catalog and tracked_files_containing(old_catalog):
+                raise RuntimeError("stale catalog pins remain after adoption")
+            run(["git", "diff", "--check"])
+        except Exception:
+            restore_checkout(file_backups, pack_backup)
+            raise
+
+    print("core_adoption=ok")
+    print("core={} -> {}".format(old_core, new_core))
+    print("catalog={} -> {}".format(old_catalog, new_catalog))
+    print("verifier={} -> {}".format(old_verifier, new_verifier))
+    print("updated_pins={}/{}/{}".format(
+        core_replacements, catalog_replacements, verifier_replacements
     ))
     return 0
 
