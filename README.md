@@ -362,7 +362,7 @@ file, wall-time, and no-network worker bounds are enforced.
 
 This release intentionally has no old core compatibility layer. It requires the
 clean sibling checkout `../signal_synth` at commit
-`4786338b827315c3a06c1abefe33b94c25c24d7c` and the exact tuple:
+`acea9910e1daaf9eec37a78b404cb12b6f24a61f` and the exact tuple:
 
 - generator `0.10.0-dev`, C++ facade `1.5.0`;
 - integration `synsigra_core_integration_v7`, pack schema `2`;
@@ -378,7 +378,7 @@ clean sibling checkout `../signal_synth` at commit
 - verifier `0.11.0`, external-noise truth
   `synsigra_external_noise_truth_v1`;
 - curated catalog `3.0` with 18 packs and source hash
-  `sha256:3a8b53b43dbecdeb834ed3faf0fddb8a859464ff4b822caaaa31830f5a06c88f`.
+  `sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510`.
 
 Configuration, startup, readiness, worker post-render validation, and release
 verification fail closed if these identities diverge. `/readyz` publishes the

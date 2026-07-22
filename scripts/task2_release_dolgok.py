@@ -29,7 +29,9 @@ def main() -> int:
     sub.add_parser("core-refresh")
     sub.add_parser("adopt-core")
     commit = sub.add_parser("commit")
-    commit.add_argument("--issue", required=True, type=int)
+    issue = commit.add_mutually_exclusive_group(required=True)
+    issue.add_argument("--issue", type=int)
+    issue.add_argument("--no-issue", action="store_true")
     commit.add_argument("--message", required=True)
     commit.add_argument("files", nargs="+", type=safe_repo_file)
     args = parser.parse_args()
@@ -47,9 +49,12 @@ def main() -> int:
     elif args.action == "adopt-core":
         command = ["scripts/adopt_core_release.py"]
     else:
-        if args.issue < 1 or len(args.message) > 160 or not args.message.strip():
-            parser.error("issue must be positive and message must contain 1-160 characters")
-        command = ["scripts/commit_checked.sh", str(args.issue), args.message, *args.files]
+        if args.issue is not None and args.issue < 1:
+            parser.error("issue must be positive")
+        if len(args.message) > 160 or not args.message.strip():
+            parser.error("message must contain 1-160 characters")
+        issue_value = str(args.issue) if args.issue is not None else "-"
+        command = ["scripts/commit_checked.sh", issue_value, args.message, *args.files]
     subprocess.run(command, cwd=ROOT, check=True)
     return 0
 

@@ -22,7 +22,7 @@ import synsigra
 
 VERIFIER_VERSION = "0.11.0"
 KIT_CONTRACT = "synsigra_verification_kit_v3"
-CORE_COMMIT = "4786338b827315c3a06c1abefe33b94c25c24d7c"
+CORE_COMMIT = "acea9910e1daaf9eec37a78b404cb12b6f24a61f"
 MEASUREMENT_COLUMNS = [
     "name", "value", "unit", "status", "scope", "time_seconds",
     "beat_index", "window_start_seconds", "window_end_seconds", "channel",

@@ -55,8 +55,8 @@ bool complete_next_job(
         "synsigra_core_integration_v7",
         "{}",
         "0.10.0-dev",
-        "4786338b827315c3a06c1abefe33b94c25c24d7c",
-        "signal_synth/4786338b827315c3a06c1abefe33b94c25c24d7c",
+        "acea9910e1daaf9eec37a78b404cb12b6f24a61f",
+        "signal_synth/acea9910e1daaf9eec37a78b404cb12b6f24a61f",
         "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "{}",
         challenge_metadata,
@@ -215,8 +215,8 @@ int main() {
             "{\"pack_id\":\"r_peak_rr_noise_v1\"}",
             "r_peak_rr_noise_v1", "r_peak_rr_noise_v1.json",
             "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-            "1.0", "3.0",
-            "sha256:3a8b53b43dbecdeb834ed3faf0fddb8a859464ff4b822caaaa31830f5a06c88f",
+            "1.1", "3.0",
+            "sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510",
             evidence_job_id, error),
         "evidence MCP fixture should queue: " + error);
     const std::string evidence_metadata =

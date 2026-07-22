@@ -231,6 +231,13 @@
       "changelog": [
         {
           "changes": [
+            "Calibrated the stress-pack aggregate RR MAE limit to 30 ms while retaining the 50 ms p95, per-measurement tolerance, coverage, R-peak and signal-quality gates."
+          ],
+          "date": "2026-07-22",
+          "version": "1.1"
+        },
+        {
+          "changes": [
             "Initial beta pack with exact in-record RR truth, rate boundaries, analytic artifacts and calibrated external noise."
           ],
           "date": "2026-07-18",
@@ -499,9 +506,9 @@
       "scoring_mode": "local",
       "source": {
         "catalog_path": "examples/catalog/verification_packs_v1.json",
-        "pack_fingerprint": "sha256:36193cca74ca8d06c98da145db273841c4c72d67582debade95b1ad0afbf8293",
+        "pack_fingerprint": "sha256:3f9570ef4aae956b63144ad0a07c9ac4049cfc6a0def16c69526955749ff82be",
         "pack_path": "../packs/r_peak_rr_noise_v1.json",
-        "source_content_sha256": "sha256:46253f5b21ce457c2c9422dfe72d4401bb5a2b85e0c72e55e6beb82e292e8f1c"
+        "source_content_sha256": "sha256:756e53e2765769ccf7e1646b72c6429eb7bea2f513b23ec0ef0cd20b5ad89036"
       },
       "submission_output_schemas": [
         "point_events_json_v1",
@@ -589,7 +596,7 @@
                 },
                 "rr_interval": {
                   "mean_absolute_error": {
-                    "max": 0.025
+                    "max": 0.03
                   },
                   "p95_absolute_error": {
                     "max": 0.05
@@ -727,10 +734,10 @@
             "rr_definition": "Difference between consecutive present-QRS construction R-peak times inside the record."
           }
         },
-        "source_content_sha256": "sha256:df62f8e303dd3d7c2bacfd2b2683d7dcd0bbffe86b902e2bbf48cbcabe5d9a1c",
+        "source_content_sha256": "sha256:840ab6c27fba30c7160b0c066eaeb22f0c018f34986b8eaabcb736cbe47899c9",
         "source_path": "examples/packs/r_peak_rr_noise_v1_expectations.json"
       },
-      "version": "1.0"
+      "version": "1.1"
     },
     {
       "case_count": 12,
@@ -8972,5 +8979,5 @@
   "release_set_id": "synsigra_curated_release_2026_07_18",
   "release_set_status": "beta",
   "schema_version": 1,
-  "source_catalog_sha256": "sha256:3a8b53b43dbecdeb834ed3faf0fddb8a859464ff4b822caaaa31830f5a06c88f"
+  "source_catalog_sha256": "sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510"
 }

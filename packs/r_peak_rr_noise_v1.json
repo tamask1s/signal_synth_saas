@@ -80,5 +80,5 @@
     "signal_quality"
   ],
   "verification_protocol_path": "r_peak_rr_noise_v1_expectations.json",
-  "version": "1.0"
+  "version": "1.1"
 }

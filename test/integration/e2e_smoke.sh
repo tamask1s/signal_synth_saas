@@ -755,7 +755,7 @@ for key in ("package_fingerprint", "generator_binary_sha256"):
         raise SystemExit("invalid " + key)
 if body.get("integration_contract") != "synsigra_core_integration_v7":
     raise SystemExit("invalid integration contract")
-if body.get("generator_git_commit") != "4786338b827315c3a06c1abefe33b94c25c24d7c":
+if body.get("generator_git_commit") != "acea9910e1daaf9eec37a78b404cb12b6f24a61f":
     raise SystemExit("invalid pinned generator commit")
 challenge = body.get("challenge", {})
 if challenge.get("challenge_contract") != "synsigra_challenge_package_v3":
@@ -1236,7 +1236,7 @@ if body.get("status") != "succeeded":
     raise SystemExit("custom pack job did not succeed")
 if body.get("integration_contract") != "synsigra_core_integration_v7":
     raise SystemExit("custom pack job used the wrong integration contract")
-if body.get("generator_git_commit") != "4786338b827315c3a06c1abefe33b94c25c24d7c":
+if body.get("generator_git_commit") != "acea9910e1daaf9eec37a78b404cb12b6f24a61f":
     raise SystemExit("custom pack job used the wrong generator commit")
 challenge = body.get("challenge", {})
 for key, value in {

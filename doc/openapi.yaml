@@ -62,8 +62,8 @@ components:
       properties:
         integration_contract: {type: string, enum: [synsigra_core_integration_v7]}
         version: {type: string, enum: [0.10.0-dev]}
-        git_commit: {type: string, enum: [4786338b827315c3a06c1abefe33b94c25c24d7c]}
-        build_identity: {type: string, enum: [signal_synth/4786338b827315c3a06c1abefe33b94c25c24d7c]}
+        git_commit: {type: string, enum: [acea9910e1daaf9eec37a78b404cb12b6f24a61f]}
+        build_identity: {type: string, enum: [signal_synth/acea9910e1daaf9eec37a78b404cb12b6f24a61f]}
         cpp_facade: {type: string, enum: [1.5.0]}
         pack_schema_version: {type: integer, enum: [2]}
         challenge_package: {type: string, enum: [synsigra_challenge_package_v3]}
@@ -123,7 +123,7 @@ components:
         version: {type: string}
         description: {type: string}
         catalog_version: {type: string, enum: ['3.0']}
-        catalog_source_sha256: {type: string, enum: ['sha256:3a8b53b43dbecdeb834ed3faf0fddb8a859464ff4b822caaaa31830f5a06c88f']}
+        catalog_source_sha256: {type: string, enum: ['sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510']}
         release_set_id: {type: string}
         release_status: {type: string, enum: [beta, stable, deprecated]}
         released_at: {type: string, format: date}
@@ -216,7 +216,7 @@ components:
         pack_version: {type: string}
         pack_fingerprint: {type: string}
         generator_version: {type: string, enum: [0.10.0-dev]}
-        generator_git_commit: {type: string, enum: [4786338b827315c3a06c1abefe33b94c25c24d7c]}
+        generator_git_commit: {type: string, enum: [acea9910e1daaf9eec37a78b404cb12b6f24a61f]}
         scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
         submission_contract: {type: string, enum: [synsigra_submission_v1]}
         submission_formats_contract: {type: string, enum: [synsigra_submission_formats_v2]}
@@ -409,7 +409,7 @@ components:
         schema_version: {type: integer}
         package: {type: string, example: synsigra}
         version: {type: string, enum: [0.11.0]}
-        core_git_commit: {type: string, enum: [4786338b827315c3a06c1abefe33b94c25c24d7c]}
+        core_git_commit: {type: string, enum: [acea9910e1daaf9eec37a78b404cb12b6f24a61f]}
         challenge_contract: {type: string, enum: [synsigra_challenge_package_v3]}
         scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
         verification_protocol_contract: {type: string, enum: [synsigra_verification_protocol_v2]}

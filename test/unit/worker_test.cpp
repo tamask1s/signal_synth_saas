@@ -277,7 +277,7 @@ int main() {
             fingerprint,
             "1.0",
             "3.0",
-            "sha256:3a8b53b43dbecdeb834ed3faf0fddb8a859464ff4b822caaaa31830f5a06c88f",
+            "sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510",
             succeeded_job,
             error
         ),
@@ -630,7 +630,7 @@ int main() {
             fingerprint,
             "1.0",
             "3.0",
-            "sha256:3a8b53b43dbecdeb834ed3faf0fddb8a859464ff4b822caaaa31830f5a06c88f",
+            "sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510",
             failed_job,
             error
         ),

@@ -92,7 +92,7 @@ int main() {
                 "synsigra_core_integration_v7" &&
             r_peak->catalog_version == "3.0" &&
             r_peak->catalog_source_sha256 ==
-                "sha256:3a8b53b43dbecdeb834ed3faf0fddb8a859464ff4b822caaaa31830f5a06c88f" &&
+                "sha256:2a0f057380fbf3472c696edac4ce1883cc38ce7f67aeb6edf81a5c66cc23b510" &&
             r_peak->changelog.size() == 1,
         "catalog should expose validated release and compatibility metadata"
     );
@@ -169,10 +169,12 @@ int main() {
     const syn_sig_ra::PackSummary* protocol_pack =
         find_pack(packs, "r_peak_rr_noise_v1");
     require(
-        protocol_pack != 0 && protocol_pack->verification_protocol_available &&
+        protocol_pack != 0 && protocol_pack->version == "1.1" &&
+            protocol_pack->verification_protocol_available &&
             protocol_pack->verification_protocol_contract ==
                 "synsigra_verification_protocol_v2" &&
-            protocol_pack->verification_protocol_sha256.compare(0, 7, "sha256:") == 0 &&
+            protocol_pack->verification_protocol_sha256 ==
+                "sha256:840ab6c27fba30c7160b0c066eaeb22f0c018f34986b8eaabcb736cbe47899c9" &&
             protocol_pack->external_noise_asset_ids.size() == 1,
         "catalog should expose normalized protocol and approved external-noise metadata"
     );
