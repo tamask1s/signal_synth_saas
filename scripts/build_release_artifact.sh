@@ -21,7 +21,7 @@ if [ "${SYN_SIG_RA_SKIP_BUILD:-0}" != 1 ]; then
     -DSIGNAL_SYNTH_BUILD_TESTS=OFF \
     -DSIGNAL_SYNTH_BUILD_CLI=ON
   cmake --build "$signal_synth_build_dir" --target signal_synth_cli \
-    -j"${BUILD_JOBS:-2}"
+    -j"${BUILD_JOBS:-1}"
   SIGNAL_SYNTH_CLI="$signal_synth_cli" "$repo_dir/scripts/build_release.sh"
 fi
 

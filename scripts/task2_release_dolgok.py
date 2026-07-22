@@ -6,7 +6,6 @@ repository's checked scripts. It has no generic command-execution feature.
 """
 import argparse
 import pathlib
-import re
 import subprocess
 import sys
 
@@ -27,6 +26,8 @@ def main() -> int:
     sub.add_parser("deploy")
     sub.add_parser("rollback")
     sub.add_parser("push")
+    sub.add_parser("core-refresh")
+    sub.add_parser("adopt-core")
     commit = sub.add_parser("commit")
     commit.add_argument("--issue", required=True, type=int)
     commit.add_argument("--message", required=True)
@@ -41,6 +42,10 @@ def main() -> int:
         command = ["scripts/rollback_live.sh"]
     elif args.action == "push":
         command = ["git", "push", "origin", "master"]
+    elif args.action == "core-refresh":
+        command = [str(ROOT.parent / "signal_synth" / "scripts" / "refresh_curated_release.sh")]
+    elif args.action == "adopt-core":
+        command = ["scripts/adopt_core_release.py"]
     else:
         if args.issue < 1 or len(args.message) > 160 or not args.message.strip():
             parser.error("issue must be positive and message must contain 1-160 characters")
