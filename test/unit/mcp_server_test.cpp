@@ -37,6 +37,36 @@ syn_sig_ra::RouteResponse mcp(
         "", "", email, "", accept, origin, protocol);
 }
 
+bool complete_next_job(
+    syn_sig_ra::MetadataStore& store,
+    const std::string& package_id,
+    const std::string& challenge_metadata,
+    syn_sig_ra::JobRecord& job,
+    std::string& error
+) {
+    if (store.claim_next_job(job, error) !=
+        syn_sig_ra::RecordLookupStatus::found) {
+        return false;
+    }
+    return store.complete_job_with_package(
+        job,
+        package_id,
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "synsigra_core_integration_v7",
+        "{}",
+        "0.10.0-dev",
+        "4786338b827315c3a06c1abefe33b94c25c24d7c",
+        "signal_synth/4786338b827315c3a06c1abefe33b94c25c24d7c",
+        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "{}",
+        challenge_metadata,
+        "signal-synth pack challenge",
+        "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "/tmp/" + package_id,
+        1024,
+        error);
+}
+
 }  // namespace
 
 int main() {
@@ -141,6 +171,87 @@ int main() {
         created.body.find("\"http_status\":202") != std::string::npos &&
         created.body.find("\"status\":\"queued\"") != std::string::npos,
         "MCP job creation should preserve REST validation and status: " + created.body);
+
+    const std::string diagnostic_metadata =
+        "{\"contract\":\"synsigra_saas_challenge_metadata_v1\","
+        "\"challenge_contract\":\"synsigra_challenge_package_v3\","
+        "\"local_verification_contract\":\"synsigra_local_verification_v3\","
+        "\"verifier_version\":\"0.11.0\",\"case_count\":2,"
+        "\"targets\":[{\"target\":\"r_peak\"},{\"target\":\"signal_quality\"}],"
+        "\"verification\":{\"mode\":\"diagnostic\","
+        "\"evidence_eligible\":false}}";
+    syn_sig_ra::JobRecord diagnostic_job;
+    require(
+        complete_next_job(
+            store, "pkg_mcp_diagnostic", diagnostic_metadata,
+            diagnostic_job, error),
+        "diagnostic MCP fixture should complete: " + error);
+    const syn_sig_ra::RouteResponse diagnostic_guide = mcp(
+        store, config,
+        "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\","
+        "\"params\":{\"name\":\"synsigra_get_verification_guide\","
+        "\"arguments\":{\"job_id\":\"" + diagnostic_job.job_id + "\"}}}");
+    require(
+        diagnostic_guide.status == 200 &&
+        diagnostic_guide.body.find("\"verification_mode\":\"diagnostic\"") !=
+            std::string::npos &&
+        diagnostic_guide.body.find(
+            "synsigra-verify challenge submission verification-results --mode diagnostic --force") !=
+            std::string::npos &&
+        diagnostic_guide.body.find(
+            "synsigra-0.11.0-py3-none-any.whl") != std::string::npos &&
+        diagnostic_guide.body.find("\"job_summary\"") != std::string::npos &&
+        diagnostic_guide.body.find("\"canonical_evidence\":"
+            "\"verification-results/evidence.json\"") != std::string::npos &&
+        diagnostic_guide.body.find("\"evidence_command\"") == std::string::npos &&
+        diagnostic_guide.body.find("\"submission_formats\"") == std::string::npos &&
+        diagnostic_guide.body.size() < 12000,
+        "diagnostic guide should be exact and concise: " + diagnostic_guide.body);
+
+    std::string evidence_job_id;
+    require(
+        store.create_job(
+            owner, owner.organization_id + "_default",
+            "{\"pack_id\":\"r_peak_rr_noise_v1\"}",
+            "r_peak_rr_noise_v1", "r_peak_rr_noise_v1.json",
+            "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "1.0", "3.0",
+            "sha256:3a8b53b43dbecdeb834ed3faf0fddb8a859464ff4b822caaaa31830f5a06c88f",
+            evidence_job_id, error),
+        "evidence MCP fixture should queue: " + error);
+    const std::string evidence_metadata =
+        "{\"contract\":\"synsigra_saas_challenge_metadata_v1\","
+        "\"challenge_contract\":\"synsigra_challenge_package_v3\","
+        "\"local_verification_contract\":\"synsigra_local_verification_v3\","
+        "\"verifier_version\":\"0.11.0\",\"case_count\":1,"
+        "\"targets\":[{\"target\":\"r_peak\"},{\"target\":\"rr_interval\"}],"
+        "\"verification\":{\"mode\":\"evidence\","
+        "\"evidence_eligible\":true,\"protocol\":{"
+        "\"protocol_id\":\"r_peak_rr_noise_v1\"}}}";
+    syn_sig_ra::JobRecord evidence_job;
+    require(
+        complete_next_job(
+            store, "pkg_mcp_evidence", evidence_metadata,
+            evidence_job, error) && evidence_job.job_id == evidence_job_id,
+        "evidence MCP fixture should complete: " + error);
+    const syn_sig_ra::RouteResponse evidence_guide = mcp(
+        store, config,
+        "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\","
+        "\"params\":{\"name\":\"synsigra_get_verification_guide\","
+        "\"arguments\":{\"job_id\":\"" + evidence_job.job_id + "\"}}}");
+    require(
+        evidence_guide.status == 200 &&
+        evidence_guide.body.find("\"verification_mode\":\"evidence\"") !=
+            std::string::npos &&
+        evidence_guide.body.find("\"evidence_eligible\":true") !=
+            std::string::npos &&
+        evidence_guide.body.find(
+            "synsigra-verify challenge submission verification-results --force") !=
+            std::string::npos &&
+        evidence_guide.body.find("--mode diagnostic") == std::string::npos &&
+        evidence_guide.body.find("\"archive_checklist\"") != std::string::npos,
+        "evidence guide should use package-authoritative mode: " +
+            evidence_guide.body);
 
     const syn_sig_ra::RouteResponse notification = mcp(
         store, config,

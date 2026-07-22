@@ -120,6 +120,14 @@ printf '%s' "$jobs" | python3 -c \
 viewer_job=$(printf '%s' "$jobs" | python3 -c \
   'import json,sys; jobs=json.load(sys.stdin)["jobs"]; print(next((j["job_id"] for j in jobs if j.get("status")=="succeeded" and j.get("generator_git_commit")=="4786338b827315c3a06c1abefe33b94c25c24d7c" and j.get("package_id") and j.get("artifact_status")!="expired"), ""))')
 if [ -n "$viewer_job" ]; then
+  mcp_guide=$(curl -fsS "$base/mcp" \
+    -H "Authorization: Bearer $key" \
+    -H 'Content-Type: application/json' \
+    -H 'Accept: application/json, text/event-stream' \
+    -H 'MCP-Protocol-Version: 2025-11-25' \
+    --data-binary "{\"jsonrpc\":\"2.0\",\"id\":\"live-guide\",\"method\":\"tools/call\",\"params\":{\"name\":\"synsigra_get_verification_guide\",\"arguments\":{\"job_id\":\"$viewer_job\"}}}")
+  printf '%s' "$mcp_guide" | python3 -c \
+    'import json,sys; r=json.load(sys.stdin)["result"]; g=r["structuredContent"]; mode=g["verification_mode"]; expected="synsigra-verify challenge submission verification-results"+(" --mode diagnostic" if mode=="diagnostic" else "")+" --force"; version=g["challenge"]["verifier_version"]; assert mode in ("diagnostic","evidence"); assert g["verification_command"]==expected; assert g["evidence_eligible"] is (mode=="evidence"); assert "job" not in g and "evidence_command" not in g; assert g["downloads"]["verifier_wheel_url"].endswith("/synsigra-"+version+"-py3-none-any.whl"); assert g["result"]["entrypoint"]=="verification-results/index.html" and g["result"]["canonical_evidence"]=="verification-results/evidence.json"; assert len(json.dumps(g,separators=(",",":")))<8000; assert len(r["content"][0]["text"])<1000'
   viewer_metadata=$(curl -fsS -H "Authorization: Bearer $key" \
     "$base/v1/jobs/$viewer_job/viewer")
   set -- $(printf '%s' "$viewer_metadata" | python3 -c \

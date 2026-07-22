@@ -68,8 +68,9 @@ The server currently exposes:
   `synsigra_create_custom_pack`: fulfill exact duration, sampling, physiology,
   artifact, or target requirements through the live core-owned contract;
 - `synsigra_get_verification_guide`: return job status, authenticated download
-  destination, local submission steps, exact verifier command, reports, exit
-  codes, evidence boundary, and expired-artifact action.
+  destinations, local submission steps, the package-authoritative verifier
+  mode and exact command, report entry points, exit codes, audit archive
+  checklist, evidence boundary, and expired-artifact action.
 
 Creating jobs/rebuilds, saving scenarios, and composing custom packs are marked
 non-read-only and non-idempotent. MCP hosts can therefore keep a human approval
@@ -101,6 +102,17 @@ are correct under noise”:
 7. Download the kit over HTTPS with the same Bearer header. Run the proprietary
    algorithm locally against `challenge/`, populate the declared files under
    `submission/`, and run `synsigra-verify` locally.
+
+For a succeeded job, the guide is intentionally compact: it returns a
+`job_summary` and small `challenge` summary instead of repeating the full job
+and submission schemas. Use `synsigra_get_job` when those details are needed.
+The guide supplies direct authenticated URLs for the single verification kit
+and the matching generator-free Python wheel. Its `verification_command` is
+authoritative: diagnostic packages include `--mode diagnostic`; evidence
+packages do not. Run it from the extracted kit directory, then open
+`verification-results/index.html`. The canonical machine-readable result is
+`verification-results/evidence.json`; supporting pages and payloads are under
+`verification-results/details/`.
 
 Do not submit PHI, patient signals, identifiers, clinical notes, or diagnostic
 claims. Synsigra provides synthetic engineering QA and does not establish

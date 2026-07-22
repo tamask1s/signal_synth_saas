@@ -134,8 +134,10 @@ The MCP server exposes model-discoverable tools to:
   curated pack;
 - create a generation job only after selection/approval and rebuild an expired
   job with its exact preserved generator;
-- return an exact download and local `synsigra-verify` runbook. Proprietary
-  algorithms and their completed outputs stay local.
+- return compact, direct kit/verifier downloads and the package-authoritative
+  local `synsigra-verify` command, including diagnostic versus evidence mode
+  and the generated report/evidence entry points. Proprietary algorithms and
+  their completed outputs stay local.
 
 The modifying tools are annotated as non-read-only and non-idempotent so MCP
 hosts can ask for human confirmation. The same organization roles, request/job

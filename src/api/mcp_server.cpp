@@ -70,7 +70,7 @@ const char kToolsJson[] = R"JSON([
   },
   {
     "name":"synsigra_get_verification_guide","title":"Get the exact local verification runbook",
-    "description":"Turn a job into actionable download, algorithm-submission, scoring and evidence steps. It never asks for proprietary algorithm output to be uploaded: the verifier runs locally inside the downloaded kit.",
+    "description":"Return a concise, mode-aware local runbook for one job: authenticated kit and verifier downloads, the exact synsigra-verify command, report entry points, exit codes and the evidence archive checklist. Proprietary algorithm output always remains local.",
     "inputSchema":{"type":"object","additionalProperties":false,"required":["job_id"],"properties":{"job_id":{"type":"string","pattern":"^job_[A-Za-z0-9_-]+$"}}},
     "outputSchema":{"type":"object","additionalProperties":true},
     "annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}
@@ -545,6 +545,52 @@ std::string request_body_from(json_t* value) {
     return body;
 }
 
+json_t* concise_job_summary(json_t* job) {
+    json_t* summary = json_object();
+    const char* fields[] = {
+        "job_id", "status", "project_id", "pack_id", "package_id",
+        "artifact_status", "package_fingerprint", "generator_git_commit"
+    };
+    for (std::size_t index = 0; index < sizeof(fields) / sizeof(fields[0]); ++index) {
+        const std::string value = string_field(job, fields[index]);
+        if (!value.empty()) {
+            json_object_set_new(summary, fields[index], json_string(value.c_str()));
+        }
+    }
+    return summary;
+}
+
+json_t* concise_challenge_summary(json_t* challenge) {
+    json_t* summary = json_object();
+    const char* fields[] = {
+        "challenge_contract", "local_verification_contract", "verifier_version"
+    };
+    for (std::size_t index = 0; index < sizeof(fields) / sizeof(fields[0]); ++index) {
+        const std::string value = string_field(challenge, fields[index]);
+        if (!value.empty()) {
+            json_object_set_new(summary, fields[index], json_string(value.c_str()));
+        }
+    }
+    json_t* case_count = json_is_object(challenge)
+        ? json_object_get(challenge, "case_count") : nullptr;
+    if (json_is_integer(case_count)) {
+        json_object_set(summary, "case_count", case_count);
+    }
+    std::vector<std::string> targets;
+    json_t* source_targets = json_is_object(challenge)
+        ? json_object_get(challenge, "targets") : nullptr;
+    if (json_is_array(source_targets)) {
+        std::size_t index = 0;
+        json_t* target = nullptr;
+        json_array_foreach(source_targets, index, target) {
+            const std::string name = string_field(target, "target");
+            if (!name.empty() && !has_string(targets, name)) targets.push_back(name);
+        }
+    }
+    json_object_set_new(summary, "targets", strings_json(targets));
+    return summary;
+}
+
 }  // namespace
 
 namespace syn_sig_ra {
@@ -897,39 +943,133 @@ RouteResponse handle_mcp_request(
             json_t* guide = json_object();
             json_object_set_new(guide, "job_id", json_string(job_id.c_str()));
             json_object_set_new(guide, "status", json_string(status.c_str()));
-            json_object_set_new(guide, "job", job);
+            json_object_set_new(guide, "job_summary", concise_job_summary(job));
             json_object_set_new(guide, "jobs_ui_url", json_string(
                 absolute_url(email_config, public_base_path + "/jobs").c_str()));
+            std::string response_text = "Synsigra job " + job_id + " is " + status + ".";
+            bool guide_error = false;
             if (status == "succeeded") {
                 const std::string artifact_status = string_field(job, "artifact_status");
                 if (artifact_status == "expired") {
                     json_object_set_new(guide, "next_action", json_string(
                         "Call synsigra_rebuild_expired_job, then poll the returned new job. The exact historical generator will be used."));
+                    response_text += " Rebuild the expired artifact before local verification.";
                 } else {
+                    json_t* challenge = json_object_get(job, "challenge");
+                    json_t* verification = json_is_object(challenge)
+                        ? json_object_get(challenge, "verification") : nullptr;
+                    const std::string mode = string_field(verification, "mode");
+                    const bool valid_mode = mode == "evidence" || mode == "diagnostic";
+                    const bool evidence_eligible = bool_field(
+                        verification, "evidence_eligible", false);
+                    json_object_set_new(
+                        guide, "challenge", concise_challenge_summary(challenge));
+                    json_object_set_new(
+                        guide, "verification_mode", json_string(mode.c_str()));
+                    json_object_set_new(
+                        guide, "evidence_eligible", json_boolean(evidence_eligible));
                     const std::string kit = string_field(job, "verification_kit_url");
-                    json_object_set_new(guide, "verification_kit_url", json_string(
-                        absolute_url(email_config, kit).c_str()));
+                    const std::string kit_url = absolute_url(email_config, kit);
+                    json_t* downloads = json_object();
+                    json_object_set_new(
+                        downloads, "verification_kit_url", json_string(kit_url.c_str()));
+                    json_object_set_new(
+                        downloads, "verification_kit_filename",
+                        json_string((job_id + "-verification-kit.zip").c_str()));
                     json_object_set_new(guide, "download_auth", json_string(
                         "Download with HTTPS and the same Authorization: Bearer API key. Do not put the key in a query string."));
-                    json_object_set_new(guide, "verifier_metadata_url", json_string(
-                        absolute_url(email_config,
-                            public_base_path + "/v1/downloads/verifier").c_str()));
-                    json_t* steps = json_array();
-                    json_array_append_new(steps, json_string(
-                        "Download verification-kit.zip. It contains challenge data and a submission template, never the generator."));
-                    json_array_append_new(steps, json_string(
-                        "Unzip it, run the proprietary algorithm locally against verification-kit/challenge/, and write only the declared outputs under verification-kit/submission/. Keep paths, targets, formats and units unchanged."));
-                    json_array_append_new(steps, json_string(
-                        "From verification-kit/, run: synsigra-verify challenge submission verification-results --force. Use --mode diagnostic only when the package explicitly says it has no evidence protocol."));
-                    json_array_append_new(steps, json_string(
-                        "Open verification-results/index.html and follow its case-target links. Archive the result directory, including the canonical evidence.json, with the challenge provenance."));
-                    json_object_set_new(guide, "steps", steps);
-                    json_object_set_new(guide, "evidence_command", json_string(
-                        "synsigra-verify challenge submission verification-results --force"));
-                    json_object_set_new(guide, "exit_codes", json_string(
-                        "0 = pass; 1 = integrity/input/scoring/threshold failure; 2 = invalid CLI usage."));
-                    json_object_set_new(guide, "privacy_boundary", json_string(
-                        "Algorithm binaries and outputs remain local and are not uploaded to Synsigra."));
+                    const std::string verifier_version = string_field(
+                        challenge, "verifier_version");
+                    const std::string metadata_url = absolute_url(
+                        email_config, public_base_path + "/v1/downloads/verifier");
+                    json_object_set_new(
+                        downloads, "verifier_metadata_url",
+                        json_string(metadata_url.c_str()));
+                    std::string wheel_url;
+                    std::string install_command;
+                    if (!verifier_version.empty()) {
+                        const std::string wheel = "synsigra-" + verifier_version +
+                            "-py3-none-any.whl";
+                        wheel_url = absolute_url(
+                            email_config,
+                            public_base_path + "/v1/downloads/verifier/" + wheel);
+                        install_command = "python -m pip install " + wheel;
+                        json_object_set_new(
+                            downloads, "verifier_wheel_url",
+                            json_string(wheel_url.c_str()));
+                        json_object_set_new(
+                            downloads, "verifier_wheel_filename",
+                            json_string(wheel.c_str()));
+                        json_object_set_new(
+                            downloads, "verifier_install_command",
+                            json_string(install_command.c_str()));
+                    }
+                    json_object_set_new(guide, "downloads", downloads);
+                    if (!valid_mode) {
+                        json_object_set_new(guide, "error", json_string(
+                            "The succeeded job has no supported verification mode."));
+                        guide_error = true;
+                        response_text += " Its verification metadata is invalid; do not infer a command.";
+                    } else {
+                        const std::string command = std::string(
+                            "synsigra-verify challenge submission verification-results") +
+                            (mode == "diagnostic" ? " --mode diagnostic" : "") +
+                            " --force";
+                        json_object_set_new(
+                            guide, "verification_command", json_string(command.c_str()));
+                        json_object_set_new(
+                            guide, "run_from", json_string("verification-kit/"));
+                        json_t* steps = json_array();
+                        json_array_append_new(steps, json_string(
+                            "Download the verification kit and verifier wheel with the same Bearer API key."));
+                        json_array_append_new(steps, json_string(
+                            "Unzip the kit, run the proprietary algorithm locally against challenge/, and replace only the declared outputs and algorithm identity under submission/."));
+                        json_array_append_new(steps, json_string(
+                            ("From verification-kit/, run exactly: " + command).c_str()));
+                        json_array_append_new(steps, json_string(
+                            "Open verification-results/index.html and follow its links; evidence.json is the single canonical machine-readable record."));
+                        json_object_set_new(guide, "steps", steps);
+                        json_t* result = json_object();
+                        json_object_set_new(
+                            result, "entrypoint",
+                            json_string("verification-results/index.html"));
+                        json_object_set_new(
+                            result, "canonical_evidence",
+                            json_string("verification-results/evidence.json"));
+                        json_object_set_new(
+                            result, "details_directory",
+                            json_string("verification-results/details/"));
+                        json_object_set_new(
+                            result, "notice",
+                            json_string("Synthetic engineering QA evidence; not diagnosis, nor clinical evidence"));
+                        json_object_set_new(guide, "result", result);
+                        json_t* exit_codes = json_object();
+                        json_object_set_new(exit_codes, "pass", json_integer(0));
+                        json_object_set_new(
+                            exit_codes, "verification_failed", json_integer(1));
+                        json_object_set_new(
+                            exit_codes, "invalid_cli_usage", json_integer(2));
+                        json_object_set_new(guide, "exit_codes", exit_codes);
+                        json_t* archive = json_array();
+                        json_array_append_new(archive, json_string(
+                            "verification-kit.zip or the immutable extracted challenge/"));
+                        json_array_append_new(archive, json_string(
+                            "completed submission/"));
+                        json_array_append_new(archive, json_string(
+                            "verification-results/ including index.html, evidence.json and details/"));
+                        json_array_append_new(archive, json_string(
+                            "algorithm build identity, version and configuration"));
+                        json_array_append_new(archive, json_string(
+                            "Synsigra job ID and generator commit from job_summary"));
+                        json_object_set_new(guide, "archive_checklist", archive);
+                        json_object_set_new(guide, "privacy_boundary", json_string(
+                            "Algorithm binaries and outputs remain local and are not uploaded to Synsigra."));
+                        response_text = "Synsigra job " + job_id + " is ready for " +
+                            mode + " verification. Download the kit" +
+                            (wheel_url.empty() ? std::string() : " and verifier wheel") +
+                            ", run from verification-kit/: " + command +
+                            ". Open verification-results/index.html.";
+                    }
                 }
             } else if (status == "failed" || status == "cancelled") {
                 json_object_set_new(guide, "next_action", json_string(
@@ -938,8 +1078,9 @@ RouteResponse handle_mcp_request(
                 json_object_set_new(guide, "next_action", json_string(
                     "Poll synsigra_get_job with backoff until succeeded, failed or cancelled."));
             }
-            response = tool_response(id, guide, false);
+            response = tool_response(id, guide, guide_error, response_text);
             json_decref(guide);
+            json_decref(job);
         }
     } else {
         std::string api_method = "GET";

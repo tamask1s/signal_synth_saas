@@ -794,6 +794,52 @@ print(package_id)
 PY
 ) || fail "job status response was not a valid succeeded job"
 
+curl -fsS \
+    -H "Authorization: Bearer $API_KEY" \
+    -H "$MCP_ACCEPT" -H "$MCP_VERSION" -H 'Content-Type: application/json' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":\"verification-guide\",\"method\":\"tools/call\",\"params\":{\"name\":\"synsigra_get_verification_guide\",\"arguments\":{\"job_id\":\"$JOB_ID\"}}}" \
+    "$BASE_URL/mcp" >"$WORK_ROOT/mcp-verification-guide.json" ||
+    fail "MCP verification guide failed through Apache"
+python3 - "$WORK_ROOT/mcp-verification-guide.json" "$JOB_ID" <<'PY' ||
+import json
+import sys
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    response = json.load(handle)
+result = response.get("result", {})
+guide = result.get("structuredContent", {})
+expected_command = (
+    "synsigra-verify challenge submission verification-results "
+    "--mode diagnostic --force"
+)
+if guide.get("job_id") != sys.argv[2] or guide.get("status") != "succeeded":
+    raise SystemExit("guide omitted concise job identity")
+if guide.get("verification_mode") != "diagnostic":
+    raise SystemExit("guide omitted diagnostic mode")
+if guide.get("evidence_eligible") is not False:
+    raise SystemExit("diagnostic guide claimed evidence eligibility")
+if guide.get("verification_command") != expected_command:
+    raise SystemExit("guide returned the wrong diagnostic command")
+if "job" in guide or "evidence_command" in guide:
+    raise SystemExit("guide retained a legacy/full job field")
+downloads = guide.get("downloads", {})
+if not downloads.get("verification_kit_url", "").endswith(
+        "/v1/jobs/" + sys.argv[2] + "/verification-kit.zip"):
+    raise SystemExit("guide omitted the direct kit URL")
+if not downloads.get("verifier_wheel_url", "").endswith(
+        "/v1/downloads/verifier/synsigra-0.11.0-py3-none-any.whl"):
+    raise SystemExit("guide omitted the canonical verifier wheel URL")
+report = guide.get("result", {})
+if report.get("entrypoint") != "verification-results/index.html" or \
+        report.get("canonical_evidence") != "verification-results/evidence.json":
+    raise SystemExit("guide omitted canonical result entry points")
+if len(json.dumps(guide, separators=(",", ":"))) >= 8000:
+    raise SystemExit("verification guide is not concise")
+content = result.get("content", [])
+if not content or len(content[0].get("text", "")) >= 1000:
+    raise SystemExit("human MCP guide summary is not concise")
+PY
+    fail "MCP verification guide was not exact and concise"
+
 UNAUTH_HTTP=$(
     curl -sS \
         -o "$WORK_ROOT/unauthorized-artifact.json" \
