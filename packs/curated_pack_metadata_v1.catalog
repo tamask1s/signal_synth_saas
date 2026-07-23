@@ -317,7 +317,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -1206,7 +1206,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -1871,7 +1871,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -2248,7 +2248,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -2618,7 +2618,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -3166,7 +3166,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -4018,7 +4018,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -4485,7 +4485,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -4920,7 +4920,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -5318,7 +5318,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -5713,7 +5713,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -6124,7 +6124,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -6632,7 +6632,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -7218,7 +7218,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -7658,7 +7658,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -8187,7 +8187,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -8533,7 +8533,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -8855,7 +8855,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.13.0",
+        "local_verifier_min_version": "0.14.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -9061,8 +9061,8 @@
     }
   ],
   "product": "Synsigra Testbench",
-  "release_set_id": "synsigra_curated_release_2026_07_22",
+  "release_set_id": "synsigra_curated_release_2026_07_23",
   "release_set_status": "beta",
   "schema_version": 1,
-  "source_catalog_sha256": "sha256:495c04d19316b455a76cb0d565e9a17848e9d6aed497f35555b0515328911602"
+  "source_catalog_sha256": "sha256:4b3481991f2b59c191e48750c33ed353a209538e46ec49b001e24c48c2fff044"
 }

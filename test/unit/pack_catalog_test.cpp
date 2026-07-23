@@ -99,7 +99,7 @@ int main() {
                 "synsigra_core_integration_v7" &&
             r_peak->catalog_version == "3.0" &&
             r_peak->catalog_source_sha256 ==
-                "sha256:495c04d19316b455a76cb0d565e9a17848e9d6aed497f35555b0515328911602" &&
+                "sha256:4b3481991f2b59c191e48750c33ed353a209538e46ec49b001e24c48c2fff044" &&
             r_peak->changelog.size() == 1,
         "catalog should expose validated release and compatibility metadata"
     );
@@ -177,7 +177,7 @@ int main() {
         find_pack(packs, "r_peak_rr_noise_v1");
     require(
         protocol_pack != 0 && !protocol_pack->version.empty() &&
-            protocol_pack->local_verifier_min_version == "0.13.0" &&
+            protocol_pack->local_verifier_min_version == "0.14.0" &&
             protocol_pack->verification_protocol_available &&
             protocol_pack->verification_protocol_contract ==
                 "synsigra_verification_protocol_v2" &&

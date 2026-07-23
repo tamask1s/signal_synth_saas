@@ -55,8 +55,8 @@ bool complete_next_job(
         "synsigra_core_integration_v7",
         "{}",
         "0.10.0-dev",
-        "d7e55dd765517444e5a7831a7749adb458932370",
-        "signal_synth/d7e55dd765517444e5a7831a7749adb458932370",
+        "a80a06179de8c04fdb59732fa922bfc764549df9",
+        "signal_synth/a80a06179de8c04fdb59732fa922bfc764549df9",
         "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "{}",
         challenge_metadata,
@@ -176,7 +176,7 @@ int main() {
         "{\"contract\":\"synsigra_saas_challenge_metadata_v1\","
         "\"challenge_contract\":\"synsigra_challenge_package_v3\","
         "\"local_verification_contract\":\"synsigra_local_verification_v3\","
-        "\"verifier_version\":\"0.13.0\",\"case_count\":2,"
+        "\"verifier_version\":\"0.14.0\",\"case_count\":2,"
         "\"targets\":[{\"target\":\"r_peak\"},{\"target\":\"signal_quality\"}],"
         "\"verification\":{\"mode\":\"diagnostic\","
         "\"evidence_eligible\":false}}";
@@ -199,7 +199,7 @@ int main() {
             "synsigra-verify challenge submission verification-results --mode diagnostic --force") !=
             std::string::npos &&
         diagnostic_guide.body.find(
-            "synsigra-0.13.0-py3-none-any.whl") != std::string::npos &&
+            "synsigra-0.14.0-py3-none-any.whl") != std::string::npos &&
         diagnostic_guide.body.find("\"job_summary\"") != std::string::npos &&
         diagnostic_guide.body.find("\"canonical_evidence\":"
             "\"verification-results/evidence.json\"") != std::string::npos &&
@@ -216,14 +216,14 @@ int main() {
             "r_peak_rr_noise_v1", "r_peak_rr_noise_v1.json",
             "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             "1.1", "3.0",
-            "sha256:495c04d19316b455a76cb0d565e9a17848e9d6aed497f35555b0515328911602",
+            "sha256:4b3481991f2b59c191e48750c33ed353a209538e46ec49b001e24c48c2fff044",
             evidence_job_id, error),
         "evidence MCP fixture should queue: " + error);
     const std::string evidence_metadata =
         "{\"contract\":\"synsigra_saas_challenge_metadata_v1\","
         "\"challenge_contract\":\"synsigra_challenge_package_v3\","
         "\"local_verification_contract\":\"synsigra_local_verification_v3\","
-        "\"verifier_version\":\"0.13.0\",\"case_count\":1,"
+        "\"verifier_version\":\"0.14.0\",\"case_count\":1,"
         "\"targets\":[{\"target\":\"r_peak\"},{\"target\":\"rr_interval\"}],"
         "\"verification\":{\"mode\":\"evidence\","
         "\"evidence_eligible\":true,\"protocol\":{"
