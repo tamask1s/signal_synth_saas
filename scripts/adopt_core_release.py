@@ -38,6 +38,7 @@ VERIFIER_VERSION_FILES = tuple(
         "scripts/verify_live.sh",
         "test/integration/e2e_smoke.sh",
         "test/unit/mcp_server_test.cpp",
+        "test/unit/pack_catalog_test.cpp",
         "test/unit/route_test.cpp",
         "test/unit/worker_test.cpp",
     )

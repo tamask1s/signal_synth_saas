@@ -94,5 +94,5 @@
     "signal_quality"
   ],
   "verification_protocol_path": "hrv_robustness_v2_expectations.json",
-  "version": "2.0"
+  "version": "2.1"
 }

@@ -101,9 +101,9 @@ ZIP.
 Download the pure-Python verifier; it has no generator binary or source:
 
 ```sh
-curl -fsS -H "$AUTH" -o synsigra-0.12.0-py3-none-any.whl \
-  "$BASE/v1/downloads/verifier/synsigra-0.12.0-py3-none-any.whl"
-python -m pip install synsigra-0.12.0-py3-none-any.whl
+curl -fsS -H "$AUTH" -o synsigra-0.13.0-py3-none-any.whl \
+  "$BASE/v1/downloads/verifier/synsigra-0.13.0-py3-none-any.whl"
+python -m pip install synsigra-0.13.0-py3-none-any.whl
 ```
 
 Edit the algorithm name/version and replace the example output values under

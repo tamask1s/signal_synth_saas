@@ -377,7 +377,7 @@ bool curated_pack_ids(
     if (!exact_object(root, 13) ||
         json_string_or_empty(json_object_get(root, "catalog_version")) != "3.0" ||
         json_string_or_empty(json_object_get(root, "source_catalog_sha256")) !=
-            "sha256:491598ee6f3296af37c9e4943178d7288da0adbafb75af87625f53e7ce3c8612" ||
+            "sha256:495c04d19316b455a76cb0d565e9a17848e9d6aed497f35555b0515328911602" ||
         !json_is_array(packs) || !json_is_integer(count) ||
         json_integer_value(count) != 18 || json_array_size(packs) != 18) {
         if (root != nullptr) json_decref(root);
@@ -432,7 +432,7 @@ bool load_curated_catalog_metadata(
         json_string_length(json_object_get(root, "release_set_id")) > 0 &&
         valid_sha256(json_object_get(root, "source_catalog_sha256")) &&
         json_string_or_empty(json_object_get(root, "source_catalog_sha256")) ==
-            "sha256:491598ee6f3296af37c9e4943178d7288da0adbafb75af87625f53e7ce3c8612" &&
+            "sha256:495c04d19316b455a76cb0d565e9a17848e9d6aed497f35555b0515328911602" &&
         json_is_array(packs) && json_is_integer(pack_count) &&
         json_integer_value(pack_count) == 18 && json_array_size(packs) == 18;
     if (!header_valid) {

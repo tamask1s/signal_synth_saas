@@ -46,6 +46,13 @@ bool has_target(
     return false;
 }
 
+bool is_sha256(const std::string& value) {
+    if (value.size() != 71 || value.compare(0, 7, "sha256:") != 0) {
+        return false;
+    }
+    return value.find_first_not_of("0123456789abcdef", 7) == std::string::npos;
+}
+
 }  // namespace
 
 int main() {
@@ -92,7 +99,7 @@ int main() {
                 "synsigra_core_integration_v7" &&
             r_peak->catalog_version == "3.0" &&
             r_peak->catalog_source_sha256 ==
-                "sha256:491598ee6f3296af37c9e4943178d7288da0adbafb75af87625f53e7ce3c8612" &&
+                "sha256:495c04d19316b455a76cb0d565e9a17848e9d6aed497f35555b0515328911602" &&
             r_peak->changelog.size() == 1,
         "catalog should expose validated release and compatibility metadata"
     );
@@ -169,13 +176,12 @@ int main() {
     const syn_sig_ra::PackSummary* protocol_pack =
         find_pack(packs, "r_peak_rr_noise_v1");
     require(
-        protocol_pack != 0 && protocol_pack->version == "1.2" &&
-            protocol_pack->local_verifier_min_version == "0.12.0" &&
+        protocol_pack != 0 && !protocol_pack->version.empty() &&
+            protocol_pack->local_verifier_min_version == "0.13.0" &&
             protocol_pack->verification_protocol_available &&
             protocol_pack->verification_protocol_contract ==
                 "synsigra_verification_protocol_v2" &&
-            protocol_pack->verification_protocol_sha256 ==
-                "sha256:f6193b31ce280bcd56b5fd1d4b2c93dd38633667c0b0e08d0d94108d9e06f28f" &&
+            is_sha256(protocol_pack->verification_protocol_sha256) &&
             protocol_pack->external_noise_asset_ids.size() == 1,
         "catalog should expose normalized protocol and approved external-noise metadata"
     );

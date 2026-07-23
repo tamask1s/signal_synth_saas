@@ -288,9 +288,9 @@ Install the separately downloadable, pure-Python, generator-free verifier:
 
 ```sh
 curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
-  -o synsigra-0.12.0-py3-none-any.whl \
-  "$BASE/v1/downloads/verifier/synsigra-0.12.0-py3-none-any.whl"
-python -m pip install synsigra-0.12.0-py3-none-any.whl
+  -o synsigra-0.13.0-py3-none-any.whl \
+  "$BASE/v1/downloads/verifier/synsigra-0.13.0-py3-none-any.whl"
+python -m pip install synsigra-0.13.0-py3-none-any.whl
 synsigra-verify --help
 ```
 
@@ -362,7 +362,7 @@ file, wall-time, and no-network worker bounds are enforced.
 
 This release intentionally has no old core compatibility layer. It requires the
 clean sibling checkout `../signal_synth` at commit
-`59e8adeba5416755af4a57a4a6d48ce1c7ff44e4` and the exact tuple:
+`d7e55dd765517444e5a7831a7749adb458932370` and the exact tuple:
 
 - generator `0.10.0-dev`, C++ facade `1.5.0`;
 - integration `synsigra_core_integration_v7`, pack schema `2`;
@@ -375,10 +375,10 @@ clean sibling checkout `../signal_synth` at commit
   `synsigra_measurement_truth_v2`, and `synsigra_measurement_score_v2`;
 - local verification report `synsigra_local_verification_v3`;
 - authoring `synsigra_authoring_v18`, templates `synsigra_templates_v5`;
-- verifier `0.12.0`, external-noise truth
+- verifier `0.13.0`, external-noise truth
   `synsigra_external_noise_truth_v1`;
 - curated catalog `3.0` with 18 packs and source hash
-  `sha256:491598ee6f3296af37c9e4943178d7288da0adbafb75af87625f53e7ce3c8612`.
+  `sha256:495c04d19316b455a76cb0d565e9a17848e9d6aed497f35555b0515328911602`.
 
 Configuration, startup, readiness, worker post-render validation, and release
 verification fail closed if these identities diverge. `/readyz` publishes the

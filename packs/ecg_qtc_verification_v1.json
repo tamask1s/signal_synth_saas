@@ -119,5 +119,5 @@
     "qtc"
   ],
   "verification_protocol_path": "ecg_qtc_verification_v1_expectations.json",
-  "version": "1.0"
+  "version": "1.1"
 }

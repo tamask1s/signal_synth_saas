@@ -5,7 +5,7 @@ repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 signal_synth_root=${SIGNAL_SYNTH_ROOT:-"$repo_dir/../signal_synth"}
 out_dir=${1:-"$repo_dir/downloads/verifier"}
 work_dir=${TMPDIR:-/tmp}/synsigra_verifier_downloads_$$
-expected_core=59e8adeba5416755af4a57a4a6d48ce1c7ff44e4
+expected_core=d7e55dd765517444e5a7831a7749adb458932370
 
 cleanup() {
   rm -rf "$work_dir"

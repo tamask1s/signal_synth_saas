@@ -231,6 +231,13 @@
       "changelog": [
         {
           "changes": [
+            "Made event truth observability-aware: near-total all-lead dropout and physically truncated QRS events are explicitly excluded, while severe additive noise remains scored."
+          ],
+          "date": "2026-07-22",
+          "version": "1.3"
+        },
+        {
+          "changes": [
             "Restored the 25 ms RR MAE gate for standard cases and isolated a 30 ms gate to the -12 dB external_extreme acceptance stratum."
           ],
           "date": "2026-07-22",
@@ -310,7 +317,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.12.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -513,9 +520,9 @@
       "scoring_mode": "local",
       "source": {
         "catalog_path": "examples/catalog/verification_packs_v1.json",
-        "pack_fingerprint": "sha256:82c3e24172a7fbacc8444fd155b4b7ba1ce9243f5738e2f87f4dea0daef01a70",
+        "pack_fingerprint": "sha256:217d109fa2656881778571185d59fc5164f42e90a78847d167592bb91f4a45a0",
         "pack_path": "../packs/r_peak_rr_noise_v1.json",
-        "source_content_sha256": "sha256:cbb2cee2e6aa6c6bc802d8af9703722e991fa69ba7726b71c77fb35ffae18686"
+        "source_content_sha256": "sha256:396690055fdee8d2a5396cb5035ca6e97e1794476882a962f7faf7715ba6a9ea"
       },
       "submission_output_schemas": [
         "point_events_json_v1",
@@ -781,15 +788,17 @@
             }
           ],
           "truth_policy": {
-            "artifact_overlap": "Retained for RR scoring; signal-quality and HRV exclusion policy does not remove physiological RR truth.",
-            "first_beat": "Excluded because no preceding in-record R peak is observable.",
-            "rr_definition": "Difference between consecutive present-QRS construction R-peak times inside the record."
+            "artifact_overlap": "Additive and external noise, clipping, saturation and partial-lead artifacts remain scoreable. The -12 dB case remains severe stress and uses its pre-specified RR acceptance stratum.",
+            "boundary": "Only QRS truth whose constructed support crosses the record boundary is excluded; there is no arbitrary blanket last-beat window.",
+            "event_scoreability": "ECG R-peak truth requires complete in-record QRS support and more than 5% retained signal during all-lead dropout; every exclusion and nearby ignored prediction is explicitly reported.",
+            "first_beat": "Excluded because no preceding in-record R peak exists for RR construction.",
+            "rr_definition": "Difference between consecutive present-QRS construction R-peak times inside the record; an interval touching unscoreable R-peak truth is not_evaluable."
           }
         },
-        "source_content_sha256": "sha256:f6193b31ce280bcd56b5fd1d4b2c93dd38633667c0b0e08d0d94108d9e06f28f",
+        "source_content_sha256": "sha256:e31da1cfe1c4b7a4c74837e2ebe7bbfbac4cbe2d31859786ee9068261474458e",
         "source_path": "examples/packs/r_peak_rr_noise_v1_expectations.json"
       },
-      "version": "1.2"
+      "version": "1.3"
     },
     {
       "case_count": 12,
@@ -1125,6 +1134,13 @@
       "changelog": [
         {
           "changes": [
+            "Documented observable-event and record-boundary truth exclusions in the authoritative protocol."
+          ],
+          "date": "2026-07-22",
+          "version": "1.1"
+        },
+        {
+          "changes": [
             "Initial beta pack with five correction formulae, exact beat-level timing truth and difficult repolarization cases."
           ],
           "date": "2026-07-18",
@@ -1190,7 +1206,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -1400,9 +1416,9 @@
       "scoring_mode": "local",
       "source": {
         "catalog_path": "examples/catalog/verification_packs_v1.json",
-        "pack_fingerprint": "sha256:a89365d158d64f7e20c80202e7e094eb6509cbc32a7f0e8a9acfb4c7f9b3daf2",
+        "pack_fingerprint": "sha256:6b5faab4ec9b4ba3499abcc7aa1435a8deb4e64ef1bae44653815ff674133767",
         "pack_path": "../packs/ecg_qtc_verification_v1.json",
-        "source_content_sha256": "sha256:6bd566561a7d372a4e020142c42a194c5fdafebf2064e83663d38411bdf30a61"
+        "source_content_sha256": "sha256:1d91495ce634e5a94c10ebe9170236a05e955c86eee99591e7c889c947f117e2"
       },
       "submission_output_schemas": [
         "point_events_json_v1",
@@ -1694,16 +1710,18 @@
             }
           ],
           "truth_policy": {
+            "boundary": "Truncated QRS truth is not scored as an R-peak event; delineation retains its wave-specific absent and not-evaluable semantics.",
+            "event_scoreability": "R-peak truth requires complete in-record QRS support and more than 5% retained signal during all-lead dropout; explicit exclusions are reported.",
             "fiducial_limit": "Model-defined endpoints do not represent human-reader uncertainty.",
             "first_beat": "QT is scoreable; RR-dependent QTc is excluded until a preceding in-record R peak exists.",
             "qt_definition": "Construction QRS onset to construction T offset.",
             "qtc_definition": "Scenario-declared formula applied by the cardiac timing model; formula identity is part of measurement identity."
           }
         },
-        "source_content_sha256": "sha256:33a4947bb83435ebdfcf5c963e34e24f5c79e0f4123216071b029b30d5ca95ca",
+        "source_content_sha256": "sha256:9e85b4bd3e9b0f24cb88f6080c98fdf4de773ed3ae61c53cb48f0ec26c64fe7a",
         "source_path": "examples/packs/ecg_qtc_verification_v1_expectations.json"
       },
-      "version": "1.0"
+      "version": "1.1"
     },
     {
       "case_count": 3,
@@ -1853,7 +1871,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -2230,7 +2248,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -2600,7 +2618,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -3069,6 +3087,13 @@
       "changelog": [
         {
           "changes": [
+            "Aligned R-peak observability and NN exclusion language with the shared event-truth policy."
+          ],
+          "date": "2026-07-22",
+          "version": "2.1"
+        },
+        {
+          "changes": [
             "Replaced hrv_v1 with VLF-capable metric definition v2 and explicit R-peak, RR/HRV and signal-quality pipeline stress cases."
           ],
           "date": "2026-07-18",
@@ -3141,7 +3166,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -3352,9 +3377,9 @@
       "scoring_mode": "local",
       "source": {
         "catalog_path": "examples/catalog/verification_packs_v1.json",
-        "pack_fingerprint": "sha256:7b52f188094d4e9234c15a80175c5de9d270c0fdf64bbbe01a1651fda794f421",
+        "pack_fingerprint": "sha256:d089ed926a665d27ff0d0b1f9e3f7d83cb59aeae24f3c739f8569453609907f8",
         "pack_path": "../packs/hrv_robustness_v2.json",
-        "source_content_sha256": "sha256:27e4c7c822c75b21a12c5ebd76f415e6c7496fbcfd1231083310e5197506dead"
+        "source_content_sha256": "sha256:1b79bf285c03d2c2bab506130f0bc2a0039828fd0169b4e8db1a6ecc4e6e6c04"
       },
       "submission_output_schemas": [
         "point_events_json_v1",
@@ -3799,16 +3824,17 @@
             }
           ],
           "truth_policy": {
-            "exclusion": "Ectopic intervals and their adjacent intervals are explicitly excluded; excluded intervals are never bridged for successive-difference metrics.",
+            "event_scoreability": "R-peak truth requires complete in-record QRS support and more than 5% retained signal during all-lead dropout; additive and severe noise remain scoreable stress.",
+            "exclusion": "Ectopic, artifact-overlapping and otherwise rejected intervals and their adjacent intervals are explicitly excluded; excluded intervals are never bridged for successive-difference metrics.",
             "interval_definition": "NN intervals are derived from consecutive accepted construction R peaks.",
             "negative_case": "The hrv_short_window_rejected scenario remains an assembly-time range-rejection test and is not an executable evidence-matrix case.",
             "spectral_window": "Frequency-domain truth requires at least 300 seconds and uses the declared metric-definition interpolation policy."
           }
         },
-        "source_content_sha256": "sha256:61e4dc1b9a1263a7618c3438991502fe9c829849f9916f0a100e46f6119c771c",
+        "source_content_sha256": "sha256:4a35c15c9afd5c3e241b53900e9e25bf9ef6e4f960f7776fbd70cb645e191acb",
         "source_path": "examples/packs/hrv_robustness_v2_expectations.json"
       },
-      "version": "2.0"
+      "version": "2.1"
     },
     {
       "case_count": 5,
@@ -3992,7 +4018,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -4382,6 +4408,13 @@
       "changelog": [
         {
           "changes": [
+            "Excluded the physically truncated end-of-record QRS from R-peak and beat-classification denominators while retaining it as explicit audit truth."
+          ],
+          "date": "2026-07-23",
+          "version": "1.2"
+        },
+        {
+          "changes": [
             "Added PSVT rhythm-episode interval output and local scoring."
           ],
           "date": "2026-07-17",
@@ -4452,7 +4485,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -4643,9 +4676,9 @@
       "scoring_mode": "local",
       "source": {
         "catalog_path": "examples/catalog/verification_packs_v1.json",
-        "pack_fingerprint": "sha256:a0c34dc211163b8bcf8ca43a9575cf20e454ac7c158ff2d42e810b108b279a16",
+        "pack_fingerprint": "sha256:ed5f1ef37eea805cf672f5b07a59695deebad32cbbce953269b3f3b5d12a8c40",
         "pack_path": "../packs/ecg_rhythm_v1.json",
-        "source_content_sha256": "sha256:3176cdeae6f4af9202dd821b2d5d85599999e427d1dbff947a63291a3a352946"
+        "source_content_sha256": "sha256:efc0f86c5c160bd32eafa70c445cf15f97e9a0da25f41ed6bda0cb4580ea2043"
       },
       "submission_output_schemas": [
         "point_events_json_v1",
@@ -4692,7 +4725,7 @@
         "source_content_sha256": "",
         "source_path": ""
       },
-      "version": "1.1"
+      "version": "1.2"
     },
     {
       "case_count": 5,
@@ -4887,7 +4920,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -5285,7 +5318,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -5680,7 +5713,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -6091,7 +6124,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -6599,7 +6632,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -7185,7 +7218,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -7625,7 +7658,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -8154,7 +8187,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -8500,7 +8533,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -8822,7 +8855,7 @@
       ],
       "generator_compatibility": {
         "challenge_package_contract": "synsigra_challenge_package_v3",
-        "local_verifier_min_version": "0.11.0",
+        "local_verifier_min_version": "0.13.0",
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
@@ -9028,8 +9061,8 @@
     }
   ],
   "product": "Synsigra Testbench",
-  "release_set_id": "synsigra_curated_release_2026_07_18",
+  "release_set_id": "synsigra_curated_release_2026_07_22",
   "release_set_status": "beta",
   "schema_version": 1,
-  "source_catalog_sha256": "sha256:491598ee6f3296af37c9e4943178d7288da0adbafb75af87625f53e7ce3c8612"
+  "source_catalog_sha256": "sha256:495c04d19316b455a76cb0d565e9a17848e9d6aed497f35555b0515328911602"
 }

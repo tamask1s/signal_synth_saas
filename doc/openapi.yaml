@@ -62,8 +62,8 @@ components:
       properties:
         integration_contract: {type: string, enum: [synsigra_core_integration_v7]}
         version: {type: string, enum: [0.10.0-dev]}
-        git_commit: {type: string, enum: [59e8adeba5416755af4a57a4a6d48ce1c7ff44e4]}
-        build_identity: {type: string, enum: [signal_synth/59e8adeba5416755af4a57a4a6d48ce1c7ff44e4]}
+        git_commit: {type: string, enum: [d7e55dd765517444e5a7831a7749adb458932370]}
+        build_identity: {type: string, enum: [signal_synth/d7e55dd765517444e5a7831a7749adb458932370]}
         cpp_facade: {type: string, enum: [1.5.0]}
         pack_schema_version: {type: integer, enum: [2]}
         challenge_package: {type: string, enum: [synsigra_challenge_package_v3]}
@@ -77,7 +77,7 @@ components:
         local_verification: {type: string, enum: [synsigra_local_verification_v3]}
         scenario_authoring: {type: string, enum: [synsigra_authoring_v18]}
         scenario_templates: {type: string, enum: [synsigra_templates_v5]}
-        python_verifier: {type: string, enum: [0.12.0]}
+        python_verifier: {type: string, enum: [0.13.0]}
         external_noise_truth: {type: string, enum: [synsigra_external_noise_truth_v1]}
         contract_document:
           type: object
@@ -123,7 +123,7 @@ components:
         version: {type: string}
         description: {type: string}
         catalog_version: {type: string, enum: ['3.0']}
-        catalog_source_sha256: {type: string, enum: ['sha256:491598ee6f3296af37c9e4943178d7288da0adbafb75af87625f53e7ce3c8612']}
+        catalog_source_sha256: {type: string, enum: ['sha256:495c04d19316b455a76cb0d565e9a17848e9d6aed497f35555b0515328911602']}
         release_set_id: {type: string}
         release_status: {type: string, enum: [beta, stable, deprecated]}
         released_at: {type: string, format: date}
@@ -210,7 +210,7 @@ components:
       properties:
         schema_version: {type: integer, enum: [1]}
         contract: {type: string, enum: [synsigra_saas_challenge_metadata_v1]}
-        verifier_version: {type: string, enum: [0.12.0]}
+        verifier_version: {type: string, enum: [0.13.0]}
         challenge_contract: {type: string, enum: [synsigra_challenge_package_v3]}
         package_id:
           type: string
@@ -219,7 +219,7 @@ components:
         pack_version: {type: string}
         pack_fingerprint: {type: string}
         generator_version: {type: string, enum: [0.10.0-dev]}
-        generator_git_commit: {type: string, enum: [59e8adeba5416755af4a57a4a6d48ce1c7ff44e4]}
+        generator_git_commit: {type: string, enum: [d7e55dd765517444e5a7831a7749adb458932370]}
         scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
         submission_contract: {type: string, enum: [synsigra_submission_v1]}
         submission_formats_contract: {type: string, enum: [synsigra_submission_formats_v2]}
@@ -411,8 +411,8 @@ components:
       properties:
         schema_version: {type: integer}
         package: {type: string, example: synsigra}
-        version: {type: string, enum: [0.12.0]}
-        core_git_commit: {type: string, enum: [59e8adeba5416755af4a57a4a6d48ce1c7ff44e4]}
+        version: {type: string, enum: [0.13.0]}
+        core_git_commit: {type: string, enum: [d7e55dd765517444e5a7831a7749adb458932370]}
         challenge_contract: {type: string, enum: [synsigra_challenge_package_v3]}
         scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
         verification_protocol_contract: {type: string, enum: [synsigra_verification_protocol_v2]}
@@ -587,7 +587,7 @@ paths:
       summary: Download local verifier bundle or wheel
       security: [{cookieAuth: []}, {bearerAuth: []}]
       parameters:
-        - {in: path, name: filename, required: true, schema: {type: string, enum: [metadata.json, synsigra-verifier.zip, synsigra-0.12.0-py3-none-any.whl]}}
+        - {in: path, name: filename, required: true, schema: {type: string, enum: [metadata.json, synsigra-verifier.zip, synsigra-0.13.0-py3-none-any.whl]}}
       responses:
         '200':
           description: Verifier file bytes
