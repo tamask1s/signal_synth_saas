@@ -2,6 +2,10 @@
 
 Pack tested: `r_peak_rr_noise_v1` v1.3, verifier v0.13.0.
 
+Status: all six findings are implemented in the shared verifier/reporting
+layer for verifier `0.14.0` (2026-07-23). The result applies to every curated
+and custom pack, not only to the pack used for this review.
+
 ---
 
 ## 1. Aggregate policy checks have no per-case breakdown
@@ -66,6 +70,36 @@ This should come from the `measurement_truth.json` fields (`absolute_tolerance`,
 **Problem:** The aggregate criterion (e.g., `AC-001 Artifact F1 ≥ 60%`) links nowhere. The per-case details link to individual pages, but there's no connection between "which criterion applies to which cases."
 
 **Ask:** Each acceptance criterion row should link to (or list) the contributing case detail pages. Conversely, each detail page already shows the acceptance context — but the main page should also provide the reverse link.
+
+---
+
+## Implementation result
+
+1. Every acceptance row now has an expandable case-contribution ledger. It
+   identifies in-scope and contributing cases, the case value, raw evidence
+   counts and a direct detail-page link. Detection rows expose TP/FP/FN. Cases
+   below the same reference gate sort first.
+2. The case-target overview shows the relevant required gate and a green,
+   amber or neutral case diagnostic. The accompanying text makes clear that
+   this comparison is diagnostic; only the pooled acceptance criterion is an
+   official verdict.
+3. Measurement details show the pairing window separately from every packaged
+   numeric tolerance. Absolute, relative, effective and error-model rules come
+   from the challenge truth and include units.
+4. Human reports use “reference” and “submitted measurement” terminology.
+   Canonical evidence field names remain stable and their meaning is explained
+   in the report.
+5. Metric rows and compact `i` help controls define F1, PPV, sensitivity,
+   coverage, status agreement, MAE, P95 and target-specific timing/overlap
+   metrics. Units are shown at measurement-context level. A mathematically
+   invalid pooled error across mixed units is explicitly omitted.
+6. Navigation is bidirectional: criterion breakdowns link to case details,
+   case rows list criterion IDs, and detail-page criteria link to the
+   corresponding overview anchors.
+
+The aggregate is always recomputed from pooled counts or errors; it is never
+presented as the arithmetic mean of per-case percentages. Case diagnostics
+therefore aid investigation without changing the package-authoritative policy.
 
 ---
 

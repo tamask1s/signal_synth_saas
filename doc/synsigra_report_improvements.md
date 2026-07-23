@@ -1,6 +1,6 @@
 # Synsigra verification evidence report
 
-Status: implemented and extended through 2026-07-23 in Python verifier `0.13.0` with the clean
+Status: implemented and extended through 2026-07-23 in Python verifier `0.14.0` with the clean
 `synsigra_local_verification_v3` contract.
 
 This document records the final audit-reporting design. It replaces the
@@ -33,8 +33,11 @@ CSV files. For `N` case-targets the result contains exactly `N + 2` files.
 - every applicable and non-applicable acceptance criterion with a stable
   `AC-NNN` ID, human name, description, unit, required value, actual value,
   signed margin and verdict;
-- one row per case-target with its primary metric and a link to its detail
-  page;
+- an expandable contribution ledger under every criterion, with scoped cases,
+  case values, raw evidence counts, diagnostic comparison and detail links;
+- one row per case-target with its primary metric, relevant required gate,
+  explicitly non-authoritative case diagnostic, criterion links and detail
+  link;
 - the HRV processing-stage trace when applicable;
 - a link to `evidence.json`.
 
@@ -58,7 +61,17 @@ Target-specific views include:
 - interval overlap, boundary error and per-label metrics;
 - delineation accuracy and per-wave metrics;
 - measurement truth, algorithm value, absolute error, absolute and relative
-  tolerance inputs, effective tolerance, tolerance rationale and verdict.
+  tolerance inputs, effective tolerance, tolerance rationale, unit and
+  verdict;
+- plain-language metric definitions and keyboard-accessible information
+  controls, including the exact meaning of P95 and status agreement;
+- case-level values beside aggregate acceptance results, with criterion links
+  back to the overview.
+
+Aggregate criteria are calculated from pooled raw evidence rather than the
+average of case percentages. Green/amber case badges are investigation aids,
+not additional package verdicts. Mixed-unit measurement errors are not pooled
+into a dimensionally invalid headline value.
 
 The complete raw comparison remains embedded once in `evidence.json`.
 
@@ -113,7 +126,13 @@ Core tests enforce:
 - all index-to-detail and detail-to-index links resolve;
 - every result HTML contains the exact notice once;
 - all ten supported target families render;
-- measurement evidence retains truth, prediction, error and tolerance data;
+- every criterion exposes case contributions and every result exposes its
+  criterion IDs;
+- measurement evidence retains reference, submitted, error, unit and tolerance
+  data;
+- report HTML exposes packaged tolerance rules, metric definitions and
+  bidirectional criterion/case navigation;
+- mixed-unit measurement reports suppress misleading pooled error values;
 - source-tree and installed-wheel verification produce the same v3 contract.
 - challenge index, scenario and characterization HTML use the same single,
   neutral-gray notice and contain no legacy red disclaimer panel.

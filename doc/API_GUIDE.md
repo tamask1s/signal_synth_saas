@@ -119,6 +119,13 @@ Open `verification-results/index.html`; it links every case-target detail
 page. `verification-results/evidence.json` is the single canonical
 machine-readable record.
 
+Each acceptance row can be expanded into its contributing cases and raw
+counts. The case table shows the relevant gate and an explicitly diagnostic
+case comparison; only the pooled criterion is an official verdict.
+Measurement detail pages show units, the pairing window and the exact packaged
+absolute-or-relative pass tolerance. Criterion and case views link in both
+directions, and compact `i` controls explain the displayed metrics.
+
 Do not append a profile, case, or target override to evidence mode. A kit
 without protocol v2 instead shows explicit `--mode diagnostic`; diagnostic
 reports are always non-evidence. Point, interval, and measurement targets use

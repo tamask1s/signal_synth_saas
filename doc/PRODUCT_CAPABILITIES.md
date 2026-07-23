@@ -72,6 +72,13 @@ Explicit diagnostic mode may filter or use a custom policy, but its reports are
 always non-evidence. It is generator-free. Customer algorithms and output can
 remain local.
 
+Verifier reports expose an expandable case-contribution ledger for every
+aggregate criterion, raw evidence counts, required gates, non-authoritative
+case diagnostics and bidirectional criterion/case links. Detail pages explain
+target-specific metrics and units and distinguish measurement pairing windows
+from the packaged absolute-or-relative numeric tolerance. Mixed-unit errors are
+never combined into a misleading pooled MAE or P95 value.
+
 ## Product boundary
 
 Synsigra produces synthetic engineering evidence. It does not execute customer

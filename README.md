@@ -284,6 +284,15 @@ After running the README command, open `verification-results/index.html`.
 It links every case-target detail page; `verification-results/evidence.json`
 is the single canonical machine-readable evidence record.
 
+The overview is designed as an audit trail rather than a wall of unexplained
+scores. Expand any acceptance criterion to see the contributing cases, their
+case-level values and raw evidence counts such as TP/FP/FN. Case rows show the
+relevant required gate and a green/amber diagnostic comparison, while the
+pooled criterion remains the only official verdict. Detail pages link back to
+their criteria and explain metric formulas, units, pairing windows and the
+exact packaged absolute-or-relative tolerance. Hover or focus an `i` marker
+for compact definitions.
+
 Install the separately downloadable, pure-Python, generator-free verifier:
 
 ```sh
