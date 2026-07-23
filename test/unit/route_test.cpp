@@ -137,6 +137,7 @@ int main() {
             ui.body.find("142</strong><span>authoring fields") !=
                 std::string::npos &&
             ui.body.find("A pack is a validated slice") != std::string::npos &&
+            ui.body.find("Noise is a test condition") != std::string::npos &&
             ui.body.find("pack-target-goals") != std::string::npos &&
             ui.body.find("pack-intent-goals") != std::string::npos &&
             ui.body.find("Advanced pack filters") != std::string::npos &&
@@ -951,8 +952,10 @@ int main() {
     require(pack_list.status == 200, "pack list route should return HTTP 200");
     require(
         pack_list.body.find("\"pack_id\":\"r_peak_stress_v1\"") !=
-            std::string::npos,
-        "pack list route should return the built-in example pack"
+            std::string::npos &&
+            pack_list.body.find("\"pack_id\":\"r_peak_noise_frontier_v1\"") !=
+                std::string::npos,
+        "pack list route should return both R-peak evidence packs"
     );
 
     const syn_sig_ra::RouteResponse pack_detail =
@@ -965,8 +968,31 @@ int main() {
             runtime_config.pack_root
         );
     require(
-        pack_detail.status == 200,
-        "known pack detail route should return HTTP 200"
+        pack_detail.status == 200 &&
+            pack_detail.body.find("\"version\":\"1.1\"") != std::string::npos &&
+            pack_detail.body.find("\"targets\":[\"r_peak\"]") !=
+                std::string::npos &&
+            pack_detail.body.find("\"available\":true") != std::string::npos,
+        "R-peak detector pack should expose a peak-only evidence protocol"
+    );
+
+    const syn_sig_ra::RouteResponse frontier_detail =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/packs/r_peak_noise_frontier_v1",
+            "/syn_sig_ra",
+            "",
+            nullptr,
+            runtime_config.pack_root
+        );
+    require(
+        frontier_detail.status == 200 &&
+            frontier_detail.body.find("\"version\":\"1.0\"") !=
+                std::string::npos &&
+            frontier_detail.body.find("\"total_seconds\":260") !=
+                std::string::npos &&
+            frontier_detail.body.find("mixed_snr_m10") != std::string::npos,
+        "noise-frontier detail should expose the calibrated five-case ladder"
     );
 
     const syn_sig_ra::RouteResponse curated_clone =

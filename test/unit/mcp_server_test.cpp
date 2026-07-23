@@ -55,8 +55,8 @@ bool complete_next_job(
         "synsigra_core_integration_v7",
         "{}",
         "0.10.0-dev",
-        "a80a06179de8c04fdb59732fa922bfc764549df9",
-        "signal_synth/a80a06179de8c04fdb59732fa922bfc764549df9",
+        "9ea4ff5d018d105966959c43c392316b2353e94d",
+        "signal_synth/9ea4ff5d018d105966959c43c392316b2353e94d",
         "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "{}",
         challenge_metadata,
@@ -145,10 +145,43 @@ int main() {
         recommendation.body.find("\"r_peak\"") != std::string::npos &&
         recommendation.body.find("\"rr_interval\"") != std::string::npos &&
         recommendation.body.find("\"hrv\"") != std::string::npos &&
-        recommendation.body.find("\"signal_quality\"") != std::string::npos &&
+        recommendation.body.find(
+            "\"interpreted_targets\":[\"hrv\",\"r_peak\",\"rr_interval\"]") !=
+            std::string::npos &&
         recommendation.body.find("recommended_workflow") != std::string::npos,
-        "goal recommendation should expose target and constraint coverage: " +
+        "noise stress must not invent a signal-quality algorithm output: " +
             recommendation.body);
+
+    const syn_sig_ra::RouteResponse peak_noise_recommendation = mcp(
+        store, config,
+        "{\"jsonrpc\":\"2.0\",\"id\":\"peak-noise\",\"method\":\"tools/call\","
+        "\"params\":{\"name\":\"synsigra_recommend_packs\",\"arguments\":{"
+        "\"goal\":\"Test an R-peak detector under escalating baseline wander and noise\","
+        "\"sampling_rate_hz\":500}}}");
+    require(
+        peak_noise_recommendation.status == 200 &&
+        peak_noise_recommendation.body.find(
+            "\"interpreted_targets\":[\"r_peak\"]") != std::string::npos &&
+        peak_noise_recommendation.body.find("r_peak_noise_frontier_v1") !=
+            std::string::npos &&
+        peak_noise_recommendation.body.find("r_peak_stress_v1") !=
+            std::string::npos &&
+        peak_noise_recommendation.body.find("r_peak_noise_frontier_v1") <
+            peak_noise_recommendation.body.find("r_peak_stress_v1"),
+        "R-peak noise requests should recommend the peak-only frontier: " +
+            peak_noise_recommendation.body);
+
+    const syn_sig_ra::RouteResponse quality_recommendation = mcp(
+        store, config,
+        "{\"jsonrpc\":\"2.0\",\"id\":\"quality\",\"method\":\"tools/call\","
+        "\"params\":{\"name\":\"synsigra_recommend_packs\",\"arguments\":{"
+        "\"goal\":\"Validate a signal-quality detector that labels artifact intervals\"}}}");
+    require(
+        quality_recommendation.status == 200 &&
+        quality_recommendation.body.find(
+            "\"interpreted_targets\":[\"signal_quality\"]") != std::string::npos,
+        "explicit quality-interval requests should retain signal-quality scope: " +
+            quality_recommendation.body);
 
     const syn_sig_ra::RouteResponse projects = mcp(
         store, config,
@@ -215,8 +248,8 @@ int main() {
             "{\"pack_id\":\"r_peak_rr_noise_v1\"}",
             "r_peak_rr_noise_v1", "r_peak_rr_noise_v1.json",
             "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-            "1.1", "3.0",
-            "sha256:4b3481991f2b59c191e48750c33ed353a209538e46ec49b001e24c48c2fff044",
+            "1.3", "3.1",
+            "sha256:34725e1b879904dd70000a42b422822beb6133e48b628b8a8ae8bc71277bb765",
             evidence_job_id, error),
         "evidence MCP fixture should queue: " + error);
     const std::string evidence_metadata =

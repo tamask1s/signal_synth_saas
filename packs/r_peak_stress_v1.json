@@ -1,6 +1,6 @@
 {
-  "description": "Deterministic ECG scenarios for R-peak detector smoke, rate and artifact stress testing.",
-  "name": "R-peak Stress Pack v1",
+  "description": "Peak-detector-only evidence protocol across clean, rate-extreme, baseline-wander and powerline ECG cases; no signal-quality output is requested.",
+  "name": "R-peak Detector Evidence Pack",
   "pack_id": "r_peak_stress_v1",
   "scenarios": [
     {
@@ -28,8 +28,7 @@
       "id": "baseline_powerline",
       "path": "scenarios/packs/sq_baseline_powerline.json",
       "targets": [
-        "r_peak",
-        "signal_quality"
+        "r_peak"
       ]
     }
   ],
@@ -37,5 +36,6 @@
   "targets": [
     "r_peak"
   ],
-  "version": "1.0"
+  "verification_protocol_path": "r_peak_stress_v1_expectations.json",
+  "version": "1.1"
 }

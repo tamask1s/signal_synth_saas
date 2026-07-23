@@ -276,8 +276,8 @@ int main() {
             pack_path,
             fingerprint,
             "1.0",
-            "3.0",
-            "sha256:4b3481991f2b59c191e48750c33ed353a209538e46ec49b001e24c48c2fff044",
+            "3.1",
+            "sha256:34725e1b879904dd70000a42b422822beb6133e48b628b8a8ae8bc71277bb765",
             succeeded_job,
             error
         ),
@@ -629,8 +629,8 @@ int main() {
             pack_path,
             fingerprint,
             "1.0",
-            "3.0",
-            "sha256:4b3481991f2b59c191e48750c33ed353a209538e46ec49b001e24c48c2fff044",
+            "3.1",
+            "sha256:34725e1b879904dd70000a42b422822beb6133e48b628b8a8ae8bc71277bb765",
             failed_job,
             error
         ),

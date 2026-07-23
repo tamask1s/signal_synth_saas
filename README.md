@@ -20,7 +20,7 @@ signals.
 The normal workflow is:
 
 1. Register with an email address, verify ownership, and sign in.
-2. Choose one of 18 curated challenge packs or author a custom pack.
+2. Choose one of 19 curated challenge packs or author a custom pack.
 3. Generate a deterministic challenge in an organization project.
 4. Inspect its waveforms and ground truth in Synsigra Lab.
 5. Download one verification-kit ZIP.
@@ -184,15 +184,16 @@ and the kit's `submission/submission.json` are authoritative.
 
 ## Curated packs
 
-The immutable catalog 3.0 release contains 18 packs:
+The immutable catalog 3.1 release contains 19 packs:
 
 | Pack | Focus |
 |---|---|
-| `r_peak_rr_noise_v1` | R peaks, RR values, signal quality, verification protocol, analytic/external noise |
+| `r_peak_rr_noise_v1` | Combined R-peak, RR, and signal-quality pipeline evidence under analytic/external noise |
 | `ecg_qtc_verification_v1` | R peaks, delineation, QTc formula/rate cases |
 | `ecg_extended_morphology_v1` | Delineation, extended morphology, beat classification |
 | `advanced_rhythm_burden_v1` | Rhythm intervals and burden measurements |
-| `r_peak_stress_v1` | R-peak and artifact stress regression |
+| `r_peak_stress_v1` | R-peak-only detector evidence; no RR or signal-quality output required |
+| `r_peak_noise_frontier_v1` | Paired 60-second −7/−8/−9/−10 dB R-peak-only robustness frontier |
 | `hrv_robustness_v2` | HRV v2 metrics and contamination robustness |
 | `ecg_beat_classification_v1` | Normal, PAC, PVC, paced beat classes |
 | `ecg_rhythm_v1` | Rhythm transitions, ectopy, pacing, episodes |
@@ -211,6 +212,20 @@ The catalog API returns the complete target, case, profile, protocol, role,
 modality, duration, rate, channel, estimated-size, changelog, fingerprint, and
 external-noise metadata. A small starter pack is a deliberate validation slice,
 not the platform's generation limit.
+
+For a detector that outputs only R-peak events, start with
+`r_peak_stress_v1`. Its authoritative submission matrix contains exactly four
+R-peak files, so the absence of signal-quality, RR, or HRV output cannot make
+the result ineligible for evidence. Use `r_peak_noise_frontier_v1` next to
+compare robustness across paired, increasingly severe noise tiers. Each tier
+has an independent packaged gate, so good clean performance cannot hide a
+hard-tier collapse. `r_peak_rr_noise_v1` remains the right choice only when the
+algorithm under test claims the combined R-peak, RR-measurement, and
+signal-quality pipeline.
+
+`Evidence eligible: yes` means the unmodified package-authoritative matrix was
+completed. It does not itself mean that the detector passed: the separate
+policy verdict records whether the packaged numeric criteria were met.
 
 ## Custom authoring
 
@@ -371,7 +386,7 @@ file, wall-time, and no-network worker bounds are enforced.
 
 This release intentionally has no old core compatibility layer. It requires the
 clean sibling checkout `../signal_synth` at commit
-`a80a06179de8c04fdb59732fa922bfc764549df9` and the exact tuple:
+`9ea4ff5d018d105966959c43c392316b2353e94d` and the exact tuple:
 
 - generator `0.10.0-dev`, C++ facade `1.5.0`;
 - integration `synsigra_core_integration_v7`, pack schema `2`;
@@ -386,8 +401,8 @@ clean sibling checkout `../signal_synth` at commit
 - authoring `synsigra_authoring_v18`, templates `synsigra_templates_v5`;
 - verifier `0.14.0`, external-noise truth
   `synsigra_external_noise_truth_v1`;
-- curated catalog `3.0` with 18 packs and source hash
-  `sha256:4b3481991f2b59c191e48750c33ed353a209538e46ec49b001e24c48c2fff044`.
+- curated catalog `3.1` with 19 packs and source hash
+  `sha256:34725e1b879904dd70000a42b422822beb6133e48b628b8a8ae8bc71277bb765`.
 
 Configuration, startup, readiness, worker post-render validation, and release
 verification fail closed if these identities diverge. `/readyz` publishes the

@@ -300,7 +300,19 @@ std::vector<std::string> requested_targets(json_t* arguments) {
     infer_target(goal, {"delineat", "wave boundary", "hullámhat", "hullamhat"}, "ecg_delineation", targets);
     infer_target(goal, {"qtc", "qt interval"}, "qtc", targets);
     infer_target(goal, {"morpholog", "morfol"}, "morphology_assertions", targets);
-    infer_target(goal, {"noise", "artifact", "signal quality", "zaj", "jelmin"}, "signal_quality", targets);
+    infer_target(
+        goal,
+        {
+            "signal quality", "signal-quality", "quality detector",
+            "quality classification", "artifact detector",
+            "artifact detection", "artifact classification",
+            "artifact interval", "detect artifact", "classify artifact",
+            "jelmin", "zajdetekt", "zaj detekt", "zajos szakasz",
+            "artefaktum detekt", "artefaktum oszt"
+        },
+        "signal_quality",
+        targets
+    );
     infer_target(goal, {"ppg peak", "systolic peak", "szisztolés", "szisztoles"}, "ppg_systolic_peak", targets);
     infer_target(goal, {"pulse onset", "pulzuskezdet"}, "ppg_pulse_onset", targets);
     infer_target(goal, {"ecg ppg", "alignment", "igazítás", "igazitas"}, "ecg_ppg_alignment", targets);

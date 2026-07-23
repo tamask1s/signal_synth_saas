@@ -45,6 +45,13 @@ Do not clone or access the generator repository, and do not generate signals
 locally. The SaaS API owns generation. The download contains challenge data and
 verification helpers, not the generator.
 
+Keep algorithm outputs separate from stress conditions. “Test my R-peak
+detector under noise” requests `r_peak`, not `signal_quality`. Add
+`signal_quality` only when the algorithm itself emits quality/artifact
+intervals. For current curated R-peak work, inspect `r_peak_stress_v1` first
+for peak-only evidence and `r_peak_noise_frontier_v1` for the calibrated
+−7/−8/−9/−10 dB robustness ladder.
+
 ## Is one API key enough?
 
 Yes. One valid personal API key is sufficient for script access. Email,

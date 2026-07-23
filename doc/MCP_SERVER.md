@@ -89,6 +89,9 @@ are correct under noise”:
 
 1. Call `synsigra_recommend_packs` with the complete goal and explicit targets
    when they are known.
+   Noise and artifacts mentioned as test conditions do not imply a
+   `signal_quality` output. Request that target only when the algorithm itself
+   emits quality/artifact intervals.
 2. Explain which requested outputs are locally scoreable, reference-only, or
    missing. Never present reference-only ground truth as a passed score.
 3. If the best curated pack satisfies the requirements, inspect it with

@@ -1796,6 +1796,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
           <span class="eyebrow">Step 1</span>
           <h3>What does your algorithm output?</h3>
           <p class="muted compact">Choose one primary output. Synsigra prioritizes packs with local automated scoring over reference-only coverage.</p>
+          <p class="muted compact"><strong>Noise is a test condition, not automatically an output.</strong> Choose Signal quality only if your algorithm returns quality or artifact intervals; for a peak detector under noise, choose R-peak here and Stress / robustness next.</p>
           <div id="pack-target-goals" class="target-selector"></div>
         </section>
         <section class="wizard-step">
@@ -2172,6 +2173,7 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>POST</td><td><code>/mcp</code></td><td>Stateless Streamable HTTP MCP tools and prompts</td><td>Bearer API key</td></tr>
         </tbody>
       </table>
+      <p><strong>R-peak scope:</strong> use <code>r_peak_stress_v1</code> for peak-only evidence and <code>r_peak_noise_frontier_v1</code> for the calibrated noise ladder. Use <code>r_peak_rr_noise_v1</code> only when the algorithm also outputs RR measurements and signal-quality intervals. Noise as a stress condition does not itself require a signal-quality output.</p>
       <h2>Minimal curl client</h2>
       <pre class="output">read -r -s SYN_SIG_RA_API_KEY
 BASE=https://www.timeonion.com/syn_sig_ra
@@ -3821,7 +3823,7 @@ const char kUiJs[] = R"JS((() => {
     ecg_delineation: ["ECG delineation", "Wave-onset, peak, and offset fiducials with local point-event scoring"],
     qtc: ["QTc verification", "QT/QTc measurement values across declared correction formulae"],
     hrv: ["Heart-rate variability (HRV)", "Frequency-, time-, and nonlinear HRV metric verification"],
-    signal_quality: ["Signal quality / artifacts", "Noise and artifact intervals with local overlap scoring"],
+    signal_quality: ["Signal-quality interval detection", "Choose only when the algorithm outputs quality or artifact intervals"],
     morphology_assertions: ["ECG morphology", "Beat-, lead-, axis-, and phenotype-level measurement scoring"],
     ecg_ppg_alignment: ["ECG–PPG alignment", "Cardiac-to-pulse timing measurements with local scoring"],
     ppg_optical: ["Optical PPG / SpO₂", "Optical-channel and oxygenation measurements under controlled stress"],

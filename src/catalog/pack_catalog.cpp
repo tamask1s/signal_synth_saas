@@ -375,11 +375,11 @@ bool curated_pack_ids(
     json_t* packs = root == nullptr ? nullptr : json_object_get(root, "packs");
     json_t* count = root == nullptr ? nullptr : json_object_get(root, "pack_count");
     if (!exact_object(root, 13) ||
-        json_string_or_empty(json_object_get(root, "catalog_version")) != "3.0" ||
+        json_string_or_empty(json_object_get(root, "catalog_version")) != "3.1" ||
         json_string_or_empty(json_object_get(root, "source_catalog_sha256")) !=
-            "sha256:4b3481991f2b59c191e48750c33ed353a209538e46ec49b001e24c48c2fff044" ||
+            "sha256:34725e1b879904dd70000a42b422822beb6133e48b628b8a8ae8bc71277bb765" ||
         !json_is_array(packs) || !json_is_integer(count) ||
-        json_integer_value(count) != 18 || json_array_size(packs) != 18) {
+        json_integer_value(count) != 19 || json_array_size(packs) != 19) {
         if (root != nullptr) json_decref(root);
         error = "curated pack catalog index is invalid";
         return false;
@@ -426,18 +426,18 @@ bool load_curated_catalog_metadata(
             "synsigra_curated_pack_metadata_export_v1" &&
         json_string_or_empty(json_object_get(root, "catalog_id")) ==
             "synsigra_verification_packs" &&
-        json_string_or_empty(json_object_get(root, "catalog_version")) == "3.0" &&
+        json_string_or_empty(json_object_get(root, "catalog_version")) == "3.1" &&
         json_string_or_empty(json_object_get(root, "release_set_status")) == "beta" &&
         json_is_string(json_object_get(root, "release_set_id")) &&
         json_string_length(json_object_get(root, "release_set_id")) > 0 &&
         valid_sha256(json_object_get(root, "source_catalog_sha256")) &&
         json_string_or_empty(json_object_get(root, "source_catalog_sha256")) ==
-            "sha256:4b3481991f2b59c191e48750c33ed353a209538e46ec49b001e24c48c2fff044" &&
+            "sha256:34725e1b879904dd70000a42b422822beb6133e48b628b8a8ae8bc71277bb765" &&
         json_is_array(packs) && json_is_integer(pack_count) &&
-        json_integer_value(pack_count) == 18 && json_array_size(packs) == 18;
+        json_integer_value(pack_count) == 19 && json_array_size(packs) == 19;
     if (!header_valid) {
         if (root != nullptr) json_decref(root);
-        error = "curated pack catalog metadata has an unsupported 3.0 header";
+        error = "curated pack catalog metadata has an unsupported 3.1 header";
         return false;
     }
     pack.catalog_version = json_string_value(json_object_get(root, "catalog_version"));

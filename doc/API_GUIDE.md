@@ -58,6 +58,16 @@ curl -fsS -H "$AUTH" "$BASE/v1/projects" > projects.json
 `ready.json` includes the full canonical core capability document under
 `accepted_core.contract_document`. Select returned IDs and queue a job:
 
+For R-peak work, choose by algorithm scope:
+
+- `r_peak_stress_v1`: peak-only evidence baseline; submit only R-peak events;
+- `r_peak_noise_frontier_v1`: peak-only calibrated robustness ladder;
+- `r_peak_rr_noise_v1`: combined pipeline evidence requiring R-peak, RR, and
+  signal-quality output.
+
+Noise can be a test condition without being an algorithm output. Do not select
+`signal_quality` merely because a peak detector is tested under noise.
+
 ```sh
 curl -fsS -H "$AUTH" -H 'Content-Type: application/json' \
   -d '{"project_id":"PROJECT_ID","pack_id":"r_peak_stress_v1"}' \
