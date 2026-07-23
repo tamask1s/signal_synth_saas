@@ -775,8 +775,15 @@ for key, value in {
     if challenge.get(key) != value:
         raise SystemExit("invalid " + key)
 verification = challenge.get("verification", {})
-if verification.get("mode") != "diagnostic" or verification.get("evidence_eligible") is not False or verification.get("matrix_complete") is not None or verification.get("protocol") is not None:
-    raise SystemExit("protocol-free challenge must be explicitly diagnostic")
+protocol = verification.get("protocol", {})
+if verification.get("mode") != "evidence" or \
+        verification.get("evidence_eligible") is not True or \
+        verification.get("matrix_complete") is not True or \
+        protocol.get("protocol_id") != "r_peak_stress_v1":
+    raise SystemExit("R-peak detector challenge must be evidence-ready")
+outputs = challenge.get("submission_outputs", [])
+if len(outputs) != 4 or {item.get("target") for item in outputs} != {"r_peak"}:
+    raise SystemExit("R-peak detector challenge must request four peak-only outputs")
 if not challenge.get("integrity", {}).get("ok"):
     raise SystemExit("challenge integrity was not verified")
 if len(body.get("generator_git_commit", "")) != 40:
@@ -807,18 +814,15 @@ with open(sys.argv[1], "r", encoding="utf-8") as handle:
     response = json.load(handle)
 result = response.get("result", {})
 guide = result.get("structuredContent", {})
-expected_command = (
-    "synsigra-verify challenge submission verification-results "
-    "--mode diagnostic --force"
-)
+expected_command = "synsigra-verify challenge submission verification-results --force"
 if guide.get("job_id") != sys.argv[2] or guide.get("status") != "succeeded":
     raise SystemExit("guide omitted concise job identity")
-if guide.get("verification_mode") != "diagnostic":
-    raise SystemExit("guide omitted diagnostic mode")
-if guide.get("evidence_eligible") is not False:
-    raise SystemExit("diagnostic guide claimed evidence eligibility")
+if guide.get("verification_mode") != "evidence":
+    raise SystemExit("guide omitted evidence mode")
+if guide.get("evidence_eligible") is not True:
+    raise SystemExit("evidence guide omitted eligibility")
 if guide.get("verification_command") != expected_command:
-    raise SystemExit("guide returned the wrong diagnostic command")
+    raise SystemExit("guide returned the wrong package-authoritative command")
 if "job" in guide or "evidence_command" in guide:
     raise SystemExit("guide retained a legacy/full job field")
 downloads = guide.get("downloads", {})
@@ -1018,8 +1022,12 @@ with zipfile.ZipFile(kit_path) as archive:
     manifest = json.loads(archive.read(prefix + "challenge/manifest.json"))
     if manifest.get("contract") != "synsigra_challenge_package_v3":
         raise SystemExit("kit challenge contract mismatch")
-    if "--mode diagnostic" not in readme:
-        raise SystemExit("protocol-free kit README does not state diagnostic mode")
+    if "--mode diagnostic" in readme:
+        raise SystemExit("evidence kit README contains a diagnostic override")
+    submission = json.loads(archive.read(prefix + "submission/submission.json"))
+    outputs = submission.get("outputs", [])
+    if len(outputs) != 4 or {item.get("target") for item in outputs} != {"r_peak"}:
+        raise SystemExit("R-peak evidence kit does not contain four peak-only outputs")
 PY
     fail "verification kit archive failed validation"
 
