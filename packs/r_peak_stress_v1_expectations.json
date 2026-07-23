@@ -3,18 +3,18 @@
   "contract": "synsigra_verification_protocol_v2",
   "protocol_id": "r_peak_stress_v1",
   "pack_id": "r_peak_stress_v1",
-  "context_of_use": "Deterministic synthetic engineering evidence for algorithms whose declared scope is ECG R-peak event detection only.",
+  "context_of_use": "Deterministic synthetic engineering evidence for ECG R-peak detection and observable beat-to-beat RR interval measurement, without a signal-quality claim.",
   "scoring_contract": "synsigra_local_verification_v3",
   "required_case_targets": [
-    {"case_id": "clean_70", "targets": ["r_peak"]},
-    {"case_id": "slow_45", "targets": ["r_peak"]},
-    {"case_id": "fast_120", "targets": ["r_peak"]},
-    {"case_id": "baseline_powerline", "targets": ["r_peak"]}
+    {"case_id": "clean_70", "targets": ["r_peak", "rr_interval"]},
+    {"case_id": "slow_45", "targets": ["r_peak", "rr_interval"]},
+    {"case_id": "fast_120", "targets": ["r_peak", "rr_interval"]},
+    {"case_id": "baseline_powerline", "targets": ["r_peak", "rr_interval"]}
   ],
   "acceptance_profile": {
     "schema_version": 1,
     "profile_id": "r_peak_stress_v1_acceptance",
-    "description": "Peak-detector-only acceptance limits. Signal-quality classification and RR/HRV measurements are outside this claim.",
+    "description": "Pre-specified detector and RR limits. Signal-quality classification and HRV are outside this claim.",
     "targets": {
       "r_peak": {
         "artifact": {
@@ -33,6 +33,21 @@
           "positive_predictive_value": {"min": 0.95},
           "sensitivity": {"min": 0.95}
         }
+      },
+      "rr_interval": {
+        "overall": {
+          "prediction_match_fraction": {"min": 0.90},
+          "status_match_fraction": {"min": 0.90},
+          "tolerance_pass_fraction": {"min": 0.90},
+          "truth_match_fraction": {"min": 0.90}
+        },
+        "rr_interval": {
+          "p95_absolute_error": {"max": 0.05},
+          "prediction_match_fraction": {"min": 0.90},
+          "status_match_fraction": {"min": 0.90},
+          "tolerance_pass_fraction": {"min": 0.90},
+          "truth_match_fraction": {"min": 0.90}
+        }
       }
     }
   },
@@ -43,7 +58,7 @@
       "acceptance_profile": {
         "schema_version": 1,
         "profile_id": "r_peak_stress_v1_rate_controls",
-        "description": "Clean and rate-extreme cases must independently retain detector-grade event performance.",
+        "description": "Clean and rate-extreme cases must independently retain detector-grade event performance and 25 ms aggregate RR MAE.",
         "targets": {
           "r_peak": {
             "total": {
@@ -51,6 +66,11 @@
               "mean_absolute_error_seconds": {"max": 0.02},
               "positive_predictive_value": {"min": 0.98},
               "sensitivity": {"min": 0.98}
+            }
+          },
+          "rr_interval": {
+            "rr_interval": {
+              "mean_absolute_error": {"max": 0.025}
             }
           }
         }
@@ -62,7 +82,7 @@
       "acceptance_profile": {
         "schema_version": 1,
         "profile_id": "r_peak_stress_v1_baseline_powerline",
-        "description": "The artifact case is gated separately so clean cases cannot hide detector failure under baseline wander and powerline interference.",
+        "description": "The artifact case is gated separately so clean cases cannot hide detector or RR failure under baseline wander and powerline interference.",
         "targets": {
           "r_peak": {
             "artifact": {
@@ -70,6 +90,11 @@
               "mean_absolute_error_seconds": {"max": 0.04},
               "positive_predictive_value": {"min": 0.75},
               "sensitivity": {"min": 0.75}
+            }
+          },
+          "rr_interval": {
+            "rr_interval": {
+              "mean_absolute_error": {"max": 0.025}
             }
           }
         }
@@ -82,9 +107,11 @@
   ],
   "truth_policy": {
     "event_scoreability": "R-peak truth requires a complete in-record QRS and more than 5% retained signal during all-lead dropout; every exclusion is explicitly reported.",
+    "rr_definition": "Difference between consecutive present-QRS construction R-peak times inside the record; an interval touching unscoreable R-peak truth is not_evaluable.",
+    "first_beat": "Excluded because no preceding in-record R peak exists for RR construction.",
     "artifact_overlap": "Baseline wander and powerline intervals remain scoreable and are separately visible in the artifact bin.",
-    "scope": "Only R-peak event files are required. Absence of signal-quality, RR, HRV, classification or delineation output cannot make this evidence matrix incomplete.",
-    "boundary": "QRS truth whose constructed support crosses the record boundary is excluded; no blanket edge window is used."
+    "scope": "R-peak event and RR measurement files are required. Signal-quality, HRV, classification and delineation outputs are explicitly outside the evidence matrix.",
+    "boundary": "Only QRS truth whose constructed support crosses the record boundary is excluded; no blanket edge window is used."
   },
-  "evidence_boundary": "Synthetic engineering evidence for R-peak event detection only; not clinical validation, diagnostic performance evidence, regulatory qualification, or evidence for signal-quality or downstream interval/HRV functionality."
+  "evidence_boundary": "Synthetic engineering evidence for R-peak detection and observable beat-to-beat RR measurement only; not clinical validation, diagnostic performance evidence, regulatory qualification, or evidence for signal quality or HRV."
 }

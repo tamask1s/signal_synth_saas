@@ -55,8 +55,8 @@ bool complete_next_job(
         "synsigra_core_integration_v7",
         "{}",
         "0.10.0-dev",
-        "9ea4ff5d018d105966959c43c392316b2353e94d",
-        "signal_synth/9ea4ff5d018d105966959c43c392316b2353e94d",
+        "99ff5b1d5272e57c8de7f3ea9760f657782c0220",
+        "signal_synth/99ff5b1d5272e57c8de7f3ea9760f657782c0220",
         "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "{}",
         challenge_metadata,
@@ -168,7 +168,7 @@ int main() {
             std::string::npos &&
         peak_noise_recommendation.body.find("r_peak_noise_frontier_v1") <
             peak_noise_recommendation.body.find("r_peak_stress_v1"),
-        "R-peak noise requests should recommend the peak-only frontier: " +
+        "R-peak noise requests should recommend the focused detector frontier: " +
             peak_noise_recommendation.body);
 
     const syn_sig_ra::RouteResponse quality_recommendation = mcp(
@@ -248,8 +248,8 @@ int main() {
             "{\"pack_id\":\"r_peak_rr_noise_v1\"}",
             "r_peak_rr_noise_v1", "r_peak_rr_noise_v1.json",
             "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-            "1.3", "3.1",
-            "sha256:34725e1b879904dd70000a42b422822beb6133e48b628b8a8ae8bc71277bb765",
+            "1.3", "3.2",
+            "sha256:854919b3daf515601dcb5923d1bfea2e67dde33429a57b657fbc97d18257ede6",
             evidence_job_id, error),
         "evidence MCP fixture should queue: " + error);
     const std::string evidence_metadata =

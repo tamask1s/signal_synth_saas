@@ -49,8 +49,10 @@ Keep algorithm outputs separate from stress conditions. “Test my R-peak
 detector under noise” requests `r_peak`, not `signal_quality`. Add
 `signal_quality` only when the algorithm itself emits quality/artifact
 intervals. For current curated R-peak work, inspect `r_peak_stress_v1` first
-for peak-only evidence and `r_peak_noise_frontier_v1` for the calibrated
-−7/−8/−9/−10 dB robustness ladder.
+for focused R-peak plus beat-to-beat RR evidence and
+`r_peak_noise_frontier_v1` for the calibrated
+−3/−4/−5/−7/−8/−9/−10/−11 dB robustness ladder. Neither pack asks for
+signal-quality output.
 
 ## Is one API key enough?
 

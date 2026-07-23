@@ -81,7 +81,7 @@ int main() {
         "catalog should expose the filename-matched pack ID"
     );
     require(
-        r_peak->display_name == "R-peak Detector Evidence Pack",
+        r_peak->display_name == "R-peak and RR Detector Evidence Pack",
         "catalog should expose the authoritative display name"
     );
     require(
@@ -89,7 +89,7 @@ int main() {
         "catalog should expose the authoritative fingerprint"
     );
     require(
-        r_peak->version == "1.1" && r_peak->scenarios.size() == 4,
+        r_peak->version == "1.2" && r_peak->scenarios.size() == 4,
         "catalog should expose pack version and scenario count"
     );
     require(
@@ -100,20 +100,21 @@ int main() {
         r_peak->release_status == "beta" &&
             r_peak->integration_contract_version ==
                 "synsigra_core_integration_v7" &&
-            r_peak->catalog_version == "3.1" &&
+            r_peak->catalog_version == "3.2" &&
             r_peak->catalog_source_sha256 ==
-                "sha256:34725e1b879904dd70000a42b422822beb6133e48b628b8a8ae8bc71277bb765" &&
-            r_peak->changelog.size() == 2,
+                "sha256:854919b3daf515601dcb5923d1bfea2e67dde33429a57b657fbc97d18257ede6" &&
+            r_peak->changelog.size() == 3,
         "catalog should expose validated release and compatibility metadata"
     );
     require(
         r_peak->scoring_mode == "local" &&
             has_target(r_peak->scoreable_targets, "r_peak", true) &&
+            has_target(r_peak->scoreable_targets, "rr_interval", true) &&
             !has_target(r_peak->scoreable_targets, "signal_quality", true) &&
-            r_peak->scoreable_targets.size() == 1 &&
+            r_peak->scoreable_targets.size() == 2 &&
             r_peak->verification_protocol_available &&
             r_peak->reference_only_targets.empty(),
-        "peak-only evidence pack should require only R-peak output"
+        "focused detector evidence pack should require R-peak and RR without signal quality"
     );
     require(
         r_peak->recommended_profile == "stress" &&
@@ -157,7 +158,7 @@ int main() {
         "known pack lookup should succeed: " + error
     );
     require(
-        detail.description.find("Peak-detector-only") != std::string::npos,
+        detail.description.find("beat-to-beat RR") != std::string::npos,
         "pack detail should include its description"
     );
     require(
@@ -191,19 +192,20 @@ int main() {
         "catalog should expose normalized protocol and approved external-noise metadata"
     );
     require(
-        r_peak_frontier->version == "1.0" &&
-            r_peak_frontier->catalog_version == "3.1" &&
-            r_peak_frontier->scenarios.size() == 5 &&
-            r_peak_frontier->total_seconds == 260 &&
+        r_peak_frontier->version == "1.1" &&
+            r_peak_frontier->catalog_version == "3.2" &&
+            r_peak_frontier->scenarios.size() == 9 &&
+            r_peak_frontier->total_seconds == 500 &&
             r_peak_frontier->recommended_profile == "benchmark" &&
             r_peak_frontier->verification_protocol_available &&
             r_peak_frontier->verification_protocol_contract ==
                 "synsigra_verification_protocol_v2" &&
             r_peak_frontier->external_noise_asset_ids.size() == 1 &&
-            r_peak_frontier->scoreable_targets.size() == 1 &&
+            r_peak_frontier->scoreable_targets.size() == 2 &&
             has_target(r_peak_frontier->scoreable_targets, "r_peak", true) &&
+            has_target(r_peak_frontier->scoreable_targets, "rr_interval", true) &&
             r_peak_frontier->reference_only_targets.empty(),
-        "noise-frontier pack should be a five-case R-peak-only evidence protocol"
+        "noise-frontier pack should be a nine-case R-peak and RR evidence protocol"
     );
 
     require(

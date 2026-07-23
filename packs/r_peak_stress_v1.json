@@ -1,41 +1,46 @@
 {
-  "description": "Peak-detector-only evidence protocol across clean, rate-extreme, baseline-wander and powerline ECG cases; no signal-quality output is requested.",
-  "name": "R-peak Detector Evidence Pack",
+  "description": "R-peak detection and beat-to-beat RR measurement evidence across clean, rate-extreme, baseline-wander and powerline ECG cases; no signal-quality output is requested.",
+  "name": "R-peak and RR Detector Evidence Pack",
   "pack_id": "r_peak_stress_v1",
   "scenarios": [
     {
       "id": "clean_70",
       "path": "scenarios/packs/rpeak_clean_70.json",
       "targets": [
-        "r_peak"
+        "r_peak",
+        "rr_interval"
       ]
     },
     {
       "id": "slow_45",
       "path": "scenarios/packs/rpeak_slow_45.json",
       "targets": [
-        "r_peak"
+        "r_peak",
+        "rr_interval"
       ]
     },
     {
       "id": "fast_120",
       "path": "scenarios/packs/rpeak_fast_120.json",
       "targets": [
-        "r_peak"
+        "r_peak",
+        "rr_interval"
       ]
     },
     {
       "id": "baseline_powerline",
       "path": "scenarios/packs/sq_baseline_powerline.json",
       "targets": [
-        "r_peak"
+        "r_peak",
+        "rr_interval"
       ]
     }
   ],
   "schema_version": 2,
   "targets": [
-    "r_peak"
+    "r_peak",
+    "rr_interval"
   ],
   "verification_protocol_path": "r_peak_stress_v1_expectations.json",
-  "version": "1.1"
+  "version": "1.2"
 }

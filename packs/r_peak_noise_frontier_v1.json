@@ -1,48 +1,86 @@
 {
-  "description": "Long, paired R-peak-only cases with escalating -7, -8, -9 and -10 dB calibrated all-lead noise plus increasing baseline wander and powerline interference.",
-  "name": "R-peak Calibrated Noise Frontier",
+  "description": "Long, paired R-peak and RR cases with escalating -3, -4, -5, -7, -8, -9, -10 and -11 dB calibrated all-lead noise plus increasing baseline wander and powerline interference.",
+  "name": "R-peak and RR Calibrated Noise Frontier",
   "pack_id": "r_peak_noise_frontier_v1",
   "scenarios": [
     {
       "id": "clean_anchor",
       "path": "scenarios/packs/rpeak_clean_70.json",
       "targets": [
-        "r_peak"
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "mixed_snr_m3",
+      "path": "scenarios/packs/rpeak_noise_frontier_m3_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "mixed_snr_m4",
+      "path": "scenarios/packs/rpeak_noise_frontier_m4_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "mixed_snr_m5",
+      "path": "scenarios/packs/rpeak_noise_frontier_m5_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
       ]
     },
     {
       "id": "mixed_snr_m7",
       "path": "scenarios/packs/rpeak_noise_frontier_m7_v8.json",
       "targets": [
-        "r_peak"
+        "r_peak",
+        "rr_interval"
       ]
     },
     {
       "id": "mixed_snr_m8",
       "path": "scenarios/packs/rpeak_noise_frontier_m8_v8.json",
       "targets": [
-        "r_peak"
+        "r_peak",
+        "rr_interval"
       ]
     },
     {
       "id": "mixed_snr_m9",
       "path": "scenarios/packs/rpeak_noise_frontier_m9_v8.json",
       "targets": [
-        "r_peak"
+        "r_peak",
+        "rr_interval"
       ]
     },
     {
       "id": "mixed_snr_m10",
       "path": "scenarios/packs/rpeak_noise_frontier_m10_v8.json",
       "targets": [
-        "r_peak"
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "mixed_snr_m11",
+      "path": "scenarios/packs/rpeak_noise_frontier_m11_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
       ]
     }
   ],
   "schema_version": 2,
   "targets": [
-    "r_peak"
+    "r_peak",
+    "rr_interval"
   ],
   "verification_protocol_path": "r_peak_noise_frontier_v1_expectations.json",
-  "version": "1.0"
+  "version": "1.1"
 }

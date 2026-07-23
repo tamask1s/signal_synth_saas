@@ -60,9 +60,11 @@ curl -fsS -H "$AUTH" "$BASE/v1/projects" > projects.json
 
 For R-peak work, choose by algorithm scope:
 
-- `r_peak_stress_v1`: peak-only evidence baseline; submit only R-peak events;
-- `r_peak_noise_frontier_v1`: peak-only calibrated robustness ladder;
-- `r_peak_rr_noise_v1`: combined pipeline evidence requiring R-peak, RR, and
+- `r_peak_stress_v1`: focused evidence baseline; submit R-peak events and
+  beat-to-beat RR measurements, without signal-quality output;
+- `r_peak_noise_frontier_v1`: paired −3 through −11 dB R-peak and RR
+  robustness ladder, without signal-quality output;
+- `r_peak_rr_noise_v1`: combined pipeline evidence that additionally requires
   signal-quality output.
 
 Noise can be a test condition without being an algorithm output. Do not select

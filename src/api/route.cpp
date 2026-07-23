@@ -2173,7 +2173,7 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>POST</td><td><code>/mcp</code></td><td>Stateless Streamable HTTP MCP tools and prompts</td><td>Bearer API key</td></tr>
         </tbody>
       </table>
-      <p><strong>R-peak scope:</strong> use <code>r_peak_stress_v1</code> for peak-only evidence and <code>r_peak_noise_frontier_v1</code> for the calibrated noise ladder. Use <code>r_peak_rr_noise_v1</code> only when the algorithm also outputs RR measurements and signal-quality intervals. Noise as a stress condition does not itself require a signal-quality output.</p>
+      <p><strong>R-peak scope:</strong> use <code>r_peak_stress_v1</code> for focused R-peak and beat-to-beat RR evidence, then <code>r_peak_noise_frontier_v1</code> for the calibrated −3…−11 dB robustness ladder. Neither requires signal-quality output. Use <code>r_peak_rr_noise_v1</code> only when the algorithm also emits signal-quality intervals.</p>
       <h2>Minimal curl client</h2>
       <pre class="output">read -r -s SYN_SIG_RA_API_KEY
 BASE=https://www.timeonion.com/syn_sig_ra

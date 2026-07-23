@@ -755,7 +755,7 @@ for key in ("package_fingerprint", "generator_binary_sha256"):
         raise SystemExit("invalid " + key)
 if body.get("integration_contract") != "synsigra_core_integration_v7":
     raise SystemExit("invalid integration contract")
-if body.get("generator_git_commit") != "9ea4ff5d018d105966959c43c392316b2353e94d":
+if body.get("generator_git_commit") != "99ff5b1d5272e57c8de7f3ea9760f657782c0220":
     raise SystemExit("invalid pinned generator commit")
 challenge = body.get("challenge", {})
 if challenge.get("challenge_contract") != "synsigra_challenge_package_v3":
@@ -782,8 +782,8 @@ if verification.get("mode") != "evidence" or \
         protocol.get("protocol_id") != "r_peak_stress_v1":
     raise SystemExit("R-peak detector challenge must be evidence-ready")
 outputs = challenge.get("submission_outputs", [])
-if len(outputs) != 4 or {item.get("target") for item in outputs} != {"r_peak"}:
-    raise SystemExit("R-peak detector challenge must request four peak-only outputs")
+if len(outputs) != 8 or {item.get("target") for item in outputs} != {"r_peak", "rr_interval"}:
+    raise SystemExit("R-peak detector challenge must request eight R-peak and RR outputs")
 if not challenge.get("integrity", {}).get("ok"):
     raise SystemExit("challenge integrity was not verified")
 if len(body.get("generator_git_commit", "")) != 40:
@@ -1026,8 +1026,8 @@ with zipfile.ZipFile(kit_path) as archive:
         raise SystemExit("evidence kit README contains a diagnostic override")
     submission = json.loads(archive.read(prefix + "submission/submission.json"))
     outputs = submission.get("outputs", [])
-    if len(outputs) != 4 or {item.get("target") for item in outputs} != {"r_peak"}:
-        raise SystemExit("R-peak evidence kit does not contain four peak-only outputs")
+    if len(outputs) != 8 or {item.get("target") for item in outputs} != {"r_peak", "rr_interval"}:
+        raise SystemExit("R-peak evidence kit does not contain eight R-peak and RR outputs")
 PY
     fail "verification kit archive failed validation"
 
@@ -1244,7 +1244,7 @@ if body.get("status") != "succeeded":
     raise SystemExit("custom pack job did not succeed")
 if body.get("integration_contract") != "synsigra_core_integration_v7":
     raise SystemExit("custom pack job used the wrong integration contract")
-if body.get("generator_git_commit") != "9ea4ff5d018d105966959c43c392316b2353e94d":
+if body.get("generator_git_commit") != "99ff5b1d5272e57c8de7f3ea9760f657782c0220":
     raise SystemExit("custom pack job used the wrong generator commit")
 challenge = body.get("challenge", {})
 for key, value in {

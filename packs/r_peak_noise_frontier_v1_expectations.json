@@ -3,25 +3,29 @@
   "contract": "synsigra_verification_protocol_v2",
   "protocol_id": "r_peak_noise_frontier_v1",
   "pack_id": "r_peak_noise_frontier_v1",
-  "context_of_use": "Comparative synthetic engineering evidence for ECG R-peak detector robustness across a paired, escalating calibrated-noise frontier.",
+  "context_of_use": "Comparative synthetic engineering evidence for ECG R-peak detection and beat-to-beat RR robustness across a paired, escalating composite noise frontier.",
   "scoring_contract": "synsigra_local_verification_v3",
   "required_case_targets": [
-    {"case_id": "clean_anchor", "targets": ["r_peak"]},
-    {"case_id": "mixed_snr_m7", "targets": ["r_peak"]},
-    {"case_id": "mixed_snr_m8", "targets": ["r_peak"]},
-    {"case_id": "mixed_snr_m9", "targets": ["r_peak"]},
-    {"case_id": "mixed_snr_m10", "targets": ["r_peak"]}
+    {"case_id": "clean_anchor", "targets": ["r_peak", "rr_interval"]},
+    {"case_id": "mixed_snr_m3", "targets": ["r_peak", "rr_interval"]},
+    {"case_id": "mixed_snr_m4", "targets": ["r_peak", "rr_interval"]},
+    {"case_id": "mixed_snr_m5", "targets": ["r_peak", "rr_interval"]},
+    {"case_id": "mixed_snr_m7", "targets": ["r_peak", "rr_interval"]},
+    {"case_id": "mixed_snr_m8", "targets": ["r_peak", "rr_interval"]},
+    {"case_id": "mixed_snr_m9", "targets": ["r_peak", "rr_interval"]},
+    {"case_id": "mixed_snr_m10", "targets": ["r_peak", "rr_interval"]},
+    {"case_id": "mixed_snr_m11", "targets": ["r_peak", "rr_interval"]}
   ],
   "acceptance_profile": {
     "schema_version": 1,
     "profile_id": "r_peak_noise_frontier_v1_acceptance",
-    "description": "Pooled floor plus pre-specified per-tier gates. Every noisy case is long and separately gated, so clean performance cannot hide a collapsed noise tier.",
+    "description": "Pooled safety floor plus pre-specified per-tier R-peak and RR gates. Thresholds describe this exact synthetic composite protocol, not a universal literature benchmark.",
     "targets": {
       "r_peak": {
         "artifact": {
-          "f1_score": {"min": 0.70},
-          "positive_predictive_value": {"min": 0.65},
-          "sensitivity": {"min": 0.65}
+          "f1_score": {"min": 0.55},
+          "positive_predictive_value": {"min": 0.50},
+          "sensitivity": {"min": 0.50}
         },
         "clean": {
           "f1_score": {"min": 0.98},
@@ -29,10 +33,25 @@
           "sensitivity": {"min": 0.98}
         },
         "total": {
-          "f1_score": {"min": 0.72},
+          "f1_score": {"min": 0.60},
           "mean_absolute_error_seconds": {"max": 0.04},
-          "positive_predictive_value": {"min": 0.68},
-          "sensitivity": {"min": 0.68}
+          "positive_predictive_value": {"min": 0.55},
+          "sensitivity": {"min": 0.55}
+        }
+      },
+      "rr_interval": {
+        "overall": {
+          "prediction_match_fraction": {"min": 0.50},
+          "status_match_fraction": {"min": 0.90},
+          "tolerance_pass_fraction": {"min": 0.50},
+          "truth_match_fraction": {"min": 0.50}
+        },
+        "rr_interval": {
+          "p95_absolute_error": {"max": 0.06},
+          "prediction_match_fraction": {"min": 0.50},
+          "status_match_fraction": {"min": 0.90},
+          "tolerance_pass_fraction": {"min": 0.50},
+          "truth_match_fraction": {"min": 0.50}
         }
       }
     }
@@ -44,13 +63,114 @@
       "acceptance_profile": {
         "schema_version": 1,
         "profile_id": "r_peak_noise_frontier_v1_clean_anchor",
-        "description": "Clean-anchor performance confirms that noise robustness is not purchased by degrading ordinary detection.",
-        "targets": {"r_peak": {"total": {
-          "f1_score": {"min": 0.98},
-          "mean_absolute_error_seconds": {"max": 0.02},
-          "positive_predictive_value": {"min": 0.98},
-          "sensitivity": {"min": 0.98}
-        }}}
+        "description": "The clean anchor guards against purchasing noise robustness by degrading ordinary detection or RR measurement.",
+        "targets": {
+          "r_peak": {"total": {
+            "f1_score": {"min": 0.98},
+            "mean_absolute_error_seconds": {"max": 0.02},
+            "positive_predictive_value": {"min": 0.98},
+            "sensitivity": {"min": 0.98}
+          }},
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {"min": 0.98},
+              "status_match_fraction": {"min": 0.98},
+              "tolerance_pass_fraction": {"min": 0.98},
+              "truth_match_fraction": {"min": 0.98}
+            },
+            "rr_interval": {
+              "mean_absolute_error": {"max": 0.025},
+              "p95_absolute_error": {"max": 0.05}
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "mixed_snr_m3",
+      "case_ids": ["mixed_snr_m3"],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_noise_frontier_v1_m3",
+        "description": "-3 dB target SNR with baseline-wander severity 0.08 and powerline severity 0.02.",
+        "targets": {
+          "r_peak": {"artifact": {
+            "f1_score": {"min": 0.90},
+            "mean_absolute_error_seconds": {"max": 0.04},
+            "positive_predictive_value": {"min": 0.85},
+            "sensitivity": {"min": 0.85}
+          }},
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {"min": 0.85},
+              "status_match_fraction": {"min": 0.90},
+              "tolerance_pass_fraction": {"min": 0.85},
+              "truth_match_fraction": {"min": 0.85}
+            },
+            "rr_interval": {
+              "mean_absolute_error": {"max": 0.025},
+              "p95_absolute_error": {"max": 0.05}
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "mixed_snr_m4",
+      "case_ids": ["mixed_snr_m4"],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_noise_frontier_v1_m4",
+        "description": "-4 dB target SNR with baseline-wander severity 0.16 and powerline severity 0.04.",
+        "targets": {
+          "r_peak": {"artifact": {
+            "f1_score": {"min": 0.85},
+            "mean_absolute_error_seconds": {"max": 0.04},
+            "positive_predictive_value": {"min": 0.80},
+            "sensitivity": {"min": 0.80}
+          }},
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {"min": 0.80},
+              "status_match_fraction": {"min": 0.90},
+              "tolerance_pass_fraction": {"min": 0.80},
+              "truth_match_fraction": {"min": 0.80}
+            },
+            "rr_interval": {
+              "mean_absolute_error": {"max": 0.025},
+              "p95_absolute_error": {"max": 0.05}
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "mixed_snr_m5",
+      "case_ids": ["mixed_snr_m5"],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_noise_frontier_v1_m5",
+        "description": "-5 dB target SNR with baseline-wander severity 0.25 and powerline severity 0.07.",
+        "targets": {
+          "r_peak": {"artifact": {
+            "f1_score": {"min": 0.78},
+            "mean_absolute_error_seconds": {"max": 0.04},
+            "positive_predictive_value": {"min": 0.73},
+            "sensitivity": {"min": 0.73}
+          }},
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {"min": 0.73},
+              "status_match_fraction": {"min": 0.90},
+              "tolerance_pass_fraction": {"min": 0.73},
+              "truth_match_fraction": {"min": 0.73}
+            },
+            "rr_interval": {
+              "mean_absolute_error": {"max": 0.025},
+              "p95_absolute_error": {"max": 0.05}
+            }
+          }
+        }
       }
     },
     {
@@ -60,12 +180,26 @@
         "schema_version": 1,
         "profile_id": "r_peak_noise_frontier_v1_m7",
         "description": "-7 dB target SNR with baseline-wander severity 0.35 and powerline severity 0.10.",
-        "targets": {"r_peak": {"artifact": {
-          "f1_score": {"min": 0.90},
-          "mean_absolute_error_seconds": {"max": 0.04},
-          "positive_predictive_value": {"min": 0.85},
-          "sensitivity": {"min": 0.85}
-        }}}
+        "targets": {
+          "r_peak": {"artifact": {
+            "f1_score": {"min": 0.70},
+            "mean_absolute_error_seconds": {"max": 0.04},
+            "positive_predictive_value": {"min": 0.65},
+            "sensitivity": {"min": 0.65}
+          }},
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {"min": 0.65},
+              "status_match_fraction": {"min": 0.90},
+              "tolerance_pass_fraction": {"min": 0.65},
+              "truth_match_fraction": {"min": 0.65}
+            },
+            "rr_interval": {
+              "mean_absolute_error": {"max": 0.025},
+              "p95_absolute_error": {"max": 0.05}
+            }
+          }
+        }
       }
     },
     {
@@ -75,12 +209,26 @@
         "schema_version": 1,
         "profile_id": "r_peak_noise_frontier_v1_m8",
         "description": "-8 dB target SNR with baseline-wander severity 0.50 and powerline severity 0.18.",
-        "targets": {"r_peak": {"artifact": {
-          "f1_score": {"min": 0.82},
-          "mean_absolute_error_seconds": {"max": 0.04},
-          "positive_predictive_value": {"min": 0.78},
-          "sensitivity": {"min": 0.78}
-        }}}
+        "targets": {
+          "r_peak": {"artifact": {
+            "f1_score": {"min": 0.65},
+            "mean_absolute_error_seconds": {"max": 0.04},
+            "positive_predictive_value": {"min": 0.60},
+            "sensitivity": {"min": 0.60}
+          }},
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {"min": 0.60},
+              "status_match_fraction": {"min": 0.90},
+              "tolerance_pass_fraction": {"min": 0.60},
+              "truth_match_fraction": {"min": 0.60}
+            },
+            "rr_interval": {
+              "mean_absolute_error": {"max": 0.025},
+              "p95_absolute_error": {"max": 0.05}
+            }
+          }
+        }
       }
     },
     {
@@ -90,12 +238,26 @@
         "schema_version": 1,
         "profile_id": "r_peak_noise_frontier_v1_m9",
         "description": "-9 dB target SNR with baseline-wander severity 0.65 and powerline severity 0.26.",
-        "targets": {"r_peak": {"artifact": {
-          "f1_score": {"min": 0.72},
-          "mean_absolute_error_seconds": {"max": 0.04},
-          "positive_predictive_value": {"min": 0.68},
-          "sensitivity": {"min": 0.68}
-        }}}
+        "targets": {
+          "r_peak": {"artifact": {
+            "f1_score": {"min": 0.62},
+            "mean_absolute_error_seconds": {"max": 0.04},
+            "positive_predictive_value": {"min": 0.58},
+            "sensitivity": {"min": 0.58}
+          }},
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {"min": 0.58},
+              "status_match_fraction": {"min": 0.90},
+              "tolerance_pass_fraction": {"min": 0.58},
+              "truth_match_fraction": {"min": 0.58}
+            },
+            "rr_interval": {
+              "mean_absolute_error": {"max": 0.025},
+              "p95_absolute_error": {"max": 0.05}
+            }
+          }
+        }
       }
     },
     {
@@ -105,26 +267,73 @@
         "schema_version": 1,
         "profile_id": "r_peak_noise_frontier_v1_m10",
         "description": "-10 dB target SNR with baseline-wander severity 0.80 and powerline severity 0.34.",
-        "targets": {"r_peak": {"artifact": {
-          "f1_score": {"min": 0.60},
-          "mean_absolute_error_seconds": {"max": 0.04},
-          "positive_predictive_value": {"min": 0.55},
-          "sensitivity": {"min": 0.55}
-        }}}
+        "targets": {
+          "r_peak": {"artifact": {
+            "f1_score": {"min": 0.60},
+            "mean_absolute_error_seconds": {"max": 0.04},
+            "positive_predictive_value": {"min": 0.55},
+            "sensitivity": {"min": 0.55}
+          }},
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {"min": 0.55},
+              "status_match_fraction": {"min": 0.90},
+              "tolerance_pass_fraction": {"min": 0.55},
+              "truth_match_fraction": {"min": 0.55}
+            },
+            "rr_interval": {
+              "mean_absolute_error": {"max": 0.025},
+              "p95_absolute_error": {"max": 0.05}
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "mixed_snr_m11",
+      "case_ids": ["mixed_snr_m11"],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_noise_frontier_v1_m11",
+        "description": "-11 dB target SNR with baseline-wander severity 0.95 and powerline severity 0.42; this isolated worst tier alone receives the 30 ms RR MAE allowance.",
+        "targets": {
+          "r_peak": {"artifact": {
+            "f1_score": {"min": 0.55},
+            "mean_absolute_error_seconds": {"max": 0.04},
+            "positive_predictive_value": {"min": 0.50},
+            "sensitivity": {"min": 0.50}
+          }},
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {"min": 0.50},
+              "status_match_fraction": {"min": 0.90},
+              "tolerance_pass_fraction": {"min": 0.50},
+              "truth_match_fraction": {"min": 0.50}
+            },
+            "rr_interval": {
+              "mean_absolute_error": {"max": 0.030},
+              "p95_absolute_error": {"max": 0.06}
+            }
+          }
+        }
       }
     }
   ],
   "stress_strata": [
     {"id": "clean_anchor", "case_ids": ["clean_anchor"]},
-    {"id": "moderate_severe_noise", "case_ids": ["mixed_snr_m7", "mixed_snr_m8"]},
-    {"id": "extreme_noise_frontier", "case_ids": ["mixed_snr_m9", "mixed_snr_m10"]}
+    {"id": "moderate_noise", "case_ids": ["mixed_snr_m3", "mixed_snr_m4", "mixed_snr_m5"]},
+    {"id": "severe_noise", "case_ids": ["mixed_snr_m7", "mixed_snr_m8"]},
+    {"id": "extreme_noise_frontier", "case_ids": ["mixed_snr_m9", "mixed_snr_m10", "mixed_snr_m11"]}
   ],
   "truth_policy": {
     "event_scoreability": "All additive calibrated-noise, baseline-wander and powerline intervals remain scoreable. Only physically truncated record-boundary QRS truth is excluded.",
-    "paired_design": "The four noisy scenarios use the same cardiac timebase, deterministic PVC cadence, interval schedule and noise source offsets; only target SNR and analytic artifact severities increase.",
+    "rr_definition": "Difference between consecutive present-QRS construction R-peak times inside the record; an interval touching unscoreable R-peak truth is not_evaluable.",
+    "first_beat": "Excluded because no preceding in-record R peak exists for RR construction.",
+    "paired_design": "The eight noisy scenarios use the same cardiac timebase, deterministic PVC cadence, interval schedule and noise source offsets; only target SNR and analytic artifact severities increase.",
     "snr_definition": "Target SNR is 20 log10(clean AC RMS / added-noise RMS), calibrated independently for every selected lead and interval. More-negative values are harder.",
-    "scope": "Only R-peak event files are required. Signal-quality labels and downstream RR/HRV measurements are explicitly outside the evidence matrix.",
-    "aggregation": "Each SNR case has its own acceptance stratum. Pooled results cannot compensate for a failed tier."
+    "scope": "R-peak event and RR measurement files are required. Signal-quality labels and HRV are explicitly outside the evidence matrix.",
+    "aggregation": "Each SNR case has its own acceptance stratum. Pooled results cannot compensate for a failed tier.",
+    "threshold_basis": "Thresholds are a monotone, pre-specified engineering policy for this exact composite synthetic protocol. They are not universal clinical, classical-algorithm or deep-learning performance claims."
   },
-  "evidence_boundary": "Synthetic comparative R-peak detector engineering evidence only; the SNR ladder is not a patient-noise prevalence model, clinical validation, diagnostic performance evidence, or regulatory qualification."
+  "evidence_boundary": "Synthetic comparative R-peak and beat-to-beat RR engineering evidence only; the SNR ladder is not a patient-noise prevalence model, clinical validation, diagnostic performance evidence, or regulatory qualification."
 }

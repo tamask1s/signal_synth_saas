@@ -1,6 +1,6 @@
 # Curated pack catalog contract
 
-Built-in packs are imported as one immutable catalog 3.1 release snapshot from
+Built-in packs are imported as one immutable catalog 3.2 release snapshot from
 the exact sibling `signal_synth` checkout. SaaS does not maintain product
 sidecars or reinterpret core analysis.
 
@@ -15,10 +15,10 @@ The importer removes files not present in the snapshot, copies the declared
 pack/scenario/protocol/approved-noise inputs, and validates every pack through
 the pinned CLI. Startup and readiness require:
 
-- catalog version `3.1`;
+- catalog version `3.2`;
 - exactly 19 unique curated packs;
 - catalog source hash
-  `sha256:34725e1b879904dd70000a42b422822beb6133e48b628b8a8ae8bc71277bb765`;
+  `sha256:854919b3daf515601dcb5923d1bfea2e67dde33429a57b657fbc97d18257ede6`;
 - integration `synsigra_core_integration_v7`;
 - challenge `synsigra_challenge_package_v3`;
 - scoring `synsigra_scoring_manifest_v3`;
@@ -57,12 +57,13 @@ explicit diagnostic-only, not weaker evidence packages.
 18. `cardiorespiratory_v1`
 19. `ecg_hybrid_noise_v1`
 
-`r_peak_stress_v1` is the package-authoritative evidence baseline for a
-peak-only detector. It requires only R-peak event files. The calibrated
-`r_peak_noise_frontier_v1` then evaluates the same detector on paired −7, −8,
-−9, and −10 dB tiers with separate per-tier acceptance strata.
-`r_peak_rr_noise_v1` intentionally remains a combined pipeline protocol and
-therefore requires R-peak, RR, and signal-quality outputs.
+`r_peak_stress_v1` is the package-authoritative evidence baseline for an
+R-peak detector with directly derived beat-to-beat RR output. It requires both
+targets but no signal-quality file. The calibrated
+`r_peak_noise_frontier_v1` then evaluates the same outputs on paired −3, −4,
+−5, −7, −8, −9, −10, and −11 dB tiers with separate per-tier acceptance
+strata. `r_peak_rr_noise_v1` remains the combined pipeline protocol for
+algorithms that additionally emit signal-quality intervals.
 
 There is deliberately no older catalog/pack compatibility path in this
 pre-beta release. A catalog change is a new clean deployment baseline. Jobs

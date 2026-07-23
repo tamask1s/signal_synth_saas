@@ -43,6 +43,19 @@ VERIFIER_VERSION_FILES = tuple(
         "test/unit/worker_test.cpp",
     )
 )
+CATALOG_VERSION_FILES = tuple(
+    ROOT / value for value in (
+        "README.md",
+        "doc/PACK_CATALOG.md",
+        "doc/openapi.yaml",
+        "scripts/stress_live_packs.py",
+        "scripts/verify_live.sh",
+        "src/catalog/pack_catalog.cpp",
+        "test/unit/mcp_server_test.cpp",
+        "test/unit/pack_catalog_test.cpp",
+        "test/unit/worker_test.cpp",
+    )
+)
 
 
 def command_text(command):
@@ -128,6 +141,28 @@ def replace_paths(paths, old, new, label, required=True):
     return count
 
 
+def replace_numeric_token(paths, old, new, label):
+    if old == new:
+        return 0
+    if not re.fullmatch(r"[0-9]+(?:\.[0-9]+)+", old) or not re.fullmatch(
+            r"[0-9]+(?:\.[0-9]+)+", new):
+        raise RuntimeError("{} is not a dotted numeric version".format(label))
+    pattern = re.compile(
+        rb"(?<![0-9])" + re.escape(old.encode("ascii")) + rb"(?![0-9])"
+    )
+    replacement = new.encode("ascii")
+    count = 0
+    for path in paths:
+        content = path.read_bytes()
+        updated, occurrences = pattern.subn(replacement, content)
+        if occurrences:
+            path.write_bytes(updated)
+            count += occurrences
+    if not count:
+        raise RuntimeError("the old {} token is not present".format(label))
+    return count
+
+
 def positive_build_jobs():
     value = os.environ.get("BUILD_JOBS", "1")
     if not value.isdigit() or int(value) < 1:
@@ -159,8 +194,12 @@ def main():
     if output(["git", "rev-parse", "origin/master"], CORE) != new_core:
         raise RuntimeError("signal_synth HEAD must be pushed to origin/master first")
 
-    old_catalog = read_json(CATALOG_FILE)["source_catalog_sha256"]
-    new_catalog = read_json(CORE_METADATA)["source_catalog_sha256"]
+    old_catalog_metadata = read_json(CATALOG_FILE)
+    new_catalog_metadata = read_json(CORE_METADATA)
+    old_catalog = old_catalog_metadata["source_catalog_sha256"]
+    new_catalog = new_catalog_metadata["source_catalog_sha256"]
+    old_catalog_version = old_catalog_metadata["catalog_version"]
+    new_catalog_version = new_catalog_metadata["catalog_version"]
     if not SHA256.fullmatch(old_catalog) or not SHA256.fullmatch(new_catalog):
         raise RuntimeError("curated catalog SHA-256 is malformed")
     old_setup = output(["git", "show", old_core + ":setup.cfg"], CORE)
@@ -207,7 +246,10 @@ def main():
 
         core_paths = tracked_files_containing(old_core)
         catalog_paths = tracked_files_containing(old_catalog)
-        changed_paths = set(core_paths + catalog_paths + list(VERIFIER_VERSION_FILES))
+        changed_paths = set(
+            core_paths + catalog_paths + list(VERIFIER_VERSION_FILES) +
+            list(CATALOG_VERSION_FILES)
+        )
         file_backups = dict((path, path.read_bytes()) for path in changed_paths)
         shutil.copytree(str(PACK_ROOT), str(pack_backup))
         try:
@@ -215,6 +257,12 @@ def main():
                 core_paths, old_core, new_core, "core commit")
             catalog_replacements = replace_paths(
                 catalog_paths, old_catalog, new_catalog, "curated catalog")
+            catalog_version_replacements = replace_numeric_token(
+                CATALOG_VERSION_FILES,
+                old_catalog_version,
+                new_catalog_version,
+                "curated catalog version",
+            )
             verifier_replacements = replace_paths(
                 VERIFIER_VERSION_FILES,
                 old_verifier,
@@ -241,8 +289,9 @@ def main():
     print("core={} -> {}".format(old_core, new_core))
     print("catalog={} -> {}".format(old_catalog, new_catalog))
     print("verifier={} -> {}".format(old_verifier, new_verifier))
-    print("updated_pins={}/{}/{}".format(
-        core_replacements, catalog_replacements, verifier_replacements
+    print("updated_pins={}/{}/{}/{}".format(
+        core_replacements, catalog_replacements,
+        catalog_version_replacements, verifier_replacements
     ))
     return 0
 

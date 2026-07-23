@@ -138,9 +138,9 @@ def list_packs(client: Client, selected: list[str]) -> list[dict[str, Any]]:
         raise RuntimeError("Pack list response did not contain packs[]")
     valid = [pack for pack in packs if isinstance(pack, dict)]
     for pack in valid:
-        if pack.get("catalog_version") != "3.1":
-            raise RuntimeError("pack list contains a non-3.1 catalog entry")
-        if pack.get("catalog_source_sha256") != "sha256:34725e1b879904dd70000a42b422822beb6133e48b628b8a8ae8bc71277bb765":
+        if pack.get("catalog_version") != "3.2":
+            raise RuntimeError("pack list contains a non-3.2 catalog entry")
+        if pack.get("catalog_source_sha256") != "sha256:854919b3daf515601dcb5923d1bfea2e67dde33429a57b657fbc97d18257ede6":
             raise RuntimeError("pack list contains an unexpected catalog hash")
         if pack.get("integration_contract") != "synsigra_core_integration_v7":
             raise RuntimeError("pack list contains a non-v7 entry")
@@ -207,14 +207,14 @@ def validate_zip(path: pathlib.Path, required_members: list[str] | None = None) 
 def validate_job(job: dict[str, Any], pack: dict[str, Any]) -> None:
     if job.get("integration_contract") != "synsigra_core_integration_v7":
         raise RuntimeError("job has the wrong integration contract")
-    if job.get("generator_git_commit") != "9ea4ff5d018d105966959c43c392316b2353e94d":
+    if job.get("generator_git_commit") != "99ff5b1d5272e57c8de7f3ea9760f657782c0220":
         raise RuntimeError("job was not rendered by the pinned generator")
     if job.get("pack_version") != pack.get("version"):
         raise RuntimeError("job pack version differs from the selected catalog entry")
     catalog = job.get("catalog")
-    if not isinstance(catalog, dict) or catalog.get("version") != "3.1":
-        raise RuntimeError("job does not preserve catalog 3.1 identity")
-    if catalog.get("source_sha256") != "sha256:34725e1b879904dd70000a42b422822beb6133e48b628b8a8ae8bc71277bb765":
+    if not isinstance(catalog, dict) or catalog.get("version") != "3.2":
+        raise RuntimeError("job does not preserve catalog 3.2 identity")
+    if catalog.get("source_sha256") != "sha256:854919b3daf515601dcb5923d1bfea2e67dde33429a57b657fbc97d18257ede6":
         raise RuntimeError("job has the wrong catalog hash")
     challenge = job.get("challenge")
     if not isinstance(challenge, dict):

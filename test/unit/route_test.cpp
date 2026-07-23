@@ -969,11 +969,11 @@ int main() {
         );
     require(
         pack_detail.status == 200 &&
-            pack_detail.body.find("\"version\":\"1.1\"") != std::string::npos &&
-            pack_detail.body.find("\"targets\":[\"r_peak\"]") !=
+            pack_detail.body.find("\"version\":\"1.2\"") != std::string::npos &&
+            pack_detail.body.find("\"targets\":[\"r_peak\",\"rr_interval\"]") !=
                 std::string::npos &&
             pack_detail.body.find("\"available\":true") != std::string::npos,
-        "R-peak detector pack should expose a peak-only evidence protocol"
+        "R-peak detector pack should expose focused R-peak and RR evidence"
     );
 
     const syn_sig_ra::RouteResponse frontier_detail =
@@ -987,12 +987,13 @@ int main() {
         );
     require(
         frontier_detail.status == 200 &&
-            frontier_detail.body.find("\"version\":\"1.0\"") !=
+            frontier_detail.body.find("\"version\":\"1.1\"") !=
                 std::string::npos &&
-            frontier_detail.body.find("\"total_seconds\":260") !=
+            frontier_detail.body.find("\"total_seconds\":500") !=
                 std::string::npos &&
-            frontier_detail.body.find("mixed_snr_m10") != std::string::npos,
-        "noise-frontier detail should expose the calibrated five-case ladder"
+            frontier_detail.body.find("mixed_snr_m3") != std::string::npos &&
+            frontier_detail.body.find("mixed_snr_m11") != std::string::npos,
+        "noise-frontier detail should expose the calibrated nine-case ladder"
     );
 
     const syn_sig_ra::RouteResponse curated_clone =

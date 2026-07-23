@@ -1,6 +1,6 @@
 {
   "catalog_id": "synsigra_verification_packs",
-  "catalog_version": "3.1",
+  "catalog_version": "3.2",
   "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
   "metadata_type": "synsigra_curated_pack_catalog",
   "metadata_version": "synsigra_curated_pack_metadata_export_v1",
@@ -2482,10 +2482,12 @@
           "sampling_rate_hz": 500,
           "scenario_id": "rpeak_clean_70",
           "scoreable_targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ],
           "targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ]
         },
         {
@@ -2504,10 +2506,12 @@
           "sampling_rate_hz": 500,
           "scenario_id": "rpeak_slow_45",
           "scoreable_targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ],
           "targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ]
         },
         {
@@ -2526,10 +2530,12 @@
           "sampling_rate_hz": 500,
           "scenario_id": "rpeak_fast_120",
           "scoreable_targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ],
           "targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ]
         },
         {
@@ -2548,15 +2554,24 @@
           "sampling_rate_hz": 500,
           "scenario_id": "sq_baseline_powerline",
           "scoreable_targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ],
           "targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ]
         }
       ],
       "catalog_scoring_mode": "local",
       "changelog": [
+        {
+          "changes": [
+            "Added observable beat-to-beat RR as a required, locally scored target while retaining the focused no-signal-quality evidence boundary."
+          ],
+          "date": "2026-07-23",
+          "version": "1.2"
+        },
         {
           "changes": [
             "Added a package-authoritative, R-peak-only evidence protocol and removed the accidental signal-quality submission requirement."
@@ -2597,10 +2612,11 @@
         "minimum_channel_count": 12
       },
       "declared_targets": [
-        "r_peak"
+        "r_peak",
+        "rr_interval"
       ],
       "deprecation_message": "",
-      "description": "Peak-detector-only evidence protocol across clean, rate-extreme, baseline-wander and powerline ECG cases; no signal-quality output is requested.",
+      "description": "R-peak detection and beat-to-beat RR measurement evidence across clean, rate-extreme, baseline-wander and powerline ECG cases; no signal-quality output is requested.",
       "difficulty": [
         "regression",
         "stress"
@@ -2617,7 +2633,8 @@
       },
       "feature_tags": [
         "r_peak",
-        "peak_detector_only",
+        "rr_interval",
+        "detector_rr",
         "evidence_protocol",
         "clean",
         "bradycardia",
@@ -2646,6 +2663,11 @@
           "scope": "local event-detection scoring smoke test",
           "target": "r_peak",
           "test_id": "TEST-PYTHON-SCORING-001"
+        },
+        {
+          "scope": "generator-free observable RR measurement scoring with negative controls",
+          "target": "rr_interval",
+          "test_id": "TEST-RR-QTC-PACK-001"
         }
       ],
       "messages": [],
@@ -2654,10 +2676,10 @@
       "modality": [
         "ECG"
       ],
-      "name": "R-peak Detector Evidence Pack",
+      "name": "R-peak and RR Detector Evidence Pack",
       "not_recommended_for": [
         "Signal-quality classification or artifact-interval detection claims",
-        "RR, HRV, morphology or delineation claims",
+        "HRV, morphology or delineation claims",
         "PPG peak or onset testing",
         "Clinical validation or regulatory qualification"
       ],
@@ -2713,13 +2735,17 @@
         {
           "required": true,
           "role": "realism_report_html"
+        },
+        {
+          "required": true,
+          "role": "measurement_truth_json"
         }
       ],
       "pack_id": "r_peak_stress_v1",
       "recommended_for": [
-        "Package-authoritative evidence for algorithms whose declared scope is R-peak detection only",
+        "Package-authoritative evidence for R-peak detectors that also report beat-to-beat RR intervals",
         "Clean, bradycardic, tachycardic, baseline-wander and powerline detector checks",
-        "CI regression gates using exact synthetic R-peak ground truth without signal-quality output"
+        "CI regression gates using exact synthetic R-peak and RR ground truth without signal-quality output"
       ],
       "recommended_profile": "stress",
       "reference_only_targets": [],
@@ -2749,18 +2775,40 @@
           "scoreable": true,
           "support": "local_scoring",
           "target": "r_peak"
+        },
+        {
+          "accepted_formats": [
+            "measurement_values_json_v2",
+            "measurement_values_csv_v2"
+          ],
+          "case_count": 4,
+          "case_ids": [
+            "clean_70",
+            "slow_45",
+            "fast_120",
+            "baseline_powerline"
+          ],
+          "default_pairing_window_seconds": 0.2,
+          "description": "Every observable beat-to-beat R-R interval scored independently of artifact-exclusion policy.",
+          "primary_metric": "tolerance_pass_fraction",
+          "score_type": "measurement",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "rr_interval"
         }
       ],
       "scoring_mode": "local",
       "source": {
         "catalog_path": "examples/catalog/verification_packs_v1.json",
-        "pack_fingerprint": "sha256:db91875c3e38937f8f3ffa55b273b20ccc77945392d60cb4adbf737630470325",
+        "pack_fingerprint": "sha256:ac7c7731ef3d67fc16fc6c60e3b881659afa1abd46795b560f1c6daa0dd7f6ec",
         "pack_path": "../packs/r_peak_stress_v1.json",
-        "source_content_sha256": "sha256:af665f3f97deb060845f56f0d1dc73556fd4331b2750498864c49903af50c5f5"
+        "source_content_sha256": "sha256:c8bf3950ddd7815ec227aff33ad96d9980bd79ac8bf4b318563360dab3ba4cb3"
       },
       "submission_output_schemas": [
         "point_events_json_v1",
-        "point_events_csv_v1"
+        "point_events_csv_v1",
+        "measurement_values_json_v2",
+        "measurement_values_csv_v2"
       ],
       "supported_threshold_profiles": [
         "smoke",
@@ -2769,7 +2817,8 @@
         "benchmark"
       ],
       "targets": [
-        "r_peak"
+        "r_peak",
+        "rr_interval"
       ],
       "threshold_profile_contract": {
         "policy_failure_exit_code": 1,
@@ -2786,8 +2835,8 @@
           "regression",
           "stress",
           "r_peak",
-          "peak_detector_only",
-          "evidence_protocol"
+          "rr_interval",
+          "detector_rr"
         ],
         "reference_only_before_job": false,
         "scoreable_before_job": true
@@ -2797,7 +2846,7 @@
         "available": true,
         "document": {
           "acceptance_profile": {
-            "description": "Peak-detector-only acceptance limits. Signal-quality classification and RR/HRV measurements are outside this claim.",
+            "description": "Pre-specified detector and RR limits. Signal-quality classification and HRV are outside this claim.",
             "profile_id": "r_peak_stress_v1_acceptance",
             "schema_version": 1,
             "targets": {
@@ -2838,13 +2887,46 @@
                     "min": 0.95
                   }
                 }
+              },
+              "rr_interval": {
+                "overall": {
+                  "prediction_match_fraction": {
+                    "min": 0.9
+                  },
+                  "status_match_fraction": {
+                    "min": 0.9
+                  },
+                  "tolerance_pass_fraction": {
+                    "min": 0.9
+                  },
+                  "truth_match_fraction": {
+                    "min": 0.9
+                  }
+                },
+                "rr_interval": {
+                  "p95_absolute_error": {
+                    "max": 0.05
+                  },
+                  "prediction_match_fraction": {
+                    "min": 0.9
+                  },
+                  "status_match_fraction": {
+                    "min": 0.9
+                  },
+                  "tolerance_pass_fraction": {
+                    "min": 0.9
+                  },
+                  "truth_match_fraction": {
+                    "min": 0.9
+                  }
+                }
               }
             }
           },
           "acceptance_strata": [
             {
               "acceptance_profile": {
-                "description": "Clean and rate-extreme cases must independently retain detector-grade event performance.",
+                "description": "Clean and rate-extreme cases must independently retain detector-grade event performance and 25 ms aggregate RR MAE.",
                 "profile_id": "r_peak_stress_v1_rate_controls",
                 "schema_version": 1,
                 "targets": {
@@ -2863,6 +2945,13 @@
                         "min": 0.98
                       }
                     }
+                  },
+                  "rr_interval": {
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      }
+                    }
                   }
                 }
               },
@@ -2875,7 +2964,7 @@
             },
             {
               "acceptance_profile": {
-                "description": "The artifact case is gated separately so clean cases cannot hide detector failure under baseline wander and powerline interference.",
+                "description": "The artifact case is gated separately so clean cases cannot hide detector or RR failure under baseline wander and powerline interference.",
                 "profile_id": "r_peak_stress_v1_baseline_powerline",
                 "schema_version": 1,
                 "targets": {
@@ -2894,6 +2983,13 @@
                         "min": 0.75
                       }
                     }
+                  },
+                  "rr_interval": {
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      }
+                    }
                   }
                 }
               },
@@ -2903,34 +2999,38 @@
               "id": "baseline_powerline"
             }
           ],
-          "context_of_use": "Deterministic synthetic engineering evidence for algorithms whose declared scope is ECG R-peak event detection only.",
+          "context_of_use": "Deterministic synthetic engineering evidence for ECG R-peak detection and observable beat-to-beat RR interval measurement, without a signal-quality claim.",
           "contract": "synsigra_verification_protocol_v2",
-          "evidence_boundary": "Synthetic engineering evidence for R-peak event detection only; not clinical validation, diagnostic performance evidence, regulatory qualification, or evidence for signal-quality or downstream interval/HRV functionality.",
+          "evidence_boundary": "Synthetic engineering evidence for R-peak detection and observable beat-to-beat RR measurement only; not clinical validation, diagnostic performance evidence, regulatory qualification, or evidence for signal quality or HRV.",
           "pack_id": "r_peak_stress_v1",
           "protocol_id": "r_peak_stress_v1",
           "required_case_targets": [
             {
               "case_id": "clean_70",
               "targets": [
-                "r_peak"
+                "r_peak",
+                "rr_interval"
               ]
             },
             {
               "case_id": "slow_45",
               "targets": [
-                "r_peak"
+                "r_peak",
+                "rr_interval"
               ]
             },
             {
               "case_id": "fast_120",
               "targets": [
-                "r_peak"
+                "r_peak",
+                "rr_interval"
               ]
             },
             {
               "case_id": "baseline_powerline",
               "targets": [
-                "r_peak"
+                "r_peak",
+                "rr_interval"
               ]
             }
           ],
@@ -2954,24 +3054,30 @@
           ],
           "truth_policy": {
             "artifact_overlap": "Baseline wander and powerline intervals remain scoreable and are separately visible in the artifact bin.",
-            "boundary": "QRS truth whose constructed support crosses the record boundary is excluded; no blanket edge window is used.",
+            "boundary": "Only QRS truth whose constructed support crosses the record boundary is excluded; no blanket edge window is used.",
             "event_scoreability": "R-peak truth requires a complete in-record QRS and more than 5% retained signal during all-lead dropout; every exclusion is explicitly reported.",
-            "scope": "Only R-peak event files are required. Absence of signal-quality, RR, HRV, classification or delineation output cannot make this evidence matrix incomplete."
+            "first_beat": "Excluded because no preceding in-record R peak exists for RR construction.",
+            "rr_definition": "Difference between consecutive present-QRS construction R-peak times inside the record; an interval touching unscoreable R-peak truth is not_evaluable.",
+            "scope": "R-peak event and RR measurement files are required. Signal-quality, HRV, classification and delineation outputs are explicitly outside the evidence matrix."
           }
         },
-        "source_content_sha256": "sha256:18ac9b397be786676b3d0bcfc1dac6a9b4eedb04048f18751ff53659d1dfb2d0",
+        "source_content_sha256": "sha256:01df878619de698d6258e8c240f273e54794b828afc0a15f26afa9f7cefcb2c5",
         "source_path": "examples/packs/r_peak_stress_v1_expectations.json"
       },
-      "version": "1.1"
+      "version": "1.2"
     },
     {
-      "case_count": 5,
+      "case_count": 9,
       "case_ids": [
         "clean_anchor",
+        "mixed_snr_m3",
+        "mixed_snr_m4",
+        "mixed_snr_m5",
         "mixed_snr_m7",
         "mixed_snr_m8",
         "mixed_snr_m9",
-        "mixed_snr_m10"
+        "mixed_snr_m10",
+        "mixed_snr_m11"
       ],
       "cases": [
         {
@@ -2990,10 +3096,90 @@
           "sampling_rate_hz": 500,
           "scenario_id": "rpeak_clean_70",
           "scoreable_targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ],
           "targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "mixed_snr_m3",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_noise_frontier_m3_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "mixed_snr_m4",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_noise_frontier_m4_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "mixed_snr_m5",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_noise_frontier_m5_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
           ]
         },
         {
@@ -3014,10 +3200,12 @@
           "sampling_rate_hz": 500,
           "scenario_id": "rpeak_noise_frontier_m7_v8",
           "scoreable_targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ],
           "targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ]
         },
         {
@@ -3038,10 +3226,12 @@
           "sampling_rate_hz": 500,
           "scenario_id": "rpeak_noise_frontier_m8_v8",
           "scoreable_targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ],
           "targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ]
         },
         {
@@ -3062,10 +3252,12 @@
           "sampling_rate_hz": 500,
           "scenario_id": "rpeak_noise_frontier_m9_v8",
           "scoreable_targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ],
           "targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ]
         },
         {
@@ -3086,15 +3278,51 @@
           "sampling_rate_hz": 500,
           "scenario_id": "rpeak_noise_frontier_m10_v8",
           "scoreable_targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
           ],
           "targets": [
-            "r_peak"
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "mixed_snr_m11",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_noise_frontier_m11_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
           ]
         }
       ],
       "catalog_scoring_mode": "local",
       "changelog": [
+        {
+          "changes": [
+            "Added RR scoring and paired -3, -4, -5 and -11 dB cases.",
+            "Revised the per-tier detector gates to a monotone protocol-specific F1 ladder from 0.90 at -3 dB to 0.55 at -11 dB; 25 ms RR MAE remains standard and only -11 dB permits 30 ms."
+          ],
+          "date": "2026-07-23",
+          "version": "1.1"
+        },
         {
           "changes": [
             "Initial paired 60-second calibrated-noise ladder with a clean anchor, persistent mixed artifacts and pre-specified per-tier gates."
@@ -3128,10 +3356,11 @@
         "minimum_channel_count": 12
       },
       "declared_targets": [
-        "r_peak"
+        "r_peak",
+        "rr_interval"
       ],
       "deprecation_message": "",
-      "description": "Long, paired R-peak-only cases with escalating -7, -8, -9 and -10 dB calibrated all-lead noise plus increasing baseline wander and powerline interference.",
+      "description": "Long, paired R-peak and RR cases with escalating -3, -4, -5, -7, -8, -9, -10 and -11 dB calibrated all-lead noise plus increasing baseline wander and powerline interference.",
       "difficulty": [
         "stress",
         "benchmark"
@@ -3139,16 +3368,17 @@
       "duration": {
         "maximum_case_seconds": 60,
         "minimum_case_seconds": 20,
-        "total_seconds": 260
+        "total_seconds": 500
       },
       "estimated_package": {
-        "bytes": 48704000,
+        "bytes": 93489600,
         "peak_memory_bytes": 18328576,
         "size_class": "medium"
       },
       "feature_tags": [
         "r_peak",
-        "peak_detector_only",
+        "rr_interval",
+        "detector_rr",
         "evidence_protocol",
         "calibrated_snr",
         "noise_frontier",
@@ -3181,6 +3411,11 @@
           "scope": "local event-detection scoring smoke test",
           "target": "r_peak",
           "test_id": "TEST-PYTHON-SCORING-001"
+        },
+        {
+          "scope": "generator-free observable RR measurement scoring with negative controls",
+          "target": "rr_interval",
+          "test_id": "TEST-RR-QTC-PACK-001"
         }
       ],
       "messages": [],
@@ -3189,9 +3424,9 @@
       "modality": [
         "ECG"
       ],
-      "name": "R-peak Calibrated Noise Frontier",
+      "name": "R-peak and RR Calibrated Noise Frontier",
       "not_recommended_for": [
-        "Signal-quality interval detector validation",
+        "Signal-quality interval detector or HRV validation",
         "Clinical noise-prevalence or patient-performance claims",
         "Regulatory qualification or replacement of representative real-world validation",
         "Comparing algorithms configured for different lead sets without documenting that configuration"
@@ -3256,11 +3491,15 @@
         {
           "required": true,
           "role": "external_noise_clean_ecg_csv"
+        },
+        {
+          "required": true,
+          "role": "measurement_truth_json"
         }
       ],
       "pack_id": "r_peak_noise_frontier_v1",
       "recommended_for": [
-        "Comparing R-peak detectors on a paired -7, -8, -9 and -10 dB target-SNR frontier",
+        "Comparing R-peak and beat-to-beat RR robustness on a paired -3 through -11 dB target-SNR frontier",
         "Long all-lead robustness testing with combined calibrated noise, baseline wander and powerline interference",
         "Finding the tier where sensitivity, precision or timing stability begins to collapse",
         "Per-case evidence that cannot be hidden by clean-case aggregate performance"
@@ -3279,13 +3518,17 @@
             "point_events_json_v1",
             "point_events_csv_v1"
           ],
-          "case_count": 5,
+          "case_count": 9,
           "case_ids": [
             "clean_anchor",
+            "mixed_snr_m3",
+            "mixed_snr_m4",
+            "mixed_snr_m5",
             "mixed_snr_m7",
             "mixed_snr_m8",
             "mixed_snr_m9",
-            "mixed_snr_m10"
+            "mixed_snr_m10",
+            "mixed_snr_m11"
           ],
           "default_tolerance_seconds": 0.05,
           "description": "R-peak detector event timing against exact synthetic beat annotations.",
@@ -3294,18 +3537,45 @@
           "scoreable": true,
           "support": "local_scoring",
           "target": "r_peak"
+        },
+        {
+          "accepted_formats": [
+            "measurement_values_json_v2",
+            "measurement_values_csv_v2"
+          ],
+          "case_count": 9,
+          "case_ids": [
+            "clean_anchor",
+            "mixed_snr_m3",
+            "mixed_snr_m4",
+            "mixed_snr_m5",
+            "mixed_snr_m7",
+            "mixed_snr_m8",
+            "mixed_snr_m9",
+            "mixed_snr_m10",
+            "mixed_snr_m11"
+          ],
+          "default_pairing_window_seconds": 0.2,
+          "description": "Every observable beat-to-beat R-R interval scored independently of artifact-exclusion policy.",
+          "primary_metric": "tolerance_pass_fraction",
+          "score_type": "measurement",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "rr_interval"
         }
       ],
       "scoring_mode": "local",
       "source": {
         "catalog_path": "examples/catalog/verification_packs_v1.json",
-        "pack_fingerprint": "sha256:013ff219bb5f45b2e68fef4112e341725a3881e64182f1f4c4ab4c16db5b90e5",
+        "pack_fingerprint": "sha256:9091e6178c5665dd275ec32aae8c1689b1fa89509ec308ba98bde11d8292cd38",
         "pack_path": "../packs/r_peak_noise_frontier_v1.json",
-        "source_content_sha256": "sha256:b9d6719fd44a1e14fe3786e25f69994d9f675fb01feddfdb66c45e0341d8c8fb"
+        "source_content_sha256": "sha256:8ac9f7f85e299018302cbe977df14b3f70eb541c2206947186f00d97c43019b1"
       },
       "submission_output_schemas": [
         "point_events_json_v1",
-        "point_events_csv_v1"
+        "point_events_csv_v1",
+        "measurement_values_json_v2",
+        "measurement_values_csv_v2"
       ],
       "supported_threshold_profiles": [
         "smoke",
@@ -3314,7 +3584,8 @@
         "benchmark"
       ],
       "targets": [
-        "r_peak"
+        "r_peak",
+        "rr_interval"
       ],
       "threshold_profile_contract": {
         "policy_failure_exit_code": 1,
@@ -3331,8 +3602,8 @@
           "stress",
           "benchmark",
           "r_peak",
-          "peak_detector_only",
-          "evidence_protocol"
+          "rr_interval",
+          "detector_rr"
         ],
         "reference_only_before_job": false,
         "scoreable_before_job": true
@@ -3342,20 +3613,20 @@
         "available": true,
         "document": {
           "acceptance_profile": {
-            "description": "Pooled floor plus pre-specified per-tier gates. Every noisy case is long and separately gated, so clean performance cannot hide a collapsed noise tier.",
+            "description": "Pooled safety floor plus pre-specified per-tier R-peak and RR gates. Thresholds describe this exact synthetic composite protocol, not a universal literature benchmark.",
             "profile_id": "r_peak_noise_frontier_v1_acceptance",
             "schema_version": 1,
             "targets": {
               "r_peak": {
                 "artifact": {
                   "f1_score": {
-                    "min": 0.7
+                    "min": 0.55
                   },
                   "positive_predictive_value": {
-                    "min": 0.65
+                    "min": 0.5
                   },
                   "sensitivity": {
-                    "min": 0.65
+                    "min": 0.5
                   }
                 },
                 "clean": {
@@ -3371,16 +3642,49 @@
                 },
                 "total": {
                   "f1_score": {
-                    "min": 0.72
+                    "min": 0.6
                   },
                   "mean_absolute_error_seconds": {
                     "max": 0.04
                   },
                   "positive_predictive_value": {
-                    "min": 0.68
+                    "min": 0.55
                   },
                   "sensitivity": {
-                    "min": 0.68
+                    "min": 0.55
+                  }
+                }
+              },
+              "rr_interval": {
+                "overall": {
+                  "prediction_match_fraction": {
+                    "min": 0.5
+                  },
+                  "status_match_fraction": {
+                    "min": 0.9
+                  },
+                  "tolerance_pass_fraction": {
+                    "min": 0.5
+                  },
+                  "truth_match_fraction": {
+                    "min": 0.5
+                  }
+                },
+                "rr_interval": {
+                  "p95_absolute_error": {
+                    "max": 0.06
+                  },
+                  "prediction_match_fraction": {
+                    "min": 0.5
+                  },
+                  "status_match_fraction": {
+                    "min": 0.9
+                  },
+                  "tolerance_pass_fraction": {
+                    "min": 0.5
+                  },
+                  "truth_match_fraction": {
+                    "min": 0.5
                   }
                 }
               }
@@ -3389,7 +3693,7 @@
           "acceptance_strata": [
             {
               "acceptance_profile": {
-                "description": "Clean-anchor performance confirms that noise robustness is not purchased by degrading ordinary detection.",
+                "description": "The clean anchor guards against purchasing noise robustness by degrading ordinary detection or RR measurement.",
                 "profile_id": "r_peak_noise_frontier_v1_clean_anchor",
                 "schema_version": 1,
                 "targets": {
@@ -3408,6 +3712,30 @@
                         "min": 0.98
                       }
                     }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.98
+                      },
+                      "status_match_fraction": {
+                        "min": 0.98
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.98
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.98
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
                   }
                 }
               },
@@ -3418,8 +3746,8 @@
             },
             {
               "acceptance_profile": {
-                "description": "-7 dB target SNR with baseline-wander severity 0.35 and powerline severity 0.10.",
-                "profile_id": "r_peak_noise_frontier_v1_m7",
+                "description": "-3 dB target SNR with baseline-wander severity 0.08 and powerline severity 0.02.",
+                "profile_id": "r_peak_noise_frontier_v1_m3",
                 "schema_version": 1,
                 "targets": {
                   "r_peak": {
@@ -3435,6 +3763,189 @@
                       },
                       "sensitivity": {
                         "min": 0.85
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.85
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.85
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.85
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "mixed_snr_m3"
+              ],
+              "id": "mixed_snr_m3"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-4 dB target SNR with baseline-wander severity 0.16 and powerline severity 0.04.",
+                "profile_id": "r_peak_noise_frontier_v1_m4",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "artifact": {
+                      "f1_score": {
+                        "min": 0.85
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.8
+                      },
+                      "sensitivity": {
+                        "min": 0.8
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.8
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.8
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.8
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "mixed_snr_m4"
+              ],
+              "id": "mixed_snr_m4"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-5 dB target SNR with baseline-wander severity 0.25 and powerline severity 0.07.",
+                "profile_id": "r_peak_noise_frontier_v1_m5",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "artifact": {
+                      "f1_score": {
+                        "min": 0.78
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.73
+                      },
+                      "sensitivity": {
+                        "min": 0.73
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.73
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.73
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.73
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "mixed_snr_m5"
+              ],
+              "id": "mixed_snr_m5"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-7 dB target SNR with baseline-wander severity 0.35 and powerline severity 0.10.",
+                "profile_id": "r_peak_noise_frontier_v1_m7",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "artifact": {
+                      "f1_score": {
+                        "min": 0.7
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.65
+                      },
+                      "sensitivity": {
+                        "min": 0.65
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.65
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.65
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.65
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
                       }
                     }
                   }
@@ -3454,16 +3965,40 @@
                   "r_peak": {
                     "artifact": {
                       "f1_score": {
-                        "min": 0.82
+                        "min": 0.65
                       },
                       "mean_absolute_error_seconds": {
                         "max": 0.04
                       },
                       "positive_predictive_value": {
-                        "min": 0.78
+                        "min": 0.6
                       },
                       "sensitivity": {
-                        "min": 0.78
+                        "min": 0.6
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.6
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.6
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.6
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
                       }
                     }
                   }
@@ -3483,16 +4018,40 @@
                   "r_peak": {
                     "artifact": {
                       "f1_score": {
-                        "min": 0.72
+                        "min": 0.62
                       },
                       "mean_absolute_error_seconds": {
                         "max": 0.04
                       },
                       "positive_predictive_value": {
-                        "min": 0.68
+                        "min": 0.58
                       },
                       "sensitivity": {
-                        "min": 0.68
+                        "min": 0.58
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.58
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.58
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.58
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
                       }
                     }
                   }
@@ -3524,6 +4083,30 @@
                         "min": 0.55
                       }
                     }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.55
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.55
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.55
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
                   }
                 }
               },
@@ -3531,42 +4114,128 @@
                 "mixed_snr_m10"
               ],
               "id": "mixed_snr_m10"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-11 dB target SNR with baseline-wander severity 0.95 and powerline severity 0.42; this isolated worst tier alone receives the 30 ms RR MAE allowance.",
+                "profile_id": "r_peak_noise_frontier_v1_m11",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "artifact": {
+                      "f1_score": {
+                        "min": 0.55
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.5
+                      },
+                      "sensitivity": {
+                        "min": 0.5
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.5
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.5
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.5
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.03
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.06
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "mixed_snr_m11"
+              ],
+              "id": "mixed_snr_m11"
             }
           ],
-          "context_of_use": "Comparative synthetic engineering evidence for ECG R-peak detector robustness across a paired, escalating calibrated-noise frontier.",
+          "context_of_use": "Comparative synthetic engineering evidence for ECG R-peak detection and beat-to-beat RR robustness across a paired, escalating composite noise frontier.",
           "contract": "synsigra_verification_protocol_v2",
-          "evidence_boundary": "Synthetic comparative R-peak detector engineering evidence only; the SNR ladder is not a patient-noise prevalence model, clinical validation, diagnostic performance evidence, or regulatory qualification.",
+          "evidence_boundary": "Synthetic comparative R-peak and beat-to-beat RR engineering evidence only; the SNR ladder is not a patient-noise prevalence model, clinical validation, diagnostic performance evidence, or regulatory qualification.",
           "pack_id": "r_peak_noise_frontier_v1",
           "protocol_id": "r_peak_noise_frontier_v1",
           "required_case_targets": [
             {
               "case_id": "clean_anchor",
               "targets": [
-                "r_peak"
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "mixed_snr_m3",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "mixed_snr_m4",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "mixed_snr_m5",
+              "targets": [
+                "r_peak",
+                "rr_interval"
               ]
             },
             {
               "case_id": "mixed_snr_m7",
               "targets": [
-                "r_peak"
+                "r_peak",
+                "rr_interval"
               ]
             },
             {
               "case_id": "mixed_snr_m8",
               "targets": [
-                "r_peak"
+                "r_peak",
+                "rr_interval"
               ]
             },
             {
               "case_id": "mixed_snr_m9",
               "targets": [
-                "r_peak"
+                "r_peak",
+                "rr_interval"
               ]
             },
             {
               "case_id": "mixed_snr_m10",
               "targets": [
-                "r_peak"
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "mixed_snr_m11",
+              "targets": [
+                "r_peak",
+                "rr_interval"
               ]
             }
           ],
@@ -3581,15 +4250,24 @@
             },
             {
               "case_ids": [
+                "mixed_snr_m3",
+                "mixed_snr_m4",
+                "mixed_snr_m5"
+              ],
+              "id": "moderate_noise"
+            },
+            {
+              "case_ids": [
                 "mixed_snr_m7",
                 "mixed_snr_m8"
               ],
-              "id": "moderate_severe_noise"
+              "id": "severe_noise"
             },
             {
               "case_ids": [
                 "mixed_snr_m9",
-                "mixed_snr_m10"
+                "mixed_snr_m10",
+                "mixed_snr_m11"
               ],
               "id": "extreme_noise_frontier"
             }
@@ -3597,15 +4275,18 @@
           "truth_policy": {
             "aggregation": "Each SNR case has its own acceptance stratum. Pooled results cannot compensate for a failed tier.",
             "event_scoreability": "All additive calibrated-noise, baseline-wander and powerline intervals remain scoreable. Only physically truncated record-boundary QRS truth is excluded.",
-            "paired_design": "The four noisy scenarios use the same cardiac timebase, deterministic PVC cadence, interval schedule and noise source offsets; only target SNR and analytic artifact severities increase.",
-            "scope": "Only R-peak event files are required. Signal-quality labels and downstream RR/HRV measurements are explicitly outside the evidence matrix.",
-            "snr_definition": "Target SNR is 20 log10(clean AC RMS / added-noise RMS), calibrated independently for every selected lead and interval. More-negative values are harder."
+            "first_beat": "Excluded because no preceding in-record R peak exists for RR construction.",
+            "paired_design": "The eight noisy scenarios use the same cardiac timebase, deterministic PVC cadence, interval schedule and noise source offsets; only target SNR and analytic artifact severities increase.",
+            "rr_definition": "Difference between consecutive present-QRS construction R-peak times inside the record; an interval touching unscoreable R-peak truth is not_evaluable.",
+            "scope": "R-peak event and RR measurement files are required. Signal-quality labels and HRV are explicitly outside the evidence matrix.",
+            "snr_definition": "Target SNR is 20 log10(clean AC RMS / added-noise RMS), calibrated independently for every selected lead and interval. More-negative values are harder.",
+            "threshold_basis": "Thresholds are a monotone, pre-specified engineering policy for this exact composite synthetic protocol. They are not universal clinical, classical-algorithm or deep-learning performance claims."
           }
         },
-        "source_content_sha256": "sha256:5c768e8231255bc393b220bc6f4a60f5eb6a2af041bed4a3af12e5ab8e33617f",
+        "source_content_sha256": "sha256:5c72df3aeb3308db468ddce32e0221aeee93ec961de1a6eebe585da0c026b902",
         "source_path": "examples/packs/r_peak_noise_frontier_v1_expectations.json"
       },
-      "version": "1.0"
+      "version": "1.1"
     },
     {
       "case_count": 10,
@@ -9847,8 +10528,8 @@
     }
   ],
   "product": "Synsigra Testbench",
-  "release_set_id": "synsigra_curated_release_2026_07_23_rpeak_evidence",
+  "release_set_id": "synsigra_curated_release_2026_07_23_rpeak_rr_frontier",
   "release_set_status": "beta",
   "schema_version": 1,
-  "source_catalog_sha256": "sha256:34725e1b879904dd70000a42b422822beb6133e48b628b8a8ae8bc71277bb765"
+  "source_catalog_sha256": "sha256:854919b3daf515601dcb5923d1bfea2e67dde33429a57b657fbc97d18257ede6"
 }
