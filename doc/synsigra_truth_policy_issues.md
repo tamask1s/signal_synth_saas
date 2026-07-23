@@ -1,5 +1,43 @@
 # Synsigra Truth Policy Issues — R-peak Scoring Fairness
 
+## Resolution (implemented 2026-07-23)
+
+The valid findings are fixed in core and the generator-free verifier. The
+result is intentionally stricter and more deterministic than either proposed
+heuristic:
+
+- `annotations.json` v2 marks event scoreability under the shared
+  `synsigra_observable_event_truth_v1` contract.
+- ECG truth is excluded only when its full QRS support does not fit in the
+  record, or when a complete all-lead ECG dropout leaves at most 5% of the
+  known generated signal. The decision is derived from scenario/render
+  parameters, never from a post-hoc local-amplitude measurement.
+- A prediction near excluded truth is retained in the report for traceability
+  but is not counted as an FP. Excluded truth is not counted as an FN.
+- RR truth remains one row per consecutive constructed QRS pair. A row whose
+  previous or current endpoint is unscoreable is explicitly
+  `not_evaluable`; no interval is silently bridged or deleted.
+- Severe additive and external noise remains scoreable. In particular, the
+  `external_extreme` -12 dB case is still a real stress test; its 30 ms RR MAE
+  acceptance limit remains isolated to that stratum, while the global and
+  standard-case limit remains 25 ms.
+
+For the reported pack this excludes beats 45–47 in `analytic_extreme` and the
+physically truncated final QRS in `external_extreme`. It does not forgive the
+noise-region FP/FN observations.
+
+The policy is implemented in shared core code and consumed by annotations,
+RR measurement truth, native event/classification scoring and Python local
+verification. It therefore applies consistently to every pack, not only
+`r_peak_rr_noise_v1`. A full release audit rendered all 18 curated packs (101
+cases, 7,916 QRS events and 9,981 measured PPG fiducials); 14 QRS events were
+explicitly excluded for one of the two allowed reasons, and no inconsistent
+truth, report notice or internal HTML link remained.
+
+During the same audit, broken challenge-index links were fixed from
+`<case>/report.html` to `cases/<case>/report.html`, and all native scoring HTML
+reports were aligned with the single neutral-gray evidence notice.
+
 ## Summary
 
 We identified **5 false negatives and 5 false positives** in the `r_peak_rr_noise_v1` pack (v1.2) verification results that are not algorithm defects but rather truth policy / scenario design issues. The HRV custom pack has zero errors (clean signal, no edge cases).

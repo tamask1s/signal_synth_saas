@@ -1,6 +1,6 @@
 # Synsigra verification evidence report
 
-Status: implemented on 2026-07-21 in Python verifier `0.11.0` with the clean
+Status: implemented and extended through 2026-07-23 in Python verifier `0.13.0` with the clean
 `synsigra_local_verification_v3` contract.
 
 This document records the final audit-reporting design. It replaces the
@@ -52,6 +52,8 @@ aggregate acceptance criteria.
 Target-specific views include:
 
 - event detection strata, TP/FP/FN, sensitivity, PPV, F1 and timing error;
+- the authoritative truth/exclusion policy, excluded-event counts and the
+  time and reason for every explicitly excluded truth event;
 - classification summary and per-class metrics;
 - interval overlap, boundary error and per-label metrics;
 - delineation accuracy and per-wave metrics;
@@ -115,3 +117,7 @@ Core tests enforce:
 - source-tree and installed-wheel verification produce the same v3 contract.
 - challenge index, scenario and characterization HTML use the same single,
   neutral-gray notice and contain no legacy red disclaimer panel.
+- observable-event truth, nearby excluded predictions and RR endpoint
+  exclusions agree between native C++, direct CLI output and the installed
+  Python verifier.
+- every curated challenge index links to existing case reports.
