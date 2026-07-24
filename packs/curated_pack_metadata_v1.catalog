@@ -1,11 +1,11 @@
 {
   "catalog_id": "synsigra_verification_packs",
-  "catalog_version": "3.2",
+  "catalog_version": "3.3",
   "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
   "metadata_type": "synsigra_curated_pack_catalog",
   "metadata_version": "synsigra_curated_pack_metadata_export_v1",
   "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment",
-  "pack_count": 19,
+  "pack_count": 21,
   "packs": [
     {
       "case_count": 8,
@@ -2454,6 +2454,2109 @@
         "document": null,
         "source_content_sha256": "",
         "source_path": ""
+      },
+      "version": "1.0"
+    },
+    {
+      "case_count": 4,
+      "case_ids": [
+        "clean_70",
+        "slow_45",
+        "fast_120",
+        "baseline_powerline"
+      ],
+      "cases": [
+        {
+          "case_id": "clean_70",
+          "channel_count": 12,
+          "duration_seconds": 20,
+          "estimated_binary_signal_bytes": 840000,
+          "estimated_package_bytes": 3918400,
+          "estimated_peak_memory_bytes": 5848576,
+          "estimated_waveform_csv_bytes": 2340256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 10000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_clean_70",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "slow_45",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5491400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_slow_45",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "fast_120",
+          "channel_count": 12,
+          "duration_seconds": 20,
+          "estimated_binary_signal_bytes": 840000,
+          "estimated_package_bytes": 4190400,
+          "estimated_peak_memory_bytes": 5848576,
+          "estimated_waveform_csv_bytes": 2340256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 10000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_fast_120",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "baseline_powerline",
+          "channel_count": 12,
+          "duration_seconds": 30,
+          "estimated_binary_signal_bytes": 1260000,
+          "estimated_package_bytes": 5695400,
+          "estimated_peak_memory_bytes": 8248576,
+          "estimated_waveform_csv_bytes": 3510256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 15000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "sq_baseline_powerline",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        }
+      ],
+      "catalog_scoring_mode": "local",
+      "changelog": [
+        {
+          "changes": [
+            "Initial simple four-case R-peak and RR pack with one official verdict per complete signal and no pooled acceptance."
+          ],
+          "date": "2026-07-24",
+          "version": "1.0"
+        }
+      ],
+      "channels": {
+        "families": [
+          {
+            "channel_count": 12,
+            "channels": [
+              "I",
+              "II",
+              "III",
+              "aVR",
+              "aVL",
+              "aVF",
+              "V1",
+              "V2",
+              "V3",
+              "V4",
+              "V5",
+              "V6"
+            ],
+            "name": "standard_12_lead_ecg"
+          }
+        ],
+        "maximum_channel_count": 12,
+        "minimum_channel_count": 12
+      },
+      "declared_targets": [
+        "r_peak",
+        "rr_interval"
+      ],
+      "deprecation_message": "",
+      "description": "Four independent clean, slow-rate, fast-rate, and baseline-plus-powerline cases. Each complete case has a plain R-peak and RR verdict; nothing is pooled.",
+      "difficulty": [
+        "regression",
+        "stress"
+      ],
+      "duration": {
+        "maximum_case_seconds": 30,
+        "minimum_case_seconds": 20,
+        "total_seconds": 100
+      },
+      "estimated_package": {
+        "bytes": 19295600,
+        "peak_memory_bytes": 8248576,
+        "size_class": "medium"
+      },
+      "feature_tags": [
+        "r_peak",
+        "rr_interval",
+        "per_case_verdict",
+        "no_pooling",
+        "clean",
+        "bradycardia",
+        "tachycardia",
+        "baseline_wander",
+        "powerline"
+      ],
+      "generator_compatibility": {
+        "challenge_package_contract": "synsigra_challenge_package_v3",
+        "local_verifier_min_version": "0.14.0",
+        "minimum_generator_version": "0.10.0-dev",
+        "pack_schema_version": 2,
+        "scenario_schema_versions": [
+          2
+        ],
+        "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
+        "submission_contract": "synsigra_submission_v1",
+        "verification_protocol_contract": "synsigra_verification_protocol_v2"
+      },
+      "limitations": {
+        "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
+        "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
+      },
+      "local_verifier_smoke_tests": [
+        {
+          "scope": "local event-detection scoring smoke test",
+          "target": "r_peak",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        },
+        {
+          "scope": "generator-free observable RR measurement scoring with negative controls",
+          "target": "rr_interval",
+          "test_id": "TEST-RR-QTC-PACK-001"
+        }
+      ],
+      "messages": [],
+      "metadata_type": "synsigra_curated_pack_metadata",
+      "metadata_version": "synsigra_curated_pack_metadata_export_v1",
+      "modality": [
+        "ECG"
+      ],
+      "name": "R-peak + RR Simple Case Stress",
+      "not_recommended_for": [
+        "Signal-quality classification, HRV, morphology, or delineation claims",
+        "Finding a detector's fine-grained SNR failure boundary",
+        "Clinical validation or regulatory qualification"
+      ],
+      "output_artifacts": [
+        {
+          "required": true,
+          "role": "manifest_json"
+        },
+        {
+          "required": true,
+          "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "provenance_json"
+        },
+        {
+          "required": true,
+          "role": "engineering_claim_boundary_txt"
+        },
+        {
+          "required": true,
+          "role": "case_summary_json"
+        },
+        {
+          "required": true,
+          "role": "annotations_json"
+        },
+        {
+          "required": true,
+          "role": "waveform_csv"
+        },
+        {
+          "required": true,
+          "role": "wfdb"
+        },
+        {
+          "required": true,
+          "role": "edf_bdf"
+        },
+        {
+          "required": true,
+          "role": "verification_protocol_json"
+        },
+        {
+          "required": true,
+          "role": "realism_metrics_json"
+        },
+        {
+          "required": true,
+          "role": "realism_metrics_csv"
+        },
+        {
+          "required": true,
+          "role": "realism_report_html"
+        },
+        {
+          "required": true,
+          "role": "measurement_truth_json"
+        }
+      ],
+      "pack_id": "r_peak_rr_simple_stress_v1",
+      "recommended_for": [
+        "A first, human-readable R-peak and beat-to-beat RR evidence run",
+        "Independent clean, slow-rate, fast-rate, and acquisition-artifact verdicts",
+        "Reports where a strong case must never compensate for a failed case"
+      ],
+      "recommended_profile": "stress",
+      "reference_only_targets": [],
+      "release_date": "2026-07-24",
+      "release_status": "beta",
+      "sampling_rates_hz": [
+        500
+      ],
+      "schema_version": 1,
+      "scoreable_targets": [
+        {
+          "accepted_formats": [
+            "point_events_json_v1",
+            "point_events_csv_v1"
+          ],
+          "case_count": 4,
+          "case_ids": [
+            "clean_70",
+            "slow_45",
+            "fast_120",
+            "baseline_powerline"
+          ],
+          "default_tolerance_seconds": 0.05,
+          "description": "R-peak detector event timing against exact synthetic beat annotations.",
+          "primary_metric": "f1_score",
+          "score_type": "event_detection",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "r_peak"
+        },
+        {
+          "accepted_formats": [
+            "measurement_values_json_v2",
+            "measurement_values_csv_v2"
+          ],
+          "case_count": 4,
+          "case_ids": [
+            "clean_70",
+            "slow_45",
+            "fast_120",
+            "baseline_powerline"
+          ],
+          "default_pairing_window_seconds": 0.2,
+          "description": "Every observable beat-to-beat R-R interval scored independently of artifact-exclusion policy.",
+          "primary_metric": "tolerance_pass_fraction",
+          "score_type": "measurement",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "rr_interval"
+        }
+      ],
+      "scoring_mode": "local",
+      "source": {
+        "catalog_path": "examples/catalog/verification_packs_v1.json",
+        "pack_fingerprint": "sha256:c5bdfe43b50ed256252491617976bea907e9095661cb6fc3431448bbbf4f6536",
+        "pack_path": "../packs/r_peak_rr_simple_stress_v1.json",
+        "source_content_sha256": "sha256:2fec71c36362c8378b07651c9193f42c0a294eee8f7dacec432b30eaf78dd29a"
+      },
+      "submission_output_schemas": [
+        "point_events_json_v1",
+        "point_events_csv_v1",
+        "measurement_values_json_v2",
+        "measurement_values_csv_v2"
+      ],
+      "supported_threshold_profiles": [
+        "smoke",
+        "regression",
+        "stress",
+        "benchmark"
+      ],
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ],
+      "threshold_profile_contract": {
+        "policy_failure_exit_code": 1,
+        "recommended_profile": "stress",
+        "supported_profiles": [
+          "smoke",
+          "regression",
+          "stress",
+          "benchmark"
+        ]
+      },
+      "ui": {
+        "primary_badges": [
+          "regression",
+          "stress",
+          "r_peak",
+          "rr_interval",
+          "per_case_verdict"
+        ],
+        "reference_only_before_job": false,
+        "scoreable_before_job": true
+      },
+      "verification_protocol": {
+        "artifact_role": "verification_protocol_json",
+        "available": true,
+        "document": {
+          "acceptance_strata": [
+            {
+              "acceptance_profile": {
+                "description": "clean 70 is judged independently over its complete signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_simple_stress_v1_clean_70",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.98
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.02
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.98
+                      },
+                      "sensitivity": {
+                        "min": 0.98
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.98
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.98
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.98
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "clean_70"
+              ],
+              "id": "clean_70"
+            },
+            {
+              "acceptance_profile": {
+                "description": "slow 45 is judged independently over its complete signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_simple_stress_v1_slow_45",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.98
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.02
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.98
+                      },
+                      "sensitivity": {
+                        "min": 0.98
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.98
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.98
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.98
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "slow_45"
+              ],
+              "id": "slow_45"
+            },
+            {
+              "acceptance_profile": {
+                "description": "fast 120 is judged independently over its complete signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_simple_stress_v1_fast_120",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.98
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.02
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.98
+                      },
+                      "sensitivity": {
+                        "min": 0.98
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.98
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.98
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.98
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "fast_120"
+              ],
+              "id": "fast_120"
+            },
+            {
+              "acceptance_profile": {
+                "description": "baseline powerline is judged independently over its complete signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_simple_stress_v1_baseline_powerline",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.8
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.75
+                      },
+                      "sensitivity": {
+                        "min": 0.75
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.75
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.75
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.75
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "baseline_powerline"
+              ],
+              "id": "baseline_powerline"
+            }
+          ],
+          "context_of_use": "Simple synthetic engineering evidence for R-peak detection and RR measurement across independent rate and acquisition-stress cases.",
+          "contract": "synsigra_verification_protocol_v2",
+          "evidence_boundary": "Synthetic engineering QA evidence for R-peak detection and beat-to-beat RR measurement; not diagnosis, clinical validation, or regulatory qualification.",
+          "pack_id": "r_peak_rr_simple_stress_v1",
+          "protocol_id": "r_peak_rr_simple_stress_v1",
+          "required_case_targets": [
+            {
+              "case_id": "clean_70",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "slow_45",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "fast_120",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "baseline_powerline",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            }
+          ],
+          "schema_version": 2,
+          "scoring_contract": "synsigra_local_verification_v3",
+          "stress_strata": [
+            {
+              "case_ids": [
+                "clean_70"
+              ],
+              "id": "clean_70"
+            },
+            {
+              "case_ids": [
+                "slow_45"
+              ],
+              "id": "slow_45"
+            },
+            {
+              "case_ids": [
+                "fast_120"
+              ],
+              "id": "fast_120"
+            },
+            {
+              "case_ids": [
+                "baseline_powerline"
+              ],
+              "id": "baseline_powerline"
+            }
+          ],
+          "truth_policy": {
+            "artifact_overlap": "Noise and artifacts remain scoreable because each complete case is the unit of evaluation.",
+            "boundary": "Only construction events crossing the record boundary are excluded; no blanket edge window is used.",
+            "event_scoreability": "Complete in-record constructed QRS events are scoreable; every exclusion is reported.",
+            "rr_definition": "Difference between consecutive scoreable construction R-peak times; the first beat has no in-record RR value.",
+            "scope": "R-peak event and RR measurement files are required; no signal-quality output or claim is requested."
+          },
+          "verdict_scope": "per_case"
+        },
+        "source_content_sha256": "sha256:3389852cc3101b5b34cb4e28720d1f5147a7d6f10b6228f64216afcd575c022b",
+        "source_path": "examples/packs/r_peak_rr_simple_stress_v1_expectations.json"
+      },
+      "version": "1.0"
+    },
+    {
+      "case_count": 12,
+      "case_ids": [
+        "clean",
+        "snr_m1",
+        "snr_m2",
+        "snr_m3",
+        "snr_m4",
+        "snr_m5",
+        "snr_m6",
+        "snr_m7",
+        "snr_m8",
+        "snr_m9",
+        "snr_m10",
+        "snr_m11"
+      ],
+      "cases": [
+        {
+          "case_id": "clean",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_rr_snr_ladder_clean_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "snr_m1",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_rr_snr_ladder_snr_m1_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "snr_m2",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_rr_snr_ladder_snr_m2_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "snr_m3",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_rr_snr_ladder_snr_m3_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "snr_m4",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_rr_snr_ladder_snr_m4_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "snr_m5",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_rr_snr_ladder_snr_m5_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "snr_m6",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_rr_snr_ladder_snr_m6_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "snr_m7",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_rr_snr_ladder_snr_m7_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "snr_m8",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_rr_snr_ladder_snr_m8_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "snr_m9",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_rr_snr_ladder_snr_m9_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "snr_m10",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_rr_snr_ladder_snr_m10_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        },
+        {
+          "case_id": "snr_m11",
+          "channel_count": 12,
+          "duration_seconds": 60,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 11196400,
+          "estimated_peak_memory_bytes": 18328576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": true,
+          "external_noise_asset_ids": [
+            "synsigra_project_noise_v1"
+          ],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 500,
+          "scenario_id": "rpeak_rr_snr_ladder_snr_m11_v8",
+          "scoreable_targets": [
+            "r_peak",
+            "rr_interval"
+          ],
+          "targets": [
+            "r_peak",
+            "rr_interval"
+          ]
+        }
+      ],
+      "catalog_scoring_mode": "local",
+      "changelog": [
+        {
+          "changes": [
+            "Initial clean plus -1 through -11 dB continuous-noise ladder with identical variable-rate/PVC truth and one official verdict per complete case."
+          ],
+          "date": "2026-07-24",
+          "version": "1.0"
+        }
+      ],
+      "channels": {
+        "families": [
+          {
+            "channel_count": 12,
+            "channels": [
+              "I",
+              "II",
+              "III",
+              "aVR",
+              "aVL",
+              "aVF",
+              "V1",
+              "V2",
+              "V3",
+              "V4",
+              "V5",
+              "V6"
+            ],
+            "name": "standard_12_lead_ecg"
+          }
+        ],
+        "maximum_channel_count": 12,
+        "minimum_channel_count": 12
+      },
+      "declared_targets": [
+        "r_peak",
+        "rr_interval"
+      ],
+      "deprecation_message": "",
+      "description": "Independent clean and continuous-noise cases at every integer SNR from -1 through -11 dB. Each complete case has its own R-peak and RR verdict; nothing is pooled.",
+      "difficulty": [
+        "stress",
+        "benchmark"
+      ],
+      "duration": {
+        "maximum_case_seconds": 60,
+        "minimum_case_seconds": 60,
+        "total_seconds": 720
+      },
+      "estimated_package": {
+        "bytes": 134356800,
+        "peak_memory_bytes": 18328576,
+        "size_class": "large"
+      },
+      "feature_tags": [
+        "r_peak",
+        "rr_interval",
+        "per_case_verdict",
+        "no_pooling",
+        "continuous_noise",
+        "calibrated_snr",
+        "snr_ladder",
+        "variable_rate",
+        "pvc",
+        "all_lead"
+      ],
+      "generator_compatibility": {
+        "challenge_package_contract": "synsigra_challenge_package_v3",
+        "local_verifier_min_version": "0.14.0",
+        "minimum_generator_version": "0.10.0-dev",
+        "pack_schema_version": 2,
+        "scenario_schema_versions": [
+          8
+        ],
+        "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
+        "submission_contract": "synsigra_submission_v1",
+        "verification_protocol_contract": "synsigra_verification_protocol_v2"
+      },
+      "limitations": {
+        "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
+        "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
+      },
+      "local_verifier_smoke_tests": [
+        {
+          "scope": "local event-detection scoring smoke test",
+          "target": "r_peak",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        },
+        {
+          "scope": "generator-free observable RR measurement scoring with negative controls",
+          "target": "rr_interval",
+          "test_id": "TEST-RR-QTC-PACK-001"
+        }
+      ],
+      "messages": [],
+      "metadata_type": "synsigra_curated_pack_metadata",
+      "metadata_version": "synsigra_curated_pack_metadata_export_v1",
+      "modality": [
+        "ECG"
+      ],
+      "name": "R-peak + RR Simple SNR Ladder",
+      "not_recommended_for": [
+        "Signal-quality interval detector or HRV validation",
+        "Clinical noise-prevalence or patient-performance claims",
+        "Regulatory qualification or replacement of representative real-world validation"
+      ],
+      "output_artifacts": [
+        {
+          "required": true,
+          "role": "manifest_json"
+        },
+        {
+          "required": true,
+          "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "provenance_json"
+        },
+        {
+          "required": true,
+          "role": "engineering_claim_boundary_txt"
+        },
+        {
+          "required": true,
+          "role": "case_summary_json"
+        },
+        {
+          "required": true,
+          "role": "annotations_json"
+        },
+        {
+          "required": true,
+          "role": "waveform_csv"
+        },
+        {
+          "required": true,
+          "role": "wfdb"
+        },
+        {
+          "required": true,
+          "role": "edf_bdf"
+        },
+        {
+          "required": true,
+          "role": "verification_protocol_json"
+        },
+        {
+          "required": true,
+          "role": "realism_metrics_json"
+        },
+        {
+          "required": true,
+          "role": "realism_metrics_csv"
+        },
+        {
+          "required": true,
+          "role": "realism_report_html"
+        },
+        {
+          "required": true,
+          "role": "external_noise_truth_json"
+        },
+        {
+          "required": true,
+          "role": "external_noise_clean_ecg_csv"
+        },
+        {
+          "required": true,
+          "role": "measurement_truth_json"
+        }
+      ],
+      "pack_id": "r_peak_rr_snr_ladder_v1",
+      "recommended_for": [
+        "A plain clean-to-minus-11 dB detector robustness curve with every integer SNR represented",
+        "Independent per-case R-peak and beat-to-beat RR verdicts without bins or pooling",
+        "Comparing where classical and learned detectors begin to degrade"
+      ],
+      "recommended_profile": "benchmark",
+      "reference_only_targets": [],
+      "release_date": "2026-07-24",
+      "release_status": "beta",
+      "sampling_rates_hz": [
+        500
+      ],
+      "schema_version": 1,
+      "scoreable_targets": [
+        {
+          "accepted_formats": [
+            "point_events_json_v1",
+            "point_events_csv_v1"
+          ],
+          "case_count": 12,
+          "case_ids": [
+            "clean",
+            "snr_m1",
+            "snr_m2",
+            "snr_m3",
+            "snr_m4",
+            "snr_m5",
+            "snr_m6",
+            "snr_m7",
+            "snr_m8",
+            "snr_m9",
+            "snr_m10",
+            "snr_m11"
+          ],
+          "default_tolerance_seconds": 0.05,
+          "description": "R-peak detector event timing against exact synthetic beat annotations.",
+          "primary_metric": "f1_score",
+          "score_type": "event_detection",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "r_peak"
+        },
+        {
+          "accepted_formats": [
+            "measurement_values_json_v2",
+            "measurement_values_csv_v2"
+          ],
+          "case_count": 12,
+          "case_ids": [
+            "clean",
+            "snr_m1",
+            "snr_m2",
+            "snr_m3",
+            "snr_m4",
+            "snr_m5",
+            "snr_m6",
+            "snr_m7",
+            "snr_m8",
+            "snr_m9",
+            "snr_m10",
+            "snr_m11"
+          ],
+          "default_pairing_window_seconds": 0.2,
+          "description": "Every observable beat-to-beat R-R interval scored independently of artifact-exclusion policy.",
+          "primary_metric": "tolerance_pass_fraction",
+          "score_type": "measurement",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "rr_interval"
+        }
+      ],
+      "scoring_mode": "local",
+      "source": {
+        "catalog_path": "examples/catalog/verification_packs_v1.json",
+        "pack_fingerprint": "sha256:29cc49ce90ac6461c8d59ff0ee0ef8e584eafcc8b9935e15255407c44ee3f0ae",
+        "pack_path": "../packs/r_peak_rr_snr_ladder_v1.json",
+        "source_content_sha256": "sha256:ea2fd7bedc4888f2305b6b57bab832988dd829e1ce7fda115424358fee1ad869"
+      },
+      "submission_output_schemas": [
+        "point_events_json_v1",
+        "point_events_csv_v1",
+        "measurement_values_json_v2",
+        "measurement_values_csv_v2"
+      ],
+      "supported_threshold_profiles": [
+        "smoke",
+        "regression",
+        "stress",
+        "benchmark"
+      ],
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ],
+      "threshold_profile_contract": {
+        "policy_failure_exit_code": 1,
+        "recommended_profile": "benchmark",
+        "supported_profiles": [
+          "smoke",
+          "regression",
+          "stress",
+          "benchmark"
+        ]
+      },
+      "ui": {
+        "primary_badges": [
+          "stress",
+          "benchmark",
+          "r_peak",
+          "rr_interval",
+          "per_case_verdict"
+        ],
+        "reference_only_before_job": false,
+        "scoreable_before_job": true
+      },
+      "verification_protocol": {
+        "artifact_role": "verification_protocol_json",
+        "available": true,
+        "document": {
+          "acceptance_strata": [
+            {
+              "acceptance_profile": {
+                "description": "clean is judged independently over the complete 60-second signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_snr_ladder_v1_clean",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.98
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.02
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.98
+                      },
+                      "sensitivity": {
+                        "min": 0.98
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.98
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.98
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.98
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "clean"
+              ],
+              "id": "clean"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-1 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_snr_ladder_v1_snr_m1",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.95
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.92
+                      },
+                      "sensitivity": {
+                        "min": 0.92
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.92
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.92
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.92
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "snr_m1"
+              ],
+              "id": "snr_m1"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-2 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_snr_ladder_v1_snr_m2",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.93
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.9
+                      },
+                      "sensitivity": {
+                        "min": 0.9
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.9
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.9
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.9
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "snr_m2"
+              ],
+              "id": "snr_m2"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-3 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_snr_ladder_v1_snr_m3",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.9
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.85
+                      },
+                      "sensitivity": {
+                        "min": 0.85
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.85
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.85
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.85
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "snr_m3"
+              ],
+              "id": "snr_m3"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-4 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_snr_ladder_v1_snr_m4",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.85
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.8
+                      },
+                      "sensitivity": {
+                        "min": 0.8
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.8
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.8
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.8
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "snr_m4"
+              ],
+              "id": "snr_m4"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-5 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_snr_ladder_v1_snr_m5",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.78
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.73
+                      },
+                      "sensitivity": {
+                        "min": 0.73
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.73
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.73
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.73
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "snr_m5"
+              ],
+              "id": "snr_m5"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-6 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_snr_ladder_v1_snr_m6",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.74
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.69
+                      },
+                      "sensitivity": {
+                        "min": 0.69
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.69
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.69
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.69
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "snr_m6"
+              ],
+              "id": "snr_m6"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-7 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_snr_ladder_v1_snr_m7",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.7
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.65
+                      },
+                      "sensitivity": {
+                        "min": 0.65
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.65
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.65
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.65
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "snr_m7"
+              ],
+              "id": "snr_m7"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-8 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_snr_ladder_v1_snr_m8",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.65
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.6
+                      },
+                      "sensitivity": {
+                        "min": 0.6
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.6
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.6
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.6
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "snr_m8"
+              ],
+              "id": "snr_m8"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-9 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_snr_ladder_v1_snr_m9",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.62
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.58
+                      },
+                      "sensitivity": {
+                        "min": 0.58
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.58
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.58
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.58
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "snr_m9"
+              ],
+              "id": "snr_m9"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-10 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_snr_ladder_v1_snr_m10",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.6
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.55
+                      },
+                      "sensitivity": {
+                        "min": 0.55
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.55
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.55
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.55
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.025
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.05
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "snr_m10"
+              ],
+              "id": "snr_m10"
+            },
+            {
+              "acceptance_profile": {
+                "description": "-11 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+                "profile_id": "r_peak_rr_snr_ladder_v1_snr_m11",
+                "schema_version": 1,
+                "targets": {
+                  "r_peak": {
+                    "total": {
+                      "f1_score": {
+                        "min": 0.55
+                      },
+                      "mean_absolute_error_seconds": {
+                        "max": 0.04
+                      },
+                      "positive_predictive_value": {
+                        "min": 0.5
+                      },
+                      "sensitivity": {
+                        "min": 0.5
+                      }
+                    }
+                  },
+                  "rr_interval": {
+                    "overall": {
+                      "prediction_match_fraction": {
+                        "min": 0.5
+                      },
+                      "status_match_fraction": {
+                        "min": 0.9
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.5
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.5
+                      }
+                    },
+                    "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.03
+                      },
+                      "p95_absolute_error": {
+                        "max": 0.06
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "snr_m11"
+              ],
+              "id": "snr_m11"
+            }
+          ],
+          "context_of_use": "Simple synthetic engineering comparison of R-peak and RR robustness across independent clean and continuous-noise SNR cases.",
+          "contract": "synsigra_verification_protocol_v2",
+          "evidence_boundary": "Synthetic engineering QA evidence for R-peak detection and beat-to-beat RR measurement; not diagnosis, clinical validation, or regulatory qualification.",
+          "pack_id": "r_peak_rr_snr_ladder_v1",
+          "protocol_id": "r_peak_rr_snr_ladder_v1",
+          "required_case_targets": [
+            {
+              "case_id": "clean",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "snr_m1",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "snr_m2",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "snr_m3",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "snr_m4",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "snr_m5",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "snr_m6",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "snr_m7",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "snr_m8",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "snr_m9",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "snr_m10",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            },
+            {
+              "case_id": "snr_m11",
+              "targets": [
+                "r_peak",
+                "rr_interval"
+              ]
+            }
+          ],
+          "schema_version": 2,
+          "scoring_contract": "synsigra_local_verification_v3",
+          "stress_strata": [
+            {
+              "case_ids": [
+                "clean"
+              ],
+              "id": "clean"
+            },
+            {
+              "case_ids": [
+                "snr_m1"
+              ],
+              "id": "snr_m1"
+            },
+            {
+              "case_ids": [
+                "snr_m2"
+              ],
+              "id": "snr_m2"
+            },
+            {
+              "case_ids": [
+                "snr_m3"
+              ],
+              "id": "snr_m3"
+            },
+            {
+              "case_ids": [
+                "snr_m4"
+              ],
+              "id": "snr_m4"
+            },
+            {
+              "case_ids": [
+                "snr_m5"
+              ],
+              "id": "snr_m5"
+            },
+            {
+              "case_ids": [
+                "snr_m6"
+              ],
+              "id": "snr_m6"
+            },
+            {
+              "case_ids": [
+                "snr_m7"
+              ],
+              "id": "snr_m7"
+            },
+            {
+              "case_ids": [
+                "snr_m8"
+              ],
+              "id": "snr_m8"
+            },
+            {
+              "case_ids": [
+                "snr_m9"
+              ],
+              "id": "snr_m9"
+            },
+            {
+              "case_ids": [
+                "snr_m10"
+              ],
+              "id": "snr_m10"
+            },
+            {
+              "case_ids": [
+                "snr_m11"
+              ],
+              "id": "snr_m11"
+            }
+          ],
+          "truth_policy": {
+            "artifact_overlap": "Noise and artifacts remain scoreable because each complete case is the unit of evaluation.",
+            "boundary": "Only construction events crossing the record boundary are excluded; no blanket edge window is used.",
+            "event_scoreability": "Complete in-record constructed QRS events are scoreable; every exclusion is reported.",
+            "rr_definition": "Difference between consecutive scoreable construction R-peak times; the first beat has no in-record RR value.",
+            "scope": "R-peak event and RR measurement files are required; signal quality, HRV, classification, and delineation are outside the evidence matrix."
+          },
+          "verdict_scope": "per_case"
+        },
+        "source_content_sha256": "sha256:67d27413f6d53d09def93df05221f4cea79b42146fd01fed2fca2ed850e5bf4a",
+        "source_path": "examples/packs/r_peak_rr_snr_ladder_v1_expectations.json"
       },
       "version": "1.0"
     },
@@ -10528,8 +12631,8 @@
     }
   ],
   "product": "Synsigra Testbench",
-  "release_set_id": "synsigra_curated_release_2026_07_23_rpeak_rr_frontier",
+  "release_set_id": "synsigra_curated_release_2026_07_24_simple_rpeak_cases",
   "release_set_status": "beta",
   "schema_version": 1,
-  "source_catalog_sha256": "sha256:854919b3daf515601dcb5923d1bfea2e67dde33429a57b657fbc97d18257ede6"
+  "source_catalog_sha256": "sha256:f51c11fdc2b3cb22e15f390d13d16359b5c02b13b52038def84a0babddac06f4"
 }

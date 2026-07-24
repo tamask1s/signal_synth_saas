@@ -524,7 +524,7 @@ bool valid_verification_metadata(json_t* value) {
     }
     if (!exact_json_string(value, "mode", "evidence") ||
         !json_is_true(eligible) || !json_is_true(complete) ||
-        !json_is_object(protocol) || json_object_size(protocol) != 10 ||
+        !json_is_object(protocol) || json_object_size(protocol) != 11 ||
         !nonempty_json_string(protocol, "protocol_id") ||
         !exact_json_string(
             protocol, "contract", "synsigra_verification_protocol_v2") ||
@@ -535,6 +535,8 @@ bool valid_verification_metadata(json_t* value) {
         !nonempty_json_string(protocol, "context_of_use") ||
         !exact_json_string(
             protocol, "scoring_contract", "synsigra_local_verification_v3") ||
+        !(exact_json_string(protocol, "verdict_scope", "aggregate") ||
+          exact_json_string(protocol, "verdict_scope", "per_case")) ||
         !nonempty_json_string(protocol, "acceptance_profile_id") ||
         !json_is_integer(json_object_get(protocol, "required_case_target_count")) ||
         json_integer_value(json_object_get(protocol, "required_case_target_count")) < 1 ||

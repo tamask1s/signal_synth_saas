@@ -218,7 +218,7 @@ include `next_offset` when another page may exist:
     {
       "job_id": "job_...",
       "status": "queued",
-      "pack_id": "r_peak_stress_v1",
+      "pack_id": "r_peak_rr_simple_stress_v1",
       "created_at": "..."
     }
   ],
@@ -388,7 +388,7 @@ test/integration/e2e_smoke.sh
 
 The script uses a disposable database and data root under `/tmp`, creates a
 temporary API key, starts Apache on `127.0.0.1`, queues
-`r_peak_stress_v1`, runs one worker pass, downloads `manifest.json` and
+`r_peak_rr_simple_stress_v1`, runs one worker pass, downloads `manifest.json` and
 `package.zip`, and validates the archive layout. On the VPS, or anywhere the
 old Apache 2.2 runtime is the target, make the runtime explicit:
 

@@ -671,7 +671,7 @@ CREATE_HTTP=$(
         -w '%{http_code}' \
         -H "Authorization: Bearer $API_KEY" \
         -H "Content-Type: application/json" \
-        -d '{"project_id":"org_e2e_default","pack_id":"r_peak_stress_v1"}' \
+        -d '{"project_id":"org_e2e_default","pack_id":"r_peak_rr_simple_stress_v1"}' \
         "$BASE_URL/v1/jobs"
 )
 if [ "$CREATE_HTTP" != "202" ]; then
@@ -755,7 +755,7 @@ for key in ("package_fingerprint", "generator_binary_sha256"):
         raise SystemExit("invalid " + key)
 if body.get("integration_contract") != "synsigra_core_integration_v7":
     raise SystemExit("invalid integration contract")
-if body.get("generator_git_commit") != "99ff5b1d5272e57c8de7f3ea9760f657782c0220":
+if body.get("generator_git_commit") != "65d995dcb1aea716bd77813001ace30d5a798b1c":
     raise SystemExit("invalid pinned generator commit")
 challenge = body.get("challenge", {})
 if challenge.get("challenge_contract") != "synsigra_challenge_package_v3":
@@ -779,8 +779,10 @@ protocol = verification.get("protocol", {})
 if verification.get("mode") != "evidence" or \
         verification.get("evidence_eligible") is not True or \
         verification.get("matrix_complete") is not True or \
-        protocol.get("protocol_id") != "r_peak_stress_v1":
-    raise SystemExit("R-peak detector challenge must be evidence-ready")
+        protocol.get("protocol_id") != "r_peak_rr_simple_stress_v1" or \
+        protocol.get("verdict_scope") != "per_case" or \
+        protocol.get("acceptance_profile_id") != "per_case_profiles":
+    raise SystemExit("simple R-peak detector challenge must be per-case evidence-ready")
 outputs = challenge.get("submission_outputs", [])
 if len(outputs) != 8 or {item.get("target") for item in outputs} != {"r_peak", "rr_interval"}:
     raise SystemExit("R-peak detector challenge must request eight R-peak and RR outputs")
@@ -1244,7 +1246,7 @@ if body.get("status") != "succeeded":
     raise SystemExit("custom pack job did not succeed")
 if body.get("integration_contract") != "synsigra_core_integration_v7":
     raise SystemExit("custom pack job used the wrong integration contract")
-if body.get("generator_git_commit") != "99ff5b1d5272e57c8de7f3ea9760f657782c0220":
+if body.get("generator_git_commit") != "65d995dcb1aea716bd77813001ace30d5a798b1c":
     raise SystemExit("custom pack job used the wrong generator commit")
 challenge = body.get("challenge", {})
 for key, value in {

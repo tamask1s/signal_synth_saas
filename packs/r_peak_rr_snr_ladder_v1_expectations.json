@@ -1,0 +1,815 @@
+{
+  "schema_version": 2,
+  "contract": "synsigra_verification_protocol_v2",
+  "protocol_id": "r_peak_rr_snr_ladder_v1",
+  "pack_id": "r_peak_rr_snr_ladder_v1",
+  "context_of_use": "Simple synthetic engineering comparison of R-peak and RR robustness across independent clean and continuous-noise SNR cases.",
+  "scoring_contract": "synsigra_local_verification_v3",
+  "verdict_scope": "per_case",
+  "required_case_targets": [
+    {
+      "case_id": "clean",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "snr_m1",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "snr_m2",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "snr_m3",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "snr_m4",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "snr_m5",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "snr_m6",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "snr_m7",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "snr_m8",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "snr_m9",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "snr_m10",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "snr_m11",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    }
+  ],
+  "acceptance_strata": [
+    {
+      "id": "clean",
+      "case_ids": [
+        "clean"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_snr_ladder_v1_clean",
+        "description": "clean is judged independently over the complete 60-second signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.98
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.02
+              },
+              "positive_predictive_value": {
+                "min": 0.98
+              },
+              "sensitivity": {
+                "min": 0.98
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.98
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.98
+              },
+              "truth_match_fraction": {
+                "min": 0.98
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "snr_m1",
+      "case_ids": [
+        "snr_m1"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_snr_ladder_v1_snr_m1",
+        "description": "-1 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.95
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.92
+              },
+              "sensitivity": {
+                "min": 0.92
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.92
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.92
+              },
+              "truth_match_fraction": {
+                "min": 0.92
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "snr_m2",
+      "case_ids": [
+        "snr_m2"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_snr_ladder_v1_snr_m2",
+        "description": "-2 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.93
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.9
+              },
+              "sensitivity": {
+                "min": 0.9
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.9
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.9
+              },
+              "truth_match_fraction": {
+                "min": 0.9
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "snr_m3",
+      "case_ids": [
+        "snr_m3"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_snr_ladder_v1_snr_m3",
+        "description": "-3 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.9
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.85
+              },
+              "sensitivity": {
+                "min": 0.85
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.85
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.85
+              },
+              "truth_match_fraction": {
+                "min": 0.85
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "snr_m4",
+      "case_ids": [
+        "snr_m4"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_snr_ladder_v1_snr_m4",
+        "description": "-4 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.85
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.8
+              },
+              "sensitivity": {
+                "min": 0.8
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.8
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.8
+              },
+              "truth_match_fraction": {
+                "min": 0.8
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "snr_m5",
+      "case_ids": [
+        "snr_m5"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_snr_ladder_v1_snr_m5",
+        "description": "-5 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.78
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.73
+              },
+              "sensitivity": {
+                "min": 0.73
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.73
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.73
+              },
+              "truth_match_fraction": {
+                "min": 0.73
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "snr_m6",
+      "case_ids": [
+        "snr_m6"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_snr_ladder_v1_snr_m6",
+        "description": "-6 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.74
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.69
+              },
+              "sensitivity": {
+                "min": 0.69
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.69
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.69
+              },
+              "truth_match_fraction": {
+                "min": 0.69
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "snr_m7",
+      "case_ids": [
+        "snr_m7"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_snr_ladder_v1_snr_m7",
+        "description": "-7 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.7
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.65
+              },
+              "sensitivity": {
+                "min": 0.65
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.65
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.65
+              },
+              "truth_match_fraction": {
+                "min": 0.65
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "snr_m8",
+      "case_ids": [
+        "snr_m8"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_snr_ladder_v1_snr_m8",
+        "description": "-8 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.65
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.6
+              },
+              "sensitivity": {
+                "min": 0.6
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.6
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.6
+              },
+              "truth_match_fraction": {
+                "min": 0.6
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "snr_m9",
+      "case_ids": [
+        "snr_m9"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_snr_ladder_v1_snr_m9",
+        "description": "-9 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.62
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.58
+              },
+              "sensitivity": {
+                "min": 0.58
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.58
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.58
+              },
+              "truth_match_fraction": {
+                "min": 0.58
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "snr_m10",
+      "case_ids": [
+        "snr_m10"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_snr_ladder_v1_snr_m10",
+        "description": "-10 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.6
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.55
+              },
+              "sensitivity": {
+                "min": 0.55
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.55
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.55
+              },
+              "truth_match_fraction": {
+                "min": 0.55
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "snr_m11",
+      "case_ids": [
+        "snr_m11"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_snr_ladder_v1_snr_m11",
+        "description": "-11 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.55
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.5
+              },
+              "sensitivity": {
+                "min": 0.5
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.5
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.5
+              },
+              "truth_match_fraction": {
+                "min": 0.5
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.03
+              },
+              "p95_absolute_error": {
+                "max": 0.06
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "stress_strata": [
+    {
+      "id": "clean",
+      "case_ids": [
+        "clean"
+      ]
+    },
+    {
+      "id": "snr_m1",
+      "case_ids": [
+        "snr_m1"
+      ]
+    },
+    {
+      "id": "snr_m2",
+      "case_ids": [
+        "snr_m2"
+      ]
+    },
+    {
+      "id": "snr_m3",
+      "case_ids": [
+        "snr_m3"
+      ]
+    },
+    {
+      "id": "snr_m4",
+      "case_ids": [
+        "snr_m4"
+      ]
+    },
+    {
+      "id": "snr_m5",
+      "case_ids": [
+        "snr_m5"
+      ]
+    },
+    {
+      "id": "snr_m6",
+      "case_ids": [
+        "snr_m6"
+      ]
+    },
+    {
+      "id": "snr_m7",
+      "case_ids": [
+        "snr_m7"
+      ]
+    },
+    {
+      "id": "snr_m8",
+      "case_ids": [
+        "snr_m8"
+      ]
+    },
+    {
+      "id": "snr_m9",
+      "case_ids": [
+        "snr_m9"
+      ]
+    },
+    {
+      "id": "snr_m10",
+      "case_ids": [
+        "snr_m10"
+      ]
+    },
+    {
+      "id": "snr_m11",
+      "case_ids": [
+        "snr_m11"
+      ]
+    }
+  ],
+  "truth_policy": {
+    "event_scoreability": "Complete in-record constructed QRS events are scoreable; every exclusion is reported.",
+    "rr_definition": "Difference between consecutive scoreable construction R-peak times; the first beat has no in-record RR value.",
+    "artifact_overlap": "Noise and artifacts remain scoreable because each complete case is the unit of evaluation.",
+    "scope": "R-peak event and RR measurement files are required; signal quality, HRV, classification, and delineation are outside the evidence matrix.",
+    "boundary": "Only construction events crossing the record boundary are excluded; no blanket edge window is used."
+  },
+  "evidence_boundary": "Synthetic engineering QA evidence for R-peak detection and beat-to-beat RR measurement; not diagnosis, clinical validation, or regulatory qualification."
+}

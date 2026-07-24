@@ -322,7 +322,7 @@ sudo sh -c 'key=$(cat /root/syn_sig_ra_api_key);
   curl -fsS \
     -H "Authorization: Bearer $key" \
     -H "Content-Type: application/json" \
-    -d "{\"project_id\":\"org_live_default\",\"pack_id\":\"r_peak_stress_v1\"}" \
+    -d "{\"project_id\":\"org_live_default\",\"pack_id\":\"r_peak_rr_simple_stress_v1\"}" \
     https://www.timeonion.com/syn_sig_ra/v1/jobs'
 ```
 

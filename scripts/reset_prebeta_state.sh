@@ -96,7 +96,7 @@ new_secret=$(cat "$new_key")
 }
 
 job=$(curl -fsS -K - -H 'Content-Type: application/json' \
-  -d '{"project_id":"org_live_default","pack_id":"r_peak_stress_v1"}' \
+  -d '{"project_id":"org_live_default","pack_id":"r_peak_rr_simple_stress_v1"}' \
   "$base/v1/jobs" <<EOF
 header = "Authorization: Bearer $new_secret"
 EOF

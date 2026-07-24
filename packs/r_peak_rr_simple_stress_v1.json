@@ -1,0 +1,46 @@
+{
+  "description": "Four independent clean, slow-rate, fast-rate, and baseline-plus-powerline cases. Each complete case has a plain R-peak and RR verdict; nothing is pooled.",
+  "name": "R-peak + RR Simple Case Stress",
+  "pack_id": "r_peak_rr_simple_stress_v1",
+  "scenarios": [
+    {
+      "id": "clean_70",
+      "path": "scenarios/packs/rpeak_clean_70.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "slow_45",
+      "path": "scenarios/packs/rpeak_slow_45.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "fast_120",
+      "path": "scenarios/packs/rpeak_fast_120.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "baseline_powerline",
+      "path": "scenarios/packs/sq_baseline_powerline.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    }
+  ],
+  "schema_version": 2,
+  "targets": [
+    "r_peak",
+    "rr_interval"
+  ],
+  "verification_protocol_path": "r_peak_rr_simple_stress_v1_expectations.json",
+  "version": "1.0"
+}

@@ -310,7 +310,10 @@ int main() {
             ui_js.body.find("link.hasAttribute(\"download\")") !=
                 std::string::npos &&
             ui_js.body.find("url.protocol !== \"http:\"") !=
-                std::string::npos,
+                std::string::npos &&
+            ui_js.body.find("Independent per-case evidence protocol") !=
+                std::string::npos &&
+            ui_js.body.find("independent case verdicts") != std::string::npos,
         "web UI JavaScript asset should be served as an executable IIFE"
     );
     const syn_sig_ra::RouteResponse ui_css =
@@ -951,11 +954,11 @@ int main() {
         );
     require(pack_list.status == 200, "pack list route should return HTTP 200");
     require(
-        pack_list.body.find("\"pack_id\":\"r_peak_stress_v1\"") !=
+        pack_list.body.find("\"pack_id\":\"r_peak_rr_simple_stress_v1\"") !=
             std::string::npos &&
-            pack_list.body.find("\"pack_id\":\"r_peak_noise_frontier_v1\"") !=
+            pack_list.body.find("\"pack_id\":\"r_peak_rr_snr_ladder_v1\"") !=
                 std::string::npos,
-        "pack list route should return both R-peak evidence packs"
+        "pack list route should return both simple per-case R-peak evidence packs"
     );
 
     const syn_sig_ra::RouteResponse pack_detail =
@@ -994,6 +997,24 @@ int main() {
             frontier_detail.body.find("mixed_snr_m3") != std::string::npos &&
             frontier_detail.body.find("mixed_snr_m11") != std::string::npos,
         "noise-frontier detail should expose the calibrated nine-case ladder"
+    );
+    const syn_sig_ra::RouteResponse ladder_detail =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/packs/r_peak_rr_snr_ladder_v1",
+            "/syn_sig_ra",
+            "",
+            nullptr,
+            runtime_config.pack_root
+        );
+    require(
+        ladder_detail.status == 200 &&
+            ladder_detail.body.find("\"version\":\"1.0\"") != std::string::npos &&
+            ladder_detail.body.find("\"total_seconds\":720") != std::string::npos &&
+            ladder_detail.body.find("\"verdict_scope\":\"per_case\"") != std::string::npos &&
+            ladder_detail.body.find("\"case_id\":\"snr_m1\"") != std::string::npos &&
+            ladder_detail.body.find("\"case_id\":\"snr_m11\"") != std::string::npos,
+        "simple SNR ladder detail should expose all independent case verdicts"
     );
 
     const syn_sig_ra::RouteResponse curated_clone =

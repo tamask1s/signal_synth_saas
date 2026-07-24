@@ -1,0 +1,287 @@
+{
+  "schema_version": 2,
+  "contract": "synsigra_verification_protocol_v2",
+  "protocol_id": "r_peak_rr_simple_stress_v1",
+  "pack_id": "r_peak_rr_simple_stress_v1",
+  "context_of_use": "Simple synthetic engineering evidence for R-peak detection and RR measurement across independent rate and acquisition-stress cases.",
+  "scoring_contract": "synsigra_local_verification_v3",
+  "verdict_scope": "per_case",
+  "required_case_targets": [
+    {
+      "case_id": "clean_70",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "slow_45",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "fast_120",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "baseline_powerline",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    }
+  ],
+  "acceptance_strata": [
+    {
+      "id": "clean_70",
+      "case_ids": [
+        "clean_70"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_simple_stress_v1_clean_70",
+        "description": "clean 70 is judged independently over its complete signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.98
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.02
+              },
+              "positive_predictive_value": {
+                "min": 0.98
+              },
+              "sensitivity": {
+                "min": 0.98
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.98
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.98
+              },
+              "truth_match_fraction": {
+                "min": 0.98
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "slow_45",
+      "case_ids": [
+        "slow_45"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_simple_stress_v1_slow_45",
+        "description": "slow 45 is judged independently over its complete signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.98
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.02
+              },
+              "positive_predictive_value": {
+                "min": 0.98
+              },
+              "sensitivity": {
+                "min": 0.98
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.98
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.98
+              },
+              "truth_match_fraction": {
+                "min": 0.98
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "fast_120",
+      "case_ids": [
+        "fast_120"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_simple_stress_v1_fast_120",
+        "description": "fast 120 is judged independently over its complete signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.98
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.02
+              },
+              "positive_predictive_value": {
+                "min": 0.98
+              },
+              "sensitivity": {
+                "min": 0.98
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.98
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.98
+              },
+              "truth_match_fraction": {
+                "min": 0.98
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "baseline_powerline",
+      "case_ids": [
+        "baseline_powerline"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_simple_stress_v1_baseline_powerline",
+        "description": "baseline powerline is judged independently over its complete signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.8
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.75
+              },
+              "sensitivity": {
+                "min": 0.75
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.75
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.75
+              },
+              "truth_match_fraction": {
+                "min": 0.75
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.025
+              },
+              "p95_absolute_error": {
+                "max": 0.05
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "stress_strata": [
+    {
+      "id": "clean_70",
+      "case_ids": [
+        "clean_70"
+      ]
+    },
+    {
+      "id": "slow_45",
+      "case_ids": [
+        "slow_45"
+      ]
+    },
+    {
+      "id": "fast_120",
+      "case_ids": [
+        "fast_120"
+      ]
+    },
+    {
+      "id": "baseline_powerline",
+      "case_ids": [
+        "baseline_powerline"
+      ]
+    }
+  ],
+  "truth_policy": {
+    "event_scoreability": "Complete in-record constructed QRS events are scoreable; every exclusion is reported.",
+    "rr_definition": "Difference between consecutive scoreable construction R-peak times; the first beat has no in-record RR value.",
+    "artifact_overlap": "Noise and artifacts remain scoreable because each complete case is the unit of evaluation.",
+    "scope": "R-peak event and RR measurement files are required; no signal-quality output or claim is requested.",
+    "boundary": "Only construction events crossing the record boundary are excluded; no blanket edge window is used."
+  },
+  "evidence_boundary": "Synthetic engineering QA evidence for R-peak detection and beat-to-beat RR measurement; not diagnosis, clinical validation, or regulatory qualification."
+}

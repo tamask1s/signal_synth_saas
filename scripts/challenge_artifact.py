@@ -21,7 +21,7 @@ import synsigra
 
 
 KIT_CONTRACT = "synsigra_verification_kit_v3"
-CORE_COMMIT = "99ff5b1d5272e57c8de7f3ea9760f657782c0220"
+CORE_COMMIT = "65d995dcb1aea716bd77813001ace30d5a798b1c"
 MEASUREMENT_COLUMNS = [
     "name", "value", "unit", "status", "scope", "time_seconds",
     "beat_index", "window_start_seconds", "window_end_seconds", "channel",
@@ -290,10 +290,21 @@ def _verification_metadata(package, scoring, protocol):
     )
     matrix_complete = required == _supported_matrix(scoring)
     _require(matrix_complete, "verification protocol matrix does not equal scoreable matrix")
+    verdict_scope = protocol.get("verdict_scope", "aggregate")
+    _require(
+        verdict_scope in ("aggregate", "per_case"),
+        "verification protocol verdict scope is unsupported",
+    )
+    acceptance_profile_id = (
+        "per_case_profiles"
+        if verdict_scope == "per_case"
+        else protocol["acceptance_profile"]["profile_id"]
+    )
     identity.update({
         "context_of_use": protocol["context_of_use"],
         "scoring_contract": protocol["scoring_contract"],
-        "acceptance_profile_id": protocol["acceptance_profile"]["profile_id"],
+        "verdict_scope": verdict_scope,
+        "acceptance_profile_id": acceptance_profile_id,
         "required_case_target_count": len(required),
         "evidence_boundary": protocol["evidence_boundary"],
     })
@@ -428,16 +439,34 @@ def _write_text_to_zip(archive, destination, text):
 
 def _kit_readme(metadata):
     evidence = metadata["verification"]["evidence_eligible"]
+    per_case = (
+        evidence
+        and metadata["verification"]["protocol"].get("verdict_scope") == "per_case"
+    )
     command = (
         "synsigra-verify challenge submission verification-results --force"
         if evidence else
         "synsigra-verify challenge submission verification-results --mode diagnostic --force"
     )
-    mode_text = (
-        "This package contains an immutable protocol v2. The command runs the complete package-authoritative evidence matrix and embedded numeric acceptance policy. Do not add a profile, case, or target override to an evidence run."
-        if evidence else
-        "This package has no pre-specified protocol v2. Verification is therefore explicitly diagnostic and is never evidence-eligible."
-    )
+    if per_case:
+        mode_text = (
+            "This package contains an immutable per-case protocol v2. The command "
+            "evaluates every complete signal independently; cases are not split, "
+            "pooled, averaged, or allowed to compensate for one another. Do not add "
+            "a profile, case, or target override to an evidence run."
+        )
+    elif evidence:
+        mode_text = (
+            "This package contains an immutable protocol v2. The command runs the "
+            "complete package-authoritative evidence matrix and embedded numeric "
+            "acceptance policy. Do not add a profile, case, or target override to "
+            "an evidence run."
+        )
+    else:
+        mode_text = (
+            "This package has no pre-specified protocol v2. Verification is therefore "
+            "explicitly diagnostic and is never evidence-eligible."
+        )
     return """Synsigra generator-free verification kit
 
 1. Install the Synsigra verifier wheel downloaded from the product UI:

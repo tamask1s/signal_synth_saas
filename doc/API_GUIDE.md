@@ -60,10 +60,12 @@ curl -fsS -H "$AUTH" "$BASE/v1/projects" > projects.json
 
 For R-peak work, choose by algorithm scope:
 
-- `r_peak_stress_v1`: focused evidence baseline; submit R-peak events and
-  beat-to-beat RR measurements, without signal-quality output;
-- `r_peak_noise_frontier_v1`: paired −3 through −11 dB R-peak and RR
-  robustness ladder, without signal-quality output;
+- `r_peak_rr_simple_stress_v1`: recommended first run; four independent R-peak
+  and RR case verdicts, without pooling or signal-quality output;
+- `r_peak_rr_snr_ladder_v1`: clean and every integer −1 through −11 dB;
+  continuous noise and one independent R-peak + RR verdict per complete case;
+- `r_peak_stress_v1` and `r_peak_noise_frontier_v1`: detailed legacy reports
+  with aggregate/artifact-bin diagnostics;
 - `r_peak_rr_noise_v1`: combined pipeline evidence that additionally requires
   signal-quality output.
 
@@ -72,7 +74,7 @@ Noise can be a test condition without being an algorithm output. Do not select
 
 ```sh
 curl -fsS -H "$AUTH" -H 'Content-Type: application/json' \
-  -d '{"project_id":"PROJECT_ID","pack_id":"r_peak_stress_v1"}' \
+  -d '{"project_id":"PROJECT_ID","pack_id":"r_peak_rr_simple_stress_v1"}' \
   "$BASE/v1/jobs" > job-created.json
 
 curl -fsS -H "$AUTH" "$BASE/v1/jobs/JOB_ID" > job.json
@@ -131,12 +133,14 @@ Open `verification-results/index.html`; it links every case-target detail
 page. `verification-results/evidence.json` is the single canonical
 machine-readable record.
 
-Each acceptance row can be expanded into its contributing cases and raw
-counts. The case table shows the relevant gate and an explicitly diagnostic
-case comparison; only the pooled criterion is an official verdict.
-Measurement detail pages show units, the pairing window and the exact packaged
-absolute-or-relative pass tolerance. Criterion and case views link in both
-directions, and compact `i` controls explain the displayed metrics.
+For a per-case protocol, the first report table gives every complete case's
+official threshold and verdict and there is no pooled result. For an aggregate
+protocol, each acceptance row expands into contributing cases and raw counts;
+those case comparisons are diagnostic and only the pooled criterion is
+official. Measurement detail pages show units, the pairing window and the
+exact packaged absolute-or-relative pass tolerance. Overview and detail views
+link in both directions, and compact `i` controls explain the displayed
+metrics.
 
 Do not append a profile, case, or target override to evidence mode. A kit
 without protocol v2 instead shows explicit `--mode diagnostic`; diagnostic

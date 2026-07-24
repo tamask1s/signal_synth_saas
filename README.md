@@ -20,7 +20,7 @@ signals.
 The normal workflow is:
 
 1. Register with an email address, verify ownership, and sign in.
-2. Choose one of 19 curated challenge packs or author a custom pack.
+2. Choose a curated challenge pack or author a custom pack.
 3. Generate a deterministic challenge in an organization project.
 4. Inspect its waveforms and ground truth in Synsigra Lab.
 5. Download one verification-kit ZIP.
@@ -184,7 +184,7 @@ and the kit's `submission/submission.json` are authoritative.
 
 ## Curated packs
 
-The immutable catalog 3.2 release contains 19 packs:
+The immutable catalog 3.3 release contains these curated packs:
 
 | Pack | Focus |
 |---|---|
@@ -192,6 +192,8 @@ The immutable catalog 3.2 release contains 19 packs:
 | `ecg_qtc_verification_v1` | R peaks, delineation, QTc formula/rate cases |
 | `ecg_extended_morphology_v1` | Delineation, extended morphology, beat classification |
 | `advanced_rhythm_burden_v1` | Rhythm intervals and burden measurements |
+| `r_peak_rr_simple_stress_v1` | Four independent, human-readable R-peak + RR case verdicts; no pooling |
+| `r_peak_rr_snr_ladder_v1` | Clean and every integer −1…−11 dB continuous-noise case, each with its own R-peak + RR verdict |
 | `r_peak_stress_v1` | Focused R-peak + beat-to-beat RR evidence; no signal-quality output required |
 | `r_peak_noise_frontier_v1` | Paired 60-second −3/−4/−5/−7/−8/−9/−10/−11 dB R-peak + RR robustness frontier |
 | `hrv_robustness_v2` | HRV v2 metrics and contamination robustness |
@@ -213,14 +215,14 @@ modality, duration, rate, channel, estimated-size, changelog, fingerprint, and
 external-noise metadata. A small starter pack is a deliberate validation slice,
 not the platform's generation limit.
 
-For a detector that outputs R-peak events and their directly derived
-beat-to-beat RR intervals, start with `r_peak_stress_v1`. Its authoritative
-submission matrix contains both targets for four cases, while signal quality
-and HRV remain outside scope. Use `r_peak_noise_frontier_v1` next to compare
-both outputs across paired, increasingly severe −3 through −11 dB composite
-noise tiers. Each tier has an independent packaged gate, so good clean
-performance cannot hide a hard-tier collapse. `r_peak_rr_noise_v1` remains the
-right choice when the algorithm also claims signal-quality interval output.
+For a detector that outputs R-peak events and directly derived beat-to-beat RR
+intervals, start with `r_peak_rr_simple_stress_v1`, then use
+`r_peak_rr_snr_ladder_v1` to obtain a clean-to−11 dB robustness curve. These
+packs make one complete signal the official decision unit: no bins, pooling,
+averaging, or cross-case compensation. The older `r_peak_stress_v1` and
+`r_peak_noise_frontier_v1` remain available for their more detailed aggregate
+and artifact-bin diagnostics. Use `r_peak_rr_noise_v1` only when the algorithm
+also claims signal-quality interval output.
 
 `Evidence eligible: yes` means the unmodified package-authoritative matrix was
 completed. It does not itself mean that the detector passed: the separate
@@ -299,13 +301,14 @@ It links every case-target detail page; `verification-results/evidence.json`
 is the single canonical machine-readable evidence record.
 
 The overview is designed as an audit trail rather than a wall of unexplained
-scores. Expand any acceptance criterion to see the contributing cases, their
-case-level values and raw evidence counts such as TP/FP/FN. Case rows show the
-relevant required gate and a green/amber diagnostic comparison, while the
-pooled criterion remains the only official verdict. Detail pages link back to
-their criteria and explain metric formulas, units, pairing windows and the
-exact packaged absolute-or-relative tolerance. Hover or focus an `i` marker
-for compact definitions.
+scores. In a per-case pack, its first table gives every complete case's
+official threshold and verdict; there is no pooled result. In an aggregate
+pack, expand a criterion to see its contributing cases, case-level values and
+raw evidence counts such as TP/FP/FN; those case comparisons are diagnostic
+and the pooled criterion is official. Detail pages link back to the overview
+and explain metric formulas, units, pairing windows and the exact packaged
+absolute-or-relative tolerance. Hover or focus an `i` marker for compact
+definitions.
 
 Install the separately downloadable, pure-Python, generator-free verifier:
 
@@ -385,7 +388,7 @@ file, wall-time, and no-network worker bounds are enforced.
 
 This release intentionally has no old core compatibility layer. It requires the
 clean sibling checkout `../signal_synth` at commit
-`99ff5b1d5272e57c8de7f3ea9760f657782c0220` and the exact tuple:
+`65d995dcb1aea716bd77813001ace30d5a798b1c` and the exact tuple:
 
 - generator `0.10.0-dev`, C++ facade `1.5.0`;
 - integration `synsigra_core_integration_v7`, pack schema `2`;
@@ -400,8 +403,8 @@ clean sibling checkout `../signal_synth` at commit
 - authoring `synsigra_authoring_v18`, templates `synsigra_templates_v5`;
 - verifier `0.14.0`, external-noise truth
   `synsigra_external_noise_truth_v1`;
-- curated catalog `3.2` with 19 packs and source hash
-  `sha256:854919b3daf515601dcb5923d1bfea2e67dde33429a57b657fbc97d18257ede6`.
+- curated catalog `3.3` with source hash
+  `sha256:f51c11fdc2b3cb22e15f390d13d16359b5c02b13b52038def84a0babddac06f4`.
 
 Configuration, startup, readiness, worker post-render validation, and release
 verification fail closed if these identities diverge. `/readyz` publishes the

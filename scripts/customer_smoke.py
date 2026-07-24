@@ -29,7 +29,7 @@ def main():
     parser.add_argument("--base", default="https://www.timeonion.com/syn_sig_ra")
     parser.add_argument("--key", default=os.environ.get("SYN_SIG_RA_API_KEY"))
     parser.add_argument("--project")
-    parser.add_argument("--pack", default="r_peak_stress_v1")
+    parser.add_argument("--pack", default="r_peak_rr_simple_stress_v1")
     parser.add_argument("--out", type=pathlib.Path, default=pathlib.Path("syn_sig_ra_output"))
     args = parser.parse_args()
     if not args.key:

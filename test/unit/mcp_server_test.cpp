@@ -55,8 +55,8 @@ bool complete_next_job(
         "synsigra_core_integration_v7",
         "{}",
         "0.10.0-dev",
-        "99ff5b1d5272e57c8de7f3ea9760f657782c0220",
-        "signal_synth/99ff5b1d5272e57c8de7f3ea9760f657782c0220",
+        "65d995dcb1aea716bd77813001ace30d5a798b1c",
+        "signal_synth/65d995dcb1aea716bd77813001ace30d5a798b1c",
         "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "{}",
         challenge_metadata,
@@ -157,18 +157,18 @@ int main() {
         "{\"jsonrpc\":\"2.0\",\"id\":\"peak-noise\",\"method\":\"tools/call\","
         "\"params\":{\"name\":\"synsigra_recommend_packs\",\"arguments\":{"
         "\"goal\":\"Test an R-peak detector under escalating baseline wander and noise\","
-        "\"sampling_rate_hz\":500}}}");
+        "\"sampling_rate_hz\":500,\"max_results\":10}}}");
     require(
         peak_noise_recommendation.status == 200 &&
         peak_noise_recommendation.body.find(
             "\"interpreted_targets\":[\"r_peak\"]") != std::string::npos &&
+        peak_noise_recommendation.body.find("r_peak_rr_snr_ladder_v1") !=
+            std::string::npos &&
         peak_noise_recommendation.body.find("r_peak_noise_frontier_v1") !=
             std::string::npos &&
-        peak_noise_recommendation.body.find("r_peak_stress_v1") !=
-            std::string::npos &&
-        peak_noise_recommendation.body.find("r_peak_noise_frontier_v1") <
-            peak_noise_recommendation.body.find("r_peak_stress_v1"),
-        "R-peak noise requests should recommend the focused detector frontier: " +
+        peak_noise_recommendation.body.find("r_peak_rr_snr_ladder_v1") <
+            peak_noise_recommendation.body.find("r_peak_noise_frontier_v1"),
+        "R-peak noise requests should prefer the simple per-case SNR ladder: " +
             peak_noise_recommendation.body);
 
     const syn_sig_ra::RouteResponse quality_recommendation = mcp(
@@ -248,8 +248,8 @@ int main() {
             "{\"pack_id\":\"r_peak_rr_noise_v1\"}",
             "r_peak_rr_noise_v1", "r_peak_rr_noise_v1.json",
             "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-            "1.3", "3.2",
-            "sha256:854919b3daf515601dcb5923d1bfea2e67dde33429a57b657fbc97d18257ede6",
+            "1.3", "3.3",
+            "sha256:f51c11fdc2b3cb22e15f390d13d16359b5c02b13b52038def84a0babddac06f4",
             evidence_job_id, error),
         "evidence MCP fixture should queue: " + error);
     const std::string evidence_metadata =

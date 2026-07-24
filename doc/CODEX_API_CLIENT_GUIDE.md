@@ -48,11 +48,12 @@ verification helpers, not the generator.
 Keep algorithm outputs separate from stress conditions. “Test my R-peak
 detector under noise” requests `r_peak`, not `signal_quality`. Add
 `signal_quality` only when the algorithm itself emits quality/artifact
-intervals. For current curated R-peak work, inspect `r_peak_stress_v1` first
-for focused R-peak plus beat-to-beat RR evidence and
-`r_peak_noise_frontier_v1` for the calibrated
-−3/−4/−5/−7/−8/−9/−10/−11 dB robustness ladder. Neither pack asks for
-signal-quality output.
+intervals. For current curated R-peak work, inspect
+`r_peak_rr_simple_stress_v1` first, then `r_peak_rr_snr_ladder_v1` for clean
+and every integer −1…−11 dB continuous-noise cases. Both report one official
+R-peak + RR verdict per complete signal, without bins or pooling, and neither
+asks for signal-quality output. The older `r_peak_stress_v1` and
+`r_peak_noise_frontier_v1` remain available for detailed aggregate diagnostics.
 
 ## Is one API key enough?
 

@@ -1,0 +1,110 @@
+{
+  "description": "Independent clean and continuous-noise cases at every integer SNR from -1 through -11 dB. Each complete case has its own R-peak and RR verdict; nothing is pooled.",
+  "name": "R-peak + RR Simple SNR Ladder",
+  "pack_id": "r_peak_rr_snr_ladder_v1",
+  "scenarios": [
+    {
+      "id": "clean",
+      "path": "scenarios/packs/rpeak_rr_snr_ladder_clean_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "snr_m1",
+      "path": "scenarios/packs/rpeak_rr_snr_ladder_snr_m1_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "snr_m2",
+      "path": "scenarios/packs/rpeak_rr_snr_ladder_snr_m2_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "snr_m3",
+      "path": "scenarios/packs/rpeak_rr_snr_ladder_snr_m3_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "snr_m4",
+      "path": "scenarios/packs/rpeak_rr_snr_ladder_snr_m4_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "snr_m5",
+      "path": "scenarios/packs/rpeak_rr_snr_ladder_snr_m5_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "snr_m6",
+      "path": "scenarios/packs/rpeak_rr_snr_ladder_snr_m6_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "snr_m7",
+      "path": "scenarios/packs/rpeak_rr_snr_ladder_snr_m7_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "snr_m8",
+      "path": "scenarios/packs/rpeak_rr_snr_ladder_snr_m8_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "snr_m9",
+      "path": "scenarios/packs/rpeak_rr_snr_ladder_snr_m9_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "snr_m10",
+      "path": "scenarios/packs/rpeak_rr_snr_ladder_snr_m10_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "snr_m11",
+      "path": "scenarios/packs/rpeak_rr_snr_ladder_snr_m11_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    }
+  ],
+  "schema_version": 2,
+  "targets": [
+    "r_peak",
+    "rr_interval"
+  ],
+  "verification_protocol_path": "r_peak_rr_snr_ladder_v1_expectations.json",
+  "version": "1.0"
+}

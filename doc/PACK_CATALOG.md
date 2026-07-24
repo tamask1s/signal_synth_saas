@@ -1,6 +1,6 @@
 # Curated pack catalog contract
 
-Built-in packs are imported as one immutable catalog 3.2 release snapshot from
+Built-in packs are imported as one immutable catalog 3.3 release snapshot from
 the exact sibling `signal_synth` checkout. SaaS does not maintain product
 sidecars or reinterpret core analysis.
 
@@ -15,10 +15,10 @@ The importer removes files not present in the snapshot, copies the declared
 pack/scenario/protocol/approved-noise inputs, and validates every pack through
 the pinned CLI. Startup and readiness require:
 
-- catalog version `3.2`;
-- exactly 19 unique curated packs;
+- catalog version `3.3`;
+- a positive declared pack count that exactly matches the unique pack array;
 - catalog source hash
-  `sha256:854919b3daf515601dcb5923d1bfea2e67dde33429a57b657fbc97d18257ede6`;
+  `sha256:f51c11fdc2b3cb22e15f390d13d16359b5c02b13b52038def84a0babddac06f4`;
 - integration `synsigra_core_integration_v7`;
 - challenge `synsigra_challenge_package_v3`;
 - scoring `synsigra_scoring_manifest_v3`;
@@ -41,28 +41,31 @@ explicit diagnostic-only, not weaker evidence packages.
 2. `ecg_qtc_verification_v1`
 3. `ecg_extended_morphology_v1`
 4. `advanced_rhythm_burden_v1`
-5. `r_peak_stress_v1`
-6. `r_peak_noise_frontier_v1`
-7. `hrv_robustness_v2`
-8. `ecg_beat_classification_v1`
-9. `ecg_rhythm_v1`
-10. `signal_quality_v1`
-11. `ecg_morphology_stress_v1`
-12. `ppg_alignment_v1`
-13. `combined_worst_case_v1`
-14. `wearable_timebase_v2`
-15. `ppg_benchmark_v1`
-16. `ppg_optical_v2`
-17. `ecg_delineation_v2`
-18. `cardiorespiratory_v1`
-19. `ecg_hybrid_noise_v1`
+5. `r_peak_rr_simple_stress_v1`
+6. `r_peak_rr_snr_ladder_v1`
+7. `r_peak_stress_v1`
+8. `r_peak_noise_frontier_v1`
+9. `hrv_robustness_v2`
+10. `ecg_beat_classification_v1`
+11. `ecg_rhythm_v1`
+12. `signal_quality_v1`
+13. `ecg_morphology_stress_v1`
+14. `ppg_alignment_v1`
+15. `combined_worst_case_v1`
+16. `wearable_timebase_v2`
+17. `ppg_benchmark_v1`
+18. `ppg_optical_v2`
+19. `ecg_delineation_v2`
+20. `cardiorespiratory_v1`
+21. `ecg_hybrid_noise_v1`
 
-`r_peak_stress_v1` is the package-authoritative evidence baseline for an
-R-peak detector with directly derived beat-to-beat RR output. It requires both
-targets but no signal-quality file. The calibrated
-`r_peak_noise_frontier_v1` then evaluates the same outputs on paired −3, −4,
-−5, −7, −8, −9, −10, and −11 dB tiers with separate per-tier acceptance
-strata. `r_peak_rr_noise_v1` remains the combined pipeline protocol for
+`r_peak_rr_simple_stress_v1` is the recommended first evidence run for an
+R-peak detector with directly derived beat-to-beat RR output.
+`r_peak_rr_snr_ladder_v1` follows with clean and continuous-noise cases at
+every integer level from −1 through −11 dB. Both make each complete signal an
+independent official verdict and have no pooled acceptance profile.
+`r_peak_stress_v1` and `r_peak_noise_frontier_v1` remain as detailed legacy
+alternatives. `r_peak_rr_noise_v1` is the combined pipeline protocol for
 algorithms that additionally emit signal-quality intervals.
 
 There is deliberately no older catalog/pack compatibility path in this

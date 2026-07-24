@@ -2173,21 +2173,21 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>POST</td><td><code>/mcp</code></td><td>Stateless Streamable HTTP MCP tools and prompts</td><td>Bearer API key</td></tr>
         </tbody>
       </table>
-      <p><strong>R-peak scope:</strong> use <code>r_peak_stress_v1</code> for focused R-peak and beat-to-beat RR evidence, then <code>r_peak_noise_frontier_v1</code> for the calibrated −3…−11 dB robustness ladder. Neither requires signal-quality output. Use <code>r_peak_rr_noise_v1</code> only when the algorithm also emits signal-quality intervals.</p>
+      <p><strong>R-peak scope:</strong> start with <code>r_peak_rr_simple_stress_v1</code>, then use <code>r_peak_rr_snr_ladder_v1</code> for clean and every integer −1…−11 dB. Both make each complete case an independent R-peak + RR verdict with no pooling. Use <code>r_peak_rr_noise_v1</code> only when the algorithm also emits signal-quality intervals.</p>
       <h2>Minimal curl client</h2>
       <pre class="output">read -r -s SYN_SIG_RA_API_KEY
 BASE=https://www.timeonion.com/syn_sig_ra
 curl -fsS "$BASE/v1/packs"
 curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" "$BASE/v1/projects"
 curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" -H "Content-Type: application/json" \
-  -d '{"project_id":"org_live_default","pack_id":"r_peak_stress_v1"}' "$BASE/v1/jobs"</pre>
+  -d '{"project_id":"org_live_default","pack_id":"r_peak_rr_simple_stress_v1"}' "$BASE/v1/jobs"</pre>
       <h2>Minimal Python client</h2>
       <pre class="output">import json, os, urllib.request
 base = "https://www.timeonion.com/syn_sig_ra"
 key = os.environ["SYN_SIG_RA_API_KEY"]
 req = urllib.request.Request(base + "/v1/jobs", data=json.dumps({
     "project_id": "org_live_default",
-    "pack_id": "r_peak_stress_v1",
+    "pack_id": "r_peak_rr_simple_stress_v1",
 }).encode(), headers={
     "Authorization": "Bearer " + key,
     "Content-Type": "application/json",
@@ -3945,6 +3945,10 @@ const char kUiJs[] = R"JS((() => {
         const reference = targetNames(pack.reference_only_targets);
         if (target && scoreable.includes(target)) value += 30;
         if (target && reference.includes(target)) value += 10;
+        const verdictScope = (((pack.verification_protocol || {}).document || {}).verdict_scope || "");
+        if (target === "r_peak" && verdictScope === "per_case") value += 10;
+        if (target === "r_peak" && intent === "benchmark" &&
+            (pack.feature_tags || []).includes("snr_ladder")) value += 10;
         if (scoreable.length) value += 8;
         if ((pack.release_status || "") === "stable") value += 5;
         if ((pack.release_status || "") === "beta") value += 3;
@@ -4012,14 +4016,21 @@ const char kUiJs[] = R"JS((() => {
     const targets = [...new Set(required.flatMap((item) => item.targets || []))];
     const matrixSize = required.reduce((total, item) => total + (item.targets || []).length, 0);
     const policy = protocol.acceptance_profile || {};
+    const perCase = protocol.verdict_scope === "per_case";
+    const casePolicies = Object.fromEntries((protocol.acceptance_strata || []).map((item) => [
+      (item.case_ids || [item.id || "case"])[0],
+      ((item.acceptance_profile || {}).targets || {})
+    ]));
     return `
       <details>
-        <summary>Evidence protocol v2</summary>
+        <summary>${perCase ? "Independent per-case evidence protocol" : "Evidence protocol v2"}</summary>
         <p>${escapeHtml(protocol.context_of_use || "Engineering QA protocol")}</p>
-        <p><strong>Protocol:</strong> ${escapeHtml(protocol.protocol_id || "n/a")} · <strong>embedded policy:</strong> ${escapeHtml(policy.profile_id || "n/a")}</p>
+        <p><strong>Protocol:</strong> ${escapeHtml(protocol.protocol_id || "n/a")} · <strong>official policy:</strong> ${escapeHtml(perCase ? `${(protocol.acceptance_strata || []).length} independent case profiles` : policy.profile_id || "n/a")}</p>
         <p><strong>Required matrix:</strong> ${escapeHtml(required.length)} cases / ${escapeHtml(matrixSize)} case-target checks · ${escapeHtml(targets.map(targetTitle).join(", ") || "n/a")}</p>
-        <p class="muted compact">Evidence mode runs this complete immutable matrix and embedded numeric policy. Profile, case, and target overrides are diagnostic-only and cannot produce evidence.</p>
-        <pre class="output">${escapeHtml(JSON.stringify(policy.targets || {}, null, 2))}</pre>
+        <p class="muted compact">${perCase
+          ? "Every complete signal receives its own official verdict. Cases are not split into acceptance bins, pooled, averaged, or allowed to compensate for another case."
+          : "Evidence mode runs this complete immutable matrix and embedded numeric policy. Profile, case, and target overrides are diagnostic-only and cannot produce evidence."}</p>
+        <pre class="output">${escapeHtml(JSON.stringify(perCase ? casePolicies : policy.targets || {}, null, 2))}</pre>
         <span class="fingerprint">${escapeHtml(envelope.sha256 || "")}</span>
       </details>
     `;
@@ -4028,8 +4039,10 @@ const char kUiJs[] = R"JS((() => {
   function releaseBoundaryBadges(pack) {
     const protocol = pack.verification_protocol || {};
     const external = pack.external_noise || {};
+    const perCase = ((protocol.document || {}).verdict_scope || "") === "per_case";
     return [
       protocol.available ? '<span class="tag mode">evidence protocol v2</span>' : '<span class="tag warning">diagnostic only</span>',
+      perCase ? '<span class="tag mode">independent case verdicts</span>' : "",
       external.used ? '<span class="tag mode">approved external noise</span>' : ""
     ].join("");
   }
@@ -5706,11 +5719,11 @@ const char kUiJs[] = R"JS((() => {
         <pre class="output">python -m pip install synsigra-__SYNSIGRA_VERIFIER_VERSION__-py3-none-any.whl</pre>
         <p>Role-selected submission layout:</p>
         <pre class="output">${escapeHtml(submissionShape(context))}</pre>
-        <p><strong>${context.evidenceEligible ? "Evidence mode" : "Diagnostic mode — not evidence"}:</strong> ${context.evidenceEligible ? "the packaged protocol fixes the complete case-target matrix and numeric policy; do not add overrides." : "this package has no protocol v2, so the verifier must run explicitly in non-evidence diagnostic mode."}</p>
+        <p><strong>${context.evidenceEligible ? "Evidence mode" : "Diagnostic mode — not evidence"}:</strong> ${context.evidenceEligible ? ((context.verification.protocol || {}).verdict_scope === "per_case" ? "every complete signal receives an independent verdict with no pooling or cross-case compensation; do not add overrides." : "the packaged protocol fixes the complete case-target matrix and numeric policy; do not add overrides.") : "this package has no protocol v2, so the verifier must run explicitly in non-evidence diagnostic mode."}</p>
         <pre class="output">${escapeHtml(context.command)}</pre>
         <button class="secondary" data-copy-text="${escapeHtml(context.command)}">Copy verify command</button>
         <p>Open <code>${escapeHtml(context.outputDir)}/index.html</code>; it links every case-target detail page. <code>${escapeHtml(context.outputDir)}/evidence.json</code> is the single canonical machine-readable record.</p>
-        ${context.evidenceEligible ? `<p class="muted compact">Protocol ${escapeHtml((context.verification.protocol || {}).protocol_id || "n/a")} · policy ${escapeHtml((context.verification.protocol || {}).acceptance_profile_id || "n/a")} · matrix complete · outcome pending local verification.</p>` : `<p class="warning compact">Diagnostic reports are always marked evidence_eligible=false, even when their selected thresholds pass.</p>`}
+        ${context.evidenceEligible ? `<p class="muted compact">Protocol ${escapeHtml((context.verification.protocol || {}).protocol_id || "n/a")} · ${(context.verification.protocol || {}).verdict_scope === "per_case" ? "independent case policies" : `policy ${escapeHtml((context.verification.protocol || {}).acceptance_profile_id || "n/a")}`} · matrix complete · outcome pending local verification.</p>` : `<p class="warning compact">Diagnostic reports are always marked evidence_eligible=false, even when their selected thresholds pass.</p>`}
         <p class="muted compact">CI semantics: exit 0 = pass, exit 1 = verification/input/scoring/threshold failure, exit 2 = invalid CLI usage.</p>
       </details>
     `;

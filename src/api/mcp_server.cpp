@@ -419,6 +419,18 @@ json_t* recommend_packs(
             if (word.size() >= 4 && contains(searchable, word)) lexical += 2;
         }
         item.score += std::min(lexical, 30);
+        const bool r_peak_requested =
+            std::find(targets.begin(), targets.end(), "r_peak") != targets.end();
+        const bool noise_requested =
+            contains(goal, "noise") || contains(goal, "snr") ||
+            contains(goal, "artifact") || contains(goal, "wander");
+        if (r_peak_requested && has_string(pack->feature_tags, "per_case_verdict")) {
+            item.score += 20;
+        }
+        if (r_peak_requested && noise_requested &&
+            has_string(pack->feature_tags, "snr_ladder")) {
+            item.score += 50;
+        }
         if (requested_rate > 0) {
             if (std::find(pack->sampling_rates_hz.begin(),
                           pack->sampling_rates_hz.end(), requested_rate) !=
