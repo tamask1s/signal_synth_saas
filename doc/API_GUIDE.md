@@ -60,10 +60,13 @@ curl -fsS -H "$AUTH" "$BASE/v1/projects" > projects.json
 
 For R-peak work, choose by algorithm scope:
 
-- `r_peak_rr_simple_stress_v1`: recommended first run; four independent R-peak
-  and RR case verdicts, without pooling or signal-quality output;
-- `r_peak_rr_snr_ladder_v1`: clean and every integer −1 through −11 dB;
-  continuous noise and one independent R-peak + RR verdict per complete case;
+- `r_peak_rr_simple_stress_v1`: recommended first run; eight independent
+  R-peak and RR verdicts spanning rate limits, variable rhythm, true
+  non-conducted pauses, moderate noise, and combined stress, without pooling or
+  signal-quality output;
+- `r_peak_rr_snr_ladder_v1`: clean, −0.2/−0.5 dB, and every integer −1 through
+  −11 dB; continuous noise and one independent R-peak + RR verdict per complete
+  case;
 - `r_peak_stress_v1` and `r_peak_noise_frontier_v1`: detailed legacy reports
   with aggregate/artifact-bin diagnostics;
 - `r_peak_rr_noise_v1`: combined pipeline evidence that additionally requires
@@ -115,9 +118,9 @@ ZIP.
 Download the pure-Python verifier; it has no generator binary or source:
 
 ```sh
-curl -fsS -H "$AUTH" -o synsigra-0.14.0-py3-none-any.whl \
-  "$BASE/v1/downloads/verifier/synsigra-0.14.0-py3-none-any.whl"
-python -m pip install synsigra-0.14.0-py3-none-any.whl
+curl -fsS -H "$AUTH" -o synsigra-0.15.0-py3-none-any.whl \
+  "$BASE/v1/downloads/verifier/synsigra-0.15.0-py3-none-any.whl"
+python -m pip install synsigra-0.15.0-py3-none-any.whl
 ```
 
 Edit the algorithm name/version and replace the example output values under

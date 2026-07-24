@@ -1,0 +1,46 @@
+{
+  "schema_version": 2,
+  "scenario_id": "rpeak_rr_mobitz_ii_pauses_v2",
+  "name": "R-peak and RR physiologic dropped-QRS pauses",
+  "description": "Mobitz II conduction creates deterministic non-conducted atrial events. No R-peak truth exists where no QRS is generated; the surrounding long RR interval remains scoreable.",
+  "author": "Synsigra",
+  "tags": [
+    "r_peak",
+    "rr_interval",
+    "simple_stress",
+    "per_case_verdict"
+  ],
+  "duration_seconds": 45,
+  "sample_rate_hz": 500,
+  "seed": 941300,
+  "ecg": {
+    "q_wave_territory": "unspecified",
+    "flutter_conduction_pattern": "fixed",
+    "pacing_mode": "ventricular",
+    "pacing_non_capture_every_n_beats": 0,
+    "fidelity_policy": "allow_parameterized",
+    "heart_rate_bpm": 72,
+    "rr_variability_seconds": 0,
+    "ectopic_every_n_beats": 0,
+    "second_degree_av_pattern": "mobitz_ii",
+    "rhythm_episodes": [],
+    "conditions": [
+      {
+        "code": "2AVB",
+        "severity": 1
+      }
+    ]
+  },
+  "ppg": {
+    "enabled": false,
+    "pulse_delay_ms": 180,
+    "rise_time_ms": 120,
+    "decay_time_ms": 300,
+    "amplitude_au": 1,
+    "baseline_au": 0,
+    "dicrotic_delay_ms": 180,
+    "dicrotic_width_ms": 80,
+    "dicrotic_amplitude_ratio": 0.15
+  },
+  "artifacts": []
+}

@@ -14,6 +14,8 @@ Testing/
 *.o
 *.so
 *.so.*
+__pycache__/
+*.py[cod]
 
 # Local runtime state and secrets
 /.env

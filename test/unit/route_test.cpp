@@ -867,7 +867,7 @@ int main() {
     write_file(verifier_root + "/metadata.json",
                "{\"schema_version\":1,\"package\":\"synsigra\"}\n");
     write_file(verifier_root + "/synsigra-verifier.zip", "zip");
-    write_file(verifier_root + "/synsigra-0.14.0-py3-none-any.whl", "wheel");
+    write_file(verifier_root + "/synsigra-0.15.0-py3-none-any.whl", "wheel");
     const syn_sig_ra::RouteResponse downloads =
         syn_sig_ra::route_request(
             "GET",
@@ -902,7 +902,7 @@ int main() {
     const syn_sig_ra::RouteResponse wheel =
         syn_sig_ra::route_request(
             "GET",
-            "/syn_sig_ra/v1/downloads/verifier/synsigra-0.14.0-py3-none-any.whl",
+            "/syn_sig_ra/v1/downloads/verifier/synsigra-0.15.0-py3-none-any.whl",
             "/syn_sig_ra",
             "Bearer route-test-key",
             &store,
@@ -912,7 +912,7 @@ int main() {
         wheel.status == 200 &&
             wheel.content_type == "application/octet-stream" &&
             wheel.content_disposition.find(
-                "synsigra-0.14.0-py3-none-any.whl") != std::string::npos,
+                "synsigra-0.15.0-py3-none-any.whl") != std::string::npos,
         "verifier wheel should use a pip-compatible filename"
     );
     const syn_sig_ra::RouteResponse invalid_wheel_alias =
@@ -959,6 +959,31 @@ int main() {
             pack_list.body.find("\"pack_id\":\"r_peak_rr_snr_ladder_v1\"") !=
                 std::string::npos,
         "pack list route should return both simple per-case R-peak evidence packs"
+    );
+    const syn_sig_ra::RouteResponse simple_stress_detail =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/packs/r_peak_rr_simple_stress_v1",
+            "/syn_sig_ra",
+            "",
+            nullptr,
+            runtime_config.pack_root
+        );
+    require(
+        simple_stress_detail.status == 200 &&
+            simple_stress_detail.body.find("\"version\":\"2.0\"") !=
+                std::string::npos &&
+            simple_stress_detail.body.find("\"total_seconds\":310") !=
+                std::string::npos &&
+            simple_stress_detail.body.find("\"case_id\":\"moderate_noise\"") !=
+                std::string::npos &&
+            simple_stress_detail.body.find("\"case_id\":\"variable_rate\"") !=
+                std::string::npos &&
+            simple_stress_detail.body.find("\"case_id\":\"mobitz_ii_pauses\"") !=
+                std::string::npos &&
+            simple_stress_detail.body.find("\"case_id\":\"combined_stress\"") !=
+                std::string::npos,
+        "simple stress detail should expose all eight independent case verdicts"
     );
 
     const syn_sig_ra::RouteResponse pack_detail =
@@ -1009,9 +1034,11 @@ int main() {
         );
     require(
         ladder_detail.status == 200 &&
-            ladder_detail.body.find("\"version\":\"1.0\"") != std::string::npos &&
-            ladder_detail.body.find("\"total_seconds\":720") != std::string::npos &&
+            ladder_detail.body.find("\"version\":\"2.0\"") != std::string::npos &&
+            ladder_detail.body.find("\"total_seconds\":840") != std::string::npos &&
             ladder_detail.body.find("\"verdict_scope\":\"per_case\"") != std::string::npos &&
+            ladder_detail.body.find("\"case_id\":\"snr_m0p2\"") != std::string::npos &&
+            ladder_detail.body.find("\"case_id\":\"snr_m0p5\"") != std::string::npos &&
             ladder_detail.body.find("\"case_id\":\"snr_m1\"") != std::string::npos &&
             ladder_detail.body.find("\"case_id\":\"snr_m11\"") != std::string::npos,
         "simple SNR ladder detail should expose all independent case verdicts"
@@ -1049,7 +1076,7 @@ int main() {
 
     std::remove((verifier_root + "/metadata.json").c_str());
     std::remove((verifier_root + "/synsigra-verifier.zip").c_str());
-    std::remove((verifier_root + "/synsigra-0.14.0-py3-none-any.whl").c_str());
+    std::remove((verifier_root + "/synsigra-0.15.0-py3-none-any.whl").c_str());
     rmdir(verifier_root.c_str());
     rmdir((download_root + "/downloads").c_str());
     rmdir(download_pack_root.c_str());

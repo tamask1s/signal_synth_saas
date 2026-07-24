@@ -1,6 +1,6 @@
 # Curated pack catalog contract
 
-Built-in packs are imported as one immutable catalog 3.3 release snapshot from
+Built-in packs are imported as one immutable catalog 3.4 release snapshot from
 the exact sibling `signal_synth` checkout. SaaS does not maintain product
 sidecars or reinterpret core analysis.
 
@@ -15,16 +15,16 @@ The importer removes files not present in the snapshot, copies the declared
 pack/scenario/protocol/approved-noise inputs, and validates every pack through
 the pinned CLI. Startup and readiness require:
 
-- catalog version `3.3`;
+- catalog version `3.4`;
 - a positive declared pack count that exactly matches the unique pack array;
 - catalog source hash
-  `sha256:f51c11fdc2b3cb22e15f390d13d16359b5c02b13b52038def84a0babddac06f4`;
+  `sha256:cb6a015cc30978662b34328dc6719cb71fc69318eeb867db7d70ad6ded983500`;
 - integration `synsigra_core_integration_v7`;
 - challenge `synsigra_challenge_package_v3`;
 - scoring `synsigra_scoring_manifest_v3`;
 - submission `synsigra_submission_v1`;
 - verification protocol `synsigra_verification_protocol_v2`;
-- verifier `0.14.0`;
+- verifier `0.15.0`;
 - only external-noise assets whose release truth allows redistribution.
 
 Each API pack response exposes catalog/release identity, pack fingerprint,
@@ -60,10 +60,13 @@ explicit diagnostic-only, not weaker evidence packages.
 21. `ecg_hybrid_noise_v1`
 
 `r_peak_rr_simple_stress_v1` is the recommended first evidence run for an
-R-peak detector with directly derived beat-to-beat RR output.
+R-peak detector with directly derived beat-to-beat RR output. Its eight cases
+cover clean rate limits, structured and moderate noise, strongly variable
+rhythm, genuine non-conducted pauses, and combined stress.
 `r_peak_rr_snr_ladder_v1` follows with clean and continuous-noise cases at
-every integer level from −1 through −11 dB. Both make each complete signal an
-independent official verdict and have no pooled acceptance profile.
+−0.2 and −0.5 dB plus every integer level from −1 through −11 dB. Both make
+each complete signal an independent official verdict and have no pooled
+acceptance profile.
 `r_peak_stress_v1` and `r_peak_noise_frontier_v1` remain as detailed legacy
 alternatives. `r_peak_rr_noise_v1` is the combined pipeline protocol for
 algorithms that additionally emit signal-quality intervals.

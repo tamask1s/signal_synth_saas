@@ -149,9 +149,9 @@ def list_packs(client: Client, selected: list[str]) -> list[dict[str, Any]]:
         raise RuntimeError("Pack list response did not contain packs[]")
     valid = [pack for pack in packs if isinstance(pack, dict)]
     for pack in valid:
-        if pack.get("catalog_version") != "3.3":
-            raise RuntimeError("pack list contains a non-3.3 catalog entry")
-        if pack.get("catalog_source_sha256") != "sha256:f51c11fdc2b3cb22e15f390d13d16359b5c02b13b52038def84a0babddac06f4":
+        if pack.get("catalog_version") != "3.4":
+            raise RuntimeError("pack list contains a non-3.4 catalog entry")
+        if pack.get("catalog_source_sha256") != "sha256:cb6a015cc30978662b34328dc6719cb71fc69318eeb867db7d70ad6ded983500":
             raise RuntimeError("pack list contains an unexpected catalog hash")
         if pack.get("integration_contract") != "synsigra_core_integration_v7":
             raise RuntimeError("pack list contains a non-v7 entry")
@@ -219,20 +219,20 @@ def validate_zip(path: pathlib.Path, required_members: list[str] | None = None) 
 def validate_job(job: dict[str, Any], pack: dict[str, Any]) -> None:
     if job.get("integration_contract") != "synsigra_core_integration_v7":
         raise RuntimeError("job has the wrong integration contract")
-    if job.get("generator_git_commit") != "65d995dcb1aea716bd77813001ace30d5a798b1c":
+    if job.get("generator_git_commit") != "07d579445650fa369a7fdebfb393dbd465fdfd31":
         raise RuntimeError("job was not rendered by the pinned generator")
     if job.get("pack_version") != pack.get("version"):
         raise RuntimeError("job pack version differs from the selected catalog entry")
     catalog = job.get("catalog")
-    if not isinstance(catalog, dict) or catalog.get("version") != "3.3":
-        raise RuntimeError("job does not preserve catalog 3.3 identity")
-    if catalog.get("source_sha256") != "sha256:f51c11fdc2b3cb22e15f390d13d16359b5c02b13b52038def84a0babddac06f4":
+    if not isinstance(catalog, dict) or catalog.get("version") != "3.4":
+        raise RuntimeError("job does not preserve catalog 3.4 identity")
+    if catalog.get("source_sha256") != "sha256:cb6a015cc30978662b34328dc6719cb71fc69318eeb867db7d70ad6ded983500":
         raise RuntimeError("job has the wrong catalog hash")
     challenge = job.get("challenge")
     if not isinstance(challenge, dict):
         raise RuntimeError("job has no normalized challenge metadata")
     expected = {
-        "verifier_version": "0.14.0",
+        "verifier_version": "0.15.0",
         "challenge_contract": "synsigra_challenge_package_v3",
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",

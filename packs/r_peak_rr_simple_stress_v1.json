@@ -1,5 +1,5 @@
 {
-  "description": "Four independent clean, slow-rate, fast-rate, and baseline-plus-powerline cases. Each complete case has a plain R-peak and RR verdict; nothing is pooled.",
+  "description": "Eight independent clean, rate-boundary, variable-rate, physiologic-pause, moderate-noise, and combined-stress cases. Each complete case has a plain R-peak and RR verdict; nothing is pooled.",
   "name": "R-peak + RR Simple Case Stress",
   "pack_id": "r_peak_rr_simple_stress_v1",
   "scenarios": [
@@ -34,6 +34,38 @@
         "r_peak",
         "rr_interval"
       ]
+    },
+    {
+      "id": "moderate_noise",
+      "path": "scenarios/packs/rpeak_rr_moderate_noise_v2.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "variable_rate",
+      "path": "scenarios/packs/rpeak_rr_variable_rate_v2.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "mobitz_ii_pauses",
+      "path": "scenarios/packs/rpeak_rr_mobitz_ii_pauses_v2.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "combined_stress",
+      "path": "scenarios/packs/rpeak_rr_combined_stress_v2.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
     }
   ],
   "schema_version": 2,
@@ -42,5 +74,5 @@
     "rr_interval"
   ],
   "verification_protocol_path": "r_peak_rr_simple_stress_v1_expectations.json",
-  "version": "1.0"
+  "version": "2.0"
 }

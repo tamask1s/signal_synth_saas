@@ -755,7 +755,7 @@ for key in ("package_fingerprint", "generator_binary_sha256"):
         raise SystemExit("invalid " + key)
 if body.get("integration_contract") != "synsigra_core_integration_v7":
     raise SystemExit("invalid integration contract")
-if body.get("generator_git_commit") != "65d995dcb1aea716bd77813001ace30d5a798b1c":
+if body.get("generator_git_commit") != "07d579445650fa369a7fdebfb393dbd465fdfd31":
     raise SystemExit("invalid pinned generator commit")
 challenge = body.get("challenge", {})
 if challenge.get("challenge_contract") != "synsigra_challenge_package_v3":
@@ -784,8 +784,8 @@ if verification.get("mode") != "evidence" or \
         protocol.get("acceptance_profile_id") != "per_case_profiles":
     raise SystemExit("simple R-peak detector challenge must be per-case evidence-ready")
 outputs = challenge.get("submission_outputs", [])
-if len(outputs) != 8 or {item.get("target") for item in outputs} != {"r_peak", "rr_interval"}:
-    raise SystemExit("R-peak detector challenge must request eight R-peak and RR outputs")
+if len(outputs) != 16 or {item.get("target") for item in outputs} != {"r_peak", "rr_interval"}:
+    raise SystemExit("R-peak detector challenge must request sixteen R-peak and RR outputs")
 if not challenge.get("integrity", {}).get("ok"):
     raise SystemExit("challenge integrity was not verified")
 if len(body.get("generator_git_commit", "")) != 40:
@@ -832,7 +832,7 @@ if not downloads.get("verification_kit_url", "").endswith(
         "/v1/jobs/" + sys.argv[2] + "/verification-kit.zip"):
     raise SystemExit("guide omitted the direct kit URL")
 if not downloads.get("verifier_wheel_url", "").endswith(
-        "/v1/downloads/verifier/synsigra-0.14.0-py3-none-any.whl"):
+        "/v1/downloads/verifier/synsigra-0.15.0-py3-none-any.whl"):
     raise SystemExit("guide omitted the canonical verifier wheel URL")
 report = guide.get("result", {})
 if report.get("entrypoint") != "verification-results/index.html" or \
@@ -1028,8 +1028,8 @@ with zipfile.ZipFile(kit_path) as archive:
         raise SystemExit("evidence kit README contains a diagnostic override")
     submission = json.loads(archive.read(prefix + "submission/submission.json"))
     outputs = submission.get("outputs", [])
-    if len(outputs) != 8 or {item.get("target") for item in outputs} != {"r_peak", "rr_interval"}:
-        raise SystemExit("R-peak evidence kit does not contain eight R-peak and RR outputs")
+    if len(outputs) != 16 or {item.get("target") for item in outputs} != {"r_peak", "rr_interval"}:
+        raise SystemExit("R-peak evidence kit does not contain sixteen R-peak and RR outputs")
 PY
     fail "verification kit archive failed validation"
 
@@ -1049,7 +1049,7 @@ if metadata.get("package") != "synsigra":
 if metadata.get("generator_included") is not False:
     raise SystemExit("verifier download must not include generator")
 for key, value in {
-    "version": "0.14.0",
+    "version": "0.15.0",
     "measurement_values_contract": "synsigra_measurement_values_v2",
     "measurement_truth_contract": "synsigra_measurement_truth_v2",
     "measurement_scoring_contract": "synsigra_measurement_score_v2",
@@ -1058,7 +1058,7 @@ for key, value in {
     if metadata.get(key) != value:
         raise SystemExit("verifier metadata mismatch: " + key)
 files = {item.get("filename") for item in metadata.get("files", [])}
-if "synsigra-verifier.zip" not in files or "synsigra-0.14.0-py3-none-any.whl" not in files:
+if "synsigra-verifier.zip" not in files or "synsigra-0.15.0-py3-none-any.whl" not in files:
     raise SystemExit("expected verifier bundle and wheel metadata")
 PY
     fail "verifier download metadata validation failed"
@@ -1246,7 +1246,7 @@ if body.get("status") != "succeeded":
     raise SystemExit("custom pack job did not succeed")
 if body.get("integration_contract") != "synsigra_core_integration_v7":
     raise SystemExit("custom pack job used the wrong integration contract")
-if body.get("generator_git_commit") != "65d995dcb1aea716bd77813001ace30d5a798b1c":
+if body.get("generator_git_commit") != "07d579445650fa369a7fdebfb393dbd465fdfd31":
     raise SystemExit("custom pack job used the wrong generator commit")
 challenge = body.get("challenge", {})
 for key, value in {

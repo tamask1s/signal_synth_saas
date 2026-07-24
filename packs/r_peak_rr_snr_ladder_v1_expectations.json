@@ -15,6 +15,20 @@
       ]
     },
     {
+      "case_id": "snr_m0p2",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "snr_m0p5",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
       "case_id": "snr_m1",
       "targets": [
         "r_peak",
@@ -127,19 +141,107 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
-                "min": 0.98
-              },
               "truth_match_fraction": {
                 "min": 0.98
               }
             },
             "rr_interval": {
-              "mean_absolute_error": {
-                "max": 0.025
+              "median_absolute_error": {
+                "max": 0.01
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "snr_m0p2",
+      "case_ids": [
+        "snr_m0p2"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_snr_ladder_v1_snr_m0p2",
+        "description": "-0.2 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.97
               },
-              "p95_absolute_error": {
-                "max": 0.05
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.95
+              },
+              "sensitivity": {
+                "min": 0.95
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.95
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "truth_match_fraction": {
+                "min": 0.95
+              }
+            },
+            "rr_interval": {
+              "median_absolute_error": {
+                "max": 0.015
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "snr_m0p5",
+      "case_ids": [
+        "snr_m0p5"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_snr_ladder_v1_snr_m0p5",
+        "description": "-0.5 dB is judged independently over the complete 60-second signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.96
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.94
+              },
+              "sensitivity": {
+                "min": 0.94
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.94
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "truth_match_fraction": {
+                "min": 0.94
+              }
+            },
+            "rr_interval": {
+              "median_absolute_error": {
+                "max": 0.018
               }
             }
           }
@@ -180,19 +282,13 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
-                "min": 0.92
-              },
               "truth_match_fraction": {
                 "min": 0.92
               }
             },
             "rr_interval": {
-              "mean_absolute_error": {
-                "max": 0.025
-              },
-              "p95_absolute_error": {
-                "max": 0.05
+              "median_absolute_error": {
+                "max": 0.02
               }
             }
           }
@@ -233,19 +329,13 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
-                "min": 0.9
-              },
               "truth_match_fraction": {
                 "min": 0.9
               }
             },
             "rr_interval": {
-              "mean_absolute_error": {
+              "median_absolute_error": {
                 "max": 0.025
-              },
-              "p95_absolute_error": {
-                "max": 0.05
               }
             }
           }
@@ -286,19 +376,13 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
-                "min": 0.85
-              },
               "truth_match_fraction": {
                 "min": 0.85
               }
             },
             "rr_interval": {
-              "mean_absolute_error": {
-                "max": 0.025
-              },
-              "p95_absolute_error": {
-                "max": 0.05
+              "median_absolute_error": {
+                "max": 0.03
               }
             }
           }
@@ -339,19 +423,13 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
-                "min": 0.8
-              },
               "truth_match_fraction": {
                 "min": 0.8
               }
             },
             "rr_interval": {
-              "mean_absolute_error": {
-                "max": 0.025
-              },
-              "p95_absolute_error": {
-                "max": 0.05
+              "median_absolute_error": {
+                "max": 0.04
               }
             }
           }
@@ -392,19 +470,13 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
-                "min": 0.73
-              },
               "truth_match_fraction": {
                 "min": 0.73
               }
             },
             "rr_interval": {
-              "mean_absolute_error": {
-                "max": 0.025
-              },
-              "p95_absolute_error": {
-                "max": 0.05
+              "median_absolute_error": {
+                "max": 0.055
               }
             }
           }
@@ -445,19 +517,13 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
-                "min": 0.69
-              },
               "truth_match_fraction": {
                 "min": 0.69
               }
             },
             "rr_interval": {
-              "mean_absolute_error": {
-                "max": 0.025
-              },
-              "p95_absolute_error": {
-                "max": 0.05
+              "median_absolute_error": {
+                "max": 0.07
               }
             }
           }
@@ -498,19 +564,13 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
-                "min": 0.65
-              },
               "truth_match_fraction": {
                 "min": 0.65
               }
             },
             "rr_interval": {
-              "mean_absolute_error": {
-                "max": 0.025
-              },
-              "p95_absolute_error": {
-                "max": 0.05
+              "median_absolute_error": {
+                "max": 0.085
               }
             }
           }
@@ -551,19 +611,13 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
-                "min": 0.6
-              },
               "truth_match_fraction": {
                 "min": 0.6
               }
             },
             "rr_interval": {
-              "mean_absolute_error": {
-                "max": 0.025
-              },
-              "p95_absolute_error": {
-                "max": 0.05
+              "median_absolute_error": {
+                "max": 0.1
               }
             }
           }
@@ -604,19 +658,13 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
-                "min": 0.58
-              },
               "truth_match_fraction": {
                 "min": 0.58
               }
             },
             "rr_interval": {
-              "mean_absolute_error": {
-                "max": 0.025
-              },
-              "p95_absolute_error": {
-                "max": 0.05
+              "median_absolute_error": {
+                "max": 0.12
               }
             }
           }
@@ -657,19 +705,13 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
-                "min": 0.55
-              },
               "truth_match_fraction": {
                 "min": 0.55
               }
             },
             "rr_interval": {
-              "mean_absolute_error": {
-                "max": 0.025
-              },
-              "p95_absolute_error": {
-                "max": 0.05
+              "median_absolute_error": {
+                "max": 0.14
               }
             }
           }
@@ -710,19 +752,13 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
-                "min": 0.5
-              },
               "truth_match_fraction": {
                 "min": 0.5
               }
             },
             "rr_interval": {
-              "mean_absolute_error": {
-                "max": 0.03
-              },
-              "p95_absolute_error": {
-                "max": 0.06
+              "median_absolute_error": {
+                "max": 0.16
               }
             }
           }
@@ -735,6 +771,18 @@
       "id": "clean",
       "case_ids": [
         "clean"
+      ]
+    },
+    {
+      "id": "snr_m0p2",
+      "case_ids": [
+        "snr_m0p2"
+      ]
+    },
+    {
+      "id": "snr_m0p5",
+      "case_ids": [
+        "snr_m0p5"
       ]
     },
     {
@@ -807,7 +855,11 @@
   "truth_policy": {
     "event_scoreability": "Complete in-record constructed QRS events are scoreable; every exclusion is reported.",
     "rr_definition": "Difference between consecutive scoreable construction R-peak times; the first beat has no in-record RR value.",
+    "rr_association": "Valid RR intervals are anchored by their ending R-peak time and associated when their overlap covers more than half of the shorter interval. FP splits and FN merges create local comparison pairs; unique interval coverage cannot exceed 100%.",
+    "rr_statistics_boundary": "RR median is the robust ladder gate. RR tolerance percentage, MAE and P95 remain visible diagnostics. This is a Synsigra engineering policy, not an ANSI/AAMI EC57 RR requirement.",
     "artifact_overlap": "Noise and artifacts remain scoreable because each complete case is the unit of evaluation.",
+    "event_reporting_basis": "R-peak TP, FP, FN, sensitivity and positive predictive value use a 150 ms closest-event window, comparable to the default WFDB bxb reporting convention. Synsigra does not claim bxb identity or EC57 conformity.",
+    "literature_context": "Thresholds are pre-specified for this exact deterministic synthetic protocol, informed by PhysioNet MIT-BIH Noise Stress Test Database and peer-reviewed noisy-QRS benchmarks; SNR labels are not directly interchangeable across protocols.",
     "scope": "R-peak event and RR measurement files are required; signal quality, HRV, classification, and delineation are outside the evidence matrix.",
     "boundary": "Only construction events crossing the record boundary are excluded; no blanket edge window is used."
   },

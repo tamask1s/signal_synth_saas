@@ -21,7 +21,7 @@ import synsigra
 
 
 KIT_CONTRACT = "synsigra_verification_kit_v3"
-CORE_COMMIT = "65d995dcb1aea716bd77813001ace30d5a798b1c"
+CORE_COMMIT = "07d579445650fa369a7fdebfb393dbd465fdfd31"
 MEASUREMENT_COLUMNS = [
     "name", "value", "unit", "status", "scope", "time_seconds",
     "beat_index", "window_start_seconds", "window_end_seconds", "channel",

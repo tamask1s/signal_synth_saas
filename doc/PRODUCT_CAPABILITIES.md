@@ -64,7 +64,7 @@ all files by role, media type, size, and SHA-256. It includes the applicable
 waveforms, ground truth, summaries, provenance, warnings, claim boundary,
 submission templates, and optional pre-specified verification protocol.
 
-The pure-Python verifier 0.14.0 validates archive/path safety, manifest and
+The pure-Python verifier 0.15.0 validates archive/path safety, manifest and
 role shape, identity, integrity, submission schema, per-target scoring, and
 protocol policy. Evidence mode is package-authoritative: it requires a
 protocol-v2 package and runs its full matrix with its embedded numeric policy.
@@ -72,12 +72,15 @@ Explicit diagnostic mode may filter or use a custom policy, but its reports are
 always non-evidence. It is generator-free. Customer algorithms and output can
 remain local.
 
-Verifier reports expose an expandable case-contribution ledger for every
-aggregate criterion, raw evidence counts, required gates, non-authoritative
-case diagnostics and bidirectional criterion/case links. Detail pages explain
-target-specific metrics and units and distinguish measurement pairing windows
-from the packaged absolute-or-relative numeric tolerance. Mixed-unit errors are
-never combined into a misleading pooled MAE or P95 value.
+Every verifier overview begins with a wide metric-by-metric case table.
+Per-case protocols show official verdicts; pooled, binned, or aggregate
+protocols show a clearly marked diagnostic case view before their authoritative
+acceptance criteria. Information tooltips explain every metric, and the final
+column links to each case-target detail page. Aggregate reports additionally
+retain expandable case-contribution ledgers, raw evidence counts, required
+gates, and bidirectional criterion/case links. Detail pages distinguish
+measurement association rules from the packaged numeric tolerance. Mixed-unit
+errors are never combined into a misleading pooled MAE, median, or P95 value.
 
 ## Product boundary
 

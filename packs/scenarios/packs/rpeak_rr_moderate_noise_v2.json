@@ -1,0 +1,87 @@
+{
+  "schema_version": 2,
+  "scenario_id": "rpeak_rr_moderate_noise_v2",
+  "name": "R-peak and RR moderate mixed noise",
+  "description": "Moderate full-record baseline and powerline interference with two EMG bursts, variable RR, and periodic PVCs.",
+  "author": "Synsigra",
+  "tags": [
+    "r_peak",
+    "rr_interval",
+    "simple_stress",
+    "per_case_verdict"
+  ],
+  "duration_seconds": 45,
+  "sample_rate_hz": 500,
+  "seed": 941100,
+  "ecg": {
+    "q_wave_territory": "unspecified",
+    "flutter_conduction_pattern": "fixed",
+    "pacing_mode": "ventricular",
+    "pacing_non_capture_every_n_beats": 0,
+    "fidelity_policy": "allow_parameterized",
+    "heart_rate_bpm": 76,
+    "rr_variability_seconds": 0.035,
+    "ectopic_every_n_beats": 13,
+    "second_degree_av_pattern": "unspecified",
+    "rhythm_episodes": [],
+    "conditions": [
+      {
+        "code": "PVC",
+        "severity": 0.55
+      }
+    ]
+  },
+  "ppg": {
+    "enabled": false,
+    "pulse_delay_ms": 180,
+    "rise_time_ms": 120,
+    "decay_time_ms": 300,
+    "amplitude_au": 1,
+    "baseline_au": 0,
+    "dicrotic_delay_ms": 180,
+    "dicrotic_width_ms": 80,
+    "dicrotic_amplitude_ratio": 0.15
+  },
+  "artifacts": [
+    {
+      "type": "ecg_baseline_wander",
+      "start_seconds": 0,
+      "duration_seconds": 45,
+      "severity": 0.38,
+      "seed": 941111,
+      "channels": [
+        "all_ecg"
+      ]
+    },
+    {
+      "type": "ecg_powerline",
+      "start_seconds": 0,
+      "duration_seconds": 45,
+      "severity": 0.2,
+      "seed": 941112,
+      "channels": [
+        "all_ecg"
+      ]
+    },
+    {
+      "type": "ecg_emg_noise",
+      "start_seconds": 8,
+      "duration_seconds": 7,
+      "severity": 0.42,
+      "seed": 941113,
+      "channels": [
+        "all_ecg"
+      ]
+    },
+    {
+      "type": "ecg_emg_noise",
+      "start_seconds": 29,
+      "duration_seconds": 8,
+      "severity": 0.48,
+      "seed": 941114,
+      "channels": [
+        "all_ecg"
+      ]
+    }
+  ]
+}

@@ -62,8 +62,8 @@ components:
       properties:
         integration_contract: {type: string, enum: [synsigra_core_integration_v7]}
         version: {type: string, enum: [0.10.0-dev]}
-        git_commit: {type: string, enum: [65d995dcb1aea716bd77813001ace30d5a798b1c]}
-        build_identity: {type: string, enum: [signal_synth/65d995dcb1aea716bd77813001ace30d5a798b1c]}
+        git_commit: {type: string, enum: [07d579445650fa369a7fdebfb393dbd465fdfd31]}
+        build_identity: {type: string, enum: [signal_synth/07d579445650fa369a7fdebfb393dbd465fdfd31]}
         cpp_facade: {type: string, enum: [1.5.0]}
         pack_schema_version: {type: integer, enum: [2]}
         challenge_package: {type: string, enum: [synsigra_challenge_package_v3]}
@@ -77,7 +77,7 @@ components:
         local_verification: {type: string, enum: [synsigra_local_verification_v3]}
         scenario_authoring: {type: string, enum: [synsigra_authoring_v18]}
         scenario_templates: {type: string, enum: [synsigra_templates_v5]}
-        python_verifier: {type: string, enum: [0.14.0]}
+        python_verifier: {type: string, enum: [0.15.0]}
         external_noise_truth: {type: string, enum: [synsigra_external_noise_truth_v1]}
         contract_document:
           type: object
@@ -122,8 +122,8 @@ components:
         display_name: {type: string}
         version: {type: string}
         description: {type: string}
-        catalog_version: {type: string, enum: ['3.3']}
-        catalog_source_sha256: {type: string, enum: ['sha256:f51c11fdc2b3cb22e15f390d13d16359b5c02b13b52038def84a0babddac06f4']}
+        catalog_version: {type: string, enum: ['3.4']}
+        catalog_source_sha256: {type: string, enum: ['sha256:cb6a015cc30978662b34328dc6719cb71fc69318eeb867db7d70ad6ded983500']}
         release_set_id: {type: string}
         release_status: {type: string, enum: [beta, stable, deprecated]}
         released_at: {type: string, format: date}
@@ -210,7 +210,7 @@ components:
       properties:
         schema_version: {type: integer, enum: [1]}
         contract: {type: string, enum: [synsigra_saas_challenge_metadata_v1]}
-        verifier_version: {type: string, enum: [0.14.0]}
+        verifier_version: {type: string, enum: [0.15.0]}
         challenge_contract: {type: string, enum: [synsigra_challenge_package_v3]}
         package_id:
           type: string
@@ -219,7 +219,7 @@ components:
         pack_version: {type: string}
         pack_fingerprint: {type: string}
         generator_version: {type: string, enum: [0.10.0-dev]}
-        generator_git_commit: {type: string, enum: [65d995dcb1aea716bd77813001ace30d5a798b1c]}
+        generator_git_commit: {type: string, enum: [07d579445650fa369a7fdebfb393dbd465fdfd31]}
         scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
         submission_contract: {type: string, enum: [synsigra_submission_v1]}
         submission_formats_contract: {type: string, enum: [synsigra_submission_formats_v2]}
@@ -309,7 +309,7 @@ components:
           description: Present for curated jobs; omitted for immutable custom-pack snapshots.
           required: [version, source_sha256]
           properties:
-            version: {type: string, enum: ['3.3']}
+            version: {type: string, enum: ['3.4']}
             source_sha256: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
         status:
           type: string
@@ -411,8 +411,8 @@ components:
       properties:
         schema_version: {type: integer}
         package: {type: string, example: synsigra}
-        version: {type: string, enum: [0.14.0]}
-        core_git_commit: {type: string, enum: [65d995dcb1aea716bd77813001ace30d5a798b1c]}
+        version: {type: string, enum: [0.15.0]}
+        core_git_commit: {type: string, enum: [07d579445650fa369a7fdebfb393dbd465fdfd31]}
         challenge_contract: {type: string, enum: [synsigra_challenge_package_v3]}
         scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
         verification_protocol_contract: {type: string, enum: [synsigra_verification_protocol_v2]}
@@ -587,7 +587,7 @@ paths:
       summary: Download local verifier bundle or wheel
       security: [{cookieAuth: []}, {bearerAuth: []}]
       parameters:
-        - {in: path, name: filename, required: true, schema: {type: string, enum: [metadata.json, synsigra-verifier.zip, synsigra-0.14.0-py3-none-any.whl]}}
+        - {in: path, name: filename, required: true, schema: {type: string, enum: [metadata.json, synsigra-verifier.zip, synsigra-0.15.0-py3-none-any.whl]}}
       responses:
         '200':
           description: Verifier file bytes

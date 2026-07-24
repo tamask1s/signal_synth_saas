@@ -80,14 +80,14 @@ int main() {
         "catalog should expose simple R-peak, frontier, HRV, PPG and wearable release packs"
     );
     require(
-        simple_r_peak->version == "1.0" &&
-            simple_r_peak->scenarios.size() == 4 &&
-            simple_r_peak->total_seconds == 100 &&
+        simple_r_peak->version == "2.0" &&
+            simple_r_peak->scenarios.size() == 8 &&
+            simple_r_peak->total_seconds == 310 &&
             simple_r_peak->verification_protocol_available &&
             simple_r_peak->scoreable_targets.size() == 2 &&
-            snr_ladder->version == "1.0" &&
-            snr_ladder->scenarios.size() == 12 &&
-            snr_ladder->total_seconds == 720 &&
+            snr_ladder->version == "2.0" &&
+            snr_ladder->scenarios.size() == 14 &&
+            snr_ladder->total_seconds == 840 &&
             snr_ladder->external_noise_asset_ids.size() == 1 &&
             snr_ladder->verification_protocol_available &&
             snr_ladder->reference_only_targets.empty(),
@@ -117,9 +117,9 @@ int main() {
         r_peak->release_status == "beta" &&
             r_peak->integration_contract_version ==
                 "synsigra_core_integration_v7" &&
-            r_peak->catalog_version == "3.3" &&
+            r_peak->catalog_version == "3.4" &&
             r_peak->catalog_source_sha256 ==
-                "sha256:f51c11fdc2b3cb22e15f390d13d16359b5c02b13b52038def84a0babddac06f4" &&
+                "sha256:cb6a015cc30978662b34328dc6719cb71fc69318eeb867db7d70ad6ded983500" &&
             r_peak->changelog.size() == 3,
         "catalog should expose validated release and compatibility metadata"
     );
@@ -210,7 +210,7 @@ int main() {
     );
     require(
         r_peak_frontier->version == "1.1" &&
-            r_peak_frontier->catalog_version == "3.3" &&
+            r_peak_frontier->catalog_version == "3.4" &&
             r_peak_frontier->scenarios.size() == 9 &&
             r_peak_frontier->total_seconds == 500 &&
             r_peak_frontier->recommended_profile == "benchmark" &&

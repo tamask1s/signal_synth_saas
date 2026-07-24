@@ -1,11 +1,27 @@
 {
-  "description": "Independent clean and continuous-noise cases at every integer SNR from -1 through -11 dB. Each complete case has its own R-peak and RR verdict; nothing is pooled.",
+  "description": "Independent clean and continuous-noise cases at -0.2, -0.5, and every integer SNR from -1 through -11 dB. Each complete case has its own R-peak and RR verdict; nothing is pooled.",
   "name": "R-peak + RR Simple SNR Ladder",
   "pack_id": "r_peak_rr_snr_ladder_v1",
   "scenarios": [
     {
       "id": "clean",
       "path": "scenarios/packs/rpeak_rr_snr_ladder_clean_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "snr_m0p2",
+      "path": "scenarios/packs/rpeak_rr_snr_ladder_snr_m0p2_v8.json",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "id": "snr_m0p5",
+      "path": "scenarios/packs/rpeak_rr_snr_ladder_snr_m0p5_v8.json",
       "targets": [
         "r_peak",
         "rr_interval"
@@ -106,5 +122,5 @@
     "rr_interval"
   ],
   "verification_protocol_path": "r_peak_rr_snr_ladder_v1_expectations.json",
-  "version": "1.0"
+  "version": "2.0"
 }

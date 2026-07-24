@@ -1,0 +1,104 @@
+{
+  "schema_version": 2,
+  "scenario_id": "rpeak_rr_combined_stress_v2",
+  "name": "R-peak and RR combined stress",
+  "description": "Sinus, AF and PSVT rate changes, baseline wander, powerline interference, and EMG bursts in one independent case.",
+  "author": "Synsigra",
+  "tags": [
+    "r_peak",
+    "rr_interval",
+    "simple_stress",
+    "per_case_verdict"
+  ],
+  "duration_seconds": 60,
+  "sample_rate_hz": 500,
+  "seed": 941400,
+  "ecg": {
+    "q_wave_territory": "unspecified",
+    "flutter_conduction_pattern": "fixed",
+    "pacing_mode": "ventricular",
+    "pacing_non_capture_every_n_beats": 0,
+    "fidelity_policy": "allow_parameterized",
+    "heart_rate_bpm": 78,
+    "rr_variability_seconds": 0,
+    "ectopic_every_n_beats": 0,
+    "second_degree_av_pattern": "unspecified",
+    "rhythm_episodes": [
+      {
+        "type": "afib",
+        "start_seconds": 12,
+        "duration_seconds": 12,
+        "transition_seconds": 0.3,
+        "rate_bpm": 105,
+        "seed": 941411
+      },
+      {
+        "type": "psvt",
+        "start_seconds": 38,
+        "duration_seconds": 8,
+        "transition_seconds": 0.25,
+        "rate_bpm": 145,
+        "seed": 941412
+      }
+    ],
+    "conditions": [
+      {
+        "code": "SR",
+        "severity": 1
+      }
+    ]
+  },
+  "ppg": {
+    "enabled": false,
+    "pulse_delay_ms": 180,
+    "rise_time_ms": 120,
+    "decay_time_ms": 300,
+    "amplitude_au": 1,
+    "baseline_au": 0,
+    "dicrotic_delay_ms": 180,
+    "dicrotic_width_ms": 80,
+    "dicrotic_amplitude_ratio": 0.15
+  },
+  "artifacts": [
+    {
+      "type": "ecg_baseline_wander",
+      "start_seconds": 0,
+      "duration_seconds": 60,
+      "severity": 0.5,
+      "seed": 941421,
+      "channels": [
+        "all_ecg"
+      ]
+    },
+    {
+      "type": "ecg_powerline",
+      "start_seconds": 0,
+      "duration_seconds": 60,
+      "severity": 0.25,
+      "seed": 941422,
+      "channels": [
+        "all_ecg"
+      ]
+    },
+    {
+      "type": "ecg_emg_noise",
+      "start_seconds": 6,
+      "duration_seconds": 9,
+      "severity": 0.5,
+      "seed": 941423,
+      "channels": [
+        "all_ecg"
+      ]
+    },
+    {
+      "type": "ecg_emg_noise",
+      "start_seconds": 31,
+      "duration_seconds": 12,
+      "severity": 0.58,
+      "seed": 941424,
+      "channels": [
+        "all_ecg"
+      ]
+    }
+  ]
+}

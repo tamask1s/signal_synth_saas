@@ -184,7 +184,7 @@ and the kit's `submission/submission.json` are authoritative.
 
 ## Curated packs
 
-The immutable catalog 3.3 release contains these curated packs:
+The immutable catalog 3.4 release contains these curated packs:
 
 | Pack | Focus |
 |---|---|
@@ -192,8 +192,8 @@ The immutable catalog 3.3 release contains these curated packs:
 | `ecg_qtc_verification_v1` | R peaks, delineation, QTc formula/rate cases |
 | `ecg_extended_morphology_v1` | Delineation, extended morphology, beat classification |
 | `advanced_rhythm_burden_v1` | Rhythm intervals and burden measurements |
-| `r_peak_rr_simple_stress_v1` | Four independent, human-readable R-peak + RR case verdicts; no pooling |
-| `r_peak_rr_snr_ladder_v1` | Clean and every integer −1…−11 dB continuous-noise case, each with its own R-peak + RR verdict |
+| `r_peak_rr_simple_stress_v1` | Eight independent R-peak + RR verdicts across rate limits, variable rhythm, true pauses, moderate noise, and combined stress; no pooling |
+| `r_peak_rr_snr_ladder_v1` | Clean, −0.2/−0.5 dB, and every integer −1…−11 dB continuous-noise case, each with its own R-peak + RR verdict |
 | `r_peak_stress_v1` | Focused R-peak + beat-to-beat RR evidence; no signal-quality output required |
 | `r_peak_noise_frontier_v1` | Paired 60-second −3/−4/−5/−7/−8/−9/−10/−11 dB R-peak + RR robustness frontier |
 | `hrv_robustness_v2` | HRV v2 metrics and contamination robustness |
@@ -223,6 +223,12 @@ averaging, or cross-case compensation. The older `r_peak_stress_v1` and
 `r_peak_noise_frontier_v1` remain available for their more detailed aggregate
 and artifact-bin diagnostics. Use `r_peak_rr_noise_v1` only when the algorithm
 also claims signal-quality interval output.
+
+Verifier reports begin with a wide, metric-by-metric case table. Independent
+case packs show official case verdicts; aggregate/bin-based packs show an
+explicitly diagnostic case view before the authoritative pooled criteria.
+Every metric header has an information tooltip, and the detail pages remain
+linked from the final column.
 
 `Evidence eligible: yes` means the unmodified package-authoritative matrix was
 completed. It does not itself mean that the detector passed: the separate
@@ -314,9 +320,9 @@ Install the separately downloadable, pure-Python, generator-free verifier:
 
 ```sh
 curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
-  -o synsigra-0.14.0-py3-none-any.whl \
-  "$BASE/v1/downloads/verifier/synsigra-0.14.0-py3-none-any.whl"
-python -m pip install synsigra-0.14.0-py3-none-any.whl
+  -o synsigra-0.15.0-py3-none-any.whl \
+  "$BASE/v1/downloads/verifier/synsigra-0.15.0-py3-none-any.whl"
+python -m pip install synsigra-0.15.0-py3-none-any.whl
 synsigra-verify --help
 ```
 
@@ -388,7 +394,7 @@ file, wall-time, and no-network worker bounds are enforced.
 
 This release intentionally has no old core compatibility layer. It requires the
 clean sibling checkout `../signal_synth` at commit
-`65d995dcb1aea716bd77813001ace30d5a798b1c` and the exact tuple:
+`07d579445650fa369a7fdebfb393dbd465fdfd31` and the exact tuple:
 
 - generator `0.10.0-dev`, C++ facade `1.5.0`;
 - integration `synsigra_core_integration_v7`, pack schema `2`;
@@ -401,10 +407,10 @@ clean sibling checkout `../signal_synth` at commit
   `synsigra_measurement_truth_v2`, and `synsigra_measurement_score_v2`;
 - local verification report `synsigra_local_verification_v3`;
 - authoring `synsigra_authoring_v18`, templates `synsigra_templates_v5`;
-- verifier `0.14.0`, external-noise truth
+- verifier `0.15.0`, external-noise truth
   `synsigra_external_noise_truth_v1`;
-- curated catalog `3.3` with source hash
-  `sha256:f51c11fdc2b3cb22e15f390d13d16359b5c02b13b52038def84a0babddac06f4`.
+- curated catalog `3.4` with source hash
+  `sha256:cb6a015cc30978662b34328dc6719cb71fc69318eeb867db7d70ad6ded983500`.
 
 Configuration, startup, readiness, worker post-render validation, and release
 verification fail closed if these identities diverge. `/readyz` publishes the

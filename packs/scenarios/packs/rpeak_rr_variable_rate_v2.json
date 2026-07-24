@@ -1,0 +1,71 @@
+{
+  "schema_version": 2,
+  "scenario_id": "rpeak_rr_variable_rate_v2",
+  "name": "R-peak and RR highly variable rate",
+  "description": "Sinus baseline with irregular AF episodes, a 135 bpm PSVT episode, deterministic transitions, and no acquisition artifact.",
+  "author": "Synsigra",
+  "tags": [
+    "r_peak",
+    "rr_interval",
+    "simple_stress",
+    "per_case_verdict"
+  ],
+  "duration_seconds": 60,
+  "sample_rate_hz": 500,
+  "seed": 941200,
+  "ecg": {
+    "q_wave_territory": "unspecified",
+    "flutter_conduction_pattern": "fixed",
+    "pacing_mode": "ventricular",
+    "pacing_non_capture_every_n_beats": 0,
+    "fidelity_policy": "allow_parameterized",
+    "heart_rate_bpm": 65,
+    "rr_variability_seconds": 0,
+    "ectopic_every_n_beats": 0,
+    "second_degree_av_pattern": "unspecified",
+    "rhythm_episodes": [
+      {
+        "type": "afib",
+        "start_seconds": 7,
+        "duration_seconds": 12,
+        "transition_seconds": 0.3,
+        "rate_bpm": 95,
+        "seed": 941211
+      },
+      {
+        "type": "psvt",
+        "start_seconds": 26,
+        "duration_seconds": 9,
+        "transition_seconds": 0.25,
+        "rate_bpm": 135,
+        "seed": 941212
+      },
+      {
+        "type": "afib",
+        "start_seconds": 42,
+        "duration_seconds": 11,
+        "transition_seconds": 0.3,
+        "rate_bpm": 105,
+        "seed": 941213
+      }
+    ],
+    "conditions": [
+      {
+        "code": "SR",
+        "severity": 1
+      }
+    ]
+  },
+  "ppg": {
+    "enabled": false,
+    "pulse_delay_ms": 180,
+    "rise_time_ms": 120,
+    "decay_time_ms": 300,
+    "amplitude_au": 1,
+    "baseline_au": 0,
+    "dicrotic_delay_ms": 180,
+    "dicrotic_width_ms": 80,
+    "dicrotic_amplitude_ratio": 0.15
+  },
+  "artifacts": []
+}

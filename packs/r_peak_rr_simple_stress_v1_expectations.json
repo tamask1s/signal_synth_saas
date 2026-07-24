@@ -34,6 +34,34 @@
         "r_peak",
         "rr_interval"
       ]
+    },
+    {
+      "case_id": "moderate_noise",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "variable_rate",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "mobitz_ii_pauses",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
+    },
+    {
+      "case_id": "combined_stress",
+      "targets": [
+        "r_peak",
+        "rr_interval"
+      ]
     }
   ],
   "acceptance_strata": [
@@ -71,10 +99,10 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
+              "truth_match_fraction": {
                 "min": 0.98
               },
-              "truth_match_fraction": {
+              "tolerance_pass_fraction": {
                 "min": 0.98
               }
             },
@@ -82,8 +110,8 @@
               "mean_absolute_error": {
                 "max": 0.025
               },
-              "p95_absolute_error": {
-                "max": 0.05
+              "median_absolute_error": {
+                "max": 0.01
               }
             }
           }
@@ -124,10 +152,10 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
+              "truth_match_fraction": {
                 "min": 0.98
               },
-              "truth_match_fraction": {
+              "tolerance_pass_fraction": {
                 "min": 0.98
               }
             },
@@ -135,8 +163,8 @@
               "mean_absolute_error": {
                 "max": 0.025
               },
-              "p95_absolute_error": {
-                "max": 0.05
+              "median_absolute_error": {
+                "max": 0.01
               }
             }
           }
@@ -177,10 +205,10 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
+              "truth_match_fraction": {
                 "min": 0.98
               },
-              "truth_match_fraction": {
+              "tolerance_pass_fraction": {
                 "min": 0.98
               }
             },
@@ -188,8 +216,8 @@
               "mean_absolute_error": {
                 "max": 0.025
               },
-              "p95_absolute_error": {
-                "max": 0.05
+              "median_absolute_error": {
+                "max": 0.01
               }
             }
           }
@@ -230,19 +258,231 @@
               "status_match_fraction": {
                 "min": 0.9
               },
-              "tolerance_pass_fraction": {
+              "truth_match_fraction": {
                 "min": 0.75
               },
-              "truth_match_fraction": {
+              "tolerance_pass_fraction": {
                 "min": 0.75
               }
             },
             "rr_interval": {
               "mean_absolute_error": {
-                "max": 0.025
+                "max": 0.03
               },
-              "p95_absolute_error": {
+              "median_absolute_error": {
+                "max": 0.015
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "moderate_noise",
+      "case_ids": [
+        "moderate_noise"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_simple_stress_v1_moderate_noise",
+        "description": "moderate noise is judged independently over its complete signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.9
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.04
+              },
+              "positive_predictive_value": {
+                "min": 0.85
+              },
+              "sensitivity": {
+                "min": 0.85
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.85
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "truth_match_fraction": {
+                "min": 0.85
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.8
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.04
+              },
+              "median_absolute_error": {
+                "max": 0.025
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "variable_rate",
+      "case_ids": [
+        "variable_rate"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_simple_stress_v1_variable_rate",
+        "description": "variable rate is judged independently over its complete signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.92
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.03
+              },
+              "positive_predictive_value": {
+                "min": 0.9
+              },
+              "sensitivity": {
+                "min": 0.9
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.9
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "truth_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.85
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.03
+              },
+              "median_absolute_error": {
+                "max": 0.02
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "mobitz_ii_pauses",
+      "case_ids": [
+        "mobitz_ii_pauses"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_simple_stress_v1_mobitz_ii_pauses",
+        "description": "mobitz ii pauses is judged independently over its complete signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.92
+              },
+              "mean_absolute_error_seconds": {
+                "max": 0.03
+              },
+              "positive_predictive_value": {
+                "min": 0.9
+              },
+              "sensitivity": {
+                "min": 0.9
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.9
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "truth_match_fraction": {
+                "min": 0.9
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.85
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.035
+              },
+              "median_absolute_error": {
+                "max": 0.02
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "combined_stress",
+      "case_ids": [
+        "combined_stress"
+      ],
+      "acceptance_profile": {
+        "schema_version": 1,
+        "profile_id": "r_peak_rr_simple_stress_v1_combined_stress",
+        "description": "combined stress is judged independently over its complete signal; no bins or pooled cases.",
+        "targets": {
+          "r_peak": {
+            "total": {
+              "f1_score": {
+                "min": 0.78
+              },
+              "mean_absolute_error_seconds": {
                 "max": 0.05
+              },
+              "positive_predictive_value": {
+                "min": 0.72
+              },
+              "sensitivity": {
+                "min": 0.72
+              }
+            }
+          },
+          "rr_interval": {
+            "overall": {
+              "prediction_match_fraction": {
+                "min": 0.72
+              },
+              "status_match_fraction": {
+                "min": 0.9
+              },
+              "truth_match_fraction": {
+                "min": 0.72
+              },
+              "tolerance_pass_fraction": {
+                "min": 0.65
+              }
+            },
+            "rr_interval": {
+              "mean_absolute_error": {
+                "max": 0.06
+              },
+              "median_absolute_error": {
+                "max": 0.04
               }
             }
           }
@@ -274,12 +514,40 @@
       "case_ids": [
         "baseline_powerline"
       ]
+    },
+    {
+      "id": "moderate_noise",
+      "case_ids": [
+        "moderate_noise"
+      ]
+    },
+    {
+      "id": "variable_rate",
+      "case_ids": [
+        "variable_rate"
+      ]
+    },
+    {
+      "id": "mobitz_ii_pauses",
+      "case_ids": [
+        "mobitz_ii_pauses"
+      ]
+    },
+    {
+      "id": "combined_stress",
+      "case_ids": [
+        "combined_stress"
+      ]
     }
   ],
   "truth_policy": {
     "event_scoreability": "Complete in-record constructed QRS events are scoreable; every exclusion is reported.",
     "rr_definition": "Difference between consecutive scoreable construction R-peak times; the first beat has no in-record RR value.",
+    "rr_association": "Valid RR intervals are anchored by their ending R-peak time and associated when their overlap covers more than half of the shorter interval. FP splits and FN merges create local comparison pairs; unique interval coverage cannot exceed 100%.",
+    "rr_statistics_boundary": "RR median is the robust ladder gate. RR tolerance percentage, MAE and P95 remain visible diagnostics. This is a Synsigra engineering policy, not an ANSI/AAMI EC57 RR requirement.",
     "artifact_overlap": "Noise and artifacts remain scoreable because each complete case is the unit of evaluation.",
+    "event_reporting_basis": "R-peak TP, FP, FN, sensitivity and positive predictive value use a 150 ms closest-event window, comparable to the default WFDB bxb reporting convention. Synsigra does not claim bxb identity or EC57 conformity.",
+    "literature_context": "Thresholds are pre-specified for this exact deterministic synthetic protocol, informed by PhysioNet MIT-BIH Noise Stress Test Database and peer-reviewed noisy-QRS benchmarks; SNR labels are not directly interchangeable across protocols.",
     "scope": "R-peak event and RR measurement files are required; no signal-quality output or claim is requested.",
     "boundary": "Only construction events crossing the record boundary are excluded; no blanket edge window is used."
   },
