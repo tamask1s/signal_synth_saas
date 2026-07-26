@@ -14,6 +14,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 COMMANDS = {
     "status": [["git", "status", "--short", "--branch"], ["git", "diff", "--check"]],
     "quality": [["/bin/bash", "-lc", "RUN_E2E=1 scripts/build_release.sh && git diff --check"]],
+    "core-quality": [["scripts/verify_core_release.sh"]],
+    "core-generate": [["scripts/generate_core_evidence_files.sh"]],
     "live-verify": [["scripts/verify_live.sh"]],
     "viewer-backfill-dry-run": [["scripts/backfill_viewer_sources.sh", "--dry-run"]],
     "viewer-backfill-apply": [["scripts/backfill_viewer_sources.sh", "--apply"]],

@@ -29,6 +29,9 @@ def main() -> int:
     sub.add_parser("core-refresh")
     sub.add_parser("adopt-core")
     sub.add_parser("promote-core")
+    sub.add_parser("push-core")
+    commit_core = sub.add_parser("commit-core")
+    commit_core.add_argument("--message", required=True)
     commit = sub.add_parser("commit")
     issue = commit.add_mutually_exclusive_group(required=True)
     issue.add_argument("--issue", type=int)
@@ -36,6 +39,10 @@ def main() -> int:
     commit.add_argument("--message", required=True)
     commit.add_argument("files", nargs="+", type=safe_repo_file)
     args = parser.parse_args()
+
+    if args.action in ("commit-core", "commit"):
+        if len(args.message) > 160 or not args.message.strip():
+            parser.error("message must contain 1-160 characters")
 
     if args.action == "artifact":
         command = ["scripts/build_release_artifact.sh"]
@@ -51,11 +58,16 @@ def main() -> int:
         command = ["scripts/adopt_core_release.py"]
     elif args.action == "promote-core":
         command = ["scripts/promote_core_release.py"]
+    elif args.action == "push-core":
+        command = [
+            "git", "-C", str(ROOT.parent / "signal_synth"),
+            "push", "origin", "master",
+        ]
+    elif args.action == "commit-core":
+        command = ["scripts/commit_core_checked.sh", args.message]
     else:
         if args.issue is not None and args.issue < 1:
             parser.error("issue must be positive")
-        if len(args.message) > 160 or not args.message.strip():
-            parser.error("message must contain 1-160 characters")
         issue_value = str(args.issue) if args.issue is not None else "-"
         command = ["scripts/commit_checked.sh", issue_value, args.message, *args.files]
     result = subprocess.run(
