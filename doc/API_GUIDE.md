@@ -75,6 +75,14 @@ For R-peak work, choose by algorithm scope:
 Noise can be a test condition without being an algorithm output. Do not select
 `signal_quality` merely because a peak detector is tested under noise.
 
+For HRV work, choose by algorithm scope:
+
+- `hrv_simple_cases_v1`: recommended HRV-only run; ten independent complete
+  cases, each with official RR-reconstruction and 15-metric HRV verdicts and
+  no pooling;
+- `hrv_robustness_v2`: combined R-peak, HRV, and signal-quality pipeline
+  evidence.
+
 ```sh
 curl -fsS -H "$AUTH" -H 'Content-Type: application/json' \
   -d '{"project_id":"PROJECT_ID","pack_id":"r_peak_rr_simple_stress_v1"}' \
@@ -118,9 +126,9 @@ ZIP.
 Download the pure-Python verifier; it has no generator binary or source:
 
 ```sh
-curl -fsS -H "$AUTH" -o synsigra-0.15.0-py3-none-any.whl \
-  "$BASE/v1/downloads/verifier/synsigra-0.15.0-py3-none-any.whl"
-python -m pip install synsigra-0.15.0-py3-none-any.whl
+curl -fsS -H "$AUTH" -o synsigra-0.16.0-py3-none-any.whl \
+  "$BASE/v1/downloads/verifier/synsigra-0.16.0-py3-none-any.whl"
+python -m pip install synsigra-0.16.0-py3-none-any.whl
 ```
 
 Edit the algorithm name/version and replace the example output values under
@@ -144,6 +152,11 @@ official. Measurement detail pages show units, the pairing window and the
 exact packaged absolute-or-relative pass tolerance. Overview and detail views
 link in both directions, and compact `i` controls explain the displayed
 metrics.
+
+In `r_peak_rr_snr_ladder_v1`, RR tolerance-pass rate, mean absolute error, and
+median absolute error have official per-SNR gates. RR 95th-percentile error is
+still reported, but is diagnostic rather than verdict-bearing because
+split/merge errors deliberately create a heavy tail.
 
 Do not append a profile, case, or target override to evidence mode. A kit
 without protocol v2 instead shows explicit `--mode diagnostic`; diagnostic

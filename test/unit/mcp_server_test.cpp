@@ -55,8 +55,8 @@ bool complete_next_job(
         "synsigra_core_integration_v7",
         "{}",
         "0.10.0-dev",
-        "07d579445650fa369a7fdebfb393dbd465fdfd31",
-        "signal_synth/07d579445650fa369a7fdebfb393dbd465fdfd31",
+        "d4f3f75cb46aeb5bcf7fe9ed700e7d109d00416f",
+        "signal_synth/d4f3f75cb46aeb5bcf7fe9ed700e7d109d00416f",
         "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "{}",
         challenge_metadata,
@@ -171,6 +171,25 @@ int main() {
         "R-peak noise requests should prefer the simple per-case SNR ladder: " +
             peak_noise_recommendation.body);
 
+    const syn_sig_ra::RouteResponse hrv_recommendation = mcp(
+        store, config,
+        "{\"jsonrpc\":\"2.0\",\"id\":\"hrv-cases\",\"method\":\"tools/call\","
+        "\"params\":{\"name\":\"synsigra_recommend_packs\",\"arguments\":{"
+        "\"goal\":\"Validate HRV LF HF SDNN RMSSD calculations with independent case verdicts\","
+        "\"duration_seconds\":300,\"max_results\":10}}}");
+    require(
+        hrv_recommendation.status == 200 &&
+        hrv_recommendation.body.find(
+            "\"interpreted_targets\":[\"hrv\"]") != std::string::npos &&
+        hrv_recommendation.body.find("hrv_simple_cases_v1") !=
+            std::string::npos &&
+        hrv_recommendation.body.find("hrv_robustness_v2") !=
+            std::string::npos &&
+        hrv_recommendation.body.find("hrv_simple_cases_v1") <
+            hrv_recommendation.body.find("hrv_robustness_v2"),
+        "HRV-only requests should prefer the independent per-case HRV pack: " +
+            hrv_recommendation.body);
+
     const syn_sig_ra::RouteResponse quality_recommendation = mcp(
         store, config,
         "{\"jsonrpc\":\"2.0\",\"id\":\"quality\",\"method\":\"tools/call\","
@@ -209,7 +228,7 @@ int main() {
         "{\"contract\":\"synsigra_saas_challenge_metadata_v1\","
         "\"challenge_contract\":\"synsigra_challenge_package_v3\","
         "\"local_verification_contract\":\"synsigra_local_verification_v3\","
-        "\"verifier_version\":\"0.15.0\",\"case_count\":2,"
+        "\"verifier_version\":\"0.16.0\",\"case_count\":2,"
         "\"targets\":[{\"target\":\"r_peak\"},{\"target\":\"signal_quality\"}],"
         "\"verification\":{\"mode\":\"diagnostic\","
         "\"evidence_eligible\":false}}";
@@ -232,7 +251,7 @@ int main() {
             "synsigra-verify challenge submission verification-results --mode diagnostic --force") !=
             std::string::npos &&
         diagnostic_guide.body.find(
-            "synsigra-0.15.0-py3-none-any.whl") != std::string::npos &&
+            "synsigra-0.16.0-py3-none-any.whl") != std::string::npos &&
         diagnostic_guide.body.find("\"job_summary\"") != std::string::npos &&
         diagnostic_guide.body.find("\"canonical_evidence\":"
             "\"verification-results/evidence.json\"") != std::string::npos &&
@@ -248,15 +267,15 @@ int main() {
             "{\"pack_id\":\"r_peak_rr_noise_v1\"}",
             "r_peak_rr_noise_v1", "r_peak_rr_noise_v1.json",
             "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-            "1.3", "3.4",
-            "sha256:cb6a015cc30978662b34328dc6719cb71fc69318eeb867db7d70ad6ded983500",
+            "1.3", "3.5",
+            "sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136",
             evidence_job_id, error),
         "evidence MCP fixture should queue: " + error);
     const std::string evidence_metadata =
         "{\"contract\":\"synsigra_saas_challenge_metadata_v1\","
         "\"challenge_contract\":\"synsigra_challenge_package_v3\","
         "\"local_verification_contract\":\"synsigra_local_verification_v3\","
-        "\"verifier_version\":\"0.15.0\",\"case_count\":1,"
+        "\"verifier_version\":\"0.16.0\",\"case_count\":1,"
         "\"targets\":[{\"target\":\"r_peak\"},{\"target\":\"rr_interval\"}],"
         "\"verification\":{\"mode\":\"evidence\","
         "\"evidence_eligible\":true,\"protocol\":{"

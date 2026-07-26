@@ -1,11 +1,11 @@
 {
   "catalog_id": "synsigra_verification_packs",
-  "catalog_version": "3.4",
+  "catalog_version": "3.5",
   "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
   "metadata_type": "synsigra_curated_pack_catalog",
   "metadata_version": "synsigra_curated_pack_metadata_export_v1",
   "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment",
-  "pack_count": 21,
+  "pack_count": 22,
   "packs": [
     {
       "case_count": 8,
@@ -3499,12 +3499,12 @@
             "literature_context": "Thresholds are pre-specified for this exact deterministic synthetic protocol, informed by PhysioNet MIT-BIH Noise Stress Test Database and peer-reviewed noisy-QRS benchmarks; SNR labels are not directly interchangeable across protocols.",
             "rr_association": "Valid RR intervals are anchored by their ending R-peak time and associated when their overlap covers more than half of the shorter interval. FP splits and FN merges create local comparison pairs; unique interval coverage cannot exceed 100%.",
             "rr_definition": "Difference between consecutive scoreable construction R-peak times; the first beat has no in-record RR value.",
-            "rr_statistics_boundary": "RR median is the robust ladder gate. RR tolerance percentage, MAE and P95 remain visible diagnostics. This is a Synsigra engineering policy, not an ANSI/AAMI EC57 RR requirement.",
+            "rr_statistics_boundary": "RR tolerance percentage, MAE and median are pre-specified case gates. P95 remains a visible diagnostic because split/merge outliers make it unsuitable as the primary ladder gate. These are Synsigra engineering limits, not ANSI/AAMI EC57 or IEC conformity claims.",
             "scope": "R-peak event and RR measurement files are required; no signal-quality output or claim is requested."
           },
           "verdict_scope": "per_case"
         },
-        "source_content_sha256": "sha256:f31df42288a58261ce87b9de53707c1567374493aa1258374e4cad6aff2879ec",
+        "source_content_sha256": "sha256:df1a41c58b679c694ab37efb915c39439c97995486911fc20942fa7548ea2671",
         "source_path": "examples/packs/r_peak_rr_simple_stress_v1_expectations.json"
       },
       "version": "2.0"
@@ -3895,6 +3895,13 @@
       "changelog": [
         {
           "changes": [
+            "Restored official case-specific RR tolerance-pass and MAE gates alongside the robust median gate; P95 remains diagnostic only."
+          ],
+          "date": "2026-07-26",
+          "version": "2.1"
+        },
+        {
+          "changes": [
             "Added -0.2 dB and -0.5 dB cases; replaced outlier-dominated RR P95 acceptance with peak-anchored split/merge associations and pre-specified median RR gates while retaining MAE, P95 and tolerance diagnostics."
           ],
           "date": "2026-07-24",
@@ -4150,9 +4157,9 @@
       "scoring_mode": "local",
       "source": {
         "catalog_path": "examples/catalog/verification_packs_v1.json",
-        "pack_fingerprint": "sha256:c784e3052f08af40a3876af0442e3232cb5365f92687fa5d92005f899d429fbe",
+        "pack_fingerprint": "sha256:5845f9ec313b3b940f0b52442370eca134916c579c11bf61cfaede3a61d0b1a3",
         "pack_path": "../packs/r_peak_rr_snr_ladder_v1.json",
-        "source_content_sha256": "sha256:b97b68ec05a336397a80c0962ac9943ef1ac148ebcb05e78d4cc67e05291be97"
+        "source_content_sha256": "sha256:f2355fc5f88860766eeb8c64af21c9f937de679e7ac3a21a8b558538ee40b6e5"
       },
       "submission_output_schemas": [
         "point_events_json_v1",
@@ -4226,11 +4233,17 @@
                       "status_match_fraction": {
                         "min": 0.9
                       },
+                      "tolerance_pass_fraction": {
+                        "min": 0.95
+                      },
                       "truth_match_fraction": {
                         "min": 0.98
                       }
                     },
                     "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.01
+                      },
                       "median_absolute_error": {
                         "max": 0.01
                       }
@@ -4273,11 +4286,17 @@
                       "status_match_fraction": {
                         "min": 0.9
                       },
+                      "tolerance_pass_fraction": {
+                        "min": 0.8
+                      },
                       "truth_match_fraction": {
                         "min": 0.95
                       }
                     },
                     "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.04
+                      },
                       "median_absolute_error": {
                         "max": 0.015
                       }
@@ -4320,11 +4339,17 @@
                       "status_match_fraction": {
                         "min": 0.9
                       },
+                      "tolerance_pass_fraction": {
+                        "min": 0.75
+                      },
                       "truth_match_fraction": {
                         "min": 0.94
                       }
                     },
                     "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.05
+                      },
                       "median_absolute_error": {
                         "max": 0.018
                       }
@@ -4367,11 +4392,17 @@
                       "status_match_fraction": {
                         "min": 0.9
                       },
+                      "tolerance_pass_fraction": {
+                        "min": 0.72
+                      },
                       "truth_match_fraction": {
                         "min": 0.92
                       }
                     },
                     "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.06
+                      },
                       "median_absolute_error": {
                         "max": 0.02
                       }
@@ -4414,11 +4445,17 @@
                       "status_match_fraction": {
                         "min": 0.9
                       },
+                      "tolerance_pass_fraction": {
+                        "min": 0.55
+                      },
                       "truth_match_fraction": {
                         "min": 0.9
                       }
                     },
                     "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.07
+                      },
                       "median_absolute_error": {
                         "max": 0.025
                       }
@@ -4461,11 +4498,17 @@
                       "status_match_fraction": {
                         "min": 0.9
                       },
+                      "tolerance_pass_fraction": {
+                        "min": 0.45
+                      },
                       "truth_match_fraction": {
                         "min": 0.85
                       }
                     },
                     "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.1
+                      },
                       "median_absolute_error": {
                         "max": 0.03
                       }
@@ -4508,11 +4551,17 @@
                       "status_match_fraction": {
                         "min": 0.9
                       },
+                      "tolerance_pass_fraction": {
+                        "min": 0.38
+                      },
                       "truth_match_fraction": {
                         "min": 0.8
                       }
                     },
                     "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.14
+                      },
                       "median_absolute_error": {
                         "max": 0.04
                       }
@@ -4555,11 +4604,17 @@
                       "status_match_fraction": {
                         "min": 0.9
                       },
+                      "tolerance_pass_fraction": {
+                        "min": 0.35
+                      },
                       "truth_match_fraction": {
                         "min": 0.73
                       }
                     },
                     "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.17
+                      },
                       "median_absolute_error": {
                         "max": 0.055
                       }
@@ -4602,11 +4657,17 @@
                       "status_match_fraction": {
                         "min": 0.9
                       },
+                      "tolerance_pass_fraction": {
+                        "min": 0.325
+                      },
                       "truth_match_fraction": {
                         "min": 0.69
                       }
                     },
                     "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.185
+                      },
                       "median_absolute_error": {
                         "max": 0.07
                       }
@@ -4649,11 +4710,17 @@
                       "status_match_fraction": {
                         "min": 0.9
                       },
+                      "tolerance_pass_fraction": {
+                        "min": 0.3
+                      },
                       "truth_match_fraction": {
                         "min": 0.65
                       }
                     },
                     "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.2
+                      },
                       "median_absolute_error": {
                         "max": 0.085
                       }
@@ -4696,11 +4763,17 @@
                       "status_match_fraction": {
                         "min": 0.9
                       },
+                      "tolerance_pass_fraction": {
+                        "min": 0.275
+                      },
                       "truth_match_fraction": {
                         "min": 0.6
                       }
                     },
                     "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.215
+                      },
                       "median_absolute_error": {
                         "max": 0.1
                       }
@@ -4743,11 +4816,17 @@
                       "status_match_fraction": {
                         "min": 0.9
                       },
+                      "tolerance_pass_fraction": {
+                        "min": 0.25
+                      },
                       "truth_match_fraction": {
                         "min": 0.58
                       }
                     },
                     "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.23
+                      },
                       "median_absolute_error": {
                         "max": 0.12
                       }
@@ -4790,11 +4869,17 @@
                       "status_match_fraction": {
                         "min": 0.9
                       },
+                      "tolerance_pass_fraction": {
+                        "min": 0.225
+                      },
                       "truth_match_fraction": {
                         "min": 0.55
                       }
                     },
                     "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.245
+                      },
                       "median_absolute_error": {
                         "max": 0.14
                       }
@@ -4837,11 +4922,17 @@
                       "status_match_fraction": {
                         "min": 0.9
                       },
+                      "tolerance_pass_fraction": {
+                        "min": 0.2
+                      },
                       "truth_match_fraction": {
                         "min": 0.5
                       }
                     },
                     "rr_interval": {
+                      "mean_absolute_error": {
+                        "max": 0.26
+                      },
                       "median_absolute_error": {
                         "max": 0.16
                       }
@@ -5056,15 +5147,15 @@
             "literature_context": "Thresholds are pre-specified for this exact deterministic synthetic protocol, informed by PhysioNet MIT-BIH Noise Stress Test Database and peer-reviewed noisy-QRS benchmarks; SNR labels are not directly interchangeable across protocols.",
             "rr_association": "Valid RR intervals are anchored by their ending R-peak time and associated when their overlap covers more than half of the shorter interval. FP splits and FN merges create local comparison pairs; unique interval coverage cannot exceed 100%.",
             "rr_definition": "Difference between consecutive scoreable construction R-peak times; the first beat has no in-record RR value.",
-            "rr_statistics_boundary": "RR median is the robust ladder gate. RR tolerance percentage, MAE and P95 remain visible diagnostics. This is a Synsigra engineering policy, not an ANSI/AAMI EC57 RR requirement.",
+            "rr_statistics_boundary": "RR tolerance percentage, MAE and median are pre-specified case gates. P95 remains a visible diagnostic because split/merge outliers make it unsuitable as the primary ladder gate. These are Synsigra engineering limits, not ANSI/AAMI EC57 or IEC conformity claims.",
             "scope": "R-peak event and RR measurement files are required; signal quality, HRV, classification, and delineation are outside the evidence matrix."
           },
           "verdict_scope": "per_case"
         },
-        "source_content_sha256": "sha256:8c75e06b1416be07a91a8da3404d0713a3c8f565d16fcb925f7e7544b85c2d8f",
+        "source_content_sha256": "sha256:9363e285856072885fe989bdae2315d70f3ef37112cc016367983d07a82a3cf1",
         "source_path": "examples/packs/r_peak_rr_snr_ladder_v1_expectations.json"
       },
-      "version": "2.0"
+      "version": "2.1"
     },
     {
       "case_count": 4,
@@ -7911,6 +8002,3047 @@
         "source_path": "examples/packs/hrv_robustness_v2_expectations.json"
       },
       "version": "2.1"
+    },
+    {
+      "case_count": 10,
+      "case_ids": [
+        "clean_baseline",
+        "vlf_dominant",
+        "lf_dominant",
+        "hf_dominant",
+        "high_variability",
+        "respiratory_variation",
+        "ectopic_contamination",
+        "baseline_wander_stress",
+        "powerline_emg_stress",
+        "drift_dropout_stress"
+      ],
+      "cases": [
+        {
+          "case_id": "clean_baseline",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_clean_baseline",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "vlf_dominant",
+          "channel_count": 12,
+          "duration_seconds": 600,
+          "estimated_binary_signal_bytes": 5040000,
+          "estimated_package_bytes": 29610400,
+          "estimated_peak_memory_bytes": 29848576,
+          "estimated_waveform_csv_bytes": 14040256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 60000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_vlf_dominant",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "lf_dominant",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_lf_dominant",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "hf_dominant",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_hf_dominant",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "high_variability",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_high_variability",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "respiratory_variation",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_respiratory_variation",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "ectopic_contamination",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_ectopic_contamination",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "baseline_wander_stress",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_baseline_wander_stress",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "powerline_emg_stress",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_powerline_emg_stress",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        },
+        {
+          "case_id": "drift_dropout_stress",
+          "channel_count": 12,
+          "duration_seconds": 300,
+          "estimated_binary_signal_bytes": 2520000,
+          "estimated_package_bytes": 14970400,
+          "estimated_peak_memory_bytes": 15448576,
+          "estimated_waveform_csv_bytes": 7020256,
+          "external_noise": false,
+          "external_noise_asset_ids": [],
+          "external_noise_release_allowed": true,
+          "reference_only_targets": [],
+          "sample_count": 30000,
+          "sampling_rate_hz": 100,
+          "scenario_id": "hrv_drift_dropout_stress",
+          "scoreable_targets": [
+            "hrv"
+          ],
+          "targets": [
+            "hrv"
+          ]
+        }
+      ],
+      "catalog_scoring_mode": "local",
+      "changelog": [
+        {
+          "changes": [
+            "Initial HRV-only pack with ten independent official case verdicts, complete summary-metric gates, and local split/merge-safe RR reconstruction scoring."
+          ],
+          "date": "2026-07-26",
+          "version": "1.0"
+        }
+      ],
+      "channels": {
+        "families": [
+          {
+            "channel_count": 12,
+            "channels": [
+              "I",
+              "II",
+              "III",
+              "aVR",
+              "aVL",
+              "aVF",
+              "V1",
+              "V2",
+              "V3",
+              "V4",
+              "V5",
+              "V6"
+            ],
+            "name": "standard_12_lead_ecg"
+          }
+        ],
+        "maximum_channel_count": 12,
+        "minimum_channel_count": 12
+      },
+      "declared_targets": [
+        "hrv"
+      ],
+      "deprecation_message": "",
+      "description": "Ten independent HRV cases covering clean, spectral, variability, respiratory, ectopic, and acquisition-stress conditions. Each complete case receives its own official HRV verdict; nothing is pooled.",
+      "difficulty": [
+        "regression",
+        "stress",
+        "benchmark"
+      ],
+      "duration": {
+        "maximum_case_seconds": 600,
+        "minimum_case_seconds": 300,
+        "total_seconds": 3300
+      },
+      "estimated_package": {
+        "bytes": 164344000,
+        "peak_memory_bytes": 29848576,
+        "size_class": "large"
+      },
+      "feature_tags": [
+        "hrv",
+        "rr_intervals",
+        "per_case_verdict",
+        "no_pooling",
+        "sdnn",
+        "rmssd",
+        "pnn50",
+        "sd1_sd2",
+        "vlf",
+        "lf_hf",
+        "normalized_power",
+        "respiration",
+        "ectopy_exclusion",
+        "baseline_wander",
+        "powerline",
+        "emg",
+        "dropout"
+      ],
+      "generator_compatibility": {
+        "challenge_package_contract": "synsigra_challenge_package_v3",
+        "local_verifier_min_version": "0.16.0",
+        "minimum_generator_version": "0.10.0-dev",
+        "pack_schema_version": 2,
+        "scenario_schema_versions": [
+          2,
+          9
+        ],
+        "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
+        "submission_contract": "synsigra_submission_v1",
+        "verification_protocol_contract": "synsigra_verification_protocol_v2"
+      },
+      "limitations": {
+        "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
+        "not_for": "Diagnosis, patient monitoring, clinical validation certification, or standalone conformity assessment"
+      },
+      "local_verifier_smoke_tests": [
+        {
+          "scope": "generic measurement-path HRV scoring smoke test",
+          "target": "hrv",
+          "test_id": "TEST-HRV-GENERIC-001"
+        },
+        {
+          "scope": "local HRV user-output scoring smoke test",
+          "target": "hrv",
+          "test_id": "TEST-PYTHON-SCORING-001"
+        }
+      ],
+      "messages": [],
+      "metadata_type": "synsigra_curated_pack_metadata",
+      "metadata_version": "synsigra_curated_pack_metadata_export_v1",
+      "modality": [
+        "ECG"
+      ],
+      "name": "HRV Simple Per-Case Evidence",
+      "not_recommended_for": [
+        "R-peak detector or signal-quality classifier claims",
+        "Patient-derived HRV normal ranges or clinical autonomic interpretation",
+        "Equivalence claims for different spectral estimators or preprocessing policies",
+        "Regulatory conformity without a sponsor-specific protocol and representative clinical evidence"
+      ],
+      "output_artifacts": [
+        {
+          "required": true,
+          "role": "manifest_json"
+        },
+        {
+          "required": true,
+          "role": "scoring_manifest_json"
+        },
+        {
+          "required": true,
+          "role": "provenance_json"
+        },
+        {
+          "required": true,
+          "role": "engineering_claim_boundary_txt"
+        },
+        {
+          "required": true,
+          "role": "case_summary_json"
+        },
+        {
+          "required": true,
+          "role": "annotations_json"
+        },
+        {
+          "required": true,
+          "role": "waveform_csv"
+        },
+        {
+          "required": true,
+          "role": "wfdb"
+        },
+        {
+          "required": true,
+          "role": "edf_bdf"
+        },
+        {
+          "required": true,
+          "role": "verification_protocol_json"
+        },
+        {
+          "required": true,
+          "role": "realism_metrics_json"
+        },
+        {
+          "required": true,
+          "role": "realism_metrics_csv"
+        },
+        {
+          "required": true,
+          "role": "realism_report_html"
+        },
+        {
+          "required": true,
+          "role": "hrv_metrics_json"
+        },
+        {
+          "required": true,
+          "role": "rr_tachogram_csv"
+        },
+        {
+          "required": true,
+          "role": "measurement_truth_json"
+        }
+      ],
+      "pack_id": "hrv_simple_cases_v1",
+      "recommended_for": [
+        "Human-readable independent HRV verdicts without pooled compensation",
+        "RR reconstruction plus time-domain, Poincare, VLF, LF, HF and normalized-power implementation QA",
+        "Clean, spectral, variability, respiratory, ectopic and acquisition-stress case comparison"
+      ],
+      "recommended_profile": "benchmark",
+      "reference_only_targets": [],
+      "release_date": "2026-07-26",
+      "release_status": "beta",
+      "sampling_rates_hz": [
+        100
+      ],
+      "schema_version": 1,
+      "scoreable_targets": [
+        {
+          "accepted_formats": [
+            "measurement_values_json_v2",
+            "measurement_values_csv_v2"
+          ],
+          "case_count": 10,
+          "case_ids": [
+            "clean_baseline",
+            "vlf_dominant",
+            "lf_dominant",
+            "hf_dominant",
+            "high_variability",
+            "respiratory_variation",
+            "ectopic_contamination",
+            "baseline_wander_stress",
+            "powerline_emg_stress",
+            "drift_dropout_stress"
+          ],
+          "description": "HRV metric and RR-interval scoring against exact synthetic tachogram ground truth.",
+          "primary_metric": "metric_pass_fraction",
+          "score_type": "measurement",
+          "scoreable": true,
+          "support": "local_scoring",
+          "target": "hrv"
+        }
+      ],
+      "scoring_mode": "local",
+      "source": {
+        "catalog_path": "examples/catalog/verification_packs_v1.json",
+        "pack_fingerprint": "sha256:59b61f2dfa002f4bf5c5c2c5490fa76412c38e710e4a10b0c6af2628ec950fe4",
+        "pack_path": "../packs/hrv_simple_cases_v1.json",
+        "source_content_sha256": "sha256:83faea4ba63e93a1a492a3d23f1fed6f5ad518ea3a4ac17dadb9ad63e99f2da2"
+      },
+      "submission_output_schemas": [
+        "measurement_values_json_v2",
+        "measurement_values_csv_v2"
+      ],
+      "supported_threshold_profiles": [
+        "smoke",
+        "regression",
+        "stress",
+        "benchmark"
+      ],
+      "targets": [
+        "hrv"
+      ],
+      "threshold_profile_contract": {
+        "policy_failure_exit_code": 1,
+        "recommended_profile": "benchmark",
+        "supported_profiles": [
+          "smoke",
+          "regression",
+          "stress",
+          "benchmark"
+        ]
+      },
+      "ui": {
+        "primary_badges": [
+          "regression",
+          "stress",
+          "benchmark",
+          "hrv",
+          "rr_intervals",
+          "per_case_verdict"
+        ],
+        "reference_only_before_job": false,
+        "scoreable_before_job": true
+      },
+      "verification_protocol": {
+        "artifact_role": "verification_protocol_json",
+        "available": true,
+        "document": {
+          "acceptance_strata": [
+            {
+              "acceptance_profile": {
+                "description": "clean baseline is judged independently. Every declared HRV summary metric must be present, status-compatible, and within its packaged absolute-or-relative tolerance; RR reconstruction has explicit coverage and tolerance gates.",
+                "profile_id": "hrv_simple_cases_v1_clean_baseline",
+                "schema_version": 1,
+                "targets": {
+                  "hrv": {
+                    "hf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "hf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_hf_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_heart_rate_bpm": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_rr_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "pnn50_percent": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rmssd_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rr_interval": {
+                      "prediction_match_fraction": {
+                        "min": 0.99
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.98
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.99
+                      }
+                    },
+                    "sd1_sd2_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd1_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd2_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sdnn_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "total_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "vlf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "clean_baseline"
+              ],
+              "id": "clean_baseline"
+            },
+            {
+              "acceptance_profile": {
+                "description": "vlf dominant is judged independently. Every declared HRV summary metric must be present, status-compatible, and within its packaged absolute-or-relative tolerance; RR reconstruction has explicit coverage and tolerance gates.",
+                "profile_id": "hrv_simple_cases_v1_vlf_dominant",
+                "schema_version": 1,
+                "targets": {
+                  "hrv": {
+                    "hf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "hf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_hf_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_heart_rate_bpm": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_rr_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "pnn50_percent": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rmssd_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rr_interval": {
+                      "prediction_match_fraction": {
+                        "min": 0.98
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.95
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.98
+                      }
+                    },
+                    "sd1_sd2_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd1_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd2_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sdnn_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "total_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "vlf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "vlf_dominant"
+              ],
+              "id": "vlf_dominant"
+            },
+            {
+              "acceptance_profile": {
+                "description": "lf dominant is judged independently. Every declared HRV summary metric must be present, status-compatible, and within its packaged absolute-or-relative tolerance; RR reconstruction has explicit coverage and tolerance gates.",
+                "profile_id": "hrv_simple_cases_v1_lf_dominant",
+                "schema_version": 1,
+                "targets": {
+                  "hrv": {
+                    "hf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "hf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_hf_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_heart_rate_bpm": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_rr_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "pnn50_percent": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rmssd_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rr_interval": {
+                      "prediction_match_fraction": {
+                        "min": 0.98
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.95
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.98
+                      }
+                    },
+                    "sd1_sd2_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd1_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd2_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sdnn_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "total_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "vlf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "lf_dominant"
+              ],
+              "id": "lf_dominant"
+            },
+            {
+              "acceptance_profile": {
+                "description": "hf dominant is judged independently. Every declared HRV summary metric must be present, status-compatible, and within its packaged absolute-or-relative tolerance; RR reconstruction has explicit coverage and tolerance gates.",
+                "profile_id": "hrv_simple_cases_v1_hf_dominant",
+                "schema_version": 1,
+                "targets": {
+                  "hrv": {
+                    "hf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "hf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_hf_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_heart_rate_bpm": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_rr_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "pnn50_percent": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rmssd_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rr_interval": {
+                      "prediction_match_fraction": {
+                        "min": 0.98
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.95
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.98
+                      }
+                    },
+                    "sd1_sd2_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd1_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd2_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sdnn_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "total_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "vlf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "hf_dominant"
+              ],
+              "id": "hf_dominant"
+            },
+            {
+              "acceptance_profile": {
+                "description": "high variability is judged independently. Every declared HRV summary metric must be present, status-compatible, and within its packaged absolute-or-relative tolerance; RR reconstruction has explicit coverage and tolerance gates.",
+                "profile_id": "hrv_simple_cases_v1_high_variability",
+                "schema_version": 1,
+                "targets": {
+                  "hrv": {
+                    "hf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "hf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_hf_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_heart_rate_bpm": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_rr_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "pnn50_percent": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rmssd_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rr_interval": {
+                      "prediction_match_fraction": {
+                        "min": 0.98
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.95
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.98
+                      }
+                    },
+                    "sd1_sd2_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd1_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd2_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sdnn_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "total_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "vlf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "high_variability"
+              ],
+              "id": "high_variability"
+            },
+            {
+              "acceptance_profile": {
+                "description": "respiratory variation is judged independently. Every declared HRV summary metric must be present, status-compatible, and within its packaged absolute-or-relative tolerance; RR reconstruction has explicit coverage and tolerance gates.",
+                "profile_id": "hrv_simple_cases_v1_respiratory_variation",
+                "schema_version": 1,
+                "targets": {
+                  "hrv": {
+                    "hf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "hf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_hf_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_heart_rate_bpm": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_rr_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "pnn50_percent": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rmssd_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rr_interval": {
+                      "prediction_match_fraction": {
+                        "min": 0.98
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.95
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.98
+                      }
+                    },
+                    "sd1_sd2_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd1_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd2_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sdnn_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "total_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "vlf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "respiratory_variation"
+              ],
+              "id": "respiratory_variation"
+            },
+            {
+              "acceptance_profile": {
+                "description": "ectopic contamination is judged independently. Every declared HRV summary metric must be present, status-compatible, and within its packaged absolute-or-relative tolerance; RR reconstruction has explicit coverage and tolerance gates.",
+                "profile_id": "hrv_simple_cases_v1_ectopic_contamination",
+                "schema_version": 1,
+                "targets": {
+                  "hrv": {
+                    "hf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "hf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_hf_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_heart_rate_bpm": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_rr_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "pnn50_percent": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rmssd_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rr_interval": {
+                      "prediction_match_fraction": {
+                        "min": 0.9
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.85
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.9
+                      }
+                    },
+                    "sd1_sd2_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd1_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd2_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sdnn_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "total_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "vlf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "ectopic_contamination"
+              ],
+              "id": "ectopic_contamination"
+            },
+            {
+              "acceptance_profile": {
+                "description": "baseline wander stress is judged independently. Every declared HRV summary metric must be present, status-compatible, and within its packaged absolute-or-relative tolerance; RR reconstruction has explicit coverage and tolerance gates.",
+                "profile_id": "hrv_simple_cases_v1_baseline_wander_stress",
+                "schema_version": 1,
+                "targets": {
+                  "hrv": {
+                    "hf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "hf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_hf_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_heart_rate_bpm": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_rr_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "pnn50_percent": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rmssd_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rr_interval": {
+                      "prediction_match_fraction": {
+                        "min": 0.85
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.8
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.85
+                      }
+                    },
+                    "sd1_sd2_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd1_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd2_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sdnn_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "total_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "vlf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "baseline_wander_stress"
+              ],
+              "id": "baseline_wander_stress"
+            },
+            {
+              "acceptance_profile": {
+                "description": "powerline emg stress is judged independently. Every declared HRV summary metric must be present, status-compatible, and within its packaged absolute-or-relative tolerance; RR reconstruction has explicit coverage and tolerance gates.",
+                "profile_id": "hrv_simple_cases_v1_powerline_emg_stress",
+                "schema_version": 1,
+                "targets": {
+                  "hrv": {
+                    "hf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "hf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_hf_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_heart_rate_bpm": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_rr_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "pnn50_percent": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rmssd_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rr_interval": {
+                      "prediction_match_fraction": {
+                        "min": 0.85
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.8
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.85
+                      }
+                    },
+                    "sd1_sd2_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd1_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd2_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sdnn_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "total_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "vlf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "powerline_emg_stress"
+              ],
+              "id": "powerline_emg_stress"
+            },
+            {
+              "acceptance_profile": {
+                "description": "drift dropout stress is judged independently. Every declared HRV summary metric must be present, status-compatible, and within its packaged absolute-or-relative tolerance; RR reconstruction has explicit coverage and tolerance gates.",
+                "profile_id": "hrv_simple_cases_v1_drift_dropout_stress",
+                "schema_version": 1,
+                "targets": {
+                  "hrv": {
+                    "hf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "hf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_hf_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_normalized_units": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "lf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_heart_rate_bpm": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "mean_rr_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "pnn50_percent": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rmssd_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "rr_interval": {
+                      "prediction_match_fraction": {
+                        "min": 0.85
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 0.8
+                      },
+                      "truth_match_fraction": {
+                        "min": 0.85
+                      }
+                    },
+                    "sd1_sd2_ratio": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd1_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sd2_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "sdnn_seconds": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "total_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    },
+                    "vlf_power_seconds2": {
+                      "prediction_match_fraction": {
+                        "min": 1.0
+                      },
+                      "status_match_fraction": {
+                        "min": 1.0
+                      },
+                      "tolerance_pass_fraction": {
+                        "min": 1.0
+                      },
+                      "truth_match_fraction": {
+                        "min": 1.0
+                      }
+                    }
+                  }
+                }
+              },
+              "case_ids": [
+                "drift_dropout_stress"
+              ],
+              "id": "drift_dropout_stress"
+            }
+          ],
+          "context_of_use": "Focused synthetic engineering evidence for RR reconstruction and time-, Poincare-, and frequency-domain HRV calculations across independent complete cases.",
+          "contract": "synsigra_verification_protocol_v2",
+          "evidence_boundary": "Synthetic engineering QA evidence for RR and HRV implementation; not diagnosis, clinical autonomic validation, patient-population evidence, or regulatory qualification.",
+          "pack_id": "hrv_simple_cases_v1",
+          "protocol_id": "hrv_simple_cases_v1",
+          "required_case_targets": [
+            {
+              "case_id": "clean_baseline",
+              "targets": [
+                "hrv"
+              ]
+            },
+            {
+              "case_id": "vlf_dominant",
+              "targets": [
+                "hrv"
+              ]
+            },
+            {
+              "case_id": "lf_dominant",
+              "targets": [
+                "hrv"
+              ]
+            },
+            {
+              "case_id": "hf_dominant",
+              "targets": [
+                "hrv"
+              ]
+            },
+            {
+              "case_id": "high_variability",
+              "targets": [
+                "hrv"
+              ]
+            },
+            {
+              "case_id": "respiratory_variation",
+              "targets": [
+                "hrv"
+              ]
+            },
+            {
+              "case_id": "ectopic_contamination",
+              "targets": [
+                "hrv"
+              ]
+            },
+            {
+              "case_id": "baseline_wander_stress",
+              "targets": [
+                "hrv"
+              ]
+            },
+            {
+              "case_id": "powerline_emg_stress",
+              "targets": [
+                "hrv"
+              ]
+            },
+            {
+              "case_id": "drift_dropout_stress",
+              "targets": [
+                "hrv"
+              ]
+            }
+          ],
+          "schema_version": 2,
+          "scoring_contract": "synsigra_local_verification_v3",
+          "stress_strata": [
+            {
+              "case_ids": [
+                "clean_baseline"
+              ],
+              "id": "clean_baseline"
+            },
+            {
+              "case_ids": [
+                "vlf_dominant"
+              ],
+              "id": "vlf_dominant"
+            },
+            {
+              "case_ids": [
+                "lf_dominant"
+              ],
+              "id": "lf_dominant"
+            },
+            {
+              "case_ids": [
+                "hf_dominant"
+              ],
+              "id": "hf_dominant"
+            },
+            {
+              "case_ids": [
+                "high_variability"
+              ],
+              "id": "high_variability"
+            },
+            {
+              "case_ids": [
+                "respiratory_variation"
+              ],
+              "id": "respiratory_variation"
+            },
+            {
+              "case_ids": [
+                "ectopic_contamination"
+              ],
+              "id": "ectopic_contamination"
+            },
+            {
+              "case_ids": [
+                "baseline_wander_stress"
+              ],
+              "id": "baseline_wander_stress"
+            },
+            {
+              "case_ids": [
+                "powerline_emg_stress"
+              ],
+              "id": "powerline_emg_stress"
+            },
+            {
+              "case_ids": [
+                "drift_dropout_stress"
+              ],
+              "id": "drift_dropout_stress"
+            }
+          ],
+          "truth_policy": {
+            "case_independence": "Every generated signal is an independent acceptance stratum. No pooled case or cross-case average can compensate for a failure.",
+            "metric_acceptance": "Each of the 15 summary metrics must be supplied exactly once with matching status and must satisfy the packaged per-metric absolute-or-relative tolerance.",
+            "metric_definition": "Record-level metrics use synsigra_hrv_metrics_v2 and the synsigra_nn_exclusion_v2 preprocessing policy. A submission must declare the same measurement identity.",
+            "rr_association": "Valid beat-level RR intervals are associated by R-peak-anchored interval overlap. FP splits and FN merges remain local; unique truth and submission coverage cannot exceed 100%.",
+            "threshold_boundary": "The single official policy is pre-specified for this deterministic engineering protocol. It is not a clinical HRV normal-range or standards-conformity claim."
+          },
+          "verdict_scope": "per_case"
+        },
+        "source_content_sha256": "sha256:59de14f7a1a7bc7fca17683bc068ded6a59dc208472e70c607e4bc7a33e977ba",
+        "source_path": "examples/packs/hrv_simple_cases_v1_expectations.json"
+      },
+      "version": "1.0"
     },
     {
       "case_count": 5,
@@ -13137,8 +16269,8 @@
     }
   ],
   "product": "Synsigra Testbench",
-  "release_set_id": "synsigra_curated_release_2026_07_24_simple_rpeak_cases",
+  "release_set_id": "synsigra_curated_release_2026_07_26_rr_hrv_per_case",
   "release_set_status": "beta",
   "schema_version": 1,
-  "source_catalog_sha256": "sha256:cb6a015cc30978662b34328dc6719cb71fc69318eeb867db7d70ad6ded983500"
+  "source_catalog_sha256": "sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136"
 }

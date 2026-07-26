@@ -1,0 +1,83 @@
+{
+  "description": "Ten independent HRV cases covering clean, spectral, variability, respiratory, ectopic, and acquisition-stress conditions. Each complete case receives its own official HRV verdict; nothing is pooled.",
+  "name": "HRV Simple Per-Case Evidence",
+  "pack_id": "hrv_simple_cases_v1",
+  "scenarios": [
+    {
+      "id": "clean_baseline",
+      "path": "scenarios/hrv/hrv_clean_baseline.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "vlf_dominant",
+      "path": "scenarios/hrv/hrv_vlf_dominant.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "lf_dominant",
+      "path": "scenarios/hrv/hrv_lf_dominant.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "hf_dominant",
+      "path": "scenarios/hrv/hrv_hf_dominant.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "high_variability",
+      "path": "scenarios/hrv/hrv_high_variability.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "respiratory_variation",
+      "path": "scenarios/hrv/hrv_respiratory_variation.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "ectopic_contamination",
+      "path": "scenarios/hrv/hrv_ectopic_contamination.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "baseline_wander_stress",
+      "path": "scenarios/hrv/hrv_baseline_wander_stress.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "powerline_emg_stress",
+      "path": "scenarios/hrv/hrv_powerline_emg_stress.json",
+      "targets": [
+        "hrv"
+      ]
+    },
+    {
+      "id": "drift_dropout_stress",
+      "path": "scenarios/hrv/hrv_drift_dropout_stress.json",
+      "targets": [
+        "hrv"
+      ]
+    }
+  ],
+  "schema_version": 2,
+  "targets": [
+    "hrv"
+  ],
+  "verification_protocol_path": "hrv_simple_cases_v1_expectations.json",
+  "version": "1.0"
+}

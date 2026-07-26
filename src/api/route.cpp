@@ -2174,6 +2174,7 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
         </tbody>
       </table>
       <p><strong>R-peak scope:</strong> start with the eight-case <code>r_peak_rr_simple_stress_v1</code>, then use <code>r_peak_rr_snr_ladder_v1</code> for clean, −0.2/−0.5 dB, and every integer −1…−11 dB. Both make each complete case an independent R-peak + RR verdict with no pooling. Use <code>r_peak_rr_noise_v1</code> only when the algorithm also emits signal-quality intervals.</p>
+      <p><strong>HRV scope:</strong> start with <code>hrv_simple_cases_v1</code> for ten independent HRV-only case verdicts. Use <code>hrv_robustness_v2</code> when the algorithm also emits R peaks and signal-quality intervals.</p>
       <h2>Minimal curl client</h2>
       <pre class="output">read -r -s SYN_SIG_RA_API_KEY
 BASE=https://www.timeonion.com/syn_sig_ra

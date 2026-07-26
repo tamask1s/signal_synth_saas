@@ -55,6 +55,10 @@ every integer −1…−11 dB continuous-noise case. Both report one official
 R-peak + RR verdict per complete signal, without bins or pooling, and neither
 asks for signal-quality output. The older `r_peak_stress_v1` and
 `r_peak_noise_frontier_v1` remain available for detailed aggregate diagnostics.
+For an HRV-only algorithm, inspect `hrv_simple_cases_v1` first: its ten
+complete cases independently score RR reconstruction and all packaged HRV
+summary measurements without requiring R-peak or signal-quality output. Use
+`hrv_robustness_v2` only for a combined R-peak, HRV, and quality pipeline.
 
 ## Is one API key enough?
 

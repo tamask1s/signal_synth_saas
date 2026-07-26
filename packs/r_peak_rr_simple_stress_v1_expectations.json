@@ -544,7 +544,7 @@
     "event_scoreability": "Complete in-record constructed QRS events are scoreable; every exclusion is reported.",
     "rr_definition": "Difference between consecutive scoreable construction R-peak times; the first beat has no in-record RR value.",
     "rr_association": "Valid RR intervals are anchored by their ending R-peak time and associated when their overlap covers more than half of the shorter interval. FP splits and FN merges create local comparison pairs; unique interval coverage cannot exceed 100%.",
-    "rr_statistics_boundary": "RR median is the robust ladder gate. RR tolerance percentage, MAE and P95 remain visible diagnostics. This is a Synsigra engineering policy, not an ANSI/AAMI EC57 RR requirement.",
+    "rr_statistics_boundary": "RR tolerance percentage, MAE and median are pre-specified case gates. P95 remains a visible diagnostic because split/merge outliers make it unsuitable as the primary ladder gate. These are Synsigra engineering limits, not ANSI/AAMI EC57 or IEC conformity claims.",
     "artifact_overlap": "Noise and artifacts remain scoreable because each complete case is the unit of evaluation.",
     "event_reporting_basis": "R-peak TP, FP, FN, sensitivity and positive predictive value use a 150 ms closest-event window, comparable to the default WFDB bxb reporting convention. Synsigra does not claim bxb identity or EC57 conformity.",
     "literature_context": "Thresholds are pre-specified for this exact deterministic synthetic protocol, informed by PhysioNet MIT-BIH Noise Stress Test Database and peer-reviewed noisy-QRS benchmarks; SNR labels are not directly interchangeable across protocols.",

@@ -71,9 +71,12 @@ int main() {
         find_pack(packs, "r_peak_stress_v1");
     const syn_sig_ra::PackSummary* r_peak_frontier =
         find_pack(packs, "r_peak_noise_frontier_v1");
+    const syn_sig_ra::PackSummary* simple_hrv =
+        find_pack(packs, "hrv_simple_cases_v1");
     require(r_peak != 0, "catalog should expose the R-peak pack");
     require(
         simple_r_peak != 0 && snr_ladder != 0 && r_peak_frontier != 0 &&
+            simple_hrv != 0 &&
             find_pack(packs, "hrv_robustness_v2") != 0 &&
             find_pack(packs, "ppg_benchmark_v1") != 0 &&
             find_pack(packs, "wearable_timebase_v2") != 0,
@@ -85,13 +88,25 @@ int main() {
             simple_r_peak->total_seconds == 310 &&
             simple_r_peak->verification_protocol_available &&
             simple_r_peak->scoreable_targets.size() == 2 &&
-            snr_ladder->version == "2.0" &&
+            snr_ladder->version == "2.1" &&
             snr_ladder->scenarios.size() == 14 &&
             snr_ladder->total_seconds == 840 &&
             snr_ladder->external_noise_asset_ids.size() == 1 &&
             snr_ladder->verification_protocol_available &&
             snr_ladder->reference_only_targets.empty(),
         "catalog should expose both independent per-case R-peak and RR packs"
+    );
+    require(
+        simple_hrv->version == "1.0" &&
+            simple_hrv->scenarios.size() == 10 &&
+            simple_hrv->total_seconds == 3300 &&
+            simple_hrv->recommended_profile == "benchmark" &&
+            simple_hrv->local_verifier_min_version == "0.16.0" &&
+            simple_hrv->verification_protocol_available &&
+            simple_hrv->scoreable_targets.size() == 1 &&
+            has_target(simple_hrv->scoreable_targets, "hrv", true) &&
+            simple_hrv->reference_only_targets.empty(),
+        "catalog should expose the independent per-case HRV-only evidence pack"
     );
     require(
         r_peak->pack_id == "r_peak_stress_v1",
@@ -117,9 +132,9 @@ int main() {
         r_peak->release_status == "beta" &&
             r_peak->integration_contract_version ==
                 "synsigra_core_integration_v7" &&
-            r_peak->catalog_version == "3.4" &&
+            r_peak->catalog_version == "3.5" &&
             r_peak->catalog_source_sha256 ==
-                "sha256:cb6a015cc30978662b34328dc6719cb71fc69318eeb867db7d70ad6ded983500" &&
+                "sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136" &&
             r_peak->changelog.size() == 3,
         "catalog should expose validated release and compatibility metadata"
     );
@@ -210,7 +225,7 @@ int main() {
     );
     require(
         r_peak_frontier->version == "1.1" &&
-            r_peak_frontier->catalog_version == "3.4" &&
+            r_peak_frontier->catalog_version == "3.5" &&
             r_peak_frontier->scenarios.size() == 9 &&
             r_peak_frontier->total_seconds == 500 &&
             r_peak_frontier->recommended_profile == "benchmark" &&
