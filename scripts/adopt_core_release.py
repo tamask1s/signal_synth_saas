@@ -34,7 +34,6 @@ VERIFIER_VERSION_FILES = tuple(
         "doc/PACK_CATALOG.md",
         "doc/PRODUCT_CAPABILITIES.md",
         "doc/openapi.yaml",
-        "scripts/stress_live_packs.py",
         "scripts/verify_live.sh",
         "test/integration/e2e_smoke.sh",
         "test/unit/mcp_server_test.cpp",
@@ -47,7 +46,6 @@ CATALOG_VERSION_FILES = tuple(
         "README.md",
         "doc/PACK_CATALOG.md",
         "doc/openapi.yaml",
-        "scripts/stress_live_packs.py",
         "scripts/verify_live.sh",
         "src/catalog/pack_catalog.cpp",
         "test/unit/mcp_server_test.cpp",
@@ -297,6 +295,7 @@ def main():
             if old_catalog != new_catalog and tracked_files_containing(old_catalog):
                 raise RuntimeError("stale catalog pins remain after adoption")
             run(["git", "diff", "--check"])
+            run([sys.executable, ROOT / "scripts" / "audit_system.py"])
         except Exception:
             restore_checkout(file_backups, pack_backup)
             raise

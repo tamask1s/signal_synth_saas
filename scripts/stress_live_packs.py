@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -24,6 +25,37 @@ from typing import Any
 
 
 CATALOG = pathlib.Path(__file__).resolve().parents[1] / "packs" / "curated_pack_metadata_v1.catalog"
+CMAKE = pathlib.Path(__file__).resolve().parents[1] / "CMakeLists.txt"
+INTEGRATION_CONTRACT = "synsigra_core_integration_v8"
+
+
+def release_expectations() -> dict[str, str]:
+    with CATALOG.open(encoding="utf-8") as handle:
+        catalog = json.load(handle)
+    match = re.search(
+        r'SYN_SIG_RA_EXPECTED_SIGNAL_SYNTH_COMMIT\s+"([0-9a-f]{40})"',
+        CMAKE.read_text(encoding="utf-8"),
+    )
+    if match is None:
+        raise RuntimeError("CMakeLists.txt has no full signal_synth commit pin")
+    compatibilities = [
+        pack.get("generator_compatibility", {})
+        for pack in catalog.get("packs", [])
+    ]
+    verifier_versions = {
+        item.get("local_verifier_min_version") for item in compatibilities
+    }
+    if len(verifier_versions) != 1 or None in verifier_versions:
+        raise RuntimeError("catalog packs do not agree on one verifier version")
+    return {
+        "catalog_version": catalog["catalog_version"],
+        "catalog_sha256": catalog["source_catalog_sha256"],
+        "core_commit": match.group(1),
+        "verifier_version": verifier_versions.pop(),
+    }
+
+
+EXPECTED = release_expectations()
 
 
 def expected_pack_count() -> int:
@@ -149,12 +181,12 @@ def list_packs(client: Client, selected: list[str]) -> list[dict[str, Any]]:
         raise RuntimeError("Pack list response did not contain packs[]")
     valid = [pack for pack in packs if isinstance(pack, dict)]
     for pack in valid:
-        if pack.get("catalog_version") != "3.6":
-            raise RuntimeError("pack list contains a non-3.6 catalog entry")
-        if pack.get("catalog_source_sha256") != "sha256:420acb966f8ba2cf7276af8b3cacb6c16ce3169f74c1861af8129a16195aa4c3":
+        if pack.get("catalog_version") != EXPECTED["catalog_version"]:
+            raise RuntimeError("pack list contains an unexpected catalog version")
+        if pack.get("catalog_source_sha256") != EXPECTED["catalog_sha256"]:
             raise RuntimeError("pack list contains an unexpected catalog hash")
-        if pack.get("integration_contract") != "synsigra_core_integration_v8":
-            raise RuntimeError("pack list contains a non-v8 entry")
+        if pack.get("integration_contract") != INTEGRATION_CONTRACT:
+            raise RuntimeError("pack list contains an unexpected integration contract")
     if not selected:
         expected = expected_pack_count()
         if len(valid) != expected:
@@ -217,22 +249,23 @@ def validate_zip(path: pathlib.Path, required_members: list[str] | None = None) 
 
 
 def validate_job(job: dict[str, Any], pack: dict[str, Any]) -> None:
-    if job.get("integration_contract") != "synsigra_core_integration_v8":
+    if job.get("integration_contract") != INTEGRATION_CONTRACT:
         raise RuntimeError("job has the wrong integration contract")
-    if job.get("generator_git_commit") != "05a04285428f940790fab6d68f9bf89ccb84634d":
+    if job.get("generator_git_commit") != EXPECTED["core_commit"]:
         raise RuntimeError("job was not rendered by the pinned generator")
     if job.get("pack_version") != pack.get("version"):
         raise RuntimeError("job pack version differs from the selected catalog entry")
     catalog = job.get("catalog")
-    if not isinstance(catalog, dict) or catalog.get("version") != "3.6":
-        raise RuntimeError("job does not preserve catalog 3.6 identity")
-    if catalog.get("source_sha256") != "sha256:420acb966f8ba2cf7276af8b3cacb6c16ce3169f74c1861af8129a16195aa4c3":
+    if not isinstance(catalog, dict) or \
+            catalog.get("version") != EXPECTED["catalog_version"]:
+        raise RuntimeError("job does not preserve the catalog version")
+    if catalog.get("source_sha256") != EXPECTED["catalog_sha256"]:
         raise RuntimeError("job has the wrong catalog hash")
     challenge = job.get("challenge")
     if not isinstance(challenge, dict):
         raise RuntimeError("job has no normalized challenge metadata")
     expected = {
-        "verifier_version": "0.17.0",
+        "verifier_version": EXPECTED["verifier_version"],
         "challenge_contract": "synsigra_challenge_package_v3",
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",

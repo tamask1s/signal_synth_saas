@@ -7,3 +7,4 @@ CORE="$(cd "${ROOT}/../signal_synth" && pwd)"
 python3 "${CORE}/scripts/generate_r_peak_noise_frontier.py"
 python3 "${CORE}/scripts/generate_simple_r_peak_packs.py"
 python3 "${CORE}/scripts/generate_simple_hrv_pack.py"
+python3 "${CORE}/scripts/materialize_evidence_protocols.py" --write

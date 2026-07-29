@@ -296,7 +296,7 @@ reasonable shared target list is:
 ["r_peak", "ecg_beat_classification", "signal_quality", "morphology_assertions"]
 ```
 
-All four are locally scoreable in core v7. Every scenario needs an artifact
+All four are locally scoreable in core v8. Every scenario needs an artifact
 and a supported condition for this shared target list.
 
 For five-minute HRV, start from `ecg_hrv_benchmark`, keep duration at least 300

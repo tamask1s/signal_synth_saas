@@ -376,9 +376,9 @@ bool curated_pack_ids(
     json_t* packs = root == nullptr ? nullptr : json_object_get(root, "packs");
     json_t* count = root == nullptr ? nullptr : json_object_get(root, "pack_count");
     if (!exact_object(root, 13) ||
-        json_string_or_empty(json_object_get(root, "catalog_version")) != "3.6" ||
+        json_string_or_empty(json_object_get(root, "catalog_version")) != "3.7" ||
         json_string_or_empty(json_object_get(root, "source_catalog_sha256")) !=
-            "sha256:420acb966f8ba2cf7276af8b3cacb6c16ce3169f74c1861af8129a16195aa4c3" ||
+            "sha256:6862313147dcdeab429e1972af62b81e9a7c4025c6707ee752c3126f5f8b556a" ||
         !json_is_array(packs) || !json_is_integer(count) ||
         json_integer_value(count) <= 0 ||
         static_cast<std::size_t>(json_integer_value(count)) !=
@@ -429,20 +429,20 @@ bool load_curated_catalog_metadata(
             "synsigra_curated_pack_metadata_export_v1" &&
         json_string_or_empty(json_object_get(root, "catalog_id")) ==
             "synsigra_verification_packs" &&
-        json_string_or_empty(json_object_get(root, "catalog_version")) == "3.6" &&
+        json_string_or_empty(json_object_get(root, "catalog_version")) == "3.7" &&
         json_string_or_empty(json_object_get(root, "release_set_status")) == "beta" &&
         json_is_string(json_object_get(root, "release_set_id")) &&
         json_string_length(json_object_get(root, "release_set_id")) > 0 &&
         valid_sha256(json_object_get(root, "source_catalog_sha256")) &&
         json_string_or_empty(json_object_get(root, "source_catalog_sha256")) ==
-            "sha256:420acb966f8ba2cf7276af8b3cacb6c16ce3169f74c1861af8129a16195aa4c3" &&
+            "sha256:6862313147dcdeab429e1972af62b81e9a7c4025c6707ee752c3126f5f8b556a" &&
         json_is_array(packs) && json_is_integer(pack_count) &&
         json_integer_value(pack_count) > 0 &&
         static_cast<std::size_t>(json_integer_value(pack_count)) ==
             json_array_size(packs);
     if (!header_valid) {
         if (root != nullptr) json_decref(root);
-        error = "curated pack catalog metadata has an unsupported 3.6 header";
+        error = "curated pack catalog metadata has an unsupported 3.7 header";
         return false;
     }
     pack.catalog_version = json_string_value(json_object_get(root, "catalog_version"));
@@ -534,14 +534,10 @@ bool load_curated_catalog_metadata(
         return false;
     }
 
-    json_t* recommended_profile = json_object_get(match, "recommended_profile");
-    pack.recommended_profile =
-        json_is_string(recommended_profile) ? json_string_value(recommended_profile) : "";
     if (!read_string_array(match, "targets", true, pack.targets, error) ||
         !read_target_array(match, "scoreable_targets", true, pack.scoreable_targets, error) ||
         !read_target_array(match, "reference_only_targets", false, pack.reference_only_targets, error) ||
         !read_string_array(match, "submission_output_schemas", true, pack.submission_output_schemas, error) ||
-        !read_string_array(match, "supported_threshold_profiles", true, pack.supported_threshold_profiles, error) ||
         !read_string_array(match, "recommended_for", true, pack.recommended_for, error) ||
         !read_string_array(match, "not_recommended_for", true, pack.not_recommended_for, error) ||
         !read_string_array(match, "difficulty", true, pack.difficulty, error) ||
@@ -915,12 +911,6 @@ std::string pack_summary_json(const PackSummary& pack) {
     json_object_set_new(root, "scoreable_targets", target_array_json_value(pack.scoreable_targets));
     json_object_set_new(root, "reference_only_targets", target_array_json_value(pack.reference_only_targets));
     json_object_set_new(root, "submission_output_schemas", string_array_json_value(pack.submission_output_schemas));
-    if (pack.recommended_profile.empty()) {
-        json_object_set_new(root, "recommended_profile", json_null());
-    } else {
-        json_object_set_new(root, "recommended_profile", json_string(pack.recommended_profile.c_str()));
-    }
-    json_object_set_new(root, "supported_threshold_profiles", string_array_json_value(pack.supported_threshold_profiles));
     json_object_set_new(root, "recommended_for", string_array_json_value(pack.recommended_for));
     json_object_set_new(root, "not_recommended_for", string_array_json_value(pack.not_recommended_for));
     json_object_set_new(root, "difficulty", string_array_json_value(pack.difficulty));

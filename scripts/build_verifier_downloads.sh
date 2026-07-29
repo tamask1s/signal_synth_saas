@@ -5,7 +5,19 @@ repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 signal_synth_root=${SIGNAL_SYNTH_ROOT:-"$repo_dir/../signal_synth"}
 out_dir=${1:-"$repo_dir/downloads/verifier"}
 work_dir=${TMPDIR:-/tmp}/synsigra_verifier_downloads_$$
-expected_core=05a04285428f940790fab6d68f9bf89ccb84634d
+expected_core=$(
+  sed -n '
+    /SYN_SIG_RA_EXPECTED_SIGNAL_SYNTH_COMMIT/ {
+      n
+      s/.*"\([0-9a-f]*\)".*/\1/p
+      q
+    }
+  ' "$repo_dir/CMakeLists.txt"
+)
+if ! printf '%s\n' "$expected_core" | grep -Eq '^[0-9a-f]{40}$'; then
+  echo "unable to read the pinned signal_synth commit from CMakeLists.txt" >&2
+  exit 2
+fi
 
 cleanup() {
   rm -rf "$work_dir"

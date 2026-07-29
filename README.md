@@ -188,7 +188,7 @@ and the kit's `submission/submission.json` are authoritative.
 
 ## Curated packs
 
-The immutable catalog 3.6 release contains these curated packs:
+The immutable catalog 3.7 release contains these curated packs:
 
 | Pack | Focus |
 |---|---|
@@ -412,7 +412,7 @@ file, wall-time, and no-network worker bounds are enforced.
 
 This release intentionally has no old core compatibility layer. It requires the
 clean sibling checkout `../signal_synth` at commit
-`05a04285428f940790fab6d68f9bf89ccb84634d` and the exact tuple:
+`3454c03cafdad2947446008f9d29ed011102dfe7` and the exact tuple:
 
 - generator `0.10.0-dev`, C++ facade `1.5.0`;
 - integration `synsigra_core_integration_v8`, pack schema `2`;
@@ -428,8 +428,8 @@ clean sibling checkout `../signal_synth` at commit
 - authoring `synsigra_authoring_v18`, templates `synsigra_templates_v5`;
 - verifier `0.17.0`, external-noise truth
   `synsigra_external_noise_truth_v1`;
-- curated catalog `3.6` with source hash
-  `sha256:420acb966f8ba2cf7276af8b3cacb6c16ce3169f74c1861af8129a16195aa4c3`.
+- curated catalog `3.7` with source hash
+  `sha256:6862313147dcdeab429e1972af62b81e9a7c4025c6707ee752c3126f5f8b556a`.
 
 Configuration, startup, readiness, worker post-render validation, and release
 verification fail closed if these identities diverge. `/readyz` publishes the

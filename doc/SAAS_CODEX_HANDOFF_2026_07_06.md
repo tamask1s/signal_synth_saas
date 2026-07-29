@@ -2,6 +2,11 @@
 
 Date: 2026-07-06
 
+> Historical handoff. It is retained as implementation history, not as a
+> current contract. Use `doc/DEVELOPER_REFERENCE.md`, the live OpenAPI
+> document, and `scripts/task1_tipusp_dolgok.py audit-full` for the current
+> integration and release workflow.
+
 Core repo: `../signal_synth`
 
 SaaS repo: `../signal_synth_saas`
@@ -172,7 +177,7 @@ Recommended implementation shape:
    the existing `packs/*.json` files.
 2. Extend `PackSummary` and `pack_summary_json` with:
    `scoring_mode`, `scoreable_targets`, `reference_only_targets`,
-   `detector_output_schemas`, `recommended_profile`, `recommended_for`,
+   `submission_output_schemas`, `evidence_profiles`, `recommended_for`,
    `not_recommended_for`, duration, sampling rates, channel range and estimated
    package size.
 3. Keep `packs/*.product` as the immutable deployability/fingerprint sidecar.

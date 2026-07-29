@@ -62,8 +62,8 @@ components:
       properties:
         integration_contract: {type: string, enum: [synsigra_core_integration_v8]}
         version: {type: string, enum: [0.10.0-dev]}
-        git_commit: {type: string, enum: [05a04285428f940790fab6d68f9bf89ccb84634d]}
-        build_identity: {type: string, enum: [signal_synth/05a04285428f940790fab6d68f9bf89ccb84634d]}
+        git_commit: {type: string, enum: [3454c03cafdad2947446008f9d29ed011102dfe7]}
+        build_identity: {type: string, enum: [signal_synth/3454c03cafdad2947446008f9d29ed011102dfe7]}
         cpp_facade: {type: string, enum: [1.5.0]}
         pack_schema_version: {type: integer, enum: [2]}
         challenge_package: {type: string, enum: [synsigra_challenge_package_v3]}
@@ -139,8 +139,8 @@ components:
         display_name: {type: string}
         version: {type: string}
         description: {type: string}
-        catalog_version: {type: string, enum: ['3.6']}
-        catalog_source_sha256: {type: string, enum: ['sha256:420acb966f8ba2cf7276af8b3cacb6c16ce3169f74c1861af8129a16195aa4c3']}
+        catalog_version: {type: string, enum: ['3.7']}
+        catalog_source_sha256: {type: string, enum: ['sha256:6862313147dcdeab429e1972af62b81e9a7c4025c6707ee752c3126f5f8b556a']}
         release_set_id: {type: string}
         release_status: {type: string, enum: [beta, stable, deprecated]}
         released_at: {type: string, format: date}
@@ -153,8 +153,6 @@ components:
           items:
             type: string
             enum: [point_events_json_v1, point_events_csv_v1, interval_events_json_v1, interval_events_csv_v1, measurement_values_json_v2, measurement_values_csv_v2]
-        recommended_profile: {type: string, nullable: true}
-        supported_threshold_profiles: {type: array, items: {type: string}}
         recommended_for: {type: array, items: {type: string}}
         not_recommended_for: {type: array, items: {type: string}}
         difficulty: {type: array, items: {type: string}}
@@ -242,7 +240,7 @@ components:
         pack_version: {type: string}
         pack_fingerprint: {type: string}
         generator_version: {type: string, enum: [0.10.0-dev]}
-        generator_git_commit: {type: string, enum: [05a04285428f940790fab6d68f9bf89ccb84634d]}
+        generator_git_commit: {type: string, enum: [3454c03cafdad2947446008f9d29ed011102dfe7]}
         scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
         submission_contract: {type: string, enum: [synsigra_submission_v1]}
         submission_formats_contract: {type: string, enum: [synsigra_submission_formats_v2]}
@@ -341,7 +339,7 @@ components:
           description: Present for curated jobs; omitted for immutable custom-pack snapshots.
           required: [version, source_sha256]
           properties:
-            version: {type: string, enum: ['3.6']}
+            version: {type: string, enum: ['3.7']}
             source_sha256: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
         status:
           type: string
@@ -454,7 +452,7 @@ components:
         schema_version: {type: integer}
         package: {type: string, example: synsigra}
         version: {type: string, enum: [0.17.0]}
-        core_git_commit: {type: string, enum: [05a04285428f940790fab6d68f9bf89ccb84634d]}
+        core_git_commit: {type: string, enum: [3454c03cafdad2947446008f9d29ed011102dfe7]}
         challenge_contract: {type: string, enum: [synsigra_challenge_package_v3]}
         scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
         verification_protocol_contract: {type: string, enum: [synsigra_verification_protocol_v3]}

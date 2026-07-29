@@ -127,7 +127,6 @@ int main() {
         simple_hrv->version == "1.0" &&
             simple_hrv->scenarios.size() == 10 &&
             simple_hrv->total_seconds == 3300 &&
-            simple_hrv->recommended_profile == "benchmark" &&
             simple_hrv->local_verifier_min_version == "0.17.0" &&
             has_evidence_profiles(*simple_hrv) &&
             simple_hrv->scoreable_targets.size() == 1 &&
@@ -159,7 +158,7 @@ int main() {
         r_peak->release_status == "beta" &&
             r_peak->integration_contract_version ==
                 "synsigra_core_integration_v8" &&
-            r_peak->catalog_version == "3.6" &&
+            r_peak->catalog_version == "3.7" &&
             is_sha256(r_peak->catalog_source_sha256) &&
             r_peak->changelog.size() == 3,
         "catalog should expose validated release and compatibility metadata"
@@ -175,14 +174,13 @@ int main() {
         "focused detector evidence pack should require R-peak and RR without signal quality"
     );
     require(
-        r_peak->recommended_profile == "stress" &&
-            r_peak->submission_output_schemas.size() >= 1 &&
+        r_peak->submission_output_schemas.size() >= 1 &&
             r_peak->estimated_package_bytes > 0 &&
             r_peak->total_seconds == 100 &&
             r_peak->minimum_channel_count == 12 &&
             r_peak->maximum_channel_count == 12 &&
             r_peak->sampling_rates_hz.size() == 1,
-        "catalog should expose discovery metadata for duration, channels, package size and verifier profile"
+        "catalog should expose discovery metadata for duration, channels and package size"
     );
     require(
         r_peak->scenarios[0].duration_seconds > 0 &&
@@ -228,9 +226,11 @@ int main() {
                 std::string::npos &&
             syn_sig_ra::pack_summary_json(detail).find("\"reference_only_targets\"") !=
                 std::string::npos &&
-            syn_sig_ra::pack_summary_json(detail).find("\"recommended_profile\":\"stress\"") !=
-                std::string::npos &&
             syn_sig_ra::pack_summary_json(detail).find("\"submission_output_schemas\"") !=
+                std::string::npos &&
+            syn_sig_ra::pack_summary_json(detail).find("\"recommended_profile\"") ==
+                std::string::npos &&
+            syn_sig_ra::pack_summary_json(detail).find("\"supported_threshold_profiles\"") ==
                 std::string::npos &&
             syn_sig_ra::pack_summary_json(detail).find("detector_output_schemas") ==
                 std::string::npos,
@@ -248,10 +248,9 @@ int main() {
     );
     require(
         r_peak_frontier->version == "1.1" &&
-            r_peak_frontier->catalog_version == "3.6" &&
+            r_peak_frontier->catalog_version == "3.7" &&
             r_peak_frontier->scenarios.size() == 9 &&
             r_peak_frontier->total_seconds == 500 &&
-            r_peak_frontier->recommended_profile == "benchmark" &&
             has_evidence_profiles(*r_peak_frontier) &&
             r_peak_frontier->external_noise_asset_ids.size() == 1 &&
             r_peak_frontier->scoreable_targets.size() == 2 &&

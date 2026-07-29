@@ -6,6 +6,7 @@ build_dir=${BUILD_DIR:-"$repo_dir/build/e2e"}
 apxs=${APXS_EXECUTABLE:-/usr/local/apache2/bin/apxs}
 apache_httpd=${APACHE_HTTPD:-/usr/local/apache2/bin/httpd}
 
+python3 "$repo_dir/scripts/audit_system.py"
 "$repo_dir/scripts/build_verifier_downloads.sh" "$repo_dir/downloads/verifier"
 
 cmake -S "$repo_dir" -B "$build_dir" \

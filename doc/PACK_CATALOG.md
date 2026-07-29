@@ -1,6 +1,6 @@
 # Curated pack catalog contract
 
-Built-in packs are imported as one immutable catalog 3.6 release snapshot from
+Built-in packs are imported as one immutable catalog 3.7 release snapshot from
 the exact sibling `signal_synth` checkout. SaaS does not maintain product
 sidecars or reinterpret core analysis.
 
@@ -15,10 +15,10 @@ The importer removes files not present in the snapshot, copies the declared
 pack/scenario/protocol/approved-noise inputs, and validates every pack through
 the pinned CLI. Startup and readiness require:
 
-- catalog version `3.6`;
+- catalog version `3.7`;
 - a positive declared pack count that exactly matches the unique pack array;
 - catalog source hash
-  `sha256:420acb966f8ba2cf7276af8b3cacb6c16ce3169f74c1861af8129a16195aa4c3`;
+  `sha256:6862313147dcdeab429e1972af62b81e9a7c4025c6707ee752c3126f5f8b556a`;
 - integration `synsigra_core_integration_v8`;
 - challenge `synsigra_challenge_package_v3`;
 - scoring `synsigra_scoring_manifest_v3`;

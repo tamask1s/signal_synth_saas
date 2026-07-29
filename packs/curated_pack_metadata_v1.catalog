@@ -1,6 +1,6 @@
 {
   "catalog_id": "synsigra_verification_packs",
-  "catalog_version": "3.6",
+  "catalog_version": "3.7",
   "intended_use": "Synthetic biosignal engineering QA and algorithm verification",
   "metadata_type": "synsigra_curated_pack_catalog",
   "metadata_version": "synsigra_curated_pack_metadata_export_v1",
@@ -1188,7 +1188,6 @@
         "Clean and artifact-bin sensitivity, precision and timing-error regression",
         "Analytic and project-owned external-noise stress from +12 to -12 dB SNR"
       ],
-      "recommended_profile": "stress",
       "reference_only_targets": [],
       "release_date": "2026-07-18",
       "release_status": "beta",
@@ -1282,27 +1281,11 @@
         "interval_events_json_v1",
         "interval_events_csv_v1"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "r_peak",
         "rr_interval",
         "signal_quality"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "stress",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "regression",
@@ -2672,7 +2655,6 @@
         "Correction-formula regression at bradycardic and tachycardic rate boundaries",
         "Dynamic long-QT, low-amplitude T, notched or biphasic T and U-wave stress"
       ],
-      "recommended_profile": "regression",
       "reference_only_targets": [],
       "release_date": "2026-07-18",
       "release_status": "beta",
@@ -2779,27 +2761,11 @@
         "measurement_values_json_v2",
         "measurement_values_csv_v2"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "r_peak",
         "ecg_delineation",
         "qtc"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "regression",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "regression",
@@ -3082,7 +3048,6 @@
         "Lead-selective morphology measurement regression",
         "Fusion-beat detector and classifier engineering QA"
       ],
-      "recommended_profile": "regression",
       "reference_only_targets": [],
       "release_date": "2026-07-17",
       "release_status": "beta",
@@ -3159,27 +3124,11 @@
         "measurement_values_json_v2",
         "measurement_values_csv_v2"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "ecg_delineation",
         "morphology_assertions",
         "ecg_beat_classification"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "regression",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "regression",
@@ -3455,7 +3404,6 @@
         "AF, PSVT and VT burden measurement QA",
         "VF and asystole critical-state detector engineering stress"
       ],
-      "recommended_profile": "stress",
       "reference_only_targets": [],
       "release_date": "2026-07-17",
       "release_status": "beta",
@@ -3516,26 +3464,10 @@
         "measurement_values_json_v2",
         "measurement_values_csv_v2"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "rhythm_episode",
         "rhythm_burden"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "stress",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "regression",
@@ -5667,7 +5599,6 @@
         "Independent clean, rate-boundary, variable-rate, physiologic-pause, moderate-noise, and combined-stress verdicts",
         "Reports where a strong case must never compensate for a failed case"
       ],
-      "recommended_profile": "stress",
       "reference_only_targets": [],
       "release_date": "2026-07-24",
       "release_status": "beta",
@@ -5738,26 +5669,10 @@
         "measurement_values_json_v2",
         "measurement_values_csv_v2"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "r_peak",
         "rr_interval"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "stress",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "regression",
@@ -9265,7 +9180,6 @@
         "Independent per-case R-peak and beat-to-beat RR verdicts without bins or pooling",
         "Comparing where classical and learned detectors begin to degrade"
       ],
-      "recommended_profile": "benchmark",
       "reference_only_targets": [],
       "release_date": "2026-07-24",
       "release_status": "beta",
@@ -9348,26 +9262,10 @@
         "measurement_values_json_v2",
         "measurement_values_csv_v2"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "r_peak",
         "rr_interval"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "benchmark",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "stress",
@@ -10388,7 +10286,6 @@
         "Clean, bradycardic, tachycardic, baseline-wander and powerline detector checks",
         "CI regression gates using exact synthetic R-peak and RR ground truth without signal-quality output"
       ],
-      "recommended_profile": "stress",
       "reference_only_targets": [],
       "release_date": "2026-07-23",
       "release_status": "beta",
@@ -10451,26 +10348,10 @@
         "measurement_values_json_v2",
         "measurement_values_csv_v2"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "r_peak",
         "rr_interval"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "stress",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "regression",
@@ -13004,7 +12885,6 @@
         "Finding the tier where sensitivity, precision or timing stability begins to collapse",
         "Per-case evidence that cannot be hidden by clean-case aggregate performance"
       ],
-      "recommended_profile": "benchmark",
       "reference_only_targets": [],
       "release_date": "2026-07-23",
       "release_status": "beta",
@@ -13077,26 +12957,10 @@
         "measurement_values_json_v2",
         "measurement_values_csv_v2"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "r_peak",
         "rr_interval"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "benchmark",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "stress",
@@ -14867,7 +14731,6 @@
         "Ectopy, baseline-wander, powerline, EMG, drift and dropout stress",
         "Five- and ten-minute benchmark windows with deterministic replay"
       ],
-      "recommended_profile": "benchmark",
       "reference_only_targets": [],
       "release_date": "2026-07-18",
       "release_status": "beta",
@@ -14962,27 +14825,11 @@
         "interval_events_json_v1",
         "interval_events_csv_v1"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "r_peak",
         "hrv",
         "signal_quality"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "benchmark",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "regression",
@@ -23085,7 +22932,6 @@
         "RR reconstruction plus time-domain, Poincare, VLF, LF, HF and normalized-power implementation QA",
         "Clean, spectral, variability, respiratory, ectopic and acquisition-stress case comparison"
       ],
-      "recommended_profile": "benchmark",
       "reference_only_targets": [],
       "release_date": "2026-07-26",
       "release_status": "beta",
@@ -23131,25 +22977,9 @@
         "measurement_values_json_v2",
         "measurement_values_csv_v2"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "hrv"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "benchmark",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "regression",
@@ -23452,7 +23282,6 @@
         "Beat-class output schema integration tests",
         "CI gates that need exact beat timing and class labels"
       ],
-      "recommended_profile": "regression",
       "reference_only_targets": [],
       "release_date": "2026-07-06",
       "release_status": "beta",
@@ -23494,25 +23323,9 @@
         "point_events_json_v1",
         "point_events_csv_v1"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "ecg_beat_classification"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "regression",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "regression",
@@ -23935,7 +23748,6 @@
         "Detector robustness checks around abrupt rate changes",
         "Regression packs for rhythm-sensitive wearable algorithms"
       ],
-      "recommended_profile": "stress",
       "reference_only_targets": [],
       "release_date": "2026-07-06",
       "release_status": "beta",
@@ -24023,27 +23835,11 @@
         "interval_events_json_v1",
         "interval_events_csv_v1"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "r_peak",
         "ecg_beat_classification",
         "rhythm_episode"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "stress",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "regression",
@@ -24366,7 +24162,6 @@
         "Onset, offset, overlap and false-alarm regression testing",
         "Manual QA of exact synthetic artifact timing, channels and labels"
       ],
-      "recommended_profile": "stress",
       "reference_only_targets": [],
       "release_date": "2026-07-06",
       "release_status": "beta",
@@ -24427,24 +24222,10 @@
         "point_events_json_v1",
         "point_events_csv_v1"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress"
-      ],
       "targets": [
         "signal_quality",
         "ppg_systolic_peak"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "stress",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "stress",
@@ -24774,7 +24555,6 @@
         "Visual QA of conduction, ST-T, hypertrophy and infarction phenotypes",
         "Stress tests for morphology-sensitive ECG algorithms"
       ],
-      "recommended_profile": "stress",
       "reference_only_targets": [],
       "release_date": "2026-07-06",
       "release_status": "beta",
@@ -24834,26 +24614,10 @@
         "interval_events_json_v1",
         "interval_events_csv_v1"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "morphology_assertions",
         "signal_quality"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "stress",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "stress",
@@ -25176,7 +24940,6 @@
         "Multimodal pipeline integration tests",
         "Detector tests that need linked ECG and PPG channels"
       ],
-      "recommended_profile": "smoke",
       "reference_only_targets": [],
       "release_date": "2026-07-06",
       "release_status": "beta",
@@ -25257,23 +25020,11 @@
         "interval_events_json_v1",
         "interval_events_csv_v1"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression"
-      ],
       "targets": [
         "ppg_systolic_peak",
         "ecg_ppg_alignment",
         "signal_quality"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "smoke",
-        "supported_profiles": [
-          "smoke",
-          "regression"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "smoke",
@@ -25601,7 +25352,6 @@
         "Robustness tests across artifact, dropout and timing disturbances",
         "Release-candidate smoke tests for integrated verification tooling"
       ],
-      "recommended_profile": "stress",
       "reference_only_targets": [],
       "release_date": "2026-07-06",
       "release_status": "beta",
@@ -25696,28 +25446,12 @@
         "interval_events_json_v1",
         "interval_events_csv_v1"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "r_peak",
         "hrv",
         "ppg_systolic_peak",
         "signal_quality"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "stress",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "stress",
@@ -26110,7 +25844,6 @@
         "Physiological versus device-domain ECG/PPG timing verification",
         "Cross-device ECG vector and PPG anatomical-site robustness checks"
       ],
-      "recommended_profile": "stress",
       "reference_only_targets": [],
       "release_date": "2026-07-17",
       "release_status": "beta",
@@ -26197,27 +25930,11 @@
         "measurement_values_json_v2",
         "measurement_values_csv_v2"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "r_peak",
         "ppg_systolic_peak",
         "ecg_ppg_alignment"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "stress",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "stress",
@@ -26681,7 +26398,6 @@
         "Perfusion, motion, dropout, saturation and missing-pulse stress tests",
         "Wearable PPG regression and benchmark gates"
       ],
-      "recommended_profile": "benchmark",
       "reference_only_targets": [],
       "release_date": "2026-07-06",
       "release_status": "beta",
@@ -26753,26 +26469,10 @@
         "point_events_json_v1",
         "point_events_csv_v1"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "ppg_systolic_peak",
         "ppg_pulse_onset"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "benchmark",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "benchmark",
@@ -27138,7 +26838,6 @@
         "Target SpO2 trajectory tracking against declared engineering calibration truth",
         "Motion, ambient-light, crosstalk, clipping, quantization and low-perfusion stress tests"
       ],
-      "recommended_profile": "regression",
       "reference_only_targets": [],
       "release_date": "2026-07-17",
       "release_status": "beta",
@@ -27221,27 +26920,11 @@
         "point_events_json_v1",
         "point_events_csv_v1"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "ppg_optical",
         "ppg_systolic_peak",
         "ppg_pulse_onset"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "regression",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "regression",
@@ -27630,7 +27313,6 @@
         "T onset, peak, and offset delineation algorithm QA",
         "Lead-specific absent/not-evaluable wave, non-conducted atrial activity, rate, conduction, repolarization, and artifact stress tests"
       ],
-      "recommended_profile": "regression",
       "reference_only_targets": [],
       "release_date": "2026-07-17",
       "release_status": "beta",
@@ -27675,25 +27357,9 @@
         "point_events_json_v1",
         "point_events_csv_v1"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "ecg_delineation"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "regression",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "regression",
@@ -28003,7 +27669,6 @@
         "Respiratory-rate algorithm regression against a deterministic multimodal reference",
         "PPG pulse-loss, low-perfusion and motion stress testing"
       ],
-      "recommended_profile": "regression",
       "reference_only_targets": [],
       "release_date": "2026-07-17",
       "release_status": "beta",
@@ -28062,26 +27727,10 @@
         "measurement_values_json_v2",
         "measurement_values_csv_v2"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "prv",
         "respiratory_rate"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "regression",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "regression",
@@ -28309,7 +27958,6 @@
         "Clean-versus-noisy regression with exact interval and source provenance truth",
         "Deployment-specific testing with separately approved real-noise assets"
       ],
-      "recommended_profile": "stress",
       "reference_only_targets": [],
       "release_date": "2026-07-17",
       "release_status": "beta",
@@ -28366,26 +28014,10 @@
         "interval_events_json_v1",
         "interval_events_csv_v1"
       ],
-      "supported_threshold_profiles": [
-        "smoke",
-        "regression",
-        "stress",
-        "benchmark"
-      ],
       "targets": [
         "r_peak",
         "signal_quality"
       ],
-      "threshold_profile_contract": {
-        "policy_failure_exit_code": 1,
-        "recommended_profile": "stress",
-        "supported_profiles": [
-          "smoke",
-          "regression",
-          "stress",
-          "benchmark"
-        ]
-      },
       "ui": {
         "primary_badges": [
           "regression",
@@ -28401,8 +28033,8 @@
     }
   ],
   "product": "Synsigra Testbench",
-  "release_set_id": "synsigra_curated_release_2026_07_29_evidence_profiles",
+  "release_set_id": "synsigra_curated_release_2026_07_29_consistency_audit",
   "release_set_status": "beta",
   "schema_version": 1,
-  "source_catalog_sha256": "sha256:420acb966f8ba2cf7276af8b3cacb6c16ce3169f74c1861af8129a16195aa4c3"
+  "source_catalog_sha256": "sha256:6862313147dcdeab429e1972af62b81e9a7c4025c6707ee752c3126f5f8b556a"
 }

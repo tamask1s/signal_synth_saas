@@ -1,6 +1,6 @@
 # Synsigra product capabilities
 
-This is the product-level capability summary for the exact core v7 release. A
+This is the product-level capability summary for the exact core v8 release. A
 small curated pack is one validated slice, not the platform limit. The live
 `/v1/authoring/schema`, `/v1/authoring/templates`, `/v1/packs`, and `/readyz`
 responses remain authoritative.

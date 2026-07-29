@@ -75,8 +75,6 @@ struct PackSummary {
     std::vector<PackTargetSummary> scoreable_targets;
     std::vector<PackTargetSummary> reference_only_targets;
     std::vector<std::string> submission_output_schemas;
-    std::string recommended_profile;
-    std::vector<std::string> supported_threshold_profiles;
     std::vector<std::string> recommended_for;
     std::vector<std::string> not_recommended_for;
     std::vector<std::string> difficulty;
