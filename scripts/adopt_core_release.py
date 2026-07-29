@@ -267,8 +267,25 @@ def main():
                 old_verifier,
                 new_verifier,
                 "verifier version",
-                required=old_verifier != new_verifier,
+                required=False,
             )
+            if old_verifier != new_verifier:
+                old_verifier_bytes = old_verifier.encode("ascii")
+                new_verifier_bytes = new_verifier.encode("ascii")
+                for path in VERIFIER_VERSION_FILES:
+                    content = path.read_bytes()
+                    if old_verifier_bytes in content:
+                        raise RuntimeError(
+                            "stale verifier version remains in {}".format(
+                                path.relative_to(ROOT)
+                            )
+                        )
+                    if new_verifier_bytes not in content:
+                        raise RuntimeError(
+                            "{} does not declare the adopted verifier version".format(
+                                path.relative_to(ROOT)
+                            )
+                        )
             shutil.rmtree(str(PACK_ROOT))
             shutil.copytree(str(staged_packs), str(PACK_ROOT))
 
