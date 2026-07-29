@@ -4212,7 +4212,7 @@ const char kUiJs[] = R"JS((() => {
       <label class="target-option ${profile.profile_id === envelope.default_profile_id ? "recommended" : ""}">
         <input type="radio" name="evidence-profile" value="${escapeHtml(profile.profile_id)}" ${profile.profile_id === state.selectedEvidenceProfileId ? "checked" : ""}>
         <span>
-          <strong>${escapeHtml(profile.display_name)}</strong>
+          <strong>${escapeHtml(profile.display_name)}${profile.profile_id === envelope.default_profile_id ? ' <span class="tag mode">Recommended</span>' : ""}</strong>
           <small>${escapeHtml(profile.description || "")}</small>
           <small>${escapeHtml(profile.threshold_adjustment || "")}</small>
         </span>

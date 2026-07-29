@@ -236,7 +236,17 @@ int main() {
         "'submission_formats':{},"
         "'verification_protocol':{},"
         "'verification':{'mode':'evidence','evidence_eligible':True,'matrix_complete':True,'evidence_result':'not_run','policy_result':'not_run','notice':'test','protocol':{"
+        "'protocol_id':'test_pack__level_2',"
+        "'contract':'synsigra_verification_protocol_v3',"
+        "'path':'verification_protocol.json',"
+        "'size_bytes':25,"
         "'sha256':'" + protocol_sha256 + "',"
+        "'context_of_use':'Synthetic test evidence',"
+        "'scoring_contract':'synsigra_local_verification_v3',"
+        "'verdict_scope':'per_case',"
+        "'acceptance_profile_id':'test_acceptance',"
+        "'required_case_target_count':1,"
+        "'evidence_boundary':'Synthetic engineering QA',"
         "'evidence_profile':{'profile_id':'level_2','display_name':'Level 2 — Advanced','version':'1.0','rank':2,'policy_contract':'synsigra_evidence_profile_policy_v1'}}},"
         "'external_noise':{'used':False,'release_allowed':True,'assets':[],'truth_paths':[]},"
         "'roles':{},"
@@ -287,8 +297,8 @@ int main() {
             pack_path,
             fingerprint,
             "1.0",
-            "3.5",
-            "sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136",
+            "3.6",
+            "sha256:420acb966f8ba2cf7276af8b3cacb6c16ce3169f74c1861af8129a16195aa4c3",
             "level_2",
             "Level 2 — Advanced",
             "1.0",
@@ -309,9 +319,10 @@ int main() {
     config.challenge_helper = helper;
     config.verifier_wheel = wheel;
     std::string claimed_job;
+    const syn_sig_ra::WorkerRunStatus success_status =
+        syn_sig_ra::run_worker_once(config, claimed_job, error);
     require(
-        syn_sig_ra::run_worker_once(config, claimed_job, error) ==
-            syn_sig_ra::WorkerRunStatus::succeeded,
+        success_status == syn_sig_ra::WorkerRunStatus::succeeded,
         "worker should succeed: " + error
     );
     require(claimed_job == succeeded_job, "worker should claim queued job");
@@ -633,7 +644,7 @@ int main() {
                 "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "exact rebuild should preserve generator and package identity"
     );
-    write_file(protocol_path, "{\"protocol\":\"new-live-copy\"}\n", 0600);
+    write_file(protocol_path, protocol_document, 0600);
     write_file(noise_path, "sample,noise\n0,9.0\n", 0600);
 
     std::string failed_job;
@@ -646,8 +657,8 @@ int main() {
             pack_path,
             fingerprint,
             "1.0",
-            "3.5",
-            "sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136",
+            "3.6",
+            "sha256:420acb966f8ba2cf7276af8b3cacb6c16ce3169f74c1861af8129a16195aa4c3",
             "level_2",
             "Level 2 — Advanced",
             "1.0",

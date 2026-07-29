@@ -379,6 +379,8 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     ! grep -q 'Preparing exact package' "$WORK_ROOT/app.js" ||
     ! grep -q 'validationMessageClass' "$WORK_ROOT/app.js" ||
     ! grep -q 'selectPackForGeneration' "$WORK_ROOT/app.js" ||
+    ! grep -q 'renderEvidenceProfilePicker' "$WORK_ROOT/app.js" ||
+    ! grep -q 'evidence_profile_id' "$WORK_ROOT/app.js" ||
     ! grep -q 'packIntentCopy' "$WORK_ROOT/app.js" ||
     ! grep -q 'renderCustomPackReview' "$WORK_ROOT/app.js" ||
     ! grep -q 'applyMissingTargetRequirements' "$WORK_ROOT/app.js" ||
@@ -403,6 +405,13 @@ if ! grep -q '^(() => {' "$WORK_ROOT/app.js" ||
     dump_file "$WORK_ROOT/app.js" "web UI JavaScript"
     fail "web UI JavaScript was not executable or did not contain API wiring"
 fi
+if command -v node >/dev/null 2>&1; then
+    node --check "$WORK_ROOT/app.js" ||
+        fail "web UI JavaScript failed the Node syntax check"
+elif command -v nodejs >/dev/null 2>&1; then
+    nodejs --check "$WORK_ROOT/app.js" ||
+        fail "web UI JavaScript failed the Node syntax check"
+fi
 if grep -q -- '--profile' "$WORK_ROOT/app.js" ||
     grep -q 'pre_specified_profile' "$WORK_ROOT/app.js" ||
     ! grep -q -- '--mode diagnostic' "$WORK_ROOT/app.js" ||
@@ -413,6 +422,29 @@ fi
 
 curl -fsS "$BASE_URL/v1/packs" >"$WORK_ROOT/packs.json" ||
     fail "pack catalog request failed"
+python3 - "$WORK_ROOT/packs.json" <<'PY' ||
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    packs = json.load(handle).get("packs", [])
+pack = next(
+    item for item in packs
+    if item.get("pack_id") == "r_peak_rr_simple_stress_v1"
+)
+profiles = pack.get("evidence_profiles", {})
+assert profiles.get("available") is True
+assert profiles.get("default_profile_id") == "level_2"
+assert [
+    (item.get("profile_id"), item.get("display_name"))
+    for item in profiles.get("profiles", [])
+] == [
+    ("level_1", "Level 1 — Foundation"),
+    ("level_2", "Level 2 — Advanced"),
+    ("level_3", "Level 3 — Frontier"),
+]
+PY
+    fail "pack API did not expose the three ordered evidence levels"
 
 MCP_ACCEPT='Accept: application/json, text/event-stream'
 MCP_VERSION='MCP-Protocol-Version: 2025-11-25'
@@ -755,7 +787,7 @@ for key in ("package_fingerprint", "generator_binary_sha256"):
         raise SystemExit("invalid " + key)
 if body.get("integration_contract") != "synsigra_core_integration_v8":
     raise SystemExit("invalid integration contract")
-if body.get("generator_git_commit") != "d4f3f75cb46aeb5bcf7fe9ed700e7d109d00416f":
+if body.get("generator_git_commit") != "05a04285428f940790fab6d68f9bf89ccb84634d":
     raise SystemExit("invalid pinned generator commit")
 challenge = body.get("challenge", {})
 if challenge.get("challenge_contract") != "synsigra_challenge_package_v3":
@@ -1250,7 +1282,7 @@ if body.get("status") != "succeeded":
     raise SystemExit("custom pack job did not succeed")
 if body.get("integration_contract") != "synsigra_core_integration_v8":
     raise SystemExit("custom pack job used the wrong integration contract")
-if body.get("generator_git_commit") != "d4f3f75cb46aeb5bcf7fe9ed700e7d109d00416f":
+if body.get("generator_git_commit") != "05a04285428f940790fab6d68f9bf89ccb84634d":
     raise SystemExit("custom pack job used the wrong generator commit")
 challenge = body.get("challenge", {})
 for key, value in {

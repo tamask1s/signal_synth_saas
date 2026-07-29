@@ -118,6 +118,6 @@
     "ecg_delineation",
     "qtc"
   ],
-  "verification_protocol_path": "ecg_qtc_verification_v1_expectations.json",
+  "verification_protocol_path": "ecg_qtc_verification_v1__level_2_expectations.json",
   "version": "1.1"
 }

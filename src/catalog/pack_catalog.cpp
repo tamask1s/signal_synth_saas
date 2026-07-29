@@ -376,9 +376,9 @@ bool curated_pack_ids(
     json_t* packs = root == nullptr ? nullptr : json_object_get(root, "packs");
     json_t* count = root == nullptr ? nullptr : json_object_get(root, "pack_count");
     if (!exact_object(root, 13) ||
-        json_string_or_empty(json_object_get(root, "catalog_version")) != "3.5" ||
+        json_string_or_empty(json_object_get(root, "catalog_version")) != "3.6" ||
         json_string_or_empty(json_object_get(root, "source_catalog_sha256")) !=
-            "sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136" ||
+            "sha256:420acb966f8ba2cf7276af8b3cacb6c16ce3169f74c1861af8129a16195aa4c3" ||
         !json_is_array(packs) || !json_is_integer(count) ||
         json_integer_value(count) <= 0 ||
         static_cast<std::size_t>(json_integer_value(count)) !=
@@ -429,20 +429,20 @@ bool load_curated_catalog_metadata(
             "synsigra_curated_pack_metadata_export_v1" &&
         json_string_or_empty(json_object_get(root, "catalog_id")) ==
             "synsigra_verification_packs" &&
-        json_string_or_empty(json_object_get(root, "catalog_version")) == "3.5" &&
+        json_string_or_empty(json_object_get(root, "catalog_version")) == "3.6" &&
         json_string_or_empty(json_object_get(root, "release_set_status")) == "beta" &&
         json_is_string(json_object_get(root, "release_set_id")) &&
         json_string_length(json_object_get(root, "release_set_id")) > 0 &&
         valid_sha256(json_object_get(root, "source_catalog_sha256")) &&
         json_string_or_empty(json_object_get(root, "source_catalog_sha256")) ==
-            "sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136" &&
+            "sha256:420acb966f8ba2cf7276af8b3cacb6c16ce3169f74c1861af8129a16195aa4c3" &&
         json_is_array(packs) && json_is_integer(pack_count) &&
         json_integer_value(pack_count) > 0 &&
         static_cast<std::size_t>(json_integer_value(pack_count)) ==
             json_array_size(packs);
     if (!header_valid) {
         if (root != nullptr) json_decref(root);
-        error = "curated pack catalog metadata has an unsupported 3.5 header";
+        error = "curated pack catalog metadata has an unsupported 3.6 header";
         return false;
     }
     pack.catalog_version = json_string_value(json_object_get(root, "catalog_version"));
@@ -642,6 +642,11 @@ bool load_curated_catalog_metadata(
     pack.default_evidence_profile_id = json_string_value(
         json_object_get(evidence, "default_profile_id"));
     pack.evidence_profiles.clear();
+    const std::string::size_type catalog_separator = path.find_last_of('/');
+    const std::string catalog_directory =
+        catalog_separator == std::string::npos
+        ? std::string()
+        : path.substr(0, catalog_separator + 1);
     const char* expected_profile_ids[] = {"level_1", "level_2", "level_3"};
     if (pack.evidence_profiles_available) {
         if (pack.default_evidence_profile_id != "level_2" ||
@@ -678,23 +683,52 @@ bool load_curated_catalog_metadata(
                 error = "curated pack evidence profile is invalid";
                 return false;
             }
-            char* canonical = json_dumps(
-                document, JSON_COMPACT | JSON_SORT_KEYS);
-            if (canonical == nullptr) {
+            const std::string profile_id = json_string_or_empty(
+                json_object_get(item, "profile_id"));
+            const std::string expected_digest = json_string_or_empty(
+                json_object_get(item, "protocol_sha256"));
+            const std::string protocol_path =
+                catalog_directory + pack.pack_id + "__" + profile_id +
+                "_expectations.json";
+            std::string protocol_json;
+            std::string protocol_error;
+            struct stat protocol_information;
+            if (lstat(protocol_path.c_str(), &protocol_information) != 0 ||
+                !S_ISREG(protocol_information.st_mode) ||
+                !read_file(protocol_path, protocol_json, protocol_error)) {
                 json_decref(root);
-                error = "curated pack evidence protocol cannot be encoded";
+                error =
+                    "curated pack evidence protocol file is unavailable for " +
+                    pack.pack_id + "/" + profile_id;
                 return false;
             }
             std::string digest;
             std::string digest_error;
-            const std::string canonical_json(canonical);
-            free(canonical);
             if (!syn_sig_ra::sha256_hex(
-                    canonical_json, digest, digest_error) ||
-                "sha256:" + digest != json_string_or_empty(
-                    json_object_get(item, "protocol_sha256"))) {
+                    protocol_json, digest, digest_error) ||
+                "sha256:" + digest != expected_digest) {
                 json_decref(root);
-                error = "curated pack evidence protocol SHA-256 is invalid";
+                error =
+                    "curated pack evidence protocol SHA-256 is invalid for " +
+                    pack.pack_id + "/" + profile_id + ": expected " +
+                    expected_digest + ", got sha256:" + digest;
+                return false;
+            }
+            json_error_t protocol_parse_error;
+            json_t* protocol_document = json_loadb(
+                protocol_json.data(), protocol_json.size(),
+                JSON_REJECT_DUPLICATES, &protocol_parse_error);
+            const bool document_matches =
+                json_is_object(protocol_document) &&
+                json_equal(protocol_document, document);
+            if (protocol_document != nullptr) {
+                json_decref(protocol_document);
+            }
+            if (!document_matches) {
+                json_decref(root);
+                error =
+                    "curated pack evidence protocol file does not match the "
+                    "catalog document for " + pack.pack_id + "/" + profile_id;
                 return false;
             }
             syn_sig_ra::EvidenceProfileSummary profile;
@@ -712,7 +746,7 @@ bool load_curated_catalog_metadata(
                 json_object_get(item, "protocol_id"));
             profile.protocol_sha256 = json_string_or_empty(
                 json_object_get(item, "protocol_sha256"));
-            profile.protocol_json = canonical_json;
+            profile.protocol_json = protocol_json;
             if (profile.display_name.empty() || profile.version.empty() ||
                 profile.description.empty() ||
                 profile.threshold_adjustment.empty() ||

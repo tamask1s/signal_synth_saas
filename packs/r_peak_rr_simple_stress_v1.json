@@ -73,6 +73,6 @@
     "r_peak",
     "rr_interval"
   ],
-  "verification_protocol_path": "r_peak_rr_simple_stress_v1_expectations.json",
+  "verification_protocol_path": "r_peak_rr_simple_stress_v1__level_2_expectations.json",
   "version": "2.0"
 }

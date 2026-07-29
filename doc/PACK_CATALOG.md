@@ -18,7 +18,7 @@ the pinned CLI. Startup and readiness require:
 - catalog version `3.6`;
 - a positive declared pack count that exactly matches the unique pack array;
 - catalog source hash
-  `sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136`;
+  `sha256:420acb966f8ba2cf7276af8b3cacb6c16ce3169f74c1861af8129a16195aa4c3`;
 - integration `synsigra_core_integration_v8`;
 - challenge `synsigra_challenge_package_v3`;
 - scoring `synsigra_scoring_manifest_v3`;

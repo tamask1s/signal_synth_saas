@@ -81,6 +81,6 @@
     "r_peak",
     "rr_interval"
   ],
-  "verification_protocol_path": "r_peak_noise_frontier_v1_expectations.json",
+  "verification_protocol_path": "r_peak_noise_frontier_v1__level_2_expectations.json",
   "version": "1.1"
 }

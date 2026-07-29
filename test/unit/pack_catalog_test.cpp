@@ -88,7 +88,8 @@ int main() {
     std::string error;
     std::vector<syn_sig_ra::PackSummary> packs;
 
-    require(catalog.list(packs, error), "catalog list should succeed: " + error);
+    const bool listed = catalog.list(packs, error);
+    require(listed, "catalog list should succeed: " + error);
     const syn_sig_ra::PackSummary* simple_r_peak =
         find_pack(packs, "r_peak_rr_simple_stress_v1");
     const syn_sig_ra::PackSummary* snr_ladder =

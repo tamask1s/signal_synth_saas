@@ -645,10 +645,37 @@ int main() {
     require(
         retried.status == 202 &&
             retried.body.find("\"retry_of\":\"" + job_id + "\"") !=
-                std::string::npos &&
-            retried.body.find("\"profile_id\":\"level_2\"") !=
                 std::string::npos,
-        "cancelled jobs should retry with the same immutable evidence level"
+        "cancelled jobs should retry as a new queued job"
+    );
+    const std::string::size_type retry_marker_position =
+        retried.body.find(marker);
+    require(
+        retry_marker_position != std::string::npos,
+        "retry response should contain a new job ID"
+    );
+    const std::string::size_type retry_id_start =
+        retry_marker_position + marker.size();
+    const std::string retry_job_id = retried.body.substr(
+        retry_id_start,
+        retried.body.find('"', retry_id_start) - retry_id_start
+    );
+    const syn_sig_ra::RouteResponse retried_status =
+        syn_sig_ra::route_request(
+            "GET",
+            "/syn_sig_ra/v1/jobs/" + retry_job_id,
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root
+        );
+    require(
+        retried_status.status == 200 &&
+            retried_status.body.find("\"profile_id\":\"level_2\"") !=
+                std::string::npos &&
+            retried_status.body.find("\"protocol_sha256\":\"sha256:") !=
+                std::string::npos,
+        "retried jobs must retain the same immutable evidence level"
     );
     const syn_sig_ra::RouteResponse second_active =
         syn_sig_ra::route_request(

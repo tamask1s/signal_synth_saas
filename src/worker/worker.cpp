@@ -711,7 +711,8 @@ bool parse_challenge_receipt(
         json_object_size(generator) == 4;
     const bool contracts_shape = json_is_object(contracts) &&
         json_object_size(contracts) == 3;
-    const bool valid = json_is_integer(schema) && json_integer_value(schema) == 1 &&
+    const bool metadata_valid =
+        json_is_integer(schema) && json_integer_value(schema) == 1 &&
         json_string_equals(root, "contract", producer.integration_contract) &&
         json_string_equals(root, "status", "challenge_rendered") &&
         json_is_string(output) && json_string_length(output) > 0 &&
@@ -722,25 +723,30 @@ bool parse_challenge_receipt(
         json_is_string(pack_fingerprint) &&
         valid_fingerprint(json_string_value(pack_fingerprint)) &&
         json_is_string(package_fingerprint) &&
-        valid_fingerprint(json_string_value(package_fingerprint)) &&
-        generator_shape && contracts_shape &&
+        valid_fingerprint(json_string_value(package_fingerprint));
+    const bool generator_valid = generator_shape &&
         json_string_equals(generator, "name", producer.generator_name) &&
         json_string_equals(generator, "version", producer.generator_version) &&
         json_string_equals(
             generator, "git_commit", producer.generator_git_commit) &&
         json_string_equals(
-            generator, "build_identity", producer.generator_build_identity) &&
+            generator, "build_identity", producer.generator_build_identity);
+    const bool contracts_valid = contracts_shape &&
         json_string_equals(
             contracts, "challenge_package", producer.challenge_package) &&
         json_string_equals(
-            contracts, "scoring_manifest", producer.scoring_manifest);
-    const bool protocol_valid = contracts_shape && json_string_equals(
-        contracts, "verification_protocol", producer.verification_protocol);
-    char* canonical = valid && protocol_valid
+            contracts, "scoring_manifest", producer.scoring_manifest) &&
+        json_string_equals(
+            contracts, "verification_protocol", producer.verification_protocol);
+    char* canonical = metadata_valid && generator_valid && contracts_valid
         ? json_dumps(root, JSON_COMPACT | JSON_SORT_KEYS) : nullptr;
-    if (!valid || !protocol_valid || canonical == nullptr) {
+    if (!metadata_valid || !generator_valid || !contracts_valid ||
+        canonical == nullptr) {
         json_decref(root);
-        error = "CLI challenge receipt fields do not match the accepted producer";
+        error = "CLI challenge receipt fields do not match accepted ";
+        error += !metadata_valid ? "metadata" :
+            (!generator_valid ? "producer identity" :
+             (!contracts_valid ? "contract tuple" : "JSON encoding"));
         return false;
     }
     CliChallengeResult parsed;

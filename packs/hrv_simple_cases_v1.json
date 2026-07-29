@@ -78,6 +78,6 @@
   "targets": [
     "hrv"
   ],
-  "verification_protocol_path": "hrv_simple_cases_v1_expectations.json",
+  "verification_protocol_path": "hrv_simple_cases_v1__level_2_expectations.json",
   "version": "1.0"
 }

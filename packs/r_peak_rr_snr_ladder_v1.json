@@ -121,6 +121,6 @@
     "r_peak",
     "rr_interval"
   ],
-  "verification_protocol_path": "r_peak_rr_snr_ladder_v1_expectations.json",
+  "verification_protocol_path": "r_peak_rr_snr_ladder_v1__level_2_expectations.json",
   "version": "2.1"
 }
