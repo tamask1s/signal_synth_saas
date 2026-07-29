@@ -12,9 +12,11 @@ scripts/cleanup_retention.sh --apply
 
 Cleanup first hides the package in metadata, then removes only the exact
 `<data-root>/packages/<package_id>` tree. It rejects symlinks and unexpected
-storage paths. The succeeded job, pack/package fingerprints, generator build
-identity, timestamps, and safe error metadata remain. Its API representation
-uses `artifact_status: expired`; artifact downloads return 404.
+storage paths. Only after successful removal does it mark the physical artifact
+as removed, so interrupted cleanup remains retryable and completed cleanup is
+idempotent. The succeeded job, pack/package fingerprints, generator build
+identity, timestamps, usage accounting, and safe error metadata remain. Its API
+representation uses `artifact_status: expired`; artifact downloads return 404.
 
 Published packages are immutable while cached. Cleanup never modifies their
 contents. Current plans share the same 7-day window; plan-specific windows can

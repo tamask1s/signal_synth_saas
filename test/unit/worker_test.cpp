@@ -560,10 +560,22 @@ int main() {
         "retention cleanup should hide the package"
     );
     require(
+        store.mark_package_artifacts_removed(successful_package_id, error),
+        "retention cleanup should record physical artifact removal"
+    );
+    retention_candidates.clear();
+    require(
+        store.list_retention_candidates(
+            90, retention_candidates, error
+        ) && retention_candidates.empty(),
+        "completed retention cleanup must be idempotent"
+    );
+    require(
         store.find_job(succeeded_job, owner, job, error) ==
             syn_sig_ra::RecordLookupStatus::found &&
-            job.status == "succeeded" && job.package_id.empty(),
-        "artifact expiry must preserve the succeeded job record"
+            job.status == "succeeded" && job.package_id.empty() &&
+            job.artifact_storage_key.empty(),
+        "artifact expiry must preserve the succeeded job without a stale path"
     );
     const syn_sig_ra::RouteResponse expired_job =
         syn_sig_ra::route_request(

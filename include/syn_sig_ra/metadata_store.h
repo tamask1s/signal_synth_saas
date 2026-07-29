@@ -641,6 +641,11 @@ public:
         std::string& error
     );
 
+    bool mark_package_artifacts_removed(
+        const std::string& package_id,
+        std::string& error
+    );
+
     bool backup_database(
         const std::string& destination_path,
         std::string& error

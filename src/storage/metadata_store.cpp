@@ -3429,8 +3429,9 @@ bool MetadataStore::list_retention_candidates(
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "SELECT id,job_id,artifact_storage_key,deleted_at IS NOT NULL "
-        "FROM packages WHERE deleted_at IS NOT NULL OR "
-        "created_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now',?1) "
+        "FROM packages WHERE artifact_storage_key NOT LIKE 'removed:%' AND ("
+        "deleted_at IS NOT NULL OR "
+        "created_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now',?1)) "
         "ORDER BY created_at,id;";
     std::ostringstream modifier;
     modifier << '-' << retention_days << " days";
@@ -3477,6 +3478,53 @@ bool MetadataStore::mark_package_expired(
     if (!succeeded) error = sqlite3_errmsg(database_);
     sqlite3_finalize(statement);
     return succeeded;
+}
+
+bool MetadataStore::mark_package_artifacts_removed(
+    const std::string& package_id,
+    std::string& error
+) {
+    if (!initialize(error) || !execute("BEGIN IMMEDIATE;", error)) {
+        return false;
+    }
+
+    sqlite3_stmt* job_statement = nullptr;
+    const char* job_sql =
+        "UPDATE jobs SET artifact_storage_key=NULL WHERE id=("
+        "SELECT job_id FROM packages WHERE id=?1 AND deleted_at IS NOT NULL);";
+    bool succeeded =
+        sqlite3_prepare_v2(
+            database_, job_sql, -1, &job_statement, nullptr
+        ) == SQLITE_OK &&
+        bind_text(job_statement, 1, package_id) &&
+        sqlite3_step(job_statement) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    sqlite3_finalize(job_statement);
+
+    sqlite3_stmt* package_statement = nullptr;
+    const char* package_sql =
+        "UPDATE packages SET artifact_storage_key=?2 "
+        "WHERE id=?1 AND deleted_at IS NOT NULL "
+        "AND artifact_storage_key NOT LIKE 'removed:%';";
+    succeeded = succeeded &&
+        sqlite3_prepare_v2(
+            database_, package_sql, -1, &package_statement, nullptr
+        ) == SQLITE_OK &&
+        bind_text(package_statement, 1, package_id) &&
+        bind_text(package_statement, 2, "removed:" + package_id) &&
+        sqlite3_step(package_statement) == SQLITE_DONE &&
+        sqlite3_changes(database_) == 1;
+    sqlite3_finalize(package_statement);
+
+    if (!succeeded || !execute("COMMIT;", error)) {
+        if (error.empty()) {
+            error = sqlite3_errmsg(database_);
+        }
+        std::string ignored;
+        execute("ROLLBACK;", ignored);
+        return false;
+    }
+    return true;
 }
 
 bool MetadataStore::backup_database(

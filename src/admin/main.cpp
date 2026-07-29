@@ -388,7 +388,9 @@ int main(int argc, char** argv) {
             if (it->artifact_storage_key != expected ||
                 !store.mark_package_expired(it->package_id, error) ||
                 !remove_tree(expected, error) ||
-                !remove_tree(derived, error)) {
+                !remove_tree(derived, error) ||
+                !store.mark_package_artifacts_removed(
+                    it->package_id, error)) {
                 std::cerr << "error=retention-cleanup-failed package_id="
                           << it->package_id << " message=" << error << '\n';
                 return EXIT_FAILURE;
