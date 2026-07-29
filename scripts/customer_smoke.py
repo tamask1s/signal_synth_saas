@@ -7,6 +7,7 @@ import os
 import pathlib
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -30,6 +31,11 @@ def main():
     parser.add_argument("--key", default=os.environ.get("SYN_SIG_RA_API_KEY"))
     parser.add_argument("--project")
     parser.add_argument("--pack", default="r_peak_rr_simple_stress_v1")
+    parser.add_argument(
+        "--evidence-profile",
+        choices=("level_1", "level_2", "level_3"),
+        help="Acceptance level for curated evidence packs (default: pack recommendation)",
+    )
     parser.add_argument("--out", type=pathlib.Path, default=pathlib.Path("syn_sig_ra_output"))
     args = parser.parse_args()
     if not args.key:
@@ -37,9 +43,28 @@ def main():
 
     projects = json.loads(request(args.base, args.key, "/v1/projects")[0])
     project_id = args.project or projects["projects"][0]["project_id"]
+    encoded_pack = urllib.parse.quote(args.pack, safe="")
+    try:
+        pack = json.loads(request(
+            args.base, args.key, "/v1/packs/" + encoded_pack
+        )[0])
+    except RuntimeError as error:
+        if not str(error).startswith("HTTP 404:"):
+            raise
+        pack = json.loads(request(
+            args.base, args.key, "/v1/custom-packs/" + encoded_pack
+        )[0])
+    payload = {"project_id": project_id, "pack_id": args.pack}
+    profiles = pack.get("evidence_profiles", {})
+    if profiles.get("available"):
+        payload["evidence_profile_id"] = (
+            args.evidence_profile or profiles["default_profile_id"]
+        )
+    elif args.evidence_profile:
+        parser.error("--evidence-profile is not supported by this diagnostic pack")
     created = json.loads(request(
         args.base, args.key, "/v1/jobs", "POST",
-        {"project_id": project_id, "pack_id": args.pack},
+        payload,
     )[0])
     job_id = created["job_id"]
     for _ in range(120):

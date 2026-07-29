@@ -96,7 +96,7 @@ new_secret=$(cat "$new_key")
 }
 
 job=$(curl -fsS -K - -H 'Content-Type: application/json' \
-  -d '{"project_id":"org_live_default","pack_id":"r_peak_rr_simple_stress_v1"}' \
+  -d '{"project_id":"org_live_default","pack_id":"r_peak_rr_simple_stress_v1","evidence_profile_id":"level_2"}' \
   "$base/v1/jobs" <<EOF
 header = "Authorization: Bearer $new_secret"
 EOF
@@ -138,9 +138,11 @@ expected={
  "local_verification_contract":"synsigra_local_verification_v3",
 }
 assert all(c.get(k)==v for k,v in expected.items())
-assert c["verification"]["mode"]=="diagnostic"
-assert c["verification"]["evidence_eligible"] is False
-assert c["verification"]["matrix_complete"] is None
+assert j["evidence_profile"]["profile_id"]=="level_2"
+assert c["verification"]["mode"]=="evidence"
+assert c["verification"]["evidence_eligible"] is True
+assert c["verification"]["matrix_complete"] is True
+assert c["verification"]["protocol"]["evidence_profile"]["profile_id"]=="level_2"
 assert c["integrity"]["ok"] is True
 '
 kit=$(mktemp /tmp/synsigra-reset-kit.XXXXXX)
@@ -152,11 +154,11 @@ rm -f "$kit"
 
 # The deployment itself can only perform a runtime baseline check because the
 # reset database initially has no jobs. Exercise the complete live verifier now
-# that a fresh v7 package and its customer kit exist.
+# that a fresh v8 package and its customer kit exist.
 "$repo_dir/scripts/verify_live.sh"
 
 # A pre-beta reset intentionally leaves no old producer artifact available for
-# an accidental rollback. Keep exactly the freshly installed v7 release.
+# an accidental rollback. Keep exactly the freshly installed v8 release.
 current_release=$(sudo readlink -f /opt/signal_synth_saas/current-release)
 case "$current_release" in
   /opt/signal_synth_saas/releases/*.tar.gz) ;;

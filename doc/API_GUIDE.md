@@ -237,6 +237,8 @@ Cross-tenant 404 deliberately does not reveal whether another tenant owns an
 identifier.
 
 The dependency-free example [customer_smoke.py](../scripts/customer_smoke.py)
-creates a job and downloads its verification kit. The more detailed
-[Codex client guide](CODEX_API_CLIENT_GUIDE.md) covers natural-language ECG/HRV
-requests.
+creates a job and downloads its verification kit. It reads the pack contract,
+uses the recommended evidence level automatically, and accepts
+`--evidence-profile level_1|level_2|level_3` for an explicit choice. The more
+detailed [Codex client guide](CODEX_API_CLIENT_GUIDE.md) covers natural-language
+ECG/HRV requests.
