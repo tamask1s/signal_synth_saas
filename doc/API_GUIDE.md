@@ -239,6 +239,7 @@ identifier.
 The dependency-free example [customer_smoke.py](../scripts/customer_smoke.py)
 creates a job and downloads its verification kit. It reads the pack contract,
 uses the recommended evidence level automatically, and accepts
-`--evidence-profile level_1|level_2|level_3` for an explicit choice. The more
-detailed [Codex client guide](CODEX_API_CLIENT_GUIDE.md) covers natural-language
-ECG/HRV requests.
+`--evidence-profile level_1|level_2|level_3` for an explicit choice. The client
+reads `api_key.txt` by default (or `--key-file PATH`) without printing the
+secret. The [Codex client guide](CODEX_API_CLIENT_GUIDE.md) covers
+natural-language ECG/HRV requests.

@@ -29,6 +29,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default="https://www.timeonion.com/syn_sig_ra")
     parser.add_argument("--key", default=os.environ.get("SYN_SIG_RA_API_KEY"))
+    parser.add_argument(
+        "--key-file",
+        type=pathlib.Path,
+        default=pathlib.Path("api_key.txt"),
+        help="API-key file used when --key and SYN_SIG_RA_API_KEY are absent",
+    )
     parser.add_argument("--project")
     parser.add_argument("--pack", default="r_peak_rr_simple_stress_v1")
     parser.add_argument(
@@ -38,21 +44,24 @@ def main():
     )
     parser.add_argument("--out", type=pathlib.Path, default=pathlib.Path("syn_sig_ra_output"))
     args = parser.parse_args()
-    if not args.key:
-        parser.error("--key or SYN_SIG_RA_API_KEY is required")
+    key = args.key
+    if not key and args.key_file.is_file():
+        key = args.key_file.read_text(encoding="utf-8").strip()
+    if not key:
+        parser.error("--key, SYN_SIG_RA_API_KEY, or a readable --key-file is required")
 
-    projects = json.loads(request(args.base, args.key, "/v1/projects")[0])
+    projects = json.loads(request(args.base, key, "/v1/projects")[0])
     project_id = args.project or projects["projects"][0]["project_id"]
     encoded_pack = urllib.parse.quote(args.pack, safe="")
     try:
         pack = json.loads(request(
-            args.base, args.key, "/v1/packs/" + encoded_pack
+            args.base, key, "/v1/packs/" + encoded_pack
         )[0])
     except RuntimeError as error:
         if not str(error).startswith("HTTP 404:"):
             raise
         pack = json.loads(request(
-            args.base, args.key, "/v1/custom-packs/" + encoded_pack
+            args.base, key, "/v1/custom-packs/" + encoded_pack
         )[0])
     payload = {"project_id": project_id, "pack_id": args.pack}
     profiles = pack.get("evidence_profiles", {})
@@ -63,12 +72,12 @@ def main():
     elif args.evidence_profile:
         parser.error("--evidence-profile is not supported by this diagnostic pack")
     created = json.loads(request(
-        args.base, args.key, "/v1/jobs", "POST",
+        args.base, key, "/v1/jobs", "POST",
         payload,
     )[0])
     job_id = created["job_id"]
     for _ in range(120):
-        job = json.loads(request(args.base, args.key, "/v1/jobs/" + job_id)[0])
+        job = json.loads(request(args.base, key, "/v1/jobs/" + job_id)[0])
         if job["status"] in ("succeeded", "failed", "cancelled"):
             break
         time.sleep(1)
@@ -80,7 +89,7 @@ def main():
     args.out.mkdir(parents=True, exist_ok=True)
     package_id = job["package_id"]
     content, _ = request(
-        args.base, args.key,
+        args.base, key,
         "/v1/jobs/{}/verification-kit.zip".format(job_id),
     )
     kit = args.out / "verification-kit.zip"
