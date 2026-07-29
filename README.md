@@ -21,7 +21,8 @@ The normal workflow is:
 
 1. Register with an email address, verify ownership, and sign in.
 2. Choose a curated challenge pack or author a custom pack.
-3. Generate a deterministic challenge in an organization project.
+3. For a curated evidence pack, choose Foundation, Advanced, or Frontier
+   acceptance gates, then generate a deterministic challenge in a project.
 4. Inspect its waveforms and ground truth in Synsigra Lab.
 5. Download one verification-kit ZIP.
 6. Run the proprietary algorithm locally and write its output into the kit's
@@ -31,7 +32,9 @@ The normal workflow is:
 
 Generated jobs preserve the pack version, catalog identity, pack and package
 fingerprints, exact generator commit/binary hash, challenge contracts, and
-integrity result. Curated and custom packs use the same post-render validation,
+integrity result. Curated jobs additionally preserve the selected complete
+evidence protocol and SHA-256. The choice affects pass/fail gates, not the
+generated signals. Curated and custom packs use the same post-render validation,
 download, and verification workflow.
 
 ## UI guide
@@ -43,8 +46,9 @@ The product navigation is deliberately task-oriented:
   difficulty, modality, and scoring filters. Pack cards show compatible target
   families, output schemas, size estimates, verification protocol, and external
   noise policy before generation.
-- **Generate** confirms the selected pack and project and opens the accepted job
-  immediately.
+- **Generate** confirms the selected pack and project. Evidence packs also show
+  Level 1 Foundation, Level 2 Advanced (recommended), and Level 3 Frontier;
+  after creation the UI opens the accepted job immediately.
 - **Jobs** shows queued, running, succeeded, failed, cancelled, expired, and
   deleted work. A job can be cancelled while queued, retried after a failed or
   cancelled run, deleted when not running, and exactly rebuilt after retained
@@ -184,7 +188,7 @@ and the kit's `submission/submission.json` are authoritative.
 
 ## Curated packs
 
-The immutable catalog 3.5 release contains these curated packs:
+The immutable catalog 3.6 release contains these curated packs:
 
 | Pack | Focus |
 |---|---|
@@ -333,23 +337,24 @@ Install the separately downloadable, pure-Python, generator-free verifier:
 
 ```sh
 curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
-  -o synsigra-0.16.0-py3-none-any.whl \
-  "$BASE/v1/downloads/verifier/synsigra-0.16.0-py3-none-any.whl"
-python -m pip install synsigra-0.16.0-py3-none-any.whl
+  -o synsigra-0.17.0-py3-none-any.whl \
+  "$BASE/v1/downloads/verifier/synsigra-0.17.0-py3-none-any.whl"
+python -m pip install synsigra-0.17.0-py3-none-any.whl
 synsigra-verify --help
 ```
 
 Edit the algorithm name/version and replace example rows under `submission/`.
 Keep target names, paths, units, and formats unchanged. Then copy the exact
-command from the job and kit README. A protocol-v2 kit uses the complete
-package-authoritative evidence matrix and embedded numeric policy:
+command from the job and kit README. A protocol-v3 kit uses the complete
+package-authoritative evidence matrix and the evidence level locked when the
+job was created:
 
 ```sh
 synsigra-verify challenge submission verification-results --force
 ```
 
 Do not add a profile, case, or target override to an evidence run. If a
-package has no protocol v2, the kit instead uses explicit
+package has no protocol v3, the kit instead uses explicit
 `--mode diagnostic`; that run is useful for exploration but is never
 evidence-eligible.
 
@@ -410,19 +415,20 @@ clean sibling checkout `../signal_synth` at commit
 `d4f3f75cb46aeb5bcf7fe9ed700e7d109d00416f` and the exact tuple:
 
 - generator `0.10.0-dev`, C++ facade `1.5.0`;
-- integration `synsigra_core_integration_v7`, pack schema `2`;
+- integration `synsigra_core_integration_v8`, pack schema `2`;
 - challenge `synsigra_challenge_package_v3`;
 - scoring `synsigra_scoring_manifest_v3`;
-- verification protocol `synsigra_verification_protocol_v2`;
+- verification protocol `synsigra_verification_protocol_v3` and evidence-level
+  policy `synsigra_evidence_profile_policy_v1`;
 - submission `synsigra_submission_v1` and formats
   `synsigra_submission_formats_v2`;
 - measurements `synsigra_measurement_values_v2`,
   `synsigra_measurement_truth_v2`, and `synsigra_measurement_score_v2`;
 - local verification report `synsigra_local_verification_v3`;
 - authoring `synsigra_authoring_v18`, templates `synsigra_templates_v5`;
-- verifier `0.16.0`, external-noise truth
+- verifier `0.17.0`, external-noise truth
   `synsigra_external_noise_truth_v1`;
-- curated catalog `3.5` with source hash
+- curated catalog `3.6` with source hash
   `sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136`.
 
 Configuration, startup, readiness, worker post-render validation, and release

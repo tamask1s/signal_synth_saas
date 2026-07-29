@@ -23,6 +23,14 @@ def write_json(path, value):
         handle.write("\n")
 
 
+def write_canonical_json(path, value):
+    parent = os.path.dirname(path)
+    if parent and not os.path.isdir(parent):
+        os.makedirs(parent)
+    with open(path, "w") as handle:
+        handle.write(json.dumps(value, separators=(",", ":"), sort_keys=True))
+
+
 def slash_relpath(path, base):
     return os.path.relpath(os.path.abspath(path), os.path.abspath(base)).replace(os.sep, "/")
 
@@ -69,13 +77,34 @@ def import_pack(source_root, output_root, path_base, metadata, signal_synth_cli)
             os.makedirs(parent)
         shutil.copyfile(scenario_path, output_scenario_path)
         scenario["path"] = slash_relpath(output_scenario_path, path_base)
-    protocol_path = pack.get("verification_protocol_path")
-    if protocol_path:
-        source_protocol = os.path.normpath(os.path.join(pack_dir, protocol_path))
-        output_protocol = os.path.join(output_root, os.path.basename(protocol_path))
-        shutil.copyfile(source_protocol, output_protocol)
-        pack["verification_protocol_path"] = os.path.basename(output_protocol)
     pack_id = metadata["pack_id"]
+    protocol_path = pack.get("verification_protocol_path")
+    evidence_profiles = metadata.get("evidence_profiles", {})
+    profiles = evidence_profiles.get("profiles", [])
+    if protocol_path:
+        if (
+            evidence_profiles.get("available") is not True
+            or evidence_profiles.get("default_profile_id") != "level_2"
+            or [item.get("profile_id") for item in profiles]
+            != ["level_1", "level_2", "level_3"]
+        ):
+            raise RuntimeError(
+                "evidence profiles are incomplete for %s" % pack_id
+            )
+        for profile in profiles:
+            filename = "{}__{}_expectations.json".format(
+                pack_id, profile["profile_id"]
+            )
+            write_canonical_json(
+                os.path.join(output_root, filename), profile["document"]
+            )
+            if profile["profile_id"] == evidence_profiles["default_profile_id"]:
+                pack["verification_protocol_path"] = filename
+    elif evidence_profiles.get("available") or profiles:
+        raise RuntimeError(
+            "diagnostic pack unexpectedly declares evidence profiles: %s"
+            % pack_id
+        )
     output_pack_path = os.path.join(output_root, pack_id + ".json")
     write_json(output_pack_path, pack)
     validate_pack(signal_synth_cli, output_pack_path)

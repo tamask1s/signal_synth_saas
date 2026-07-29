@@ -163,12 +163,21 @@ int main() {
 
     const std::string pack_path = packs + "/test_pack.json";
     const std::string protocol_path = packs + "/protocol.json";
+    const std::string protocol_document =
+        "{\"protocol\":\"immutable\"}\n";
+    std::string protocol_digest;
+    require(
+        syn_sig_ra::sha256_hex(
+            protocol_document, protocol_digest, error),
+        "protocol fixture should be hashed"
+    );
+    const std::string protocol_sha256 = "sha256:" + protocol_digest;
     const std::string noise_path = noise_assets + "/fixture.csv";
     write_file(
         pack_path,
         "{\"verification_protocol_path\":\"protocol.json\"}\n",
         0600);
-    write_file(protocol_path, "{\"protocol\":\"immutable\"}\n", 0600);
+    write_file(protocol_path, protocol_document, 0600);
     write_file(noise_path, "sample,noise\n0,0.25\n", 0600);
     const std::string success_cli = root + "/success-cli";
     write_file(
@@ -205,7 +214,7 @@ int main() {
         "print(json.dumps({"
         "'schema_version':1,"
         "'contract':'synsigra_saas_challenge_metadata_v1',"
-        "'verifier_version':'0.16.0',"
+        "'verifier_version':'0.17.0',"
         "'challenge_contract':'synsigra_challenge_package_v3',"
         "'scoring_manifest_contract':'synsigra_scoring_manifest_v3',"
         "'submission_contract':'synsigra_submission_v1',"
@@ -225,8 +234,10 @@ int main() {
         "'cases':[{'case_id':'test_case'}],"
         "'submission_outputs':[],"
         "'submission_formats':{},"
-        "'verification_protocol':None,"
-        "'verification':{'mode':'diagnostic','evidence_eligible':False,'matrix_complete':None,'evidence_result':'not_run','policy_result':'not_run','notice':'test','protocol':None},"
+        "'verification_protocol':{},"
+        "'verification':{'mode':'evidence','evidence_eligible':True,'matrix_complete':True,'evidence_result':'not_run','policy_result':'not_run','notice':'test','protocol':{"
+        "'sha256':'" + protocol_sha256 + "',"
+        "'evidence_profile':{'profile_id':'level_2','display_name':'Level 2 — Advanced','version':'1.0','rank':2,'policy_contract':'synsigra_evidence_profile_policy_v1'}}},"
         "'external_noise':{'used':False,'release_allowed':True,'assets':[],'truth_paths':[]},"
         "'roles':{},"
         "'integrity':{'ok':True}},sort_keys=True,separators=(',',':')))\n",
@@ -278,6 +289,12 @@ int main() {
             "1.0",
             "3.5",
             "sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136",
+            "level_2",
+            "Level 2 — Advanced",
+            "1.0",
+            2,
+            protocol_sha256,
+            protocol_path,
             succeeded_job,
             error
         ),
@@ -631,6 +648,12 @@ int main() {
             "1.0",
             "3.5",
             "sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136",
+            "level_2",
+            "Level 2 — Advanced",
+            "1.0",
+            2,
+            protocol_sha256,
+            protocol_path,
             failed_job,
             error
         ),

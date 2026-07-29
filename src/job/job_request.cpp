@@ -38,7 +38,8 @@ JobRequestStatus parse_job_request(
 
     const std::set<std::string> allowed_fields = {
         "project_id",
-        "pack_id"
+        "pack_id",
+        "evidence_profile_id"
     };
     const char* field_name = nullptr;
     json_t* field_value = nullptr;
@@ -68,6 +69,17 @@ JobRequestStatus parse_job_request(
     JobRequest parsed;
     parsed.project_id = json_string_value(project_id);
     parsed.pack_id = json_string_value(pack_id);
+    json_t* evidence_profile_id =
+        json_object_get(root, "evidence_profile_id");
+    if (evidence_profile_id != nullptr) {
+        if (!json_is_string(evidence_profile_id) ||
+            !is_valid_pack_id(json_string_value(evidence_profile_id))) {
+            json_decref(root);
+            error = "evidence_profile_id must be a safe profile identifier";
+            return JobRequestStatus::invalid_value;
+        }
+        parsed.evidence_profile_id = json_string_value(evidence_profile_id);
+    }
 
     char* canonical = json_dumps(root, JSON_COMPACT | JSON_SORT_KEYS);
     json_decref(root);

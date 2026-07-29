@@ -1,6 +1,6 @@
 # Curated pack catalog contract
 
-Built-in packs are imported as one immutable catalog 3.5 release snapshot from
+Built-in packs are imported as one immutable catalog 3.6 release snapshot from
 the exact sibling `signal_synth` checkout. SaaS does not maintain product
 sidecars or reinterpret core analysis.
 
@@ -15,25 +15,29 @@ The importer removes files not present in the snapshot, copies the declared
 pack/scenario/protocol/approved-noise inputs, and validates every pack through
 the pinned CLI. Startup and readiness require:
 
-- catalog version `3.5`;
+- catalog version `3.6`;
 - a positive declared pack count that exactly matches the unique pack array;
 - catalog source hash
   `sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136`;
-- integration `synsigra_core_integration_v7`;
+- integration `synsigra_core_integration_v8`;
 - challenge `synsigra_challenge_package_v3`;
 - scoring `synsigra_scoring_manifest_v3`;
 - submission `synsigra_submission_v1`;
-- verification protocol `synsigra_verification_protocol_v2`;
-- verifier `0.16.0`;
+- verification protocol `synsigra_verification_protocol_v3`;
+- evidence-level policy `synsigra_evidence_profile_policy_v1`;
+- verifier `0.17.0`;
 - only external-noise assets whose release truth allows redistribution.
 
 Each API pack response exposes catalog/release identity, pack fingerprint,
 targets, score types and accepted submission formats, cases, output roles,
-verification protocol document/hash, external-noise policy, estimates, intended
-use, contraindicated use, difficulty, modality, badges, and changelog. The
-challenge copy of a protocol is authoritative for the rendered job. Protocol-v2
-packages run package-authoritative evidence mode; protocol-free packs are
-explicit diagnostic-only, not weaker evidence packages.
+three complete verification-level documents and hashes, external-noise policy,
+estimates, intended use, contraindicated use, difficulty, modality, badges, and
+changelog. Level 1 Foundation, Level 2 Advanced (default), and Level 3 Frontier
+share the pack recipe and differ only in deterministic acceptance gates. The
+level selected before generation is copied into the immutable challenge and is
+authoritative for that job. Protocol-v3 packages run package-authoritative
+evidence mode; protocol-free packs are explicit diagnostic-only, not weaker
+evidence packages.
 
 ## Current set
 
@@ -84,5 +88,6 @@ outputs.
 
 There is deliberately no older catalog/pack compatibility path in this
 pre-beta release. A catalog change is a new clean deployment baseline. Jobs
-persist the selected pack version and, for curated work, the exact catalog
-version/hash so the result is auditable after the live catalog changes.
+persist the selected pack version, evidence-level protocol SHA-256 and, for
+curated work, the exact catalog version/hash so the result remains auditable
+after the live catalog changes.

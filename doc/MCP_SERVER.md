@@ -59,8 +59,8 @@ The server currently exposes:
 - `synsigra_list_packs` and `synsigra_get_pack`: discover and inspect the live
   immutable curated catalog;
 - `synsigra_list_projects`: obtain a real project ID instead of guessing one;
-- `synsigra_create_job`, `synsigra_get_job`, and `synsigra_list_jobs`: queue and
-  monitor normal generation;
+- `synsigra_create_job`, `synsigra_get_job`, and `synsigra_list_jobs`: select
+  and preserve the curated evidence level, then queue and monitor generation;
 - `synsigra_rebuild_expired_job`: recreate an expired artifact from its
   preserved recipe and exact historical generator;
 - `synsigra_get_authoring_contract`, `synsigra_get_curated_scenario`,
@@ -98,7 +98,9 @@ are correct under noise”:
    `synsigra_get_pack`. Otherwise fetch the live authoring contract, clone the
    closest complete scenario, change only requested fields, and preview every
    scenario against the final target list.
-4. Ask for human approval of the selected pack and project.
+4. Ask for human approval of the selected pack, project, and—when the pack
+   exposes evidence profiles—Level 1 Foundation, Level 2 Advanced, or Level 3
+   Frontier. The level changes gates, not signals.
 5. Call `synsigra_create_job` and poll `synsigra_get_job` with backoff until a
    terminal state.
 6. Call `synsigra_get_verification_guide`.

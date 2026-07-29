@@ -58,6 +58,12 @@ curl -fsS -H "$AUTH" "$BASE/v1/projects" > projects.json
 `ready.json` includes the full canonical core capability document under
 `accepted_core.contract_document`. Select returned IDs and queue a job:
 
+Every curated evidence pack returns three complete `evidence_profiles`:
+`level_1` (Foundation), `level_2` (Advanced, recommended), and `level_3`
+(Frontier). They use the same generated signals and differ only in immutable
+acceptance gates. Choose before generation; the job records the complete
+protocol SHA-256 so the decision is auditable.
+
 For R-peak work, choose by algorithm scope:
 
 - `r_peak_rr_simple_stress_v1`: recommended first run; eight independent
@@ -85,7 +91,7 @@ For HRV work, choose by algorithm scope:
 
 ```sh
 curl -fsS -H "$AUTH" -H 'Content-Type: application/json' \
-  -d '{"project_id":"PROJECT_ID","pack_id":"r_peak_rr_simple_stress_v1"}' \
+  -d '{"project_id":"PROJECT_ID","pack_id":"r_peak_rr_simple_stress_v1","evidence_profile_id":"level_2"}' \
   "$BASE/v1/jobs" > job-created.json
 
 curl -fsS -H "$AUTH" "$BASE/v1/jobs/JOB_ID" > job.json
@@ -126,15 +132,15 @@ ZIP.
 Download the pure-Python verifier; it has no generator binary or source:
 
 ```sh
-curl -fsS -H "$AUTH" -o synsigra-0.16.0-py3-none-any.whl \
-  "$BASE/v1/downloads/verifier/synsigra-0.16.0-py3-none-any.whl"
-python -m pip install synsigra-0.16.0-py3-none-any.whl
+curl -fsS -H "$AUTH" -o synsigra-0.17.0-py3-none-any.whl \
+  "$BASE/v1/downloads/verifier/synsigra-0.17.0-py3-none-any.whl"
+python -m pip install synsigra-0.17.0-py3-none-any.whl
 ```
 
 Edit the algorithm name/version and replace the example output values under
 `submission/`. Preserve the paths, target names, units, and formats declared in
 `submission/submission.json`. Then copy the exact command from the kit README.
-For a protocol-v2 kit this is the complete package-authoritative evidence run:
+For a protocol-v3 kit this is the complete package-authoritative evidence run:
 
 ```sh
 synsigra-verify challenge submission verification-results --force
@@ -159,7 +165,7 @@ still reported, but is diagnostic rather than verdict-bearing because
 split/merge errors deliberately create a heavy tail.
 
 Do not append a profile, case, or target override to evidence mode. A kit
-without protocol v2 instead shows explicit `--mode diagnostic`; diagnostic
+without protocol v3 instead shows explicit `--mode diagnostic`; diagnostic
 reports are always non-evidence. Point, interval, and measurement targets use
 their manifest-declared CSV or JSON format; HRV is a measurement-v2 target, not
 a separate output family. Never derive paths from a target name. Exit code `0`

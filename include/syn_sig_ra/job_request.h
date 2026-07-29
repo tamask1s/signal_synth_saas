@@ -8,6 +8,7 @@ namespace syn_sig_ra {
 struct JobRequest {
     std::string project_id;
     std::string pack_id;
+    std::string evidence_profile_id;
     std::string canonical_json;
 };
 

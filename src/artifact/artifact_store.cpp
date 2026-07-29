@@ -524,10 +524,11 @@ bool valid_verification_metadata(json_t* value) {
     }
     if (!exact_json_string(value, "mode", "evidence") ||
         !json_is_true(eligible) || !json_is_true(complete) ||
-        !json_is_object(protocol) || json_object_size(protocol) != 11 ||
+        !json_is_object(protocol) || json_object_size(protocol) != 12 ||
         !nonempty_json_string(protocol, "protocol_id") ||
         !exact_json_string(
-            protocol, "contract", "synsigra_verification_protocol_v2") ||
+            protocol, "contract", "synsigra_verification_protocol_v3") ||
+        !json_is_object(json_object_get(protocol, "evidence_profile")) ||
         !nonempty_json_string(protocol, "path") ||
         !json_is_integer(json_object_get(protocol, "size_bytes")) ||
         json_integer_value(json_object_get(protocol, "size_bytes")) < 1 ||

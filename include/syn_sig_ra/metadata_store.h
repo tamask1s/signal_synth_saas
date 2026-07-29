@@ -47,6 +47,12 @@ struct JobRecord {
     std::string selected_pack_version;
     std::string catalog_version;
     std::string catalog_source_sha256;
+    std::string evidence_profile_id;
+    std::string evidence_profile_display_name;
+    std::string evidence_profile_version;
+    int evidence_profile_rank = 0;
+    std::string evidence_protocol_sha256;
+    std::string evidence_protocol_source_path;
     std::string package_id;
     std::string package_fingerprint;
     std::string integration_contract_version;
@@ -77,6 +83,11 @@ struct PackageRecord {
     std::string selected_pack_version;
     std::string catalog_version;
     std::string catalog_source_sha256;
+    std::string evidence_profile_id;
+    std::string evidence_profile_display_name;
+    std::string evidence_profile_version;
+    int evidence_profile_rank = 0;
+    std::string evidence_protocol_sha256;
     std::string integration_contract_version;
     std::string integration_contract_json;
     std::string generator_version;
@@ -501,6 +512,12 @@ public:
         const std::string& selected_pack_version,
         const std::string& catalog_version,
         const std::string& catalog_source_sha256,
+        const std::string& evidence_profile_id,
+        const std::string& evidence_profile_display_name,
+        const std::string& evidence_profile_version,
+        int evidence_profile_rank,
+        const std::string& evidence_protocol_sha256,
+        const std::string& evidence_protocol_source_path,
         std::string& job_id,
         std::string& error
     );

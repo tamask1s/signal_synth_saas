@@ -15,11 +15,12 @@
 
 namespace {
 
-const char kIntegration[] = "synsigra_core_integration_v7";
+const char kIntegration[] = "synsigra_core_integration_v8";
 const char kCppFacade[] = "1.5.0";
 const char kChallengePackage[] = "synsigra_challenge_package_v3";
 const char kScoringManifest[] = "synsigra_scoring_manifest_v3";
-const char kVerificationProtocol[] = "synsigra_verification_protocol_v2";
+const char kVerificationProtocol[] = "synsigra_verification_protocol_v3";
+const char kEvidenceProfiles[] = "synsigra_evidence_profile_policy_v1";
 const char kSubmission[] = "synsigra_submission_v1";
 const char kSubmissionFormats[] = "synsigra_submission_formats_v2";
 const char kMeasurementValues[] = "synsigra_measurement_values_v2";
@@ -107,6 +108,7 @@ bool supported(const syn_sig_ra::CoreIntegrationContract& value) {
         value.challenge_package == kChallengePackage &&
         value.scoring_manifest == kScoringManifest &&
         value.verification_protocol == kVerificationProtocol &&
+        value.evidence_profiles == kEvidenceProfiles &&
         value.submission == kSubmission &&
         value.submission_formats == kSubmissionFormats &&
         value.measurement_values == kMeasurementValues &&
@@ -219,7 +221,7 @@ bool parse_core_integration_contract(
     json_t* cli = json_object_get(root, "cli");
     CoreIntegrationContract parsed;
     const bool shape = exact_object(root, 8) && json_is_integer(schema) &&
-        exact_object(generator, 4) && exact_object(contracts, 15) &&
+        exact_object(generator, 4) && exact_object(contracts, 16) &&
         exact_object(external_noise, 5) && exact_object(scenario, 2) &&
         exact_object(hrv, 5) && exact_object(cli, 10);
     parsed.schema_version = shape ? static_cast<int>(json_integer_value(schema)) : 0;
@@ -234,6 +236,7 @@ bool parse_core_integration_contract(
         string_field(contracts, "challenge_package", parsed.challenge_package) &&
         string_field(contracts, "scoring_manifest", parsed.scoring_manifest) &&
         string_field(contracts, "verification_protocol", parsed.verification_protocol) &&
+        string_field(contracts, "evidence_profiles", parsed.evidence_profiles) &&
         string_field(contracts, "submission", parsed.submission) &&
         string_field(contracts, "submission_formats", parsed.submission_formats) &&
         string_field(contracts, "measurement_values", parsed.measurement_values) &&

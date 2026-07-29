@@ -1,6 +1,7 @@
 #include "syn_sig_ra/pack_catalog.h"
 
 #include "syn_sig_ra/build_info.h"
+#include "syn_sig_ra/sha256.h"
 #include "ecg_pack.h"
 
 #include <jansson.h>
@@ -485,7 +486,7 @@ bool load_curated_catalog_metadata(
         error = "curated catalog metadata does not match the validated pack";
         return false;
     }
-    pack.integration_contract_version = "synsigra_core_integration_v7";
+    pack.integration_contract_version = "synsigra_core_integration_v8";
     pack.scoring_mode = json_string_value(scoring_mode);
     pack.release_status = json_string_value(status);
     pack.released_at = json_string_value(released);
@@ -567,10 +568,10 @@ bool load_curated_catalog_metadata(
         json_string_or_empty(json_object_get(compatibility, "challenge_package_contract")) != "synsigra_challenge_package_v3" ||
         json_string_or_empty(json_object_get(compatibility, "scoring_manifest_contract")) != "synsigra_scoring_manifest_v3" ||
         json_string_or_empty(json_object_get(compatibility, "submission_contract")) != "synsigra_submission_v1" ||
-        json_string_or_empty(json_object_get(compatibility, "verification_protocol_contract")) != "synsigra_verification_protocol_v2" ||
+        json_string_or_empty(json_object_get(compatibility, "verification_protocol_contract")) != "synsigra_verification_protocol_v3" ||
         !supported_verifier_minimum(local_verifier_min_version)) {
         json_decref(root);
-        error = "curated pack generator compatibility is not the v7 tuple";
+        error = "curated pack generator compatibility is not the v8 tuple";
         return false;
     }
     for (std::size_t schema_index = 0; schema_index < scenario_versions.size(); ++schema_index) {
@@ -592,7 +593,7 @@ bool load_curated_catalog_metadata(
     pack.challenge_package_contract = "synsigra_challenge_package_v3";
     pack.scoring_manifest_contract = "synsigra_scoring_manifest_v3";
     pack.submission_contract = "synsigra_submission_v1";
-    pack.verification_protocol_contract = "synsigra_verification_protocol_v2";
+    pack.verification_protocol_contract = "synsigra_verification_protocol_v3";
 
     pack.output_artifact_roles.clear();
     json_t* artifacts = json_object_get(match, "output_artifacts");
@@ -618,44 +619,116 @@ bool load_curated_catalog_metadata(
         return false;
     }
 
-    json_t* protocol = json_object_get(match, "verification_protocol");
-    json_t* protocol_available =
-        json_is_object(protocol) ? json_object_get(protocol, "available") : nullptr;
-    json_t* protocol_document =
-        json_is_object(protocol) ? json_object_get(protocol, "document") : nullptr;
-    if (!exact_object(protocol, 5) || !json_is_boolean(protocol_available) ||
-        !json_is_string(json_object_get(protocol, "artifact_role")) ||
-        !json_is_string(json_object_get(protocol, "source_content_sha256")) ||
-        !json_is_string(json_object_get(protocol, "source_path"))) {
+    json_t* evidence = json_object_get(match, "evidence_profiles");
+    json_t* evidence_available = json_is_object(evidence)
+        ? json_object_get(evidence, "available") : nullptr;
+    json_t* evidence_profile_list = json_is_object(evidence)
+        ? json_object_get(evidence, "profiles") : nullptr;
+    if (!exact_object(evidence, 6) || !json_is_boolean(evidence_available) ||
+        json_string_or_empty(json_object_get(evidence, "protocol_contract")) !=
+            "synsigra_verification_protocol_v3" ||
+        json_string_or_empty(json_object_get(evidence, "policy_contract")) !=
+            "synsigra_evidence_profile_policy_v1" ||
+        !json_is_string(json_object_get(evidence, "default_profile_id")) ||
+        !json_is_string(json_object_get(evidence, "baseline_source_path")) ||
+        !json_is_array(evidence_profile_list)) {
         json_decref(root);
-        error = "curated pack verification protocol metadata is invalid";
+        error = "curated pack evidence-profile metadata is invalid";
         return false;
     }
-    pack.verification_protocol_available = json_boolean_value(protocol_available);
-    if (pack.verification_protocol_available) {
-        if (json_string_or_empty(json_object_get(protocol, "artifact_role")) !=
-                "verification_protocol_json" ||
-            !valid_sha256(json_object_get(protocol, "source_content_sha256")) ||
-            !json_is_object(protocol_document)) {
+    pack.evidence_profiles_available = json_boolean_value(evidence_available);
+    pack.evidence_profile_policy_contract =
+        "synsigra_evidence_profile_policy_v1";
+    pack.default_evidence_profile_id = json_string_value(
+        json_object_get(evidence, "default_profile_id"));
+    pack.evidence_profiles.clear();
+    const char* expected_profile_ids[] = {"level_1", "level_2", "level_3"};
+    if (pack.evidence_profiles_available) {
+        if (pack.default_evidence_profile_id != "level_2" ||
+            json_string_length(
+                json_object_get(evidence, "baseline_source_path")) == 0 ||
+            json_array_size(evidence_profile_list) != 3) {
             json_decref(root);
-            error = "curated pack verification protocol is incomplete";
+            error = "curated pack evidence profiles are incomplete";
             return false;
         }
-        char* canonical = json_dumps(protocol_document, JSON_COMPACT | JSON_SORT_KEYS);
-        if (canonical == nullptr) {
-            json_decref(root);
-            error = "curated pack verification protocol cannot be encoded";
-            return false;
+        json_array_foreach(evidence_profile_list, index, item) {
+            json_t* document = json_object_get(item, "document");
+            json_t* profile_identity = json_is_object(document)
+                ? json_object_get(document, "evidence_profile") : nullptr;
+            if (!exact_object(item, 9) || !json_is_object(document) ||
+                !json_is_object(profile_identity) ||
+                !valid_sha256(json_object_get(item, "protocol_sha256")) ||
+                json_string_or_empty(json_object_get(item, "profile_id")) !=
+                    expected_profile_ids[index] ||
+                integer_field(item, "rank") !=
+                    static_cast<long long>(index + 1) ||
+                json_string_or_empty(
+                    json_object_get(document, "contract")) !=
+                    "synsigra_verification_protocol_v3" ||
+                json_string_or_empty(
+                    json_object_get(document, "pack_id")) != pack.pack_id ||
+                json_string_or_empty(
+                    json_object_get(document, "protocol_id")) !=
+                    json_string_or_empty(json_object_get(item, "protocol_id")) ||
+                json_string_or_empty(
+                    json_object_get(profile_identity, "profile_id")) !=
+                    expected_profile_ids[index]) {
+                json_decref(root);
+                error = "curated pack evidence profile is invalid";
+                return false;
+            }
+            char* canonical = json_dumps(
+                document, JSON_COMPACT | JSON_SORT_KEYS);
+            if (canonical == nullptr) {
+                json_decref(root);
+                error = "curated pack evidence protocol cannot be encoded";
+                return false;
+            }
+            std::string digest;
+            std::string digest_error;
+            const std::string canonical_json(canonical);
+            free(canonical);
+            if (!syn_sig_ra::sha256_hex(
+                    canonical_json, digest, digest_error) ||
+                "sha256:" + digest != json_string_or_empty(
+                    json_object_get(item, "protocol_sha256"))) {
+                json_decref(root);
+                error = "curated pack evidence protocol SHA-256 is invalid";
+                return false;
+            }
+            syn_sig_ra::EvidenceProfileSummary profile;
+            profile.profile_id = expected_profile_ids[index];
+            profile.display_name = json_string_or_empty(
+                json_object_get(item, "display_name"));
+            profile.version = json_string_or_empty(
+                json_object_get(item, "version"));
+            profile.rank = static_cast<int>(index + 1);
+            profile.description = json_string_or_empty(
+                json_object_get(item, "description"));
+            profile.threshold_adjustment = json_string_or_empty(
+                json_object_get(item, "threshold_adjustment"));
+            profile.protocol_id = json_string_or_empty(
+                json_object_get(item, "protocol_id"));
+            profile.protocol_sha256 = json_string_or_empty(
+                json_object_get(item, "protocol_sha256"));
+            profile.protocol_json = canonical_json;
+            if (profile.display_name.empty() || profile.version.empty() ||
+                profile.description.empty() ||
+                profile.threshold_adjustment.empty() ||
+                profile.protocol_id.empty()) {
+                json_decref(root);
+                error = "curated pack evidence profile text is incomplete";
+                return false;
+            }
+            pack.evidence_profiles.push_back(profile);
         }
-        pack.verification_protocol_json = canonical;
-        free(canonical);
-        pack.verification_protocol_sha256 =
-            json_string_value(json_object_get(protocol, "source_content_sha256"));
-    } else if (!json_is_null(protocol_document) ||
-               json_string_length(json_object_get(protocol, "artifact_role")) != 0 ||
-               json_string_length(json_object_get(protocol, "source_content_sha256")) != 0) {
+    } else if (!pack.default_evidence_profile_id.empty() ||
+               json_string_length(
+                   json_object_get(evidence, "baseline_source_path")) != 0 ||
+               json_array_size(evidence_profile_list) != 0) {
         json_decref(root);
-        error = "unavailable verification protocol must not carry content";
+        error = "diagnostic pack must not carry evidence profiles";
         return false;
     }
 
@@ -759,6 +832,19 @@ bool is_valid_pack_id(const std::string& pack_id) {
     return true;
 }
 
+const EvidenceProfileSummary* find_evidence_profile(
+    const PackSummary& pack,
+    const std::string& profile_id
+) {
+    for (std::vector<EvidenceProfileSummary>::const_iterator it =
+             pack.evidence_profiles.begin();
+         it != pack.evidence_profiles.end();
+         ++it) {
+        if (it->profile_id == profile_id) return &*it;
+    }
+    return nullptr;
+}
+
 std::string pack_summary_json(const PackSummary& pack) {
     json_t* root = json_object();
     json_object_set_new(root, "pack_id", json_string(pack.pack_id.c_str()));
@@ -831,22 +917,53 @@ std::string pack_summary_json(const PackSummary& pack) {
     json_object_set_new(root, "generator_compatibility", compatibility);
     json_object_set_new(root, "output_artifact_roles", string_array_json_value(pack.output_artifact_roles));
     json_object_set_new(root, "primary_badges", string_array_json_value(pack.primary_badges));
-    json_t* protocol = json_object();
-    json_object_set_new(protocol, "available", json_boolean(pack.verification_protocol_available));
-    json_object_set_new(protocol, "contract", json_string(pack.verification_protocol_contract.c_str()));
-    json_object_set_new(protocol, "sha256", json_string(pack.verification_protocol_sha256.c_str()));
-    if (pack.verification_protocol_available) {
+    json_t* evidence = json_object();
+    json_object_set_new(
+        evidence, "available", json_boolean(pack.evidence_profiles_available));
+    json_object_set_new(
+        evidence, "protocol_contract",
+        json_string(pack.verification_protocol_contract.c_str()));
+    json_object_set_new(
+        evidence, "policy_contract",
+        json_string(pack.evidence_profile_policy_contract.c_str()));
+    json_object_set_new(
+        evidence, "default_profile_id",
+        json_string(pack.default_evidence_profile_id.c_str()));
+    json_t* profile_list = json_array();
+    for (std::vector<EvidenceProfileSummary>::const_iterator it =
+             pack.evidence_profiles.begin();
+         it != pack.evidence_profiles.end();
+         ++it) {
+        json_t* profile = json_object();
+        json_object_set_new(
+            profile, "profile_id", json_string(it->profile_id.c_str()));
+        json_object_set_new(
+            profile, "display_name", json_string(it->display_name.c_str()));
+        json_object_set_new(
+            profile, "version", json_string(it->version.c_str()));
+        json_object_set_new(profile, "rank", json_integer(it->rank));
+        json_object_set_new(
+            profile, "description", json_string(it->description.c_str()));
+        json_object_set_new(
+            profile, "threshold_adjustment",
+            json_string(it->threshold_adjustment.c_str()));
+        json_object_set_new(
+            profile, "protocol_id", json_string(it->protocol_id.c_str()));
+        json_object_set_new(
+            profile, "protocol_sha256",
+            json_string(it->protocol_sha256.c_str()));
         json_error_t protocol_error;
         json_t* document = json_loadb(
-            pack.verification_protocol_json.data(),
-            pack.verification_protocol_json.size(),
+            it->protocol_json.data(),
+            it->protocol_json.size(),
             JSON_REJECT_DUPLICATES,
             &protocol_error);
-        json_object_set_new(protocol, "document", document == nullptr ? json_null() : document);
-    } else {
-        json_object_set_new(protocol, "document", json_null());
+        json_object_set_new(
+            profile, "document", document == nullptr ? json_null() : document);
+        json_array_append_new(profile_list, profile);
     }
-    json_object_set_new(root, "verification_protocol", protocol);
+    json_object_set_new(evidence, "profiles", profile_list);
+    json_object_set_new(root, "evidence_profiles", evidence);
     json_t* external_noise = json_object();
     json_object_set_new(external_noise, "used", json_boolean(pack.uses_external_noise));
     json_object_set_new(external_noise, "release_allowed", json_true());
@@ -920,6 +1037,14 @@ PackLookupStatus PackCatalog::load_file(
     if (!load_curated_catalog_metadata(
             pack_root_ + "/curated_pack_metadata_v1.catalog", pack, error)) {
         return PackLookupStatus::catalog_error;
+    }
+    for (std::vector<EvidenceProfileSummary>::iterator it =
+             pack.evidence_profiles.begin();
+         it != pack.evidence_profiles.end();
+         ++it) {
+        it->protocol_source_path =
+            pack_root_ + "/" + pack.pack_id + "__" + it->profile_id +
+            "_expectations.json";
     }
     return PackLookupStatus::found;
 }

@@ -18,6 +18,7 @@ struct CoreIntegrationContract {
     std::string challenge_package;
     std::string scoring_manifest;
     std::string verification_protocol;
+    std::string evidence_profiles;
     std::string submission;
     std::string submission_formats;
     std::string measurement_values;

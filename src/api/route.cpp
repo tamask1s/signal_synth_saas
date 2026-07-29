@@ -405,6 +405,24 @@ json_t* job_json_object(
             json_string(job.catalog_source_sha256.c_str()));
         json_object_set_new(root, "catalog", catalog);
     }
+    if (!job.evidence_profile_id.empty()) {
+        json_t* profile = json_object();
+        json_object_set_new(
+            profile, "profile_id",
+            json_string(job.evidence_profile_id.c_str()));
+        json_object_set_new(
+            profile, "display_name",
+            json_string(job.evidence_profile_display_name.c_str()));
+        json_object_set_new(
+            profile, "version",
+            json_string(job.evidence_profile_version.c_str()));
+        json_object_set_new(
+            profile, "rank", json_integer(job.evidence_profile_rank));
+        json_object_set_new(
+            profile, "protocol_sha256",
+            json_string(job.evidence_protocol_sha256.c_str()));
+        json_object_set_new(root, "evidence_profile", profile);
+    }
     json_object_set_new(
         root,
         "created_at",
@@ -1837,6 +1855,16 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         <label for="pack-select">Pack</label>
         <select id="pack-select"></select>
         <div id="selected-pack-summary" class="selected-pack muted"></div>
+        <div id="evidence-profile-panel" hidden>
+          <div class="section-heading">
+            <div>
+              <h3>Choose evidence level</h3>
+              <p class="muted compact">This locks the pass/fail gates into the job. It does not change or regenerate different signals.</p>
+            </div>
+          </div>
+          <div id="evidence-profile-options" class="evidence-profile-options"></div>
+          <p id="evidence-profile-note" class="muted compact"></p>
+        </div>
         <p class="muted compact">Generation produces the complete challenge export set, including provenance and engineering claim-boundary artifacts. Format options are not configurable per job.</p>
         <button id="create-job" class="primary" disabled>Create challenge job</button>
         <pre id="create-output" class="output"></pre>
@@ -2103,7 +2131,7 @@ const char kQuickstartHtml[] = R"HTML(<!doctype html>
 unzip "job_123-verification-kit.zip" -d synsigra-kit
 cd synsigra-kit/verification-kit
 synsigra-verify challenge submission verification-results --force</pre>
-      <p>For a challenge with protocol v2, this runs the complete immutable evidence matrix and embedded acceptance policy. Do not add profile, case, or target overrides. A kit without protocol v2 shows an explicit <code>--mode diagnostic</code> command and can never produce evidence.</p>
+      <p>For a challenge with protocol v3, this runs the complete immutable evidence matrix and the acceptance level selected before generation. Do not add profile, case, or target overrides. A kit without protocol v3 shows an explicit <code>--mode diagnostic</code> command and can never produce evidence.</p>
       <p>Exit code <code>0</code> means pass, <code>1</code> means verification/input/scoring/threshold failure, and <code>2</code> means invalid CLI usage.</p>
       <p><a href="/syn_sig_ra/docs/api">Rendered API reference</a> · <a href="/syn_sig_ra/docs/troubleshooting">Troubleshooting</a> · <a href="/syn_sig_ra/">Back to app</a></p>
     </section>
@@ -2680,6 +2708,15 @@ label { display: block; margin: 10px 0 5px; font-weight: 600; }
 .advanced-toggle input { width: auto; margin-right: 7px; }
 .target-option.recommended { border-color: rgba(111, 124, 255, .62); }
 .target-option.incompatible { opacity: .7; }
+.evidence-profile-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 10px 0;
+}
+.evidence-profile-options .target-option {
+  height: 100%;
+}
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -3365,6 +3402,7 @@ th, td { border-color: var(--border); }
 }
 @media (max-width: 620px) {
   .legal-footer { flex-direction: column; }
+  .evidence-profile-options { grid-template-columns: 1fr; }
 }
 )CSS";
 
@@ -3380,6 +3418,7 @@ const char kUiJs[] = R"JS((() => {
     auditEvents: [],
     role: "",
     packs: [],
+    selectedEvidenceProfileId: "",
     packTargetFilter: "",
     packIntentFilter: "smoke",
     packScoringFilter: "",
@@ -3857,9 +3896,27 @@ const char kUiJs[] = R"JS((() => {
   function formatSeconds(seconds) {
     const value = Number(seconds);
     if (!Number.isFinite(value) || value <= 0) return "n/a";
-    if (value < 90) return `${value}s`;
+    if (value < 90) return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} s`;
     const minutes = value / 60;
-    return `${minutes.toLocaleString(undefined, { maximumFractionDigits: 1 })} min`;
+    return `${minutes.toLocaleString(undefined, { maximumFractionDigits: 2 })} min`;
+  }
+
+  function evidenceEnvelope(pack) {
+    return (pack && pack.evidence_profiles) || {};
+  }
+
+  function defaultEvidenceProfile(pack) {
+    const envelope = evidenceEnvelope(pack);
+    return (envelope.profiles || []).find(
+      (profile) => profile.profile_id === envelope.default_profile_id
+    ) || (envelope.profiles || [])[0] || null;
+  }
+
+  function selectedEvidenceProfile(pack) {
+    const profiles = evidenceEnvelope(pack).profiles || [];
+    return profiles.find(
+      (profile) => profile.profile_id === state.selectedEvidenceProfileId
+    ) || defaultEvidenceProfile(pack);
   }
 
   function channelRange(pack) {
@@ -3946,7 +4003,7 @@ const char kUiJs[] = R"JS((() => {
         const reference = targetNames(pack.reference_only_targets);
         if (target && scoreable.includes(target)) value += 30;
         if (target && reference.includes(target)) value += 10;
-        const verdictScope = (((pack.verification_protocol || {}).document || {}).verdict_scope || "");
+        const verdictScope = ((defaultEvidenceProfile(pack) || {}).document || {}).verdict_scope || "";
         if (target === "r_peak" && verdictScope === "per_case") value += 10;
         if (target === "r_peak" && intent === "benchmark" &&
             (pack.feature_tags || []).includes("snr_ladder")) value += 10;
@@ -4010,8 +4067,9 @@ const char kUiJs[] = R"JS((() => {
   }
 
   function protocolDetails(pack) {
-    const envelope = pack.verification_protocol || {};
-    const protocol = envelope.document;
+    const envelope = evidenceEnvelope(pack);
+    const profile = defaultEvidenceProfile(pack);
+    const protocol = profile && profile.document;
     if (!envelope.available || !protocol) return "";
     const required = protocol.required_case_targets || [];
     const targets = [...new Set(required.flatMap((item) => item.targets || []))];
@@ -4024,25 +4082,26 @@ const char kUiJs[] = R"JS((() => {
     ]));
     return `
       <details>
-        <summary>${perCase ? "Independent per-case evidence protocol" : "Evidence protocol v2"}</summary>
+        <summary>${perCase ? "Independent per-case evidence protocol" : "Evidence protocol v3"}</summary>
         <p>${escapeHtml(protocol.context_of_use || "Engineering QA protocol")}</p>
-        <p><strong>Protocol:</strong> ${escapeHtml(protocol.protocol_id || "n/a")} · <strong>official policy:</strong> ${escapeHtml(perCase ? `${(protocol.acceptance_strata || []).length} independent case profiles` : policy.profile_id || "n/a")}</p>
+        <p><strong>Default level:</strong> ${escapeHtml((profile && profile.display_name) || "n/a")} · <strong>protocol:</strong> ${escapeHtml(protocol.protocol_id || "n/a")} · <strong>official policy:</strong> ${escapeHtml(perCase ? `${(protocol.acceptance_strata || []).length} independent case profiles` : policy.profile_id || "n/a")}</p>
         <p><strong>Required matrix:</strong> ${escapeHtml(required.length)} cases / ${escapeHtml(matrixSize)} case-target checks · ${escapeHtml(targets.map(targetTitle).join(", ") || "n/a")}</p>
         <p class="muted compact">${perCase
           ? "Every complete signal receives its own official verdict. Cases are not split into acceptance bins, pooled, averaged, or allowed to compensate for another case."
           : "Evidence mode runs this complete immutable matrix and embedded numeric policy. Profile, case, and target overrides are diagnostic-only and cannot produce evidence."}</p>
         <pre class="output">${escapeHtml(JSON.stringify(perCase ? casePolicies : policy.targets || {}, null, 2))}</pre>
-        <span class="fingerprint">${escapeHtml(envelope.sha256 || "")}</span>
+        <span class="fingerprint">${escapeHtml((profile && profile.protocol_sha256) || "")}</span>
       </details>
     `;
   }
 
   function releaseBoundaryBadges(pack) {
-    const protocol = pack.verification_protocol || {};
+    const protocol = evidenceEnvelope(pack);
+    const defaultProtocol = (defaultEvidenceProfile(pack) || {}).document || {};
     const external = pack.external_noise || {};
-    const perCase = ((protocol.document || {}).verdict_scope || "") === "per_case";
+    const perCase = (defaultProtocol.verdict_scope || "") === "per_case";
     return [
-      protocol.available ? '<span class="tag mode">evidence protocol v2</span>' : '<span class="tag warning">diagnostic only</span>',
+      protocol.available ? '<span class="tag mode">3 evidence levels</span>' : '<span class="tag warning">diagnostic only</span>',
       perCase ? '<span class="tag mode">independent case verdicts</span>' : "",
       external.used ? '<span class="tag mode">approved external noise</span>' : ""
     ].join("");
@@ -4069,7 +4128,7 @@ const char kUiJs[] = R"JS((() => {
         <p class="muted">${packFacts(pack)}</p>
         <p><strong>Scoreable locally</strong>${targetTags(pack.scoreable_targets, "scoreable")}</p>
         <p><strong>Reference-only</strong>${targetTags(pack.reference_only_targets, "reference")}</p>
-        <p class="muted">Verification: ${(pack.verification_protocol || {}).available ? "package-authoritative evidence" : "diagnostic only (non-evidence)"} · submission schemas: ${escapeHtml((pack.submission_output_schemas || []).join(", ") || "n/a")}</p>
+        <p class="muted">Verification: ${evidenceEnvelope(pack).available ? "package-authoritative evidence with selectable gates" : "diagnostic only (non-evidence)"} · submission schemas: ${escapeHtml((pack.submission_output_schemas || []).join(", ") || "n/a")}</p>
         <p class="tag-list">${(pack.difficulty || []).map((item) => `<span class="tag">${escapeHtml(item)}</span>`).join("")}</p>
         <button class="primary" data-select-pack="${escapeHtml(pack.pack_id)}">Use this pack</button>
         <details>
@@ -4114,10 +4173,12 @@ const char kUiJs[] = R"JS((() => {
     const node = $("selected-pack-summary");
     if (!pack) {
       node.innerHTML = "Select a pack to see scoring support.";
+      renderEvidenceProfilePicker(null);
       return;
     }
     if (pack.source === "custom") {
       node.innerHTML = `<strong>${escapeHtml(pack.display_name || pack.pack_id)}</strong><br>Custom pack · targets: ${escapeHtml((pack.targets || []).join(", ") || "n/a")}`;
+      renderEvidenceProfilePicker(pack);
       return;
     }
     node.innerHTML = `
@@ -4125,14 +4186,49 @@ const char kUiJs[] = R"JS((() => {
       ${packFacts(pack)}<br>
       Scoreable: ${targetNames(pack.scoreable_targets).map(escapeHtml).join(", ") || "none"}<br>
       Reference-only: ${targetNames(pack.reference_only_targets).map(escapeHtml).join(", ") || "none"}<br>
-      Verification: ${(pack.verification_protocol || {}).available ? "package-authoritative evidence protocol" : "diagnostic only (non-evidence)"}
+      Verification: ${evidenceEnvelope(pack).available ? "package-authoritative evidence with a job-locked level" : "diagnostic only (non-evidence)"}
     `;
+    renderEvidenceProfilePicker(pack);
+  }
+
+  function renderEvidenceProfilePicker(pack) {
+    const panel = $("evidence-profile-panel");
+    const envelope = evidenceEnvelope(pack);
+    const profiles = envelope.profiles || [];
+    if (!envelope.available || !profiles.length) {
+      state.selectedEvidenceProfileId = "";
+      panel.hidden = true;
+      $("evidence-profile-options").innerHTML = "";
+      return;
+    }
+    if (!profiles.some(
+      (profile) => profile.profile_id === state.selectedEvidenceProfileId
+    )) {
+      state.selectedEvidenceProfileId =
+        (defaultEvidenceProfile(pack) || {}).profile_id || "";
+    }
+    panel.hidden = false;
+    $("evidence-profile-options").innerHTML = profiles.map((profile) => `
+      <label class="target-option ${profile.profile_id === envelope.default_profile_id ? "recommended" : ""}">
+        <input type="radio" name="evidence-profile" value="${escapeHtml(profile.profile_id)}" ${profile.profile_id === state.selectedEvidenceProfileId ? "checked" : ""}>
+        <span>
+          <strong>${escapeHtml(profile.display_name)}</strong>
+          <small>${escapeHtml(profile.description || "")}</small>
+          <small>${escapeHtml(profile.threshold_adjustment || "")}</small>
+        </span>
+      </label>
+    `).join("");
+    const selected = selectedEvidenceProfile(pack);
+    $("evidence-profile-note").textContent = selected
+      ? `${selected.display_name} will be recorded with ${selected.protocol_sha256}. The waveform package is shared across all levels; only the immutable acceptance policy differs.`
+      : "";
   }
 
   function selectPackForGeneration(packId) {
     const select = $("pack-select");
     if ([...select.options].some((option) => option.value === packId)) {
       select.value = packId;
+      state.selectedEvidenceProfileId = "";
       renderSelectedPackSummary();
     }
     navigateTo("generate");
@@ -5597,7 +5693,14 @@ const char kUiJs[] = R"JS((() => {
     $("create-job").disabled = true;
     $("create-output").textContent = "Creating job…";
     try {
-      const body = await api("/v1/jobs", { method: "POST", json: { project_id: projectId, pack_id: packId } });
+      const pack = selectedPack();
+      const profile = selectedEvidenceProfile(pack);
+      const request = { project_id: projectId, pack_id: packId };
+      if (evidenceEnvelope(pack).available) {
+        if (!profile) throw new Error("Choose an evidence level.");
+        request.evidence_profile_id = profile.profile_id;
+      }
+      const body = await api("/v1/jobs", { method: "POST", json: request });
       await loadJobs({ force: true });
       await Promise.all([loadUsage(), loadMetrics()]);
       state.focusJobId = body.job_id;
@@ -5619,6 +5722,7 @@ const char kUiJs[] = R"JS((() => {
       status: job.status,
       package_id: job.package_id || "",
       package_fingerprint: job.package_fingerprint || "",
+      evidence_profile: job.evidence_profile || null,
       artifact_status: job.artifact_status || "",
       started_at: job.started_at || "",
       completed_at: job.completed_at || "",
@@ -5720,7 +5824,7 @@ const char kUiJs[] = R"JS((() => {
         <pre class="output">python -m pip install synsigra-__SYNSIGRA_VERIFIER_VERSION__-py3-none-any.whl</pre>
         <p>Role-selected submission layout:</p>
         <pre class="output">${escapeHtml(submissionShape(context))}</pre>
-        <p><strong>${context.evidenceEligible ? "Evidence mode" : "Diagnostic mode — not evidence"}:</strong> ${context.evidenceEligible ? ((context.verification.protocol || {}).verdict_scope === "per_case" ? "every complete signal receives an independent verdict with no pooling or cross-case compensation; do not add overrides." : "the packaged protocol fixes the complete case-target matrix and numeric policy; do not add overrides.") : "this package has no protocol v2, so the verifier must run explicitly in non-evidence diagnostic mode."}</p>
+        <p><strong>${context.evidenceEligible ? "Evidence mode" : "Diagnostic mode — not evidence"}:</strong> ${context.evidenceEligible ? ((context.verification.protocol || {}).verdict_scope === "per_case" ? "every complete signal receives an independent verdict with no pooling or cross-case compensation; do not add overrides." : "the packaged protocol fixes the complete case-target matrix and numeric policy; do not add overrides.") : "this package has no protocol v3, so the verifier must run explicitly in non-evidence diagnostic mode."}</p>
         <pre class="output">${escapeHtml(context.command)}</pre>
         <button class="secondary" data-copy-text="${escapeHtml(context.command)}">Copy verify command</button>
         <p>Open <code>${escapeHtml(context.outputDir)}/index.html</code>; it links every case-target detail page. <code>${escapeHtml(context.outputDir)}/evidence.json</code> is the single canonical machine-readable record.</p>
@@ -5798,7 +5902,7 @@ const char kUiJs[] = R"JS((() => {
         <strong>Run the verifier locally.</strong>
         <pre class="output">${escapeHtml(context.command)}</pre>
         <button class="secondary" data-copy-text="${escapeHtml(context.command)}">Copy verify command</button>
-        ${context.evidenceEligible ? `<p class="muted compact">The immutable protocol v2, complete matrix, embedded policy, protocol SHA-256 and evidence result are recorded in the local report. Keep that report with the challenge and algorithm build.</p>` : `<p class="warning compact">This is an exploratory diagnostic run. It cannot produce evidence PASS.</p>`}
+        ${context.evidenceEligible ? `<p class="muted compact">The immutable protocol v3, selected evidence level, complete matrix, policy SHA-256 and evidence result are recorded in the local report. Keep that report with the challenge and algorithm build.</p>` : `<p class="warning compact">This is an exploratory diagnostic run. It cannot produce evidence PASS.</p>`}
       </li>
       <li>
         <strong>Interpret outputs.</strong>
@@ -5961,6 +6065,8 @@ const char kUiJs[] = R"JS((() => {
             <dl class="meta-grid">
               <dt>Project</dt><dd>${escapeHtml(job.project_id || "—")}</dd>
               <dt>Pack version</dt><dd>${escapeHtml(job.pack_version || "—")}</dd>
+              <dt>Evidence level</dt><dd>${escapeHtml((job.evidence_profile && job.evidence_profile.display_name) || "Diagnostic")}</dd>
+              <dt>Evidence policy SHA-256</dt><dd class="fingerprint">${escapeHtml((job.evidence_profile && job.evidence_profile.protocol_sha256) || "—")}</dd>
               <dt>Catalog snapshot</dt><dd>${escapeHtml((job.catalog && job.catalog.version) || "custom authored")}</dd>
               <dt>Catalog SHA-256</dt><dd class="fingerprint">${escapeHtml((job.catalog && job.catalog.source_sha256) || "—")}</dd>
               <dt>Started</dt><dd>${escapeHtml(formatDate(job.started_at))}</dd>
@@ -6651,7 +6757,17 @@ const char kUiJs[] = R"JS((() => {
     const packId = target.getAttribute("data-select-pack");
     if (packId) selectPackForGeneration(packId);
   });
-  $("pack-select").addEventListener("change", renderSelectedPackSummary);
+  $("pack-select").addEventListener("change", () => {
+    state.selectedEvidenceProfileId = "";
+    renderSelectedPackSummary();
+  });
+  $("evidence-profile-options").addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) ||
+        target.name !== "evidence-profile") return;
+    state.selectedEvidenceProfileId = target.value;
+    renderEvidenceProfilePicker(selectedPack());
+  });
   $("runbook-job-select").addEventListener("change", () => {
     const jobId = $("runbook-job-select").value;
     if (jobId) openRunbook(jobId);
@@ -7045,6 +7161,8 @@ RouteResponse route_request(
                 contract.pack_schema_version));
             json_object_set_new(producer, "verification_protocol", json_string(
                 contract.verification_protocol.c_str()));
+            json_object_set_new(producer, "evidence_profiles", json_string(
+                contract.evidence_profiles.c_str()));
             json_object_set_new(producer, "submission", json_string(
                 contract.submission.c_str()));
             json_object_set_new(producer, "submission_formats", json_string(
@@ -8892,6 +9010,12 @@ RouteResponse route_request(
             std::string selected_pack_version;
             std::string selected_catalog_version;
             std::string selected_catalog_source_sha256;
+            std::string selected_evidence_profile_id;
+            std::string selected_evidence_profile_display_name;
+            std::string selected_evidence_profile_version;
+            int selected_evidence_profile_rank = 0;
+            std::string selected_evidence_protocol_sha256;
+            std::string selected_evidence_protocol_source_path;
             if (pack_status == PackLookupStatus::not_found) {
                 CustomPackRecord custom_pack;
                 const RecordLookupStatus custom_status =
@@ -8920,6 +9044,13 @@ RouteResponse route_request(
                 source_pack_path = custom_pack.source_pack_path;
                 selected_pack_fingerprint = custom_pack.pack_fingerprint;
                 selected_pack_version = custom_pack.version;
+                if (!job_request.evidence_profile_id.empty()) {
+                    return json_response(
+                        400,
+                        "{\"error\":{\"code\":\"evidence_profile_not_supported\","
+                        "\"message\":\"Custom packs do not define packaged evidence profiles.\"}}\n"
+                    );
+                }
             }
             if (pack_status != PackLookupStatus::found &&
                 pack_status != PackLookupStatus::not_found) {
@@ -8933,7 +9064,7 @@ RouteResponse route_request(
             }
             if (pack_status == PackLookupStatus::found) {
                 if (pack.integration_contract_version !=
-                    "synsigra_core_integration_v7") {
+                    "synsigra_core_integration_v8") {
                     return json_response(
                         409,
                         "{\"error\":{\"code\":\"pack_generator_incompatible\","
@@ -8957,6 +9088,40 @@ RouteResponse route_request(
                 selected_pack_version = pack.version;
                 selected_catalog_version = pack.catalog_version;
                 selected_catalog_source_sha256 = pack.catalog_source_sha256;
+                if (pack.evidence_profiles_available) {
+                    if (job_request.evidence_profile_id.empty()) {
+                        return json_response(
+                            400,
+                            "{\"error\":{\"code\":\"evidence_profile_required\","
+                            "\"message\":\"Choose an evidence level for this verification pack.\"}}\n"
+                        );
+                    }
+                    const EvidenceProfileSummary* profile =
+                        find_evidence_profile(
+                            pack, job_request.evidence_profile_id);
+                    if (profile == nullptr) {
+                        return json_response(
+                            400,
+                            "{\"error\":{\"code\":\"invalid_evidence_profile\","
+                            "\"message\":\"The selected evidence level is not available for this pack.\"}}\n"
+                        );
+                    }
+                    selected_evidence_profile_id = profile->profile_id;
+                    selected_evidence_profile_display_name =
+                        profile->display_name;
+                    selected_evidence_profile_version = profile->version;
+                    selected_evidence_profile_rank = profile->rank;
+                    selected_evidence_protocol_sha256 =
+                        profile->protocol_sha256;
+                    selected_evidence_protocol_source_path =
+                        profile->protocol_source_path;
+                } else if (!job_request.evidence_profile_id.empty()) {
+                    return json_response(
+                        400,
+                        "{\"error\":{\"code\":\"evidence_profile_not_supported\","
+                        "\"message\":\"This diagnostic pack does not define evidence levels.\"}}\n"
+                    );
+                }
             }
             UsageSummary usage;
             unsigned long long disk_free = 0;
@@ -9017,6 +9182,12 @@ RouteResponse route_request(
                     selected_pack_version,
                     selected_catalog_version,
                     selected_catalog_source_sha256,
+                    selected_evidence_profile_id,
+                    selected_evidence_profile_display_name,
+                    selected_evidence_profile_version,
+                    selected_evidence_profile_rank,
+                    selected_evidence_protocol_sha256,
+                    selected_evidence_protocol_source_path,
                     job_id,
                     error
                 )) {
@@ -9035,12 +9206,43 @@ RouteResponse route_request(
                 json_string(job_id.c_str())
             );
             json_object_set_new(created, "status", json_string("queued"));
+            if (!selected_evidence_profile_id.empty()) {
+                json_t* profile = json_object();
+                json_object_set_new(
+                    profile, "profile_id",
+                    json_string(selected_evidence_profile_id.c_str()));
+                json_object_set_new(
+                    profile, "display_name",
+                    json_string(
+                        selected_evidence_profile_display_name.c_str()));
+                json_object_set_new(
+                    profile, "version",
+                    json_string(selected_evidence_profile_version.c_str()));
+                json_object_set_new(
+                    profile, "rank",
+                    json_integer(selected_evidence_profile_rank));
+                json_object_set_new(
+                    profile, "protocol_sha256",
+                    json_string(selected_evidence_protocol_sha256.c_str()));
+                json_object_set_new(created, "evidence_profile", profile);
+            }
             const std::string body = json_dump_line(created);
             json_decref(created);
             RouteResponse response = json_response(202, body);
+            json_t* audit_details = json_object();
+            if (!selected_evidence_profile_id.empty()) {
+                json_object_set_new(
+                    audit_details, "evidence_profile_id",
+                    json_string(selected_evidence_profile_id.c_str()));
+                json_object_set_new(
+                    audit_details, "evidence_protocol_sha256",
+                    json_string(selected_evidence_protocol_sha256.c_str()));
+            }
+            const std::string audit_json = json_dump_line(audit_details);
+            json_decref(audit_details);
             record_nonblocking_audit(
                 *metadata_store, authenticated_identity, "job.created",
-                "job", job_id, "{}", response);
+                "job", job_id, audit_json, response);
             return response;
         }
 

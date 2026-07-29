@@ -52,7 +52,7 @@ bool complete_next_job(
         job,
         package_id,
         "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "synsigra_core_integration_v7",
+        "synsigra_core_integration_v8",
         "{}",
         "0.10.0-dev",
         "d4f3f75cb46aeb5bcf7fe9ed700e7d109d00416f",
@@ -130,6 +130,10 @@ int main() {
         tools.body.find("synsigra_recommend_packs") != std::string::npos &&
         tools.body.find("synsigra_get_verification_guide") != std::string::npos &&
         tools.body.find("synsigra_create_custom_pack") != std::string::npos &&
+        tools.body.find("\"evidence_profile_id\"") != std::string::npos &&
+        tools.body.find("\"level_1\"") != std::string::npos &&
+        tools.body.find("\"level_2\"") != std::string::npos &&
+        tools.body.find("\"level_3\"") != std::string::npos &&
         tools.body.find("\"readOnlyHint\":false") != std::string::npos,
         "tool discovery should expose guided and modifying workflows: " + tools.body);
 
@@ -217,7 +221,7 @@ int main() {
         "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\","
         "\"params\":{\"name\":\"synsigra_create_job\",\"arguments\":{"
         "\"project_id\":\"org_mcp_owner_default\","
-        "\"pack_id\":\"r_peak_stress_v1\"}}}");
+        "\"pack_id\":\"ecg_extended_morphology_v1\"}}}");
     require(
         created.status == 200 &&
         created.body.find("\"http_status\":202") != std::string::npos &&
@@ -228,7 +232,7 @@ int main() {
         "{\"contract\":\"synsigra_saas_challenge_metadata_v1\","
         "\"challenge_contract\":\"synsigra_challenge_package_v3\","
         "\"local_verification_contract\":\"synsigra_local_verification_v3\","
-        "\"verifier_version\":\"0.16.0\",\"case_count\":2,"
+        "\"verifier_version\":\"0.17.0\",\"case_count\":2,"
         "\"targets\":[{\"target\":\"r_peak\"},{\"target\":\"signal_quality\"}],"
         "\"verification\":{\"mode\":\"diagnostic\","
         "\"evidence_eligible\":false}}";
@@ -251,7 +255,7 @@ int main() {
             "synsigra-verify challenge submission verification-results --mode diagnostic --force") !=
             std::string::npos &&
         diagnostic_guide.body.find(
-            "synsigra-0.16.0-py3-none-any.whl") != std::string::npos &&
+            "synsigra-0.17.0-py3-none-any.whl") != std::string::npos &&
         diagnostic_guide.body.find("\"job_summary\"") != std::string::npos &&
         diagnostic_guide.body.find("\"canonical_evidence\":"
             "\"verification-results/evidence.json\"") != std::string::npos &&
@@ -264,22 +268,30 @@ int main() {
     require(
         store.create_job(
             owner, owner.organization_id + "_default",
-            "{\"pack_id\":\"r_peak_rr_noise_v1\"}",
+            "{\"pack_id\":\"r_peak_rr_noise_v1\","
+            "\"evidence_profile_id\":\"level_2\"}",
             "r_peak_rr_noise_v1", "r_peak_rr_noise_v1.json",
             "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             "1.3", "3.5",
             "sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136",
+            "level_2", "Level 2 — Advanced", "1.0", 2,
+            "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "/tmp/r_peak_rr_noise_v1__level_2_expectations.json",
             evidence_job_id, error),
         "evidence MCP fixture should queue: " + error);
     const std::string evidence_metadata =
         "{\"contract\":\"synsigra_saas_challenge_metadata_v1\","
         "\"challenge_contract\":\"synsigra_challenge_package_v3\","
         "\"local_verification_contract\":\"synsigra_local_verification_v3\","
-        "\"verifier_version\":\"0.16.0\",\"case_count\":1,"
+        "\"verifier_version\":\"0.17.0\",\"case_count\":1,"
         "\"targets\":[{\"target\":\"r_peak\"},{\"target\":\"rr_interval\"}],"
         "\"verification\":{\"mode\":\"evidence\","
         "\"evidence_eligible\":true,\"protocol\":{"
-        "\"protocol_id\":\"r_peak_rr_noise_v1\"}}}";
+        "\"protocol_id\":\"r_peak_rr_noise_v1__level_2\","
+        "\"evidence_profile\":{\"profile_id\":\"level_2\","
+        "\"display_name\":\"Level 2 — Advanced\",\"version\":\"1.0\","
+        "\"rank\":2,\"policy_contract\":"
+        "\"synsigra_evidence_profile_policy_v1\"}}}}";
     syn_sig_ra::JobRecord evidence_job;
     require(
         complete_next_job(
@@ -296,6 +308,8 @@ int main() {
         evidence_guide.body.find("\"verification_mode\":\"evidence\"") !=
             std::string::npos &&
         evidence_guide.body.find("\"evidence_eligible\":true") !=
+            std::string::npos &&
+        evidence_guide.body.find("\"profile_id\":\"level_2\"") !=
             std::string::npos &&
         evidence_guide.body.find(
             "synsigra-verify challenge submission verification-results --force") !=

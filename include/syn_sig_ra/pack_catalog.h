@@ -42,6 +42,19 @@ struct PackTargetSummary {
     double default_tolerance_seconds = 0.0;
 };
 
+struct EvidenceProfileSummary {
+    std::string profile_id;
+    std::string display_name;
+    std::string version;
+    int rank = 0;
+    std::string description;
+    std::string threshold_adjustment;
+    std::string protocol_id;
+    std::string protocol_sha256;
+    std::string protocol_json;
+    std::string protocol_source_path;
+};
+
 struct PackSummary {
     std::string pack_id;
     std::string display_name;
@@ -83,9 +96,10 @@ struct PackSummary {
     std::string scoring_manifest_contract;
     std::string submission_contract;
     std::string verification_protocol_contract;
-    bool verification_protocol_available = false;
-    std::string verification_protocol_json;
-    std::string verification_protocol_sha256;
+    bool evidence_profiles_available = false;
+    std::string evidence_profile_policy_contract;
+    std::string default_evidence_profile_id;
+    std::vector<EvidenceProfileSummary> evidence_profiles;
     bool uses_external_noise = false;
     std::vector<std::string> external_noise_asset_ids;
     std::vector<std::string> output_artifact_roles;
@@ -100,6 +114,10 @@ enum class PackLookupStatus {
 };
 
 bool is_valid_pack_id(const std::string& pack_id);
+const EvidenceProfileSummary* find_evidence_profile(
+    const PackSummary& pack,
+    const std::string& profile_id
+);
 std::string pack_summary_json(const PackSummary& pack);
 
 class PackCatalog {

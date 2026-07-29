@@ -58,9 +58,9 @@ components:
             message: {type: string}
     AcceptedCore:
       type: object
-      required: [integration_contract, version, git_commit, build_identity, cpp_facade, pack_schema_version, challenge_package, scoring_manifest, verification_protocol, submission, submission_formats, measurement_values, measurement_truth, measurement_scoring, local_verification, scenario_authoring, scenario_templates, python_verifier, external_noise_truth, contract_document]
+      required: [integration_contract, version, git_commit, build_identity, cpp_facade, pack_schema_version, challenge_package, scoring_manifest, verification_protocol, evidence_profiles, submission, submission_formats, measurement_values, measurement_truth, measurement_scoring, local_verification, scenario_authoring, scenario_templates, python_verifier, external_noise_truth, contract_document]
       properties:
-        integration_contract: {type: string, enum: [synsigra_core_integration_v7]}
+        integration_contract: {type: string, enum: [synsigra_core_integration_v8]}
         version: {type: string, enum: [0.10.0-dev]}
         git_commit: {type: string, enum: [d4f3f75cb46aeb5bcf7fe9ed700e7d109d00416f]}
         build_identity: {type: string, enum: [signal_synth/d4f3f75cb46aeb5bcf7fe9ed700e7d109d00416f]}
@@ -68,7 +68,8 @@ components:
         pack_schema_version: {type: integer, enum: [2]}
         challenge_package: {type: string, enum: [synsigra_challenge_package_v3]}
         scoring_manifest: {type: string, enum: [synsigra_scoring_manifest_v3]}
-        verification_protocol: {type: string, enum: [synsigra_verification_protocol_v2]}
+        verification_protocol: {type: string, enum: [synsigra_verification_protocol_v3]}
+        evidence_profiles: {type: string, enum: [synsigra_evidence_profile_policy_v1]}
         submission: {type: string, enum: [synsigra_submission_v1]}
         submission_formats: {type: string, enum: [synsigra_submission_formats_v2]}
         measurement_values: {type: string, enum: [synsigra_measurement_values_v2]}
@@ -77,7 +78,7 @@ components:
         local_verification: {type: string, enum: [synsigra_local_verification_v3]}
         scenario_authoring: {type: string, enum: [synsigra_authoring_v18]}
         scenario_templates: {type: string, enum: [synsigra_templates_v5]}
-        python_verifier: {type: string, enum: [0.16.0]}
+        python_verifier: {type: string, enum: [0.17.0]}
         external_noise_truth: {type: string, enum: [synsigra_external_noise_truth_v1]}
         contract_document:
           type: object
@@ -114,15 +115,31 @@ components:
         external_noise: {type: boolean}
         external_noise_release_allowed: {type: boolean}
         external_noise_asset_ids: {type: array, items: {type: string}}
+    EvidenceProfile:
+      type: object
+      required: [profile_id, display_name, version, rank, description, threshold_adjustment, protocol_id, protocol_sha256, document]
+      properties:
+        profile_id: {type: string, enum: [level_1, level_2, level_3]}
+        display_name: {type: string}
+        version: {type: string}
+        rank: {type: integer, minimum: 1, maximum: 3}
+        description: {type: string}
+        threshold_adjustment: {type: string}
+        protocol_id: {type: string}
+        protocol_sha256: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+        document:
+          type: object
+          description: Complete immutable package-authoritative protocol for this level.
+          additionalProperties: true
     Pack:
       type: object
-      required: [pack_id, display_name, version, catalog_version, catalog_source_sha256, release_set_id, targets, scoreable_targets, reference_only_targets, submission_output_schemas, scoring_mode, integration_contract, generator_compatibility, output_artifact_roles, verification_protocol, external_noise]
+      required: [pack_id, display_name, version, catalog_version, catalog_source_sha256, release_set_id, targets, scoreable_targets, reference_only_targets, submission_output_schemas, scoring_mode, integration_contract, generator_compatibility, output_artifact_roles, evidence_profiles, external_noise]
       properties:
         pack_id: {type: string}
         display_name: {type: string}
         version: {type: string}
         description: {type: string}
-        catalog_version: {type: string, enum: ['3.5']}
+        catalog_version: {type: string, enum: ['3.6']}
         catalog_source_sha256: {type: string, enum: ['sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136']}
         release_set_id: {type: string}
         release_status: {type: string, enum: [beta, stable, deprecated]}
@@ -163,7 +180,7 @@ components:
             size_class: {type: string}
         scenarios: {type: array, items: {$ref: '#/components/schemas/PackScenario'}}
         scenario_count: {type: integer}
-        integration_contract: {type: string, enum: [synsigra_core_integration_v7]}
+        integration_contract: {type: string, enum: [synsigra_core_integration_v8]}
         generator_compatibility:
           type: object
           required: [local_verifier_min_version, challenge_package_contract, scoring_manifest_contract, submission_contract, verification_protocol_contract, integration_contract]
@@ -175,8 +192,8 @@ components:
             challenge_package_contract: {type: string, enum: [synsigra_challenge_package_v3]}
             scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
             submission_contract: {type: string, enum: [synsigra_submission_v1]}
-            verification_protocol_contract: {type: string, enum: [synsigra_verification_protocol_v2]}
-            integration_contract: {type: string, enum: [synsigra_core_integration_v7]}
+            verification_protocol_contract: {type: string, enum: [synsigra_verification_protocol_v3]}
+            integration_contract: {type: string, enum: [synsigra_core_integration_v8]}
         output_artifact_roles: {type: array, items: {type: string}}
         primary_badges: {type: array, items: {type: string}}
         changelog:
@@ -189,14 +206,17 @@ components:
               summary: {type: string}
         deprecation_message: {type: string}
         pack_fingerprint: {type: string}
-        verification_protocol:
+        evidence_profiles:
           type: object
-          required: [available, contract, sha256, document]
+          required: [available, protocol_contract, policy_contract, default_profile_id, profiles]
           properties:
             available: {type: boolean}
-            contract: {type: string, enum: [synsigra_verification_protocol_v2]}
-            sha256: {type: string}
-            document: {type: object, nullable: true, additionalProperties: true}
+            protocol_contract: {type: string, enum: [synsigra_verification_protocol_v3]}
+            policy_contract: {type: string, enum: [synsigra_evidence_profile_policy_v1]}
+            default_profile_id: {type: string, enum: [level_2]}
+            profiles:
+              type: array
+              items: {$ref: '#/components/schemas/EvidenceProfile'}
         external_noise:
           type: object
           required: [used, release_allowed, asset_ids]
@@ -210,7 +230,7 @@ components:
       properties:
         schema_version: {type: integer, enum: [1]}
         contract: {type: string, enum: [synsigra_saas_challenge_metadata_v1]}
-        verifier_version: {type: string, enum: [0.16.0]}
+        verifier_version: {type: string, enum: [0.17.0]}
         challenge_contract: {type: string, enum: [synsigra_challenge_package_v3]}
         package_id:
           type: string
@@ -259,10 +279,19 @@ components:
               nullable: true
               properties:
                 protocol_id: {type: string}
-                contract: {type: string, enum: [synsigra_verification_protocol_v2]}
+                contract: {type: string, enum: [synsigra_verification_protocol_v3]}
                 path: {type: string}
                 size_bytes: {type: integer, format: int64}
                 sha256: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+                evidence_profile:
+                  type: object
+                  required: [profile_id, display_name, version, rank, policy_contract]
+                  properties:
+                    profile_id: {type: string, enum: [level_1, level_2, level_3]}
+                    display_name: {type: string}
+                    version: {type: string}
+                    rank: {type: integer, minimum: 1, maximum: 3}
+                    policy_contract: {type: string, enum: [synsigra_evidence_profile_policy_v1]}
                 context_of_use: {type: string}
                 scoring_contract: {type: string, enum: [synsigra_local_verification_v3]}
                 acceptance_profile_id: {type: string}
@@ -309,7 +338,7 @@ components:
           description: Present for curated jobs; omitted for immutable custom-pack snapshots.
           required: [version, source_sha256]
           properties:
-            version: {type: string, enum: ['3.5']}
+            version: {type: string, enum: ['3.6']}
             source_sha256: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
         status:
           type: string
@@ -322,7 +351,17 @@ components:
           description: SaaS artifact identifier used by the package download endpoints.
         artifact_status: {type: string, enum: [available, expired]}
         package_fingerprint: {type: string}
-        integration_contract: {type: string, enum: [synsigra_core_integration_v7]}
+        evidence_profile:
+          type: object
+          description: Immutable selected gates for curated evidence jobs; omitted for diagnostic/custom jobs.
+          required: [profile_id, display_name, version, rank, protocol_sha256]
+          properties:
+            profile_id: {type: string, enum: [level_1, level_2, level_3]}
+            display_name: {type: string}
+            version: {type: string}
+            rank: {type: integer, minimum: 1, maximum: 3}
+            protocol_sha256: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+        integration_contract: {type: string, enum: [synsigra_core_integration_v8]}
         generator_version: {type: string}
         generator_git_commit: {type: string}
         generator_build_identity: {type: string}
@@ -411,11 +450,11 @@ components:
       properties:
         schema_version: {type: integer}
         package: {type: string, example: synsigra}
-        version: {type: string, enum: [0.16.0]}
+        version: {type: string, enum: [0.17.0]}
         core_git_commit: {type: string, enum: [d4f3f75cb46aeb5bcf7fe9ed700e7d109d00416f]}
         challenge_contract: {type: string, enum: [synsigra_challenge_package_v3]}
         scoring_manifest_contract: {type: string, enum: [synsigra_scoring_manifest_v3]}
-        verification_protocol_contract: {type: string, enum: [synsigra_verification_protocol_v2]}
+        verification_protocol_contract: {type: string, enum: [synsigra_verification_protocol_v3]}
         submission_contract: {type: string, enum: [synsigra_submission_v1]}
         submission_formats_contract: {type: string, enum: [synsigra_submission_formats_v2]}
         measurement_values_contract: {type: string, enum: [synsigra_measurement_values_v2]}
@@ -587,7 +626,7 @@ paths:
       summary: Download local verifier bundle or wheel
       security: [{cookieAuth: []}, {bearerAuth: []}]
       parameters:
-        - {in: path, name: filename, required: true, schema: {type: string, enum: [metadata.json, synsigra-verifier.zip, synsigra-0.16.0-py3-none-any.whl]}}
+        - {in: path, name: filename, required: true, schema: {type: string, enum: [metadata.json, synsigra-verifier.zip, synsigra-0.17.0-py3-none-any.whl]}}
       responses:
         '200':
           description: Verifier file bytes
@@ -937,6 +976,10 @@ paths:
               properties:
                 project_id: {type: string}
                 pack_id: {type: string}
+                evidence_profile_id:
+                  type: string
+                  enum: [level_1, level_2, level_3]
+                  description: Required for curated evidence packs and rejected for diagnostic/custom packs. The choice locks gates, not signals.
               additionalProperties: false
       responses:
         '202': {description: Job queued}
@@ -989,7 +1032,7 @@ paths:
   /v1/jobs/{job_id}/verification-kit.zip:
     get:
       summary: Download the single generator-free verification kit for a curated or custom job
-      description: Returns verification-kit v2. After one unzip it contains the immutable integrity-protected `challenge/`, a role-selected editable `submission/`, exact README command, engineering claim boundary, and normalized challenge metadata. A protocol-v2 package runs `synsigra-verify challenge submission verification-results --force` in package-authoritative evidence mode; a package without protocol v2 uses explicit diagnostic mode and is never evidence-eligible. There is no nested package ZIP and no filename guessing. The kit does not include the generator or verifier wheel. Single byte ranges and browser resume are supported; multipart ranges are rejected. Concurrent first downloads converge on one checksum-addressed cached artifact.
+      description: Returns verification-kit v3. After one unzip it contains the immutable integrity-protected `challenge/`, a role-selected editable `submission/`, exact README command, engineering claim boundary, selected evidence-level identity, and normalized challenge metadata. A protocol-v3 package runs `synsigra-verify challenge submission verification-results --force` in package-authoritative evidence mode; a package without protocol v3 uses explicit diagnostic mode and is never evidence-eligible. There is no nested package ZIP and no filename guessing. The kit does not include the generator or verifier wheel. Single byte ranges and browser resume are supported; multipart ranges are rejected. Concurrent first downloads converge on one checksum-addressed cached artifact.
       security: [{cookieAuth: []}, {bearerAuth: []}]
       parameters:
         - {in: path, name: job_id, required: true, schema: {type: string}}

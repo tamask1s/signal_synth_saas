@@ -64,10 +64,12 @@ all files by role, media type, size, and SHA-256. It includes the applicable
 waveforms, ground truth, summaries, provenance, warnings, claim boundary,
 submission templates, and optional pre-specified verification protocol.
 
-The pure-Python verifier 0.16.0 validates archive/path safety, manifest and
+The pure-Python verifier 0.17.0 validates archive/path safety, manifest and
 role shape, identity, integrity, submission schema, per-target scoring, and
 protocol policy. Evidence mode is package-authoritative: it requires a
-protocol-v2 package and runs its full matrix with its embedded numeric policy.
+protocol-v3 package and runs its full matrix with the Level 1 Foundation,
+Level 2 Advanced, or Level 3 Frontier policy selected and SHA-256 locked before
+generation. The level changes gates, not the generated signals.
 Explicit diagnostic mode may filter or use a custom policy, but its reports are
 always non-evidence. It is generator-free. Customer algorithms and output can
 remain local.

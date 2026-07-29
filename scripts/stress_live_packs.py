@@ -149,12 +149,12 @@ def list_packs(client: Client, selected: list[str]) -> list[dict[str, Any]]:
         raise RuntimeError("Pack list response did not contain packs[]")
     valid = [pack for pack in packs if isinstance(pack, dict)]
     for pack in valid:
-        if pack.get("catalog_version") != "3.5":
-            raise RuntimeError("pack list contains a non-3.5 catalog entry")
+        if pack.get("catalog_version") != "3.6":
+            raise RuntimeError("pack list contains a non-3.6 catalog entry")
         if pack.get("catalog_source_sha256") != "sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136":
             raise RuntimeError("pack list contains an unexpected catalog hash")
-        if pack.get("integration_contract") != "synsigra_core_integration_v7":
-            raise RuntimeError("pack list contains a non-v7 entry")
+        if pack.get("integration_contract") != "synsigra_core_integration_v8":
+            raise RuntimeError("pack list contains a non-v8 entry")
     if not selected:
         expected = expected_pack_count()
         if len(valid) != expected:
@@ -217,22 +217,22 @@ def validate_zip(path: pathlib.Path, required_members: list[str] | None = None) 
 
 
 def validate_job(job: dict[str, Any], pack: dict[str, Any]) -> None:
-    if job.get("integration_contract") != "synsigra_core_integration_v7":
+    if job.get("integration_contract") != "synsigra_core_integration_v8":
         raise RuntimeError("job has the wrong integration contract")
     if job.get("generator_git_commit") != "d4f3f75cb46aeb5bcf7fe9ed700e7d109d00416f":
         raise RuntimeError("job was not rendered by the pinned generator")
     if job.get("pack_version") != pack.get("version"):
         raise RuntimeError("job pack version differs from the selected catalog entry")
     catalog = job.get("catalog")
-    if not isinstance(catalog, dict) or catalog.get("version") != "3.5":
-        raise RuntimeError("job does not preserve catalog 3.5 identity")
+    if not isinstance(catalog, dict) or catalog.get("version") != "3.6":
+        raise RuntimeError("job does not preserve catalog 3.6 identity")
     if catalog.get("source_sha256") != "sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136":
         raise RuntimeError("job has the wrong catalog hash")
     challenge = job.get("challenge")
     if not isinstance(challenge, dict):
         raise RuntimeError("job has no normalized challenge metadata")
     expected = {
-        "verifier_version": "0.16.0",
+        "verifier_version": "0.17.0",
         "challenge_contract": "synsigra_challenge_package_v3",
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",
@@ -262,16 +262,29 @@ def validate_job(job: dict[str, Any], pack: dict[str, Any]) -> None:
     }
     if actual_targets != expected_targets:
         raise RuntimeError("challenge target coverage differs from the catalog")
-    protocol = pack.get("verification_protocol")
+    protocol = pack.get("evidence_profiles")
     if not isinstance(protocol, dict):
-        raise RuntimeError("catalog pack has no verification protocol envelope")
-    expected_protocol = protocol.get("document") if protocol.get("available") else None
+        raise RuntimeError("catalog pack has no evidence profile envelope")
+    profiles = protocol.get("profiles") or []
+    selected = next(
+        (
+            item for item in profiles
+            if item.get("profile_id") == protocol.get("default_profile_id")
+        ),
+        None,
+    )
+    expected_protocol = selected.get("document") if selected else None
     if challenge.get("verification_protocol") != expected_protocol:
         raise RuntimeError("challenge verification protocol differs from the catalog")
     verification = challenge.get("verification")
     if not isinstance(verification, dict):
         raise RuntimeError("challenge has no verification-mode metadata")
     if protocol.get("available"):
+        job_profile = job.get("evidence_profile")
+        if not isinstance(job_profile, dict) or not selected or \
+                job_profile.get("profile_id") != selected.get("profile_id") or \
+                job_profile.get("protocol_sha256") != selected.get("protocol_sha256"):
+            raise RuntimeError("job does not preserve the selected evidence profile")
         if verification.get("mode") != "evidence" or \
                 verification.get("evidence_eligible") is not True or \
                 verification.get("matrix_complete") is not True or \
@@ -358,10 +371,16 @@ def run() -> int:
             print(f"[{index}/{len(packs)}] {pack_id}: queue", flush=True)
             job_id = ""
             try:
+                request = {"project_id": project_id, "pack_id": pack_id}
+                evidence = pack.get("evidence_profiles") or {}
+                if evidence.get("available"):
+                    request["evidence_profile_id"] = evidence.get(
+                        "default_profile_id"
+                    )
                 queued = client.request_json(
                     "POST",
                     "/v1/jobs",
-                    {"project_id": project_id, "pack_id": pack_id},
+                    request,
                 )
                 job_id = queued.get("job_id")
                 if not isinstance(job_id, str) or not job_id:

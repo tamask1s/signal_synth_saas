@@ -94,11 +94,29 @@ int main() {
     require(
         syn_sig_ra::parse_job_request(
             "{\"project_id\":\"org_job_owner_default\","
-            "\"pack_id\":\"r_peak_stress_v1\"}",
+            "\"pack_id\":\"r_peak_stress_v1\","
+            "\"evidence_profile_id\":\"level_2\"}",
             parsed,
             error
         ) == syn_sig_ra::JobRequestStatus::valid,
         "valid job request should parse: " + error
+    );
+    require(
+        parsed.evidence_profile_id == "level_2" &&
+            parsed.canonical_json.find(
+                "\"evidence_profile_id\":\"level_2\"") !=
+                std::string::npos,
+        "evidence profile should be retained in canonical job intent"
+    );
+    require(
+        syn_sig_ra::parse_job_request(
+            "{\"project_id\":\"org_job_owner_default\","
+            "\"pack_id\":\"r_peak_stress_v1\","
+            "\"evidence_profile_id\":\"../level_2\"}",
+            parsed,
+            error
+        ) == syn_sig_ra::JobRequestStatus::invalid_value,
+        "unsafe evidence profile IDs should be rejected"
     );
     require(
         syn_sig_ra::parse_job_request(
@@ -267,6 +285,62 @@ int main() {
         ).status == 200,
         "custom pack test job should cancel cleanly"
     );
+    const syn_sig_ra::RouteResponse missing_profile =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/jobs",
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root,
+            "application/json",
+            "{\"project_id\":\"org_job_owner_default\","
+            "\"pack_id\":\"r_peak_stress_v1\"}"
+        );
+    require(
+        missing_profile.status == 400 &&
+            missing_profile.body.find("evidence_profile_required") !=
+                std::string::npos,
+        "evidence jobs must require an explicit acceptance level"
+    );
+    const syn_sig_ra::RouteResponse invalid_profile =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/jobs",
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root,
+            "application/json",
+            "{\"project_id\":\"org_job_owner_default\","
+            "\"pack_id\":\"r_peak_stress_v1\","
+            "\"evidence_profile_id\":\"level_9\"}"
+        );
+    require(
+        invalid_profile.status == 400 &&
+            invalid_profile.body.find("invalid_evidence_profile") !=
+                std::string::npos,
+        "jobs must reject evidence levels not packaged by the selected pack"
+    );
+    const syn_sig_ra::RouteResponse diagnostic_profile =
+        syn_sig_ra::route_request(
+            "POST",
+            "/syn_sig_ra/v1/jobs",
+            "/syn_sig_ra",
+            "Bearer job-owner-secret",
+            &store,
+            config.pack_root,
+            "application/json",
+            "{\"project_id\":\"org_job_owner_default\","
+            "\"pack_id\":\"ecg_extended_morphology_v1\","
+            "\"evidence_profile_id\":\"level_2\"}"
+        );
+    require(
+        diagnostic_profile.status == 400 &&
+            diagnostic_profile.body.find("evidence_profile_not_supported") !=
+                std::string::npos,
+        "diagnostic jobs must reject evidence-only acceptance levels"
+    );
     const syn_sig_ra::RouteResponse created = syn_sig_ra::route_request(
         "POST",
         "/syn_sig_ra/v1/jobs",
@@ -276,9 +350,19 @@ int main() {
         config.pack_root,
         "application/json; charset=utf-8",
         "{\"project_id\":\"org_job_owner_default\","
-        "\"pack_id\":\"r_peak_stress_v1\"}"
+        "\"pack_id\":\"r_peak_stress_v1\","
+        "\"evidence_profile_id\":\"level_2\"}"
     );
-    require(created.status == 202, "job creation should return HTTP 202");
+    require(
+        created.status == 202 &&
+            created.body.find("\"profile_id\":\"level_2\"") !=
+                std::string::npos &&
+            created.body.find("\"display_name\":\"Level 2 — Advanced\"") !=
+                std::string::npos &&
+            created.body.find("\"protocol_sha256\":\"sha256:") !=
+                std::string::npos,
+        "job creation should return the immutable selected evidence level"
+    );
     const std::string marker("\"job_id\":\"");
     const std::string::size_type marker_position = created.body.find(marker);
     require(
@@ -305,8 +389,12 @@ int main() {
     );
     require(status.status == 200, "owner should read the queued job");
     require(
-        status.body.find("\"status\":\"queued\"") != std::string::npos,
-        "new job should have queued status"
+        status.body.find("\"status\":\"queued\"") != std::string::npos &&
+            status.body.find("\"profile_id\":\"level_2\"") !=
+                std::string::npos &&
+            status.body.find("\"protocol_sha256\":\"sha256:") !=
+                std::string::npos,
+        "new job should retain its queued status and immutable evidence level"
     );
 
     syn_sig_ra::ApiKeyIdentity viewer;
@@ -399,7 +487,8 @@ int main() {
         config.pack_root,
         "application/json",
         "{\"project_id\":\"org_job_owner_default\","
-        "\"pack_id\":\"r_peak_stress_v1\"}"
+        "\"pack_id\":\"r_peak_stress_v1\","
+        "\"evidence_profile_id\":\"level_2\"}"
     );
     require(
         viewer_create.status == 403,
@@ -556,8 +645,10 @@ int main() {
     require(
         retried.status == 202 &&
             retried.body.find("\"retry_of\":\"" + job_id + "\"") !=
+                std::string::npos &&
+            retried.body.find("\"profile_id\":\"level_2\"") !=
                 std::string::npos,
-        "cancelled jobs should retry as a new queued job"
+        "cancelled jobs should retry with the same immutable evidence level"
     );
     const syn_sig_ra::RouteResponse second_active =
         syn_sig_ra::route_request(
@@ -569,7 +660,8 @@ int main() {
             config.pack_root,
             "application/json",
             "{\"project_id\":\"org_job_owner_default\","
-            "\"pack_id\":\"r_peak_stress_v1\"}"
+            "\"pack_id\":\"r_peak_stress_v1\","
+            "\"evidence_profile_id\":\"level_2\"}"
         );
     require(
         second_active.status == 202,
@@ -585,7 +677,8 @@ int main() {
             config.pack_root,
             "application/json",
             "{\"project_id\":\"org_job_owner_default\","
-            "\"pack_id\":\"r_peak_stress_v1\"}"
+            "\"pack_id\":\"r_peak_stress_v1\","
+            "\"evidence_profile_id\":\"level_2\"}"
         );
     require(
         quota_rejected.status == 429 &&

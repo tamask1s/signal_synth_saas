@@ -11,7 +11,7 @@
 
 namespace {
 
-const int kSchemaVersion = 2;
+const int kSchemaVersion = 3;
 const int kRequestLimitPerMinute = 120;
 const int kConcurrentJobLimit = 2;
 const int kMonthlyJobLimit = 100;
@@ -19,10 +19,10 @@ const int kMonthlyJobLimit = 100;
 const char kSchemaSql[] = R"SQL(
 CREATE TABLE metadata_schema (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-    contract TEXT NOT NULL CHECK (contract = 'synsigra_saas_metadata_v2')
+    contract TEXT NOT NULL CHECK (contract = 'synsigra_saas_metadata_v3')
 );
 INSERT INTO metadata_schema (singleton,contract)
-VALUES (1,'synsigra_saas_metadata_v2');
+VALUES (1,'synsigra_saas_metadata_v3');
 
 CREATE TABLE organizations (
     id TEXT PRIMARY KEY,
@@ -126,6 +126,13 @@ CREATE TABLE jobs (
     selected_pack_version TEXT NOT NULL,
     catalog_version TEXT NOT NULL,
     catalog_source_sha256 TEXT NOT NULL,
+    evidence_profile_id TEXT NOT NULL,
+    evidence_profile_display_name TEXT NOT NULL,
+    evidence_profile_version TEXT NOT NULL,
+    evidence_profile_rank INTEGER NOT NULL
+        CHECK (evidence_profile_rank BETWEEN 0 AND 3),
+    evidence_protocol_sha256 TEXT NOT NULL,
+    evidence_protocol_source_path TEXT NOT NULL,
     package_fingerprint TEXT,
     integration_contract_version TEXT,
     integration_contract_json TEXT,
@@ -162,6 +169,12 @@ CREATE TABLE packages (
     selected_pack_version TEXT NOT NULL,
     catalog_version TEXT NOT NULL,
     catalog_source_sha256 TEXT NOT NULL,
+    evidence_profile_id TEXT NOT NULL,
+    evidence_profile_display_name TEXT NOT NULL,
+    evidence_profile_version TEXT NOT NULL,
+    evidence_profile_rank INTEGER NOT NULL
+        CHECK (evidence_profile_rank BETWEEN 0 AND 3),
+    evidence_protocol_sha256 TEXT NOT NULL,
     integration_contract_version TEXT NOT NULL,
     integration_contract_json TEXT NOT NULL,
     generator_version TEXT,
@@ -436,8 +449,14 @@ syn_sig_ra::JobRecord job_columns(sqlite3_stmt* statement) {
     job.catalog_version = column_text(statement, 26);
     job.catalog_source_sha256 = column_text(statement, 27);
     job.challenge_metadata_json = column_text(statement, 28);
-    if (sqlite3_column_count(statement) == 30)
-        job.deleted_at = column_text(statement, 29);
+    job.evidence_profile_id = column_text(statement, 29);
+    job.evidence_profile_display_name = column_text(statement, 30);
+    job.evidence_profile_version = column_text(statement, 31);
+    job.evidence_profile_rank = sqlite3_column_int(statement, 32);
+    job.evidence_protocol_sha256 = column_text(statement, 33);
+    job.evidence_protocol_source_path = column_text(statement, 34);
+    if (sqlite3_column_count(statement) == 36)
+        job.deleted_at = column_text(statement, 35);
     return job;
 }
 
@@ -528,7 +547,7 @@ bool MetadataStore::initialize(std::string& error) {
                 "SELECT contract FROM metadata_schema WHERE singleton=1;",
                 -1, &marker, nullptr) == SQLITE_OK &&
             sqlite3_step(marker) == SQLITE_ROW &&
-            column_text(marker, 0) == "synsigra_saas_metadata_v2";
+            column_text(marker, 0) == "synsigra_saas_metadata_v3";
         sqlite3_finalize(marker);
         if (!valid) {
             error = "SQLite schema marker is invalid; run the destructive pre-beta reset";
@@ -554,7 +573,7 @@ bool MetadataStore::initialize(std::string& error) {
     }
     if (!execute("BEGIN IMMEDIATE;", error)) return false;
     const bool succeeded = execute(kSchemaSql, error) &&
-        execute("PRAGMA user_version = 2;", error);
+        execute("PRAGMA user_version = 3;", error);
     if (!succeeded || !execute("COMMIT;", error)) {
         std::string rollback_error;
         execute("ROLLBACK;", rollback_error);
@@ -2328,6 +2347,12 @@ bool MetadataStore::create_job(
     const std::string& selected_pack_version,
     const std::string& catalog_version,
     const std::string& catalog_source_sha256,
+    const std::string& evidence_profile_id,
+    const std::string& evidence_profile_display_name,
+    const std::string& evidence_profile_version,
+    int evidence_profile_rank,
+    const std::string& evidence_protocol_sha256,
+    const std::string& evidence_protocol_source_path,
     std::string& job_id,
     std::string& error
 ) {
@@ -2339,8 +2364,12 @@ bool MetadataStore::create_job(
         "INSERT INTO jobs "
         "(id, organization_id, project_id, user_id, status, request_json, "
         "selected_pack_id, source_pack_path, pack_fingerprint, "
-        "selected_pack_version, catalog_version, catalog_source_sha256) "
-        "VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?7, ?8, ?9, ?10, ?11);";
+        "selected_pack_version, catalog_version, catalog_source_sha256, "
+        "evidence_profile_id, evidence_profile_display_name, "
+        "evidence_profile_version, evidence_profile_rank, "
+        "evidence_protocol_sha256, evidence_protocol_source_path) "
+        "VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?7, ?8, ?9, ?10, "
+        "?11, ?12, ?13, ?14, ?15, ?16, ?17);";
     const bool succeeded =
         sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) ==
             SQLITE_OK &&
@@ -2355,6 +2384,12 @@ bool MetadataStore::create_job(
         bind_text(statement, 9, selected_pack_version) &&
         bind_text(statement, 10, catalog_version) &&
         bind_text(statement, 11, catalog_source_sha256) &&
+        bind_text(statement, 12, evidence_profile_id) &&
+        bind_text(statement, 13, evidence_profile_display_name) &&
+        bind_text(statement, 14, evidence_profile_version) &&
+        sqlite3_bind_int(statement, 15, evidence_profile_rank) == SQLITE_OK &&
+        bind_text(statement, 16, evidence_protocol_sha256) &&
+        bind_text(statement, 17, evidence_protocol_source_path) &&
         sqlite3_step(statement) == SQLITE_DONE;
     if (!succeeded) {
         error = sqlite3_errmsg(database_);
@@ -2384,7 +2419,10 @@ RecordLookupStatus MetadataStore::find_job(
         "j.artifact_storage_key, j.error_code, j.error_message, "
         "j.created_at, j.started_at, j.completed_at, "
         "j.selected_pack_version, j.catalog_version, "
-        "j.catalog_source_sha256, j.challenge_metadata_json "
+        "j.catalog_source_sha256, j.challenge_metadata_json, "
+        "j.evidence_profile_id, j.evidence_profile_display_name, "
+        "j.evidence_profile_version, j.evidence_profile_rank, "
+        "j.evidence_protocol_sha256, j.evidence_protocol_source_path "
         "FROM jobs j LEFT JOIN packages p "
         "ON p.job_id = j.id AND p.deleted_at IS NULL "
         "WHERE j.id = ?1 AND j.organization_id = ?2 "
@@ -2445,7 +2483,10 @@ bool MetadataStore::list_jobs(
         "j.artifact_storage_key, j.error_code, j.error_message, "
         "j.created_at, j.started_at, j.completed_at, "
         "j.selected_pack_version, j.catalog_version, "
-        "j.catalog_source_sha256, j.challenge_metadata_json "
+        "j.catalog_source_sha256, j.challenge_metadata_json, "
+        "j.evidence_profile_id, j.evidence_profile_display_name, "
+        "j.evidence_profile_version, j.evidence_profile_rank, "
+        "j.evidence_protocol_sha256, j.evidence_protocol_source_path "
         "FROM jobs j LEFT JOIN packages p "
         "ON p.job_id = j.id AND p.deleted_at IS NULL "
         "WHERE j.organization_id = ?1 "
@@ -2499,7 +2540,10 @@ bool MetadataStore::list_account_jobs(
         "j.challenge_receipt_json,j.manifest_hash,j.artifact_storage_key,"
         "j.error_code,j.error_message,j.created_at,j.started_at,j.completed_at,"
         "j.selected_pack_version,j.catalog_version,j.catalog_source_sha256,"
-        "j.challenge_metadata_json,COALESCE(j.deleted_at,'') "
+        "j.challenge_metadata_json,j.evidence_profile_id,"
+        "j.evidence_profile_display_name,j.evidence_profile_version,"
+        "j.evidence_profile_rank,j.evidence_protocol_sha256,"
+        "j.evidence_protocol_source_path,COALESCE(j.deleted_at,'') "
         "FROM jobs j LEFT JOIN packages p "
         "ON p.job_id=j.id WHERE j.organization_id=?1 "
         "ORDER BY j.created_at DESC,j.id DESC;";
@@ -2589,6 +2633,12 @@ JobLifecycleStatus MetadataStore::retry_job(
                 existing.selected_pack_version,
                 existing.catalog_version,
                 existing.catalog_source_sha256,
+                existing.evidence_profile_id,
+                existing.evidence_profile_display_name,
+                existing.evidence_profile_version,
+                existing.evidence_profile_rank,
+                existing.evidence_protocol_sha256,
+                existing.evidence_protocol_source_path,
                 new_job_id,
                 error)) {
             return JobLifecycleStatus::storage_error;
@@ -2614,8 +2664,12 @@ JobLifecycleStatus MetadataStore::retry_job(
         "package_fingerprint, integration_contract_version, "
         "integration_contract_json, generator_version, generator_git_commit, "
         "generator_build_identity, generator_binary_sha256, "
-        "selected_pack_version, catalog_version, catalog_source_sha256) "
-        "VALUES (?1,?2,?3,?4,'queued',?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18);";
+        "selected_pack_version, catalog_version, catalog_source_sha256, "
+        "evidence_profile_id, evidence_profile_display_name, "
+        "evidence_profile_version, evidence_profile_rank, "
+        "evidence_protocol_sha256, evidence_protocol_source_path) "
+        "VALUES (?1,?2,?3,?4,'queued',?5,?6,?7,?8,?9,?10,?11,?12,?13,"
+        "?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24);";
     const bool succeeded =
         sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) == SQLITE_OK &&
         bind_text(statement, 1, new_job_id) &&
@@ -2636,6 +2690,13 @@ JobLifecycleStatus MetadataStore::retry_job(
         bind_text(statement, 16, existing.selected_pack_version) &&
         bind_text(statement, 17, existing.catalog_version) &&
         bind_text(statement, 18, existing.catalog_source_sha256) &&
+        bind_text(statement, 19, existing.evidence_profile_id) &&
+        bind_text(statement, 20, existing.evidence_profile_display_name) &&
+        bind_text(statement, 21, existing.evidence_profile_version) &&
+        sqlite3_bind_int(
+            statement, 22, existing.evidence_profile_rank) == SQLITE_OK &&
+        bind_text(statement, 23, existing.evidence_protocol_sha256) &&
+        bind_text(statement, 24, existing.evidence_protocol_source_path) &&
         sqlite3_step(statement) == SQLITE_DONE;
     if (!succeeded) error = sqlite3_errmsg(database_);
     sqlite3_finalize(statement);
@@ -2679,8 +2740,12 @@ JobLifecycleStatus MetadataStore::rebuild_job_exact(
         "package_fingerprint, integration_contract_version, "
         "integration_contract_json, generator_version, generator_git_commit, "
         "generator_build_identity, generator_binary_sha256, "
-        "selected_pack_version, catalog_version, catalog_source_sha256) "
-        "VALUES (?1,?2,?3,?4,'queued',?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18);";
+        "selected_pack_version, catalog_version, catalog_source_sha256, "
+        "evidence_profile_id, evidence_profile_display_name, "
+        "evidence_profile_version, evidence_profile_rank, "
+        "evidence_protocol_sha256, evidence_protocol_source_path) "
+        "VALUES (?1,?2,?3,?4,'queued',?5,?6,?7,?8,?9,?10,?11,?12,?13,"
+        "?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24);";
     bool succeeded =
         sqlite3_prepare_v2(database_, insert_sql, -1, &insert, nullptr) ==
             SQLITE_OK &&
@@ -2702,6 +2767,13 @@ JobLifecycleStatus MetadataStore::rebuild_job_exact(
         bind_text(insert, 16, existing.selected_pack_version) &&
         bind_text(insert, 17, existing.catalog_version) &&
         bind_text(insert, 18, existing.catalog_source_sha256) &&
+        bind_text(insert, 19, existing.evidence_profile_id) &&
+        bind_text(insert, 20, existing.evidence_profile_display_name) &&
+        bind_text(insert, 21, existing.evidence_profile_version) &&
+        sqlite3_bind_int(
+            insert, 22, existing.evidence_profile_rank) == SQLITE_OK &&
+        bind_text(insert, 23, existing.evidence_protocol_sha256) &&
+        bind_text(insert, 24, existing.evidence_protocol_source_path) &&
         sqlite3_step(insert) == SQLITE_DONE;
     sqlite3_finalize(insert);
 
@@ -2873,7 +2945,10 @@ RecordLookupStatus MetadataStore::claim_next_job(
         "package_fingerprint, integration_contract_version, "
         "integration_contract_json, generator_version, generator_git_commit, "
         "generator_build_identity, generator_binary_sha256, "
-        "selected_pack_version, catalog_version, catalog_source_sha256 "
+        "selected_pack_version, catalog_version, catalog_source_sha256, "
+        "evidence_profile_id, evidence_profile_display_name, "
+        "evidence_profile_version, evidence_profile_rank, "
+        "evidence_protocol_sha256, evidence_protocol_source_path "
         "FROM jobs WHERE status = 'queued' AND deleted_at IS NULL "
         "ORDER BY created_at, id LIMIT 1;";
     if (sqlite3_prepare_v2(
@@ -2922,6 +2997,12 @@ RecordLookupStatus MetadataStore::claim_next_job(
     claimed.selected_pack_version = column_text(select, 16);
     claimed.catalog_version = column_text(select, 17);
     claimed.catalog_source_sha256 = column_text(select, 18);
+    claimed.evidence_profile_id = column_text(select, 19);
+    claimed.evidence_profile_display_name = column_text(select, 20);
+    claimed.evidence_profile_version = column_text(select, 21);
+    claimed.evidence_profile_rank = sqlite3_column_int(select, 22);
+    claimed.evidence_protocol_sha256 = column_text(select, 23);
+    claimed.evidence_protocol_source_path = column_text(select, 24);
     sqlite3_finalize(select);
 
     sqlite3_stmt* update = nullptr;
@@ -3011,11 +3092,15 @@ bool MetadataStore::complete_job_with_package(
         "INSERT INTO packages "
         "(id, job_id, organization_id, project_id, user_id, pack_fingerprint, "
         "package_fingerprint, selected_pack_version, catalog_version, "
-        "catalog_source_sha256, integration_contract_version, integration_contract_json, "
+        "catalog_source_sha256, evidence_profile_id, "
+        "evidence_profile_display_name, evidence_profile_version, "
+        "evidence_profile_rank, evidence_protocol_sha256, "
+        "integration_contract_version, integration_contract_json, "
         "generator_version, generator_git_commit, generator_build_identity, "
         "generator_binary_sha256, challenge_receipt_json, challenge_metadata_json, manifest_hash, "
         "artifact_storage_key, size_bytes) "
-        "VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21);";
+        "VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,"
+        "?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26);";
     bool succeeded =
         sqlite3_prepare_v2(
             database_,
@@ -3034,17 +3119,23 @@ bool MetadataStore::complete_job_with_package(
         bind_text(package_statement, 8, job.selected_pack_version) &&
         bind_text(package_statement, 9, job.catalog_version) &&
         bind_text(package_statement, 10, job.catalog_source_sha256) &&
-        bind_text(package_statement, 11, integration_contract_version) &&
-        bind_text(package_statement, 12, integration_contract_json) &&
-        bind_text(package_statement, 13, generator_version) &&
-        bind_text(package_statement, 14, generator_git_commit) &&
-        bind_text(package_statement, 15, generator_build_identity) &&
-        bind_text(package_statement, 16, generator_binary_sha256) &&
-        bind_text(package_statement, 17, challenge_receipt_json) &&
-        bind_text(package_statement, 18, challenge_metadata_json) &&
-        bind_text(package_statement, 19, manifest_hash) &&
-        bind_text(package_statement, 20, artifact_storage_key) &&
-        sqlite3_bind_int64(package_statement, 21, size_bytes) == SQLITE_OK &&
+        bind_text(package_statement, 11, job.evidence_profile_id) &&
+        bind_text(package_statement, 12, job.evidence_profile_display_name) &&
+        bind_text(package_statement, 13, job.evidence_profile_version) &&
+        sqlite3_bind_int(
+            package_statement, 14, job.evidence_profile_rank) == SQLITE_OK &&
+        bind_text(package_statement, 15, job.evidence_protocol_sha256) &&
+        bind_text(package_statement, 16, integration_contract_version) &&
+        bind_text(package_statement, 17, integration_contract_json) &&
+        bind_text(package_statement, 18, generator_version) &&
+        bind_text(package_statement, 19, generator_git_commit) &&
+        bind_text(package_statement, 20, generator_build_identity) &&
+        bind_text(package_statement, 21, generator_binary_sha256) &&
+        bind_text(package_statement, 22, challenge_receipt_json) &&
+        bind_text(package_statement, 23, challenge_metadata_json) &&
+        bind_text(package_statement, 24, manifest_hash) &&
+        bind_text(package_statement, 25, artifact_storage_key) &&
+        sqlite3_bind_int64(package_statement, 26, size_bytes) == SQLITE_OK &&
         sqlite3_step(package_statement) == SQLITE_DONE;
     sqlite3_finalize(package_statement);
 
@@ -3143,7 +3234,10 @@ RecordLookupStatus MetadataStore::find_package(
         "p.size_bytes, p.created_at, "
         "strftime('%Y-%m-%dT%H:%M:%fZ',p.created_at,'+7 days'), "
         "p.selected_pack_version, p.catalog_version, "
-        "p.catalog_source_sha256, p.challenge_metadata_json "
+        "p.catalog_source_sha256, p.challenge_metadata_json, "
+        "p.evidence_profile_id, p.evidence_profile_display_name, "
+        "p.evidence_profile_version, p.evidence_profile_rank, "
+        "p.evidence_protocol_sha256 "
         "FROM packages p JOIN jobs j ON j.id = p.job_id "
         "WHERE p.id = ?1 AND p.organization_id = ?2 "
         "AND p.deleted_at IS NULL "
@@ -3194,6 +3288,11 @@ RecordLookupStatus MetadataStore::find_package(
     loaded.catalog_version = column_text(statement, 19);
     loaded.catalog_source_sha256 = column_text(statement, 20);
     loaded.challenge_metadata_json = column_text(statement, 21);
+    loaded.evidence_profile_id = column_text(statement, 22);
+    loaded.evidence_profile_display_name = column_text(statement, 23);
+    loaded.evidence_profile_version = column_text(statement, 24);
+    loaded.evidence_profile_rank = sqlite3_column_int(statement, 25);
+    loaded.evidence_protocol_sha256 = column_text(statement, 26);
     sqlite3_finalize(statement);
     package = loaded;
     return RecordLookupStatus::found;

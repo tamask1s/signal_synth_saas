@@ -53,6 +53,32 @@ bool is_sha256(const std::string& value) {
     return value.find_first_not_of("0123456789abcdef", 7) == std::string::npos;
 }
 
+bool has_evidence_profiles(const syn_sig_ra::PackSummary& pack) {
+    if (!pack.evidence_profiles_available ||
+        pack.default_evidence_profile_id != "level_2" ||
+        pack.evidence_profile_policy_contract !=
+            "synsigra_evidence_profile_policy_v1" ||
+        pack.verification_protocol_contract !=
+            "synsigra_verification_protocol_v3" ||
+        pack.evidence_profiles.size() != 3) {
+        return false;
+    }
+    for (std::size_t index = 0; index < 3; ++index) {
+        const syn_sig_ra::EvidenceProfileSummary& profile =
+            pack.evidence_profiles[index];
+        if (profile.profile_id !=
+                "level_" + std::to_string(index + 1) ||
+            profile.rank != static_cast<int>(index + 1) ||
+            !is_sha256(profile.protocol_sha256) ||
+            profile.protocol_json.find(
+                "\"contract\":\"synsigra_verification_protocol_v3\"") ==
+                std::string::npos) {
+            return false;
+        }
+    }
+    return true;
+}
+
 }  // namespace
 
 int main() {
@@ -86,13 +112,13 @@ int main() {
         simple_r_peak->version == "2.0" &&
             simple_r_peak->scenarios.size() == 8 &&
             simple_r_peak->total_seconds == 310 &&
-            simple_r_peak->verification_protocol_available &&
+            has_evidence_profiles(*simple_r_peak) &&
             simple_r_peak->scoreable_targets.size() == 2 &&
             snr_ladder->version == "2.1" &&
             snr_ladder->scenarios.size() == 14 &&
             snr_ladder->total_seconds == 840 &&
             snr_ladder->external_noise_asset_ids.size() == 1 &&
-            snr_ladder->verification_protocol_available &&
+            has_evidence_profiles(*snr_ladder) &&
             snr_ladder->reference_only_targets.empty(),
         "catalog should expose both independent per-case R-peak and RR packs"
     );
@@ -101,8 +127,8 @@ int main() {
             simple_hrv->scenarios.size() == 10 &&
             simple_hrv->total_seconds == 3300 &&
             simple_hrv->recommended_profile == "benchmark" &&
-            simple_hrv->local_verifier_min_version == "0.16.0" &&
-            simple_hrv->verification_protocol_available &&
+            simple_hrv->local_verifier_min_version == "0.17.0" &&
+            has_evidence_profiles(*simple_hrv) &&
             simple_hrv->scoreable_targets.size() == 1 &&
             has_target(simple_hrv->scoreable_targets, "hrv", true) &&
             simple_hrv->reference_only_targets.empty(),
@@ -131,10 +157,9 @@ int main() {
     require(
         r_peak->release_status == "beta" &&
             r_peak->integration_contract_version ==
-                "synsigra_core_integration_v7" &&
-            r_peak->catalog_version == "3.5" &&
-            r_peak->catalog_source_sha256 ==
-                "sha256:21f3baee51b6e386962b54a9f30f4223b555f03e055e35cb3259c9c6f7cb9136" &&
+                "synsigra_core_integration_v8" &&
+            r_peak->catalog_version == "3.6" &&
+            is_sha256(r_peak->catalog_source_sha256) &&
             r_peak->changelog.size() == 3,
         "catalog should expose validated release and compatibility metadata"
     );
@@ -144,7 +169,7 @@ int main() {
             has_target(r_peak->scoreable_targets, "rr_interval", true) &&
             !has_target(r_peak->scoreable_targets, "signal_quality", true) &&
             r_peak->scoreable_targets.size() == 2 &&
-            r_peak->verification_protocol_available &&
+            has_evidence_profiles(*r_peak) &&
             r_peak->reference_only_targets.empty(),
         "focused detector evidence pack should require R-peak and RR without signal quality"
     );
@@ -173,7 +198,7 @@ int main() {
             morphology->scoring_mode == "local" &&
             has_target(morphology->scoreable_targets, "morphology_assertions", true) &&
             morphology->reference_only_targets.empty(),
-        "morphology measurements should be locally scoreable in v7"
+        "morphology measurements should be locally scoreable in v8"
     );
     const syn_sig_ra::PackSummary* ppg_benchmark =
         find_pack(packs, "ppg_benchmark_v1");
@@ -215,23 +240,18 @@ int main() {
         find_pack(packs, "r_peak_rr_noise_v1");
     require(
         protocol_pack != 0 && !protocol_pack->version.empty() &&
-            protocol_pack->local_verifier_min_version == "0.14.0" &&
-            protocol_pack->verification_protocol_available &&
-            protocol_pack->verification_protocol_contract ==
-                "synsigra_verification_protocol_v2" &&
-            is_sha256(protocol_pack->verification_protocol_sha256) &&
+            protocol_pack->local_verifier_min_version == "0.17.0" &&
+            has_evidence_profiles(*protocol_pack) &&
             protocol_pack->external_noise_asset_ids.size() == 1,
         "catalog should expose normalized protocol and approved external-noise metadata"
     );
     require(
         r_peak_frontier->version == "1.1" &&
-            r_peak_frontier->catalog_version == "3.5" &&
+            r_peak_frontier->catalog_version == "3.6" &&
             r_peak_frontier->scenarios.size() == 9 &&
             r_peak_frontier->total_seconds == 500 &&
             r_peak_frontier->recommended_profile == "benchmark" &&
-            r_peak_frontier->verification_protocol_available &&
-            r_peak_frontier->verification_protocol_contract ==
-                "synsigra_verification_protocol_v2" &&
+            has_evidence_profiles(*r_peak_frontier) &&
             r_peak_frontier->external_noise_asset_ids.size() == 1 &&
             r_peak_frontier->scoreable_targets.size() == 2 &&
             has_target(r_peak_frontier->scoreable_targets, "r_peak", true) &&

@@ -51,15 +51,15 @@ int main() {
         !syn_sig_ra::parse_core_integration_contract(
             replaced(
                 linked.canonical_json,
-                "\"contract\":\"synsigra_core_integration_v7\"",
-                "\"contract\":\"synsigra_core_integration_v7\","
-                "\"contract\":\"synsigra_core_integration_v7\""),
+                "\"contract\":\"synsigra_core_integration_v8\"",
+                "\"contract\":\"synsigra_core_integration_v8\","
+                "\"contract\":\"synsigra_core_integration_v8\""),
             parsed, error),
         "duplicate keys must be rejected"
     );
     std::vector<std::pair<std::string, std::string> > tuple_mutations;
     tuple_mutations.push_back(std::make_pair(
-        "synsigra_core_integration_v7", "synsigra_core_integration_v8"));
+        "synsigra_core_integration_v8", "synsigra_core_integration_v9"));
     tuple_mutations.push_back(std::make_pair(
         "\"name\":\"signal_synth\"", "\"name\":\"other\""));
     tuple_mutations.push_back(std::make_pair(
@@ -72,7 +72,8 @@ int main() {
     tuple_mutations.push_back(std::make_pair("\"pack_schema_version\":2", "\"pack_schema_version\":3"));
     tuple_mutations.push_back(std::make_pair("synsigra_challenge_package_v3", "synsigra_challenge_package_v4"));
     tuple_mutations.push_back(std::make_pair("synsigra_scoring_manifest_v3", "synsigra_scoring_manifest_v4"));
-    tuple_mutations.push_back(std::make_pair("synsigra_verification_protocol_v2", "synsigra_verification_protocol_v3"));
+    tuple_mutations.push_back(std::make_pair("synsigra_verification_protocol_v3", "synsigra_verification_protocol_v4"));
+    tuple_mutations.push_back(std::make_pair("synsigra_evidence_profile_policy_v1", "synsigra_evidence_profile_policy_v2"));
     tuple_mutations.push_back(std::make_pair("synsigra_submission_v1", "synsigra_submission_v2"));
     tuple_mutations.push_back(std::make_pair("synsigra_submission_formats_v2", "synsigra_submission_formats_v3"));
     tuple_mutations.push_back(std::make_pair("synsigra_measurement_values_v2", "synsigra_measurement_values_v3"));

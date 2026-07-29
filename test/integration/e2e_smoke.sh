@@ -671,7 +671,7 @@ CREATE_HTTP=$(
         -w '%{http_code}' \
         -H "Authorization: Bearer $API_KEY" \
         -H "Content-Type: application/json" \
-        -d '{"project_id":"org_e2e_default","pack_id":"r_peak_rr_simple_stress_v1"}' \
+        -d '{"project_id":"org_e2e_default","pack_id":"r_peak_rr_simple_stress_v1","evidence_profile_id":"level_2"}' \
         "$BASE_URL/v1/jobs"
 )
 if [ "$CREATE_HTTP" != "202" ]; then
@@ -753,7 +753,7 @@ for key in ("package_fingerprint", "generator_binary_sha256"):
     value = body.get(key, "")
     if not (isinstance(value, str) and value.startswith("sha256:") and len(value) == 71):
         raise SystemExit("invalid " + key)
-if body.get("integration_contract") != "synsigra_core_integration_v7":
+if body.get("integration_contract") != "synsigra_core_integration_v8":
     raise SystemExit("invalid integration contract")
 if body.get("generator_git_commit") != "d4f3f75cb46aeb5bcf7fe9ed700e7d109d00416f":
     raise SystemExit("invalid pinned generator commit")
@@ -776,12 +776,16 @@ for key, value in {
         raise SystemExit("invalid " + key)
 verification = challenge.get("verification", {})
 protocol = verification.get("protocol", {})
+profile = body.get("evidence_profile", {})
 if verification.get("mode") != "evidence" or \
         verification.get("evidence_eligible") is not True or \
         verification.get("matrix_complete") is not True or \
-        protocol.get("protocol_id") != "r_peak_rr_simple_stress_v1" or \
+        protocol.get("protocol_id") != "r_peak_rr_simple_stress_v1__level_2" or \
         protocol.get("verdict_scope") != "per_case" or \
-        protocol.get("acceptance_profile_id") != "per_case_profiles":
+        protocol.get("acceptance_profile_id") != "per_case_profiles" or \
+        profile.get("profile_id") != "level_2" or \
+        profile.get("protocol_sha256") != protocol.get("sha256") or \
+        protocol.get("evidence_profile", {}).get("profile_id") != "level_2":
     raise SystemExit("simple R-peak detector challenge must be per-case evidence-ready")
 outputs = challenge.get("submission_outputs", [])
 if len(outputs) != 16 or {item.get("target") for item in outputs} != {"r_peak", "rr_interval"}:
@@ -832,7 +836,7 @@ if not downloads.get("verification_kit_url", "").endswith(
         "/v1/jobs/" + sys.argv[2] + "/verification-kit.zip"):
     raise SystemExit("guide omitted the direct kit URL")
 if not downloads.get("verifier_wheel_url", "").endswith(
-        "/v1/downloads/verifier/synsigra-0.16.0-py3-none-any.whl"):
+        "/v1/downloads/verifier/synsigra-0.17.0-py3-none-any.whl"):
     raise SystemExit("guide omitted the canonical verifier wheel URL")
 report = guide.get("result", {})
 if report.get("entrypoint") != "verification-results/index.html" or \
@@ -1049,7 +1053,7 @@ if metadata.get("package") != "synsigra":
 if metadata.get("generator_included") is not False:
     raise SystemExit("verifier download must not include generator")
 for key, value in {
-    "version": "0.16.0",
+    "version": "0.17.0",
     "measurement_values_contract": "synsigra_measurement_values_v2",
     "measurement_truth_contract": "synsigra_measurement_truth_v2",
     "measurement_scoring_contract": "synsigra_measurement_score_v2",
@@ -1058,7 +1062,7 @@ for key, value in {
     if metadata.get(key) != value:
         raise SystemExit("verifier metadata mismatch: " + key)
 files = {item.get("filename") for item in metadata.get("files", [])}
-if "synsigra-verifier.zip" not in files or "synsigra-0.16.0-py3-none-any.whl" not in files:
+if "synsigra-verifier.zip" not in files or "synsigra-0.17.0-py3-none-any.whl" not in files:
     raise SystemExit("expected verifier bundle and wheel metadata")
 PY
     fail "verifier download metadata validation failed"
@@ -1244,7 +1248,7 @@ import sys
 body = json.load(open(sys.argv[1], encoding="utf-8"))
 if body.get("status") != "succeeded":
     raise SystemExit("custom pack job did not succeed")
-if body.get("integration_contract") != "synsigra_core_integration_v7":
+if body.get("integration_contract") != "synsigra_core_integration_v8":
     raise SystemExit("custom pack job used the wrong integration contract")
 if body.get("generator_git_commit") != "d4f3f75cb46aeb5bcf7fe9ed700e7d109d00416f":
     raise SystemExit("custom pack job used the wrong generator commit")

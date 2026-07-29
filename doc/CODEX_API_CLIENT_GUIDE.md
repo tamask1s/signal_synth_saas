@@ -131,6 +131,10 @@ content.
 9. Do not claim success until the job is `succeeded` and the ZIP exists locally.
 10. Preserve and report API error bodies. Do not respond to 4xx errors by
     guessing new JSON.
+11. For a curated evidence pack, inspect `evidence_profiles` and obtain approval
+    for `level_1`, `level_2` (recommended default), or `level_3`. Pass that
+    `evidence_profile_id` when creating the job. It changes immutable pass/fail
+    gates, not the generated signals. Omit it for custom/diagnostic packs.
 
 ## Capability model
 
@@ -374,7 +378,9 @@ remove a requested target.
 
 ### 9. Queue and poll generation
 
-The job body accepts exactly `project_id` and `pack_id`.
+For the custom pack created above, the job body accepts exactly `project_id`
+and `pack_id`. A curated evidence-pack job additionally requires the approved
+`evidence_profile_id`.
 
 ```sh
 python3 -c \

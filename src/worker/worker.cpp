@@ -217,6 +217,8 @@ bool copy_declared_verification_protocol(
     const std::string& source_pack,
     const std::string& source_root,
     const std::string& snapshot_root,
+    const std::string& selected_protocol_source,
+    const std::string& expected_protocol_sha256,
     std::string& error
 ) {
     std::string document;
@@ -234,17 +236,30 @@ bool copy_declared_verification_protocol(
     }
     if (value == nullptr) {
         json_decref(root);
-        return true;
+        if (selected_protocol_source.empty() &&
+            expected_protocol_sha256.empty()) {
+            return true;
+        }
+        error = "job selects evidence for a diagnostic pack";
+        return false;
     }
     const std::string relative(json_string_value(value));
     json_decref(root);
+    std::string protocol;
+    std::string digest;
     if (!safe_relative_path(relative) ||
+        selected_protocol_source.empty() ||
+        !path_below(selected_protocol_source, source_root) ||
+        !regular_file(selected_protocol_source) ||
+        !read_binary_file(selected_protocol_source, protocol, error) ||
+        !syn_sig_ra::sha256_hex(protocol, digest, error) ||
+        expected_protocol_sha256 != "sha256:" + digest ||
         !ensure_dependency_parent(snapshot_root, relative, error) ||
-        !copy_tree(
-            source_root + "/" + relative,
-            snapshot_root + "/" + relative,
-            error)) {
-        if (error.empty()) error = "verification protocol snapshot failed";
+        !write_binary_file(
+            snapshot_root + "/" + relative, protocol, 0440, error)) {
+        if (error.empty()) {
+            error = "selected verification protocol snapshot failed";
+        }
         return false;
     }
     return true;
@@ -514,6 +529,8 @@ bool snapshot_pack_recipe(
     const std::string& job_id,
     const std::string& source_pack,
     const std::string& noise_asset_root,
+    const std::string& selected_protocol_source,
+    const std::string& expected_protocol_sha256,
     std::string& snapshot_pack,
     std::string& snapshot_noise_assets,
     std::string& error
@@ -546,7 +563,12 @@ bool snapshot_pack_recipe(
         return false;
     }
     if (!copy_declared_verification_protocol(
-            source_pack, source_root, recipe, error) ||
+            source_pack,
+            source_root,
+            recipe,
+            selected_protocol_source,
+            expected_protocol_sha256,
+            error) ||
         !copy_tree(noise_asset_root, snapshot_noise_assets, error) ||
         !protect_tree(recipe, error)) {
         remove_tree(recipe);
@@ -602,6 +624,35 @@ bool challenge_metadata_matches_job(
         ? nullptr : json_object_get(root, "submission_outputs");
     json_t* roles = root == nullptr
         ? nullptr : json_object_get(root, "roles");
+    json_t* verification = root == nullptr
+        ? nullptr : json_object_get(root, "verification");
+    json_t* protocol = json_is_object(verification)
+        ? json_object_get(verification, "protocol") : nullptr;
+    json_t* profile = json_is_object(protocol)
+        ? json_object_get(protocol, "evidence_profile") : nullptr;
+    const bool evidence_matches = job.evidence_profile_id.empty()
+        ? json_is_object(verification) &&
+            json_string_equals(verification, "mode", "diagnostic") &&
+            json_is_null(protocol)
+        : json_is_object(verification) &&
+            json_string_equals(verification, "mode", "evidence") &&
+            json_is_object(protocol) &&
+            json_string_equals(
+                protocol, "sha256", job.evidence_protocol_sha256) &&
+            json_is_object(profile) &&
+            json_string_equals(
+                profile, "profile_id", job.evidence_profile_id) &&
+            json_string_equals(
+                profile, "display_name",
+                job.evidence_profile_display_name) &&
+            json_string_equals(
+                profile, "version", job.evidence_profile_version) &&
+            json_string_equals(
+                profile, "policy_contract",
+                "synsigra_evidence_profile_policy_v1") &&
+            json_is_integer(json_object_get(profile, "rank")) &&
+            json_integer_value(json_object_get(profile, "rank")) ==
+                job.evidence_profile_rank;
     const bool matches = json_is_object(root) &&
         json_string_equals(root, "package_id", job.selected_pack_id) &&
         json_string_equals(root, "package_id", challenge.package_id) &&
@@ -619,7 +670,8 @@ bool challenge_metadata_matches_job(
         json_is_array(cases) && json_array_size(cases) ==
             static_cast<std::size_t>(challenge.scenario_count) &&
         json_is_array(targets) && json_array_size(targets) > 0 &&
-        json_is_array(outputs) && json_is_object(roles);
+        json_is_array(outputs) && json_is_object(roles) &&
+        evidence_matches;
     if (root != nullptr) json_decref(root);
     if (!matches) {
         error = "challenge metadata does not match the reserved job and receipt";
@@ -796,6 +848,8 @@ WorkerRunStatus run_worker_once(
                 job.job_id,
                 source_pack,
                 config.noise_asset_root,
+                job.evidence_protocol_source_path,
+                job.evidence_protocol_sha256,
                 expected_pack,
                 execution_noise_asset_root,
                 error) ||

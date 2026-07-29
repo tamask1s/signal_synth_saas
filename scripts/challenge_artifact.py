@@ -279,7 +279,7 @@ def _verification_metadata(package, scoring, protocol):
             "matrix_complete": None,
             "evidence_result": "not_run",
             "policy_result": "not_run",
-            "notice": "No packaged protocol v2; local verification must be explicit diagnostic mode and cannot produce evidence.",
+            "notice": "No packaged protocol v3; local verification must be explicit diagnostic mode and cannot produce evidence.",
             "protocol": None,
         }
     identity = package.verification_protocol_identity()
@@ -439,6 +439,10 @@ def _write_text_to_zip(archive, destination, text):
 
 def _kit_readme(metadata):
     evidence = metadata["verification"]["evidence_eligible"]
+    profile = (
+        metadata["verification"]["protocol"].get("evidence_profile", {})
+        if evidence else {}
+    )
     per_case = (
         evidence
         and metadata["verification"]["protocol"].get("verdict_scope") == "per_case"
@@ -450,21 +454,22 @@ def _kit_readme(metadata):
     )
     if per_case:
         mode_text = (
-            "This package contains an immutable per-case protocol v2. The command "
+            "This package contains an immutable per-case protocol v3 using "
+            "%s. The command "
             "evaluates every complete signal independently; cases are not split, "
             "pooled, averaged, or allowed to compensate for one another. Do not add "
             "a profile, case, or target override to an evidence run."
-        )
+        ) % profile.get("display_name", "its selected evidence level")
     elif evidence:
         mode_text = (
-            "This package contains an immutable protocol v2. The command runs the "
+            "This package contains an immutable protocol v3 using %s. The command runs the "
             "complete package-authoritative evidence matrix and embedded numeric "
             "acceptance policy. Do not add a profile, case, or target override to "
             "an evidence run."
-        )
+        ) % profile.get("display_name", "its selected evidence level")
     else:
         mode_text = (
-            "This package has no pre-specified protocol v2. Verification is therefore "
+            "This package has no pre-specified protocol v3. Verification is therefore "
             "explicitly diagnostic and is never evidence-eligible."
         )
     return """Synsigra generator-free verification kit

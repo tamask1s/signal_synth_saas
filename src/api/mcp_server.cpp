@@ -49,8 +49,8 @@ const char kToolsJson[] = R"JSON([
   },
   {
     "name":"synsigra_create_job","title":"Generate a challenge package",
-    "description":"Queue generation from an existing curated or custom pack. This consumes quota and creates a job. Call only after the user has approved the selected pack and project, then poll get_job until succeeded or failed.",
-    "inputSchema":{"type":"object","additionalProperties":false,"required":["project_id","pack_id"],"properties":{"project_id":{"type":"string","minLength":1},"pack_id":{"type":"string","minLength":1}}},
+    "description":"Queue generation from an existing curated or custom pack. For a curated evidence pack, inspect evidence_profiles in get_pack and pass the user-approved evidence_profile_id; this locks the exact acceptance gates and SHA-256 into the job without changing the generated signals. Omit it for diagnostic and custom packs. This consumes quota and creates a job.",
+    "inputSchema":{"type":"object","additionalProperties":false,"required":["project_id","pack_id"],"properties":{"project_id":{"type":"string","minLength":1},"pack_id":{"type":"string","minLength":1},"evidence_profile_id":{"type":"string","enum":["level_1","level_2","level_3"],"description":"Required for curated evidence packs. Level 1 is Foundation, Level 2 is the recommended Advanced baseline, and Level 3 is Frontier."}}},
     "outputSchema":{"type":"object","additionalProperties":true},
     "annotations":{"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":false}
   },
@@ -581,6 +581,11 @@ json_t* concise_job_summary(json_t* job) {
             json_object_set_new(summary, fields[index], json_string(value.c_str()));
         }
     }
+    json_t* profile = json_is_object(job)
+        ? json_object_get(job, "evidence_profile") : nullptr;
+    if (json_is_object(profile)) {
+        json_object_set(summary, "evidence_profile", profile);
+    }
     return summary;
 }
 
@@ -747,7 +752,7 @@ RouteResponse handle_mcp_request(
             absolute_url(email_config, public_base_path + "/mcp-setup").c_str()));
         json_object_set_new(result, "serverInfo", server);
         json_object_set_new(result, "instructions", json_string(
-            "Use only synthetic engineering requirements; never send PHI or patient data. Start with synsigra_recommend_packs. Inspect the selected pack and its scoreable/reference-only boundaries before asking for approval. For unmet duration, sampling-rate or target requirements, use the live custom-authoring contract and preview every scenario. Never invent schema fields. Creating/rebuilding jobs consumes quota and should remain human-approved. Poll jobs with restraint. Proprietary algorithms and outputs stay local: download the verification kit, run the algorithm against challenge/, populate submission/, and run synsigra-verify. Never claim clinical validation."));
+            "Use only synthetic engineering requirements; never send PHI or patient data. Start with synsigra_recommend_packs. Inspect the selected pack, scoreable/reference-only boundaries, and evidence_profiles. For evidence packs, explain and obtain approval for Level 1 Foundation, Level 2 Advanced (recommended default), or Level 3 Frontier before create_job; the chosen immutable gates do not change the generated signals. For unmet duration, sampling-rate or target requirements, use the live custom-authoring contract and preview every scenario. Never invent schema fields. Creating/rebuilding jobs consumes quota and should remain human-approved. Poll jobs with restraint. Proprietary algorithms and outputs stay local: download the verification kit, run the algorithm against challenge/, populate submission/, and run synsigra-verify. Never claim clinical validation."));
         RouteResponse response = rpc_result(id, result);
         json_decref(root);
         return response;
@@ -835,7 +840,7 @@ RouteResponse handle_mcp_request(
         }
         const std::string prompt = name == "design_algorithm_qa_pack"
             ? "Design a Synsigra synthetic engineering-QA challenge for this goal: " + value +
-              "\nStart with recommend_packs. Explain inferred targets and scoring boundaries. Use custom authoring if exact requirements are unmet. Ask for approval before create_job, then poll and provide the verification guide. Never send PHI or make clinical claims."
+              "\nStart with recommend_packs. Explain inferred targets, scoring boundaries, and the available evidence levels. Use custom authoring if exact requirements are unmet. Ask for approval for the pack, project, and Level 1/2/3 evidence profile before create_job, then poll and provide the verification guide. Never send PHI or make clinical claims."
             : "For Synsigra job " + value +
               ", inspect status and provide the exact local verification workflow. Keep the proprietary algorithm and outputs local. Explain challenge/, submission/, synsigra-verify, reports and exit codes.";
         json_t* result = json_object();
