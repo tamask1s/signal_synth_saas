@@ -21,12 +21,32 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 CORE = ROOT.parent / "signal_synth"
 CORE_BUILD = ROOT / "build" / "signal_synth_live"
 PIN_FILE = ROOT / "CMakeLists.txt"
+SAAS_CONTRACT_SOURCE = ROOT / "src" / "integration" / "core_contract.cpp"
 PACK_ROOT = ROOT / "packs"
 CATALOG_FILE = PACK_ROOT / "curated_pack_metadata_v1.catalog"
 CORE_METADATA = CORE / "examples" / "catalog" / "curated_pack_metadata_v1.json"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
 VERSION = re.compile(r"^version = ([0-9]+\.[0-9]+\.[0-9]+)$", re.MULTILINE)
+CONTRACT_CONSTANT = re.compile(
+    r'const char k([A-Za-z0-9]+)\[\]\s*=\s*"([^"]+)";'
+)
+CONTRACT_KEYS = {
+    "Integration": ("contract",),
+    "ChallengePackage": ("contracts", "challenge_package"),
+    "ScoringManifest": ("contracts", "scoring_manifest"),
+    "VerificationProtocol": ("contracts", "verification_protocol"),
+    "EvidenceProfiles": ("contracts", "evidence_profiles"),
+    "Submission": ("contracts", "submission"),
+    "SubmissionFormats": ("contracts", "submission_formats"),
+    "MeasurementValues": ("contracts", "measurement_values"),
+    "MeasurementTruth": ("contracts", "measurement_truth"),
+    "MeasurementScoring": ("contracts", "measurement_scoring"),
+    "LocalVerification": ("contracts", "local_verification"),
+    "Authoring": ("contracts", "scenario_authoring"),
+    "Templates": ("contracts", "scenario_templates"),
+    "ExternalNoiseTruth": ("contracts", "external_noise_truth"),
+}
 VERIFIER_VERSION_FILES = tuple(
     ROOT / value for value in (
         "README.md",
@@ -119,6 +139,59 @@ def tracked_files_containing(value):
     if result.returncode not in (0, 1):
         raise RuntimeError(result.stderr.strip() or "git grep failed")
     return [ROOT / line for line in result.stdout.splitlines() if line]
+
+
+def current_contract_tokens():
+    text = SAAS_CONTRACT_SOURCE.read_text(encoding="utf-8")
+    constants = dict(CONTRACT_CONSTANT.findall(text))
+    missing = sorted(set(CONTRACT_KEYS) - set(constants))
+    if missing:
+        raise RuntimeError(
+            "unable to read SaaS contract constants: {}".format(
+                ", ".join(missing)
+            )
+        )
+    return constants
+
+
+def nested_value(document, path):
+    value = document
+    for key in path:
+        if not isinstance(value, dict) or key not in value:
+            raise RuntimeError(
+                "new core contract has no {}".format(".".join(path))
+            )
+        value = value[key]
+    if not isinstance(value, str) or not value.startswith("synsigra_"):
+        raise RuntimeError(
+            "new core contract token is invalid at {}".format(".".join(path))
+        )
+    return value
+
+
+def contract_replacements(new_contract):
+    current = current_contract_tokens()
+    changes = []
+    for constant, path in CONTRACT_KEYS.items():
+        old = current[constant]
+        new = nested_value(new_contract, path)
+        if old != new:
+            changes.append((old, new, ".".join(path)))
+    return changes
+
+
+def operational_contract_paths(value):
+    paths = []
+    for path in tracked_files_containing(value):
+        relative = path.relative_to(ROOT).as_posix()
+        if relative.startswith("packs/"):
+            continue
+        if relative.startswith("doc/20260724_user_suggestions/"):
+            continue
+        if relative == "doc/synsigra_report_improvements.md":
+            continue
+        paths.append(path)
+    return paths
 
 
 def replace_paths(paths, old, new, label, required=True):
@@ -223,6 +296,7 @@ def main():
         raise RuntimeError("fresh core CLI does not embed signal_synth HEAD")
     if generator.get("build_identity") != "signal_synth/" + new_core:
         raise RuntimeError("fresh core CLI build identity is inconsistent")
+    token_changes = contract_replacements(contract)
 
     with tempfile.TemporaryDirectory(prefix="synsigra-core-adopt-") as temporary:
         temporary_root = pathlib.Path(temporary)
@@ -243,9 +317,12 @@ def main():
 
         core_paths = tracked_files_containing(old_core)
         catalog_paths = tracked_files_containing(old_catalog)
+        contract_paths = []
+        for old, _new, _label in token_changes:
+            contract_paths.extend(operational_contract_paths(old))
         changed_paths = set(
             core_paths + catalog_paths + list(VERIFIER_VERSION_FILES) +
-            list(CATALOG_VERSION_FILES)
+            list(CATALOG_VERSION_FILES) + contract_paths
         )
         file_backups = dict((path, path.read_bytes()) for path in changed_paths)
         shutil.copytree(str(PACK_ROOT), str(pack_backup))
@@ -267,6 +344,12 @@ def main():
                 "verifier version",
                 required=False,
             )
+            contract_replacement_count = 0
+            for old, new, label in token_changes:
+                paths = operational_contract_paths(old)
+                contract_replacement_count += replace_paths(
+                    paths, old, new, label
+                )
             if old_verifier != new_verifier:
                 old_verifier_bytes = old_verifier.encode("ascii")
                 new_verifier_bytes = new_verifier.encode("ascii")
@@ -294,6 +377,13 @@ def main():
                 raise RuntimeError("stale core commit pins remain after adoption")
             if old_catalog != new_catalog and tracked_files_containing(old_catalog):
                 raise RuntimeError("stale catalog pins remain after adoption")
+            for old, _new, label in token_changes:
+                if operational_contract_paths(old):
+                    raise RuntimeError(
+                        "stale {} contract tokens remain after adoption".format(
+                            label
+                        )
+                    )
             run(["git", "diff", "--check"])
             run([sys.executable, ROOT / "scripts" / "audit_system.py"])
         except Exception:
@@ -308,6 +398,7 @@ def main():
         core_replacements, catalog_replacements,
         catalog_version_replacements, verifier_replacements
     ))
+    print("updated_contract_tokens={}".format(contract_replacement_count))
     return 0
 
 
