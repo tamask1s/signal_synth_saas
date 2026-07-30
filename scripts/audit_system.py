@@ -40,6 +40,24 @@ REMOVED_CATALOG_FIELDS = {
     "supported_threshold_profiles",
     "threshold_profile_contract",
 }
+EVIDENCE_BASIS_FIELDS = {
+    "classification",
+    "direct_standard_thresholds",
+    "reviewed_on",
+    "numeric_threshold_basis",
+    "rationale",
+    "limitations",
+    "sources",
+}
+EVIDENCE_SOURCE_FIELDS = {
+    "source_id",
+    "title",
+    "citation",
+    "url",
+    "source_type",
+    "relevance",
+    "limitation",
+}
 
 
 class AuditError(RuntimeError):
@@ -157,6 +175,62 @@ def threshold_limits(document: dict[str, Any]) -> dict[tuple[str, ...], float]:
     return limits
 
 
+def audit_evidence_basis(pack_id: str, basis: Any) -> None:
+    require(isinstance(basis, dict), f"{pack_id}: missing evidence_basis")
+    require(
+        set(basis) == EVIDENCE_BASIS_FIELDS,
+        f"{pack_id}: evidence_basis fields differ from the v4 contract",
+    )
+    require(
+        basis.get("classification")
+        == "synsigra_pre_specified_engineering_gates",
+        f"{pack_id}: threshold authority is overstated",
+    )
+    require(
+        basis.get("direct_standard_thresholds") is False,
+        f"{pack_id}: thresholds must not claim direct standard authority",
+    )
+    require(
+        isinstance(basis.get("reviewed_on"), str)
+        and re.fullmatch(r"\d{4}-\d{2}-\d{2}", basis["reviewed_on"]) is not None,
+        f"{pack_id}: evidence review date is invalid",
+    )
+    for field in ("numeric_threshold_basis", "rationale"):
+        require(
+            isinstance(basis.get(field), str) and bool(basis[field].strip()),
+            f"{pack_id}: evidence_basis.{field} is empty",
+        )
+    limitations = basis.get("limitations")
+    require(
+        isinstance(limitations, list)
+        and bool(limitations)
+        and all(isinstance(item, str) and bool(item.strip()) for item in limitations),
+        f"{pack_id}: evidence limitations are incomplete",
+    )
+    sources = basis.get("sources")
+    require(isinstance(sources, list) and bool(sources),
+            f"{pack_id}: evidence source list is empty")
+    source_ids: list[str] = []
+    for source in sources:
+        require(
+            isinstance(source, dict) and set(source) == EVIDENCE_SOURCE_FIELDS,
+            f"{pack_id}: evidence source fields differ from the v4 contract",
+        )
+        require(
+            all(
+                isinstance(source.get(field), str)
+                and bool(source[field].strip())
+                for field in EVIDENCE_SOURCE_FIELDS
+            ),
+            f"{pack_id}: evidence source contains an empty field",
+        )
+        require(source["url"].startswith("https://"),
+                f"{pack_id}: evidence source URL must use HTTPS")
+        source_ids.append(source["source_id"])
+    require(len(source_ids) == len(set(source_ids)),
+            f"{pack_id}: evidence source IDs are duplicated")
+
+
 def audit_profile_envelope(pack: dict[str, Any], metadata: dict[str, Any]) -> int:
     pack_id = metadata["pack_id"]
     envelope = metadata.get("evidence_profiles")
@@ -179,7 +253,7 @@ def audit_profile_envelope(pack: dict[str, Any], metadata: dict[str, Any]) -> in
             f"{pack_id}: Level 2 must be the default")
     require(envelope.get("policy_contract") == "synsigra_evidence_profile_policy_v1",
             f"{pack_id}: evidence profile policy mismatch")
-    require(envelope.get("protocol_contract") == "synsigra_verification_protocol_v3",
+    require(envelope.get("protocol_contract") == "synsigra_verification_protocol_v4",
             f"{pack_id}: verification protocol mismatch")
     require(tuple(item.get("profile_id") for item in profiles) == PROFILE_IDS,
             f"{pack_id}: evidence profile IDs/order mismatch")
@@ -198,10 +272,12 @@ def audit_profile_envelope(pack: dict[str, Any], metadata: dict[str, Any]) -> in
         "required_case_targets",
         "stress_strata",
         "truth_policy",
+        "evidence_basis",
         "evidence_boundary",
         "verdict_scope",
     )
     baseline = documents[1]
+    audit_evidence_basis(pack_id, baseline.get("evidence_basis"))
     for item, document in zip(profiles, documents):
         profile_id = item["profile_id"]
         require(document.get("pack_id") == pack_id,
@@ -334,7 +410,7 @@ def audit_catalog() -> tuple[int, int, int]:
         require(compatibility.get("local_verifier_min_version") == verifier,
                 f"{pack_id}: verifier version drift")
         require(compatibility.get("verification_protocol_contract")
-                == "synsigra_verification_protocol_v3",
+                == "synsigra_verification_protocol_v4",
                 f"{pack_id}: verification protocol contract drift")
 
         source = metadata.get("source", {})
@@ -412,6 +488,8 @@ def audit_current_documents() -> None:
         ROOT / "doc" / "PACK_CATALOG.md",
         ROOT / "doc" / "PRODUCT_CAPABILITIES.md",
         ROOT / "doc" / "openapi.yaml",
+        ROOT / "scripts" / "challenge_artifact.py",
+        ROOT / "src" / "api" / "route.cpp",
     )
     for path in current_documents:
         text = path.read_text(encoding="utf-8")
@@ -431,6 +509,13 @@ def audit_current_documents() -> None:
             require(
                 match.group(1) == protocol_version,
                 f"{path}: stale verification protocol {match.group(0)}",
+            )
+        for match in re.finditer(
+            r"\bprotocol[- ]v([0-9]+)\b", text, re.IGNORECASE
+        ):
+            require(
+                match.group(1) == protocol_version,
+                f"{path}: stale protocol v{match.group(1)} label",
             )
         require(
             not (REMOVED_CATALOG_FIELDS & set(
@@ -524,6 +609,14 @@ def run() -> int:
     pack_count, case_count, profile_count = audit_catalog()
     audit_current_documents()
     command([sys.executable, CORE / "scripts" / "materialize_evidence_protocols.py"])
+    evidence_audit = command([
+        sys.executable,
+        CORE / "scripts" / "audit_evidence_thresholds.py",
+    ])
+    require(
+        "evidence_threshold_audit=ok" in evidence_audit,
+        "core evidence threshold audit did not report success",
+    )
     script_count = audit_script_syntax()
     truth = audit_full_generation(pack_count) if args.full else ""
     print(

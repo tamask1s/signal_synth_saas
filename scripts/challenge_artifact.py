@@ -21,7 +21,7 @@ import synsigra
 
 
 KIT_CONTRACT = "synsigra_verification_kit_v3"
-CORE_COMMIT = "3454c03cafdad2947446008f9d29ed011102dfe7"
+CORE_COMMIT = "e089196a65dba7567b5f7db2ae020e0b4327f40f"
 MEASUREMENT_COLUMNS = [
     "name", "value", "unit", "status", "scope", "time_seconds",
     "beat_index", "window_start_seconds", "window_end_seconds", "channel",
@@ -279,7 +279,7 @@ def _verification_metadata(package, scoring, protocol):
             "matrix_complete": None,
             "evidence_result": "not_run",
             "policy_result": "not_run",
-            "notice": "No packaged protocol v3; local verification must be explicit diagnostic mode and cannot produce evidence.",
+            "notice": "No packaged protocol v4; local verification must be explicit diagnostic mode and cannot produce evidence.",
             "protocol": None,
         }
     identity = package.verification_protocol_identity()
@@ -307,6 +307,7 @@ def _verification_metadata(package, scoring, protocol):
         "acceptance_profile_id": acceptance_profile_id,
         "required_case_target_count": len(required),
         "evidence_boundary": protocol["evidence_boundary"],
+        "evidence_basis": protocol["evidence_basis"],
     })
     return {
         "mode": "evidence",
@@ -408,7 +409,7 @@ def inspect_challenge(path):
             "measurement_values_contract": "synsigra_measurement_values_v2",
             "measurement_truth_contract": "synsigra_measurement_truth_v2",
             "measurement_scoring_contract": "synsigra_measurement_score_v2",
-            "local_verification_contract": "synsigra_local_verification_v3",
+            "local_verification_contract": "synsigra_local_verification_v4",
             "case_count": len(package.cases),
             "targets": targets,
             "cases": cases,
@@ -454,7 +455,7 @@ def _kit_readme(metadata):
     )
     if per_case:
         mode_text = (
-            "This package contains an immutable per-case protocol v3 using "
+            "This package contains an immutable per-case protocol v4 using "
             "%s. The command "
             "evaluates every complete signal independently; cases are not split, "
             "pooled, averaged, or allowed to compensate for one another. Do not add "
@@ -462,14 +463,14 @@ def _kit_readme(metadata):
         ) % profile.get("display_name", "its selected evidence level")
     elif evidence:
         mode_text = (
-            "This package contains an immutable protocol v3 using %s. The command runs the "
+            "This package contains an immutable protocol v4 using %s. The command runs the "
             "complete package-authoritative evidence matrix and embedded numeric "
             "acceptance policy. Do not add a profile, case, or target override to "
             "an evidence run."
         ) % profile.get("display_name", "its selected evidence level")
     else:
         mode_text = (
-            "This package has no pre-specified protocol v3. Verification is therefore "
+            "This package has no pre-specified protocol v4. Verification is therefore "
             "explicitly diagnostic and is never evidence-eligible."
         )
     return """Synsigra generator-free verification kit

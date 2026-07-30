@@ -214,7 +214,7 @@ int main() {
         "print(json.dumps({"
         "'schema_version':1,"
         "'contract':'synsigra_saas_challenge_metadata_v1',"
-        "'verifier_version':'0.17.0',"
+        "'verifier_version':'0.18.0',"
         "'challenge_contract':'synsigra_challenge_package_v3',"
         "'scoring_manifest_contract':'synsigra_scoring_manifest_v3',"
         "'submission_contract':'synsigra_submission_v1',"
@@ -222,7 +222,7 @@ int main() {
         "'measurement_values_contract':'synsigra_measurement_values_v2',"
         "'measurement_truth_contract':'synsigra_measurement_truth_v2',"
         "'measurement_scoring_contract':'synsigra_measurement_score_v2',"
-        "'local_verification_contract':'synsigra_local_verification_v3',"
+        "'local_verification_contract':'synsigra_local_verification_v4',"
         "'package_id':'test_pack',"
         "'name':'Test pack',"
         "'pack_version':'1.0',"
@@ -237,16 +237,27 @@ int main() {
         "'verification_protocol':{},"
         "'verification':{'mode':'evidence','evidence_eligible':True,'matrix_complete':True,'evidence_result':'not_run','policy_result':'not_run','notice':'test','protocol':{"
         "'protocol_id':'test_pack__level_2',"
-        "'contract':'synsigra_verification_protocol_v3',"
+        "'contract':'synsigra_verification_protocol_v4',"
         "'path':'verification_protocol.json',"
         "'size_bytes':25,"
         "'sha256':'" + protocol_sha256 + "',"
         "'context_of_use':'Synthetic test evidence',"
-        "'scoring_contract':'synsigra_local_verification_v3',"
+        "'scoring_contract':'synsigra_local_verification_v4',"
         "'verdict_scope':'per_case',"
         "'acceptance_profile_id':'test_acceptance',"
         "'required_case_target_count':1,"
         "'evidence_boundary':'Synthetic engineering QA',"
+        "'evidence_basis':{"
+        "'classification':'synsigra_pre_specified_engineering_gates',"
+        "'direct_standard_thresholds':False,"
+        "'reviewed_on':'2026-07-30',"
+        "'numeric_threshold_basis':'Pre-specified fixture engineering gates.',"
+        "'rationale':'Validates evidence metadata transport.',"
+        "'limitations':['Synthetic fixture only.'],"
+        "'sources':[{'source_id':'fixture_source','title':'Fixture source',"
+        "'citation':'Fixture citation.','url':'https://example.com/source',"
+        "'source_type':'primary_research','relevance':'Fixture relevance.',"
+        "'limitation':'Fixture limitation.'}]},"
         "'evidence_profile':{'profile_id':'level_2','display_name':'Level 2 — Advanced','version':'1.0','rank':2,'policy_contract':'synsigra_evidence_profile_policy_v1'}}},"
         "'external_noise':{'used':False,'release_allowed':True,'assets':[],'truth_paths':[]},"
         "'roles':{},"
@@ -297,8 +308,8 @@ int main() {
             pack_path,
             fingerprint,
             "1.0",
-            "3.7",
-            "sha256:6862313147dcdeab429e1972af62b81e9a7c4025c6707ee752c3126f5f8b556a",
+            "3.8",
+            "sha256:1d1bc6c4c8a25d942bc4c6ef786efc1d9d7b67010a769a925be89648b1496ec6",
             "level_2",
             "Level 2 — Advanced",
             "1.0",
@@ -669,8 +680,8 @@ int main() {
             pack_path,
             fingerprint,
             "1.0",
-            "3.7",
-            "sha256:6862313147dcdeab429e1972af62b81e9a7c4025c6707ee752c3126f5f8b556a",
+            "3.8",
+            "sha256:1d1bc6c4c8a25d942bc4c6ef786efc1d9d7b67010a769a925be89648b1496ec6",
             "level_2",
             "Level 2 — Advanced",
             "1.0",

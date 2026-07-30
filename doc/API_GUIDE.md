@@ -132,15 +132,15 @@ ZIP.
 Download the pure-Python verifier; it has no generator binary or source:
 
 ```sh
-curl -fsS -H "$AUTH" -o synsigra-0.17.0-py3-none-any.whl \
-  "$BASE/v1/downloads/verifier/synsigra-0.17.0-py3-none-any.whl"
-python -m pip install synsigra-0.17.0-py3-none-any.whl
+curl -fsS -H "$AUTH" -o synsigra-0.18.0-py3-none-any.whl \
+  "$BASE/v1/downloads/verifier/synsigra-0.18.0-py3-none-any.whl"
+python -m pip install synsigra-0.18.0-py3-none-any.whl
 ```
 
 Edit the algorithm name/version and replace the example output values under
 `submission/`. Preserve the paths, target names, units, and formats declared in
 `submission/submission.json`. Then copy the exact command from the kit README.
-For a protocol-v3 kit this is the complete package-authoritative evidence run:
+For a protocol-v4 kit this is the complete package-authoritative evidence run:
 
 ```sh
 synsigra-verify challenge submission verification-results --force
@@ -164,8 +164,14 @@ median absolute error have official per-SNR gates. RR 95th-percentile error is
 still reported, but is diagnostic rather than verdict-bearing because
 split/merge errors deliberately create a heavy tail.
 
+Each protocol and generated evidence report includes `evidence_basis` with the
+reviewed sources, their relevance and limitations, the pack-specific rationale,
+and the explicit statement that numerical gates are pre-specified Synsigra
+engineering criteria rather than direct standard thresholds. This gives an
+auditable trail without claiming clinical validation or standards conformity.
+
 Do not append a profile, case, or target override to evidence mode. A kit
-without protocol v3 instead shows explicit `--mode diagnostic`; diagnostic
+without protocol v4 instead shows explicit `--mode diagnostic`; diagnostic
 reports are always non-evidence. Point, interval, and measurement targets use
 their manifest-declared CSV or JSON format; HRV is a measurement-v2 target, not
 a separate output family. Never derive paths from a target name. Exit code `0`

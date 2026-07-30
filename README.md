@@ -188,7 +188,7 @@ and the kit's `submission/submission.json` are authoritative.
 
 ## Curated packs
 
-The immutable catalog 3.7 release contains these curated packs:
+The immutable catalog 3.8 release contains these curated packs:
 
 | Pack | Focus |
 |---|---|
@@ -337,15 +337,15 @@ Install the separately downloadable, pure-Python, generator-free verifier:
 
 ```sh
 curl -fsS -H "Authorization: Bearer $SYN_SIG_RA_API_KEY" \
-  -o synsigra-0.17.0-py3-none-any.whl \
-  "$BASE/v1/downloads/verifier/synsigra-0.17.0-py3-none-any.whl"
-python -m pip install synsigra-0.17.0-py3-none-any.whl
+  -o synsigra-0.18.0-py3-none-any.whl \
+  "$BASE/v1/downloads/verifier/synsigra-0.18.0-py3-none-any.whl"
+python -m pip install synsigra-0.18.0-py3-none-any.whl
 synsigra-verify --help
 ```
 
 Edit the algorithm name/version and replace example rows under `submission/`.
 Keep target names, paths, units, and formats unchanged. Then copy the exact
-command from the job and kit README. A protocol-v3 kit uses the complete
+command from the job and kit README. A protocol-v4 kit uses the complete
 package-authoritative evidence matrix and the evidence level locked when the
 job was created:
 
@@ -354,7 +354,7 @@ synsigra-verify challenge submission verification-results --force
 ```
 
 Do not add a profile, case, or target override to an evidence run. If a
-package has no protocol v3, the kit instead uses explicit
+package has no protocol v4, the kit instead uses explicit
 `--mode diagnostic`; that run is useful for exploration but is never
 evidence-eligible.
 
@@ -368,6 +368,16 @@ failure, and `2` for invalid CLI use.
 Keep the immutable challenge, completed submission, exact algorithm build and
 configuration, verification results, and generator/package identities together
 as reproducible engineering evidence.
+
+Every evidence protocol and generated report carries a reviewed
+`evidence_basis`: the source list, each source's relevance and limitation, the
+pack-specific rationale, review date, and explicit claim boundary. Numerical
+limits are pre-specified Synsigra engineering gates, not values copied directly
+from a standard or publication. The reproducible core audit covers all 22
+curated packs, distinguishes the 8 evidence packs from 14
+diagnostic/reference-only packs, and inventories every baseline gate. This
+supports traceability without presenting synthetic QA as clinical validation
+or standards conformity.
 
 ## Retention and exact rebuilds
 
@@ -412,24 +422,24 @@ file, wall-time, and no-network worker bounds are enforced.
 
 This release intentionally has no old core compatibility layer. It requires the
 clean sibling checkout `../signal_synth` at commit
-`3454c03cafdad2947446008f9d29ed011102dfe7` and the exact tuple:
+`e089196a65dba7567b5f7db2ae020e0b4327f40f` and the exact tuple:
 
 - generator `0.10.0-dev`, C++ facade `1.5.0`;
-- integration `synsigra_core_integration_v8`, pack schema `2`;
+- integration `synsigra_core_integration_v9`, pack schema `2`;
 - challenge `synsigra_challenge_package_v3`;
 - scoring `synsigra_scoring_manifest_v3`;
-- verification protocol `synsigra_verification_protocol_v3` and evidence-level
+- verification protocol `synsigra_verification_protocol_v4` and evidence-level
   policy `synsigra_evidence_profile_policy_v1`;
 - submission `synsigra_submission_v1` and formats
   `synsigra_submission_formats_v2`;
 - measurements `synsigra_measurement_values_v2`,
   `synsigra_measurement_truth_v2`, and `synsigra_measurement_score_v2`;
-- local verification report `synsigra_local_verification_v3`;
+- local verification report `synsigra_local_verification_v4`;
 - authoring `synsigra_authoring_v18`, templates `synsigra_templates_v5`;
-- verifier `0.17.0`, external-noise truth
+- verifier `0.18.0`, external-noise truth
   `synsigra_external_noise_truth_v1`;
-- curated catalog `3.7` with source hash
-  `sha256:6862313147dcdeab429e1972af62b81e9a7c4025c6707ee752c3126f5f8b556a`.
+- curated catalog `3.8` with source hash
+  `sha256:1d1bc6c4c8a25d942bc4c6ef786efc1d9d7b67010a769a925be89648b1496ec6`.
 
 Configuration, startup, readiness, worker post-render validation, and release
 verification fail closed if these identities diverge. `/readyz` publishes the
@@ -438,6 +448,7 @@ complete canonical core contract as `accepted_core.contract_document`.
 ## Further documentation
 
 - [Customer API guide](doc/API_GUIDE.md)
+- [Core evidence-threshold audit](https://github.com/tamask1s/signal_synth/blob/master/doc/EVIDENCE_THRESHOLD_AUDIT.md)
 - [Codex/natural-language API client guide](doc/CODEX_API_CLIENT_GUIDE.md)
 - [MCP server architecture and client workflow](doc/MCP_SERVER.md)
 - [Custom pack model](doc/CUSTOM_PACKS.md)

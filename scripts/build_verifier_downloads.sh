@@ -160,7 +160,7 @@ Open \`verification-results/index.html\`; it links every case-target detail
 page. \`verification-results/evidence.json\` is the single canonical
 machine-readable evidence record.
 
-For a protocol-v3 package this is evidence mode: the complete package matrix
+For a protocol-v4 package this is evidence mode: the complete package matrix
 and embedded numeric policy are authoritative, and profile/case/target
 overrides are forbidden. When a package has no protocol, its kit README uses
 explicit \`--mode diagnostic\`; such a run is useful but never evidence-eligible.
@@ -219,13 +219,13 @@ cat >"$out_dir/metadata.json" <<EOF
   "core_git_commit": "$core_commit",
   "challenge_contract": "synsigra_challenge_package_v3",
   "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
-  "verification_protocol_contract": "synsigra_verification_protocol_v3",
+  "verification_protocol_contract": "synsigra_verification_protocol_v4",
   "submission_contract": "synsigra_submission_v1",
   "submission_formats_contract": "synsigra_submission_formats_v2",
   "measurement_values_contract": "synsigra_measurement_values_v2",
   "measurement_truth_contract": "synsigra_measurement_truth_v2",
   "measurement_scoring_contract": "synsigra_measurement_score_v2",
-  "local_verification_contract": "synsigra_local_verification_v3",
+  "local_verification_contract": "synsigra_local_verification_v4",
   "console_script": "synsigra-verify",
   "generator_included": false,
   "generated_at": "$generated_at",

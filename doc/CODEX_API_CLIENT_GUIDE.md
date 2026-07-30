@@ -135,6 +135,11 @@ content.
     for `level_1`, `level_2` (recommended default), or `level_3`. Pass that
     `evidence_profile_id` when creating the job. It changes immutable pass/fail
     gates, not the generated signals. Omit it for custom/diagnostic packs.
+12. Read and preserve each selected protocol's `evidence_basis`. Treat its
+    numerical thresholds as pre-specified Synsigra engineering gates, not
+    direct standard limits. Cite the supplied sources only for their stated
+    `relevance`, retain their `limitation`, and never turn a synthetic PASS into
+    a clinical-validation or standards-conformity claim.
 
 ## Capability model
 
@@ -296,7 +301,7 @@ reasonable shared target list is:
 ["r_peak", "ecg_beat_classification", "signal_quality", "morphology_assertions"]
 ```
 
-All four are locally scoreable in core v8. Every scenario needs an artifact
+All four are locally scoreable in core v9. Every scenario needs an artifact
 and a supported condition for this shared target list.
 
 For five-minute HRV, start from `ecg_hrv_benchmark`, keep duration at least 300

@@ -2131,7 +2131,7 @@ const char kQuickstartHtml[] = R"HTML(<!doctype html>
 unzip "job_123-verification-kit.zip" -d synsigra-kit
 cd synsigra-kit/verification-kit
 synsigra-verify challenge submission verification-results --force</pre>
-      <p>For a challenge with protocol v3, this runs the complete immutable evidence matrix and the acceptance level selected before generation. Do not add profile, case, or target overrides. A kit without protocol v3 shows an explicit <code>--mode diagnostic</code> command and can never produce evidence.</p>
+      <p>For a challenge with protocol v4, this runs the complete immutable evidence matrix and the acceptance level selected before generation. Do not add profile, case, or target overrides. A kit without protocol v4 shows an explicit <code>--mode diagnostic</code> command and can never produce evidence.</p>
       <p>Exit code <code>0</code> means pass, <code>1</code> means verification/input/scoring/threshold failure, and <code>2</code> means invalid CLI usage.</p>
       <p><a href="/syn_sig_ra/docs/api">Rendered API reference</a> · <a href="/syn_sig_ra/docs/troubleshooting">Troubleshooting</a> · <a href="/syn_sig_ra/">Back to app</a></p>
     </section>
@@ -4082,15 +4082,34 @@ const char kUiJs[] = R"JS((() => {
     ]));
     return `
       <details>
-        <summary>${perCase ? "Independent per-case evidence protocol" : "Evidence protocol v3"}</summary>
+        <summary>${perCase ? "Independent per-case evidence protocol" : "Evidence protocol v4"}</summary>
         <p>${escapeHtml(protocol.context_of_use || "Engineering QA protocol")}</p>
         <p><strong>Default level:</strong> ${escapeHtml((profile && profile.display_name) || "n/a")} · <strong>protocol:</strong> ${escapeHtml(protocol.protocol_id || "n/a")} · <strong>official policy:</strong> ${escapeHtml(perCase ? `${(protocol.acceptance_strata || []).length} independent case profiles` : policy.profile_id || "n/a")}</p>
         <p><strong>Required matrix:</strong> ${escapeHtml(required.length)} cases / ${escapeHtml(matrixSize)} case-target checks · ${escapeHtml(targets.map(targetTitle).join(", ") || "n/a")}</p>
         <p class="muted compact">${perCase
           ? "Every complete signal receives its own official verdict. Cases are not split into acceptance bins, pooled, averaged, or allowed to compensate for another case."
           : "Evidence mode runs this complete immutable matrix and embedded numeric policy. Profile, case, and target overrides are diagnostic-only and cannot produce evidence."}</p>
+        ${evidenceBasisDetails(protocol.evidence_basis)}
         <pre class="output">${escapeHtml(JSON.stringify(perCase ? casePolicies : policy.targets || {}, null, 2))}</pre>
         <span class="fingerprint">${escapeHtml((profile && profile.protocol_sha256) || "")}</span>
+      </details>
+    `;
+  }
+
+  function evidenceBasisDetails(basis) {
+    if (!basis || basis.classification !== "synsigra_pre_specified_engineering_gates") {
+      return '<p class="error compact">Reviewed threshold-basis metadata is unavailable.</p>';
+    }
+    const sources = Array.isArray(basis.sources) ? basis.sources : [];
+    return `
+      <details>
+        <summary>Threshold rationale, limitations and sources</summary>
+        <p><strong>Authority:</strong> Pre-specified Synsigra engineering gates; the numerical PASS/FAIL limits are not copied directly from a standard or publication.</p>
+        <p>${escapeHtml(basis.numeric_threshold_basis || "")}</p>
+        <p><strong>Why this protocol:</strong> ${escapeHtml(basis.rationale || "")}</p>
+        <p><strong>Reviewed:</strong> ${escapeHtml(basis.reviewed_on || "n/a")}</p>
+        <ul>${sources.map((source) => `<li><a href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(source.title)}</a> — ${escapeHtml(source.relevance)} <span class="muted">${escapeHtml(source.limitation)}</span></li>`).join("")}</ul>
+        <p class="muted compact">${escapeHtml((basis.limitations || []).join(" "))}</p>
       </details>
     `;
   }
@@ -5800,7 +5819,7 @@ const char kUiJs[] = R"JS((() => {
       return `
         <details class="verify-note">
           <summary>Verification metadata unavailable</summary>
-          <p class="error">This job has no validated v7 submission contract. Generate a new job before attempting local verification.</p>
+          <p class="error">This job has no validated submission contract. Generate a new job before attempting local verification.</p>
         </details>
       `;
     }
@@ -5824,7 +5843,8 @@ const char kUiJs[] = R"JS((() => {
         <pre class="output">python -m pip install synsigra-__SYNSIGRA_VERIFIER_VERSION__-py3-none-any.whl</pre>
         <p>Role-selected submission layout:</p>
         <pre class="output">${escapeHtml(submissionShape(context))}</pre>
-        <p><strong>${context.evidenceEligible ? "Evidence mode" : "Diagnostic mode — not evidence"}:</strong> ${context.evidenceEligible ? ((context.verification.protocol || {}).verdict_scope === "per_case" ? "every complete signal receives an independent verdict with no pooling or cross-case compensation; do not add overrides." : "the packaged protocol fixes the complete case-target matrix and numeric policy; do not add overrides.") : "this package has no protocol v3, so the verifier must run explicitly in non-evidence diagnostic mode."}</p>
+        <p><strong>${context.evidenceEligible ? "Evidence mode" : "Diagnostic mode — not evidence"}:</strong> ${context.evidenceEligible ? ((context.verification.protocol || {}).verdict_scope === "per_case" ? "every complete signal receives an independent verdict with no pooling or cross-case compensation; do not add overrides." : "the packaged protocol fixes the complete case-target matrix and numeric policy; do not add overrides.") : "this package has no protocol v4, so the verifier must run explicitly in non-evidence diagnostic mode."}</p>
+        ${context.evidenceEligible ? evidenceBasisDetails((context.verification.protocol || {}).evidence_basis) : ""}
         <pre class="output">${escapeHtml(context.command)}</pre>
         <button class="secondary" data-copy-text="${escapeHtml(context.command)}">Copy verify command</button>
         <p>Open <code>${escapeHtml(context.outputDir)}/index.html</code>; it links every case-target detail page. <code>${escapeHtml(context.outputDir)}/evidence.json</code> is the single canonical machine-readable record.</p>
@@ -5902,7 +5922,7 @@ const char kUiJs[] = R"JS((() => {
         <strong>Run the verifier locally.</strong>
         <pre class="output">${escapeHtml(context.command)}</pre>
         <button class="secondary" data-copy-text="${escapeHtml(context.command)}">Copy verify command</button>
-        ${context.evidenceEligible ? `<p class="muted compact">The immutable protocol v3, selected evidence level, complete matrix, policy SHA-256 and evidence result are recorded in the local report. Keep that report with the challenge and algorithm build.</p>` : `<p class="warning compact">This is an exploratory diagnostic run. It cannot produce evidence PASS.</p>`}
+        ${context.evidenceEligible ? `<p class="muted compact">The immutable protocol v4, selected evidence level, complete matrix, reviewed threshold basis, policy SHA-256 and evidence result are recorded in the local report. Keep that report with the challenge and algorithm build.</p>${evidenceBasisDetails((context.verification.protocol || {}).evidence_basis)}` : `<p class="warning compact">This is an exploratory diagnostic run. It cannot produce evidence PASS.</p>`}
       </li>
       <li>
         <strong>Interpret outputs.</strong>
@@ -9064,7 +9084,7 @@ RouteResponse route_request(
             }
             if (pack_status == PackLookupStatus::found) {
                 if (pack.integration_contract_version !=
-                    "synsigra_core_integration_v8") {
+                    "synsigra_core_integration_v9") {
                     return json_response(
                         409,
                         "{\"error\":{\"code\":\"pack_generator_incompatible\","

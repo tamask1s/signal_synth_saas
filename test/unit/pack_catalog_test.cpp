@@ -59,7 +59,7 @@ bool has_evidence_profiles(const syn_sig_ra::PackSummary& pack) {
         pack.evidence_profile_policy_contract !=
             "synsigra_evidence_profile_policy_v1" ||
         pack.verification_protocol_contract !=
-            "synsigra_verification_protocol_v3" ||
+            "synsigra_verification_protocol_v4" ||
         pack.evidence_profiles.size() != 3) {
         return false;
     }
@@ -71,7 +71,13 @@ bool has_evidence_profiles(const syn_sig_ra::PackSummary& pack) {
             profile.rank != static_cast<int>(index + 1) ||
             !is_sha256(profile.protocol_sha256) ||
             profile.protocol_json.find(
-                "\"contract\":\"synsigra_verification_protocol_v3\"") ==
+                "\"contract\":\"synsigra_verification_protocol_v4\"") ==
+                std::string::npos ||
+            profile.protocol_json.find(
+                "\"classification\":\"synsigra_pre_specified_engineering_gates\"") ==
+                std::string::npos ||
+            profile.protocol_json.find(
+                "\"direct_standard_thresholds\":false") ==
                 std::string::npos) {
             return false;
         }
@@ -127,7 +133,7 @@ int main() {
         simple_hrv->version == "1.0" &&
             simple_hrv->scenarios.size() == 10 &&
             simple_hrv->total_seconds == 3300 &&
-            simple_hrv->local_verifier_min_version == "0.17.0" &&
+            simple_hrv->local_verifier_min_version == "0.18.0" &&
             has_evidence_profiles(*simple_hrv) &&
             simple_hrv->scoreable_targets.size() == 1 &&
             has_target(simple_hrv->scoreable_targets, "hrv", true) &&
@@ -157,8 +163,8 @@ int main() {
     require(
         r_peak->release_status == "beta" &&
             r_peak->integration_contract_version ==
-                "synsigra_core_integration_v8" &&
-            r_peak->catalog_version == "3.7" &&
+                "synsigra_core_integration_v9" &&
+            r_peak->catalog_version == "3.8" &&
             is_sha256(r_peak->catalog_source_sha256) &&
             r_peak->changelog.size() == 3,
         "catalog should expose validated release and compatibility metadata"
@@ -241,14 +247,14 @@ int main() {
         find_pack(packs, "r_peak_rr_noise_v1");
     require(
         protocol_pack != 0 && !protocol_pack->version.empty() &&
-            protocol_pack->local_verifier_min_version == "0.17.0" &&
+            protocol_pack->local_verifier_min_version == "0.18.0" &&
             has_evidence_profiles(*protocol_pack) &&
             protocol_pack->external_noise_asset_ids.size() == 1,
         "catalog should expose normalized protocol and approved external-noise metadata"
     );
     require(
         r_peak_frontier->version == "1.1" &&
-            r_peak_frontier->catalog_version == "3.7" &&
+            r_peak_frontier->catalog_version == "3.8" &&
             r_peak_frontier->scenarios.size() == 9 &&
             r_peak_frontier->total_seconds == 500 &&
             has_evidence_profiles(*r_peak_frontier) &&

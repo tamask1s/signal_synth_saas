@@ -620,6 +620,50 @@ json_t* concise_challenge_summary(json_t* challenge) {
     return summary;
 }
 
+json_t* concise_evidence_basis(json_t* basis) {
+    json_t* summary = json_object();
+    const char* fields[] = {
+        "classification", "reviewed_on", "numeric_threshold_basis", "rationale"
+    };
+    for (std::size_t index = 0; index < sizeof(fields) / sizeof(fields[0]); ++index) {
+        const std::string value = string_field(basis, fields[index]);
+        if (!value.empty()) {
+            json_object_set_new(summary, fields[index], json_string(value.c_str()));
+        }
+    }
+    json_object_set_new(
+        summary,
+        "direct_standard_thresholds",
+        json_boolean(bool_field(basis, "direct_standard_thresholds", false)));
+    json_t* limitations = json_is_object(basis)
+        ? json_object_get(basis, "limitations") : nullptr;
+    if (json_is_array(limitations)) json_object_set(summary, "limitations", limitations);
+    json_t* summarized_sources = json_array();
+    json_t* sources = json_is_object(basis)
+        ? json_object_get(basis, "sources") : nullptr;
+    if (json_is_array(sources)) {
+        std::size_t index = 0;
+        json_t* source = nullptr;
+        json_array_foreach(sources, index, source) {
+            json_t* item = json_object();
+            const char* source_fields[] = {"source_id", "title", "url"};
+            for (std::size_t field = 0;
+                 field < sizeof(source_fields) / sizeof(source_fields[0]);
+                 ++field) {
+                const std::string value = string_field(
+                    source, source_fields[field]);
+                if (!value.empty()) {
+                    json_object_set_new(
+                        item, source_fields[field], json_string(value.c_str()));
+                }
+            }
+            json_array_append_new(summarized_sources, item);
+        }
+    }
+    json_object_set_new(summary, "sources", summarized_sources);
+    return summary;
+}
+
 }  // namespace
 
 namespace syn_sig_ra {
@@ -997,6 +1041,20 @@ RouteResponse handle_mcp_request(
                         guide, "verification_mode", json_string(mode.c_str()));
                     json_object_set_new(
                         guide, "evidence_eligible", json_boolean(evidence_eligible));
+                    json_t* protocol = json_is_object(verification)
+                        ? json_object_get(verification, "protocol") : nullptr;
+                    json_t* evidence_basis = json_is_object(protocol)
+                        ? json_object_get(protocol, "evidence_basis") : nullptr;
+                    if (json_is_object(evidence_basis)) {
+                        json_object_set_new(
+                            guide, "evidence_basis",
+                            concise_evidence_basis(evidence_basis));
+                        json_object_set_new(
+                            guide, "full_evidence_basis_path",
+                            json_string(
+                                "GET /v1/jobs/{job_id} -> "
+                                "challenge.verification.protocol.evidence_basis"));
+                    }
                     const std::string kit = string_field(job, "verification_kit_url");
                     const std::string kit_url = absolute_url(email_config, kit);
                     json_t* downloads = json_object();

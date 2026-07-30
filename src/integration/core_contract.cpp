@@ -15,18 +15,18 @@
 
 namespace {
 
-const char kIntegration[] = "synsigra_core_integration_v8";
+const char kIntegration[] = "synsigra_core_integration_v9";
 const char kCppFacade[] = "1.5.0";
 const char kChallengePackage[] = "synsigra_challenge_package_v3";
 const char kScoringManifest[] = "synsigra_scoring_manifest_v3";
-const char kVerificationProtocol[] = "synsigra_verification_protocol_v3";
+const char kVerificationProtocol[] = "synsigra_verification_protocol_v4";
 const char kEvidenceProfiles[] = "synsigra_evidence_profile_policy_v1";
 const char kSubmission[] = "synsigra_submission_v1";
 const char kSubmissionFormats[] = "synsigra_submission_formats_v2";
 const char kMeasurementValues[] = "synsigra_measurement_values_v2";
 const char kMeasurementTruth[] = "synsigra_measurement_truth_v2";
 const char kMeasurementScoring[] = "synsigra_measurement_score_v2";
-const char kLocalVerification[] = "synsigra_local_verification_v3";
+const char kLocalVerification[] = "synsigra_local_verification_v4";
 const char kAuthoring[] = "synsigra_authoring_v18";
 const char kTemplates[] = "synsigra_templates_v5";
 const char kPythonVerifier[] = SYN_SIG_RA_EXPECTED_PYTHON_VERIFIER;

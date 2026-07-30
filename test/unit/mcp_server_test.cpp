@@ -52,11 +52,11 @@ bool complete_next_job(
         job,
         package_id,
         "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "synsigra_core_integration_v8",
+        "synsigra_core_integration_v9",
         "{}",
         "0.10.0-dev",
-        "3454c03cafdad2947446008f9d29ed011102dfe7",
-        "signal_synth/3454c03cafdad2947446008f9d29ed011102dfe7",
+        "e089196a65dba7567b5f7db2ae020e0b4327f40f",
+        "signal_synth/e089196a65dba7567b5f7db2ae020e0b4327f40f",
         "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "{}",
         challenge_metadata,
@@ -231,8 +231,8 @@ int main() {
     const std::string diagnostic_metadata =
         "{\"contract\":\"synsigra_saas_challenge_metadata_v1\","
         "\"challenge_contract\":\"synsigra_challenge_package_v3\","
-        "\"local_verification_contract\":\"synsigra_local_verification_v3\","
-        "\"verifier_version\":\"0.17.0\",\"case_count\":2,"
+        "\"local_verification_contract\":\"synsigra_local_verification_v4\","
+        "\"verifier_version\":\"0.18.0\",\"case_count\":2,"
         "\"targets\":[{\"target\":\"r_peak\"},{\"target\":\"signal_quality\"}],"
         "\"verification\":{\"mode\":\"diagnostic\","
         "\"evidence_eligible\":false}}";
@@ -255,7 +255,7 @@ int main() {
             "synsigra-verify challenge submission verification-results --mode diagnostic --force") !=
             std::string::npos &&
         diagnostic_guide.body.find(
-            "synsigra-0.17.0-py3-none-any.whl") != std::string::npos &&
+            "synsigra-0.18.0-py3-none-any.whl") != std::string::npos &&
         diagnostic_guide.body.find("\"job_summary\"") != std::string::npos &&
         diagnostic_guide.body.find("\"canonical_evidence\":"
             "\"verification-results/evidence.json\"") != std::string::npos &&
@@ -272,8 +272,8 @@ int main() {
             "\"evidence_profile_id\":\"level_2\"}",
             "r_peak_rr_noise_v1", "r_peak_rr_noise_v1.json",
             "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-            "1.3", "3.7",
-            "sha256:6862313147dcdeab429e1972af62b81e9a7c4025c6707ee752c3126f5f8b556a",
+            "1.3", "3.8",
+            "sha256:1d1bc6c4c8a25d942bc4c6ef786efc1d9d7b67010a769a925be89648b1496ec6",
             "level_2", "Level 2 — Advanced", "1.0", 2,
             "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
             "/tmp/r_peak_rr_noise_v1__level_2_expectations.json",
@@ -282,12 +282,21 @@ int main() {
     const std::string evidence_metadata =
         "{\"contract\":\"synsigra_saas_challenge_metadata_v1\","
         "\"challenge_contract\":\"synsigra_challenge_package_v3\","
-        "\"local_verification_contract\":\"synsigra_local_verification_v3\","
-        "\"verifier_version\":\"0.17.0\",\"case_count\":1,"
+        "\"local_verification_contract\":\"synsigra_local_verification_v4\","
+        "\"verifier_version\":\"0.18.0\",\"case_count\":1,"
         "\"targets\":[{\"target\":\"r_peak\"},{\"target\":\"rr_interval\"}],"
         "\"verification\":{\"mode\":\"evidence\","
         "\"evidence_eligible\":true,\"protocol\":{"
         "\"protocol_id\":\"r_peak_rr_noise_v1__level_2\","
+        "\"evidence_basis\":{"
+        "\"classification\":\"synsigra_pre_specified_engineering_gates\","
+        "\"direct_standard_thresholds\":false,"
+        "\"reviewed_on\":\"2026-07-30\","
+        "\"numeric_threshold_basis\":\"Pre-specified engineering gates.\","
+        "\"rationale\":\"Fixture rationale.\","
+        "\"limitations\":[\"Synthetic fixture only.\"],"
+        "\"sources\":[{\"source_id\":\"fixture_source\","
+        "\"title\":\"Fixture source\",\"url\":\"https://example.com/source\"}]},"
         "\"evidence_profile\":{\"profile_id\":\"level_2\","
         "\"display_name\":\"Level 2 — Advanced\",\"version\":\"1.0\","
         "\"rank\":2,\"policy_contract\":"
@@ -308,6 +317,11 @@ int main() {
         evidence_guide.body.find("\"verification_mode\":\"evidence\"") !=
             std::string::npos &&
         evidence_guide.body.find("\"evidence_eligible\":true") !=
+            std::string::npos &&
+        evidence_guide.body.find(
+            "\"classification\":\"synsigra_pre_specified_engineering_gates\"") !=
+            std::string::npos &&
+        evidence_guide.body.find("\"direct_standard_thresholds\":false") !=
             std::string::npos &&
         evidence_guide.body.find("\"profile_id\":\"level_2\"") !=
             std::string::npos &&

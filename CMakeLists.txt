@@ -67,7 +67,7 @@ file(MAKE_DIRECTORY
 find_package(Git QUIET)
 set(
     SYN_SIG_RA_EXPECTED_SIGNAL_SYNTH_COMMIT
-    "3454c03cafdad2947446008f9d29ed011102dfe7"
+    "e089196a65dba7567b5f7db2ae020e0b4327f40f"
     CACHE STRING
     "Exact signal_synth commit accepted by this SaaS release"
     FORCE

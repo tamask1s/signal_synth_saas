@@ -135,7 +135,7 @@ expected={
  "measurement_values_contract":"synsigra_measurement_values_v2",
  "measurement_truth_contract":"synsigra_measurement_truth_v2",
  "measurement_scoring_contract":"synsigra_measurement_score_v2",
- "local_verification_contract":"synsigra_local_verification_v3",
+ "local_verification_contract":"synsigra_local_verification_v4",
 }
 assert all(c.get(k)==v for k,v in expected.items())
 assert j["evidence_profile"]["profile_id"]=="level_2"
@@ -143,6 +143,10 @@ assert c["verification"]["mode"]=="evidence"
 assert c["verification"]["evidence_eligible"] is True
 assert c["verification"]["matrix_complete"] is True
 assert c["verification"]["protocol"]["evidence_profile"]["profile_id"]=="level_2"
+b=c["verification"]["protocol"]["evidence_basis"]
+assert b["classification"]=="synsigra_pre_specified_engineering_gates"
+assert b["direct_standard_thresholds"] is False
+assert b["sources"]
 assert c["integrity"]["ok"] is True
 '
 kit=$(mktemp /tmp/synsigra-reset-kit.XXXXXX)
@@ -154,7 +158,7 @@ rm -f "$kit"
 
 # The deployment itself can only perform a runtime baseline check because the
 # reset database initially has no jobs. Exercise the complete live verifier now
-# that a fresh v8 package and its customer kit exist.
+# that a fresh core-v9 package and its customer kit exist.
 "$repo_dir/scripts/verify_live.sh"
 
 # A pre-beta reset intentionally leaves no old producer artifact available for

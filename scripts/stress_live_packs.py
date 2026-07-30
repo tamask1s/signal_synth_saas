@@ -26,7 +26,7 @@ from typing import Any
 
 CATALOG = pathlib.Path(__file__).resolve().parents[1] / "packs" / "curated_pack_metadata_v1.catalog"
 CMAKE = pathlib.Path(__file__).resolve().parents[1] / "CMakeLists.txt"
-INTEGRATION_CONTRACT = "synsigra_core_integration_v8"
+INTEGRATION_CONTRACT = "synsigra_core_integration_v9"
 
 
 def release_expectations() -> dict[str, str]:
@@ -273,7 +273,7 @@ def validate_job(job: dict[str, Any], pack: dict[str, Any]) -> None:
         "measurement_values_contract": "synsigra_measurement_values_v2",
         "measurement_truth_contract": "synsigra_measurement_truth_v2",
         "measurement_scoring_contract": "synsigra_measurement_score_v2",
-        "local_verification_contract": "synsigra_local_verification_v3",
+        "local_verification_contract": "synsigra_local_verification_v4",
     }
     for key, value in expected.items():
         if challenge.get(key) != value:
@@ -323,6 +323,13 @@ def validate_job(job: dict[str, Any], pack: dict[str, Any]) -> None:
                 verification.get("matrix_complete") is not True or \
                 not isinstance(verification.get("protocol"), dict):
             raise RuntimeError("protocol pack is not evidence-ready")
+        basis = verification["protocol"].get("evidence_basis")
+        if not isinstance(basis, dict) or \
+                basis.get("classification") != \
+                "synsigra_pre_specified_engineering_gates" or \
+                basis.get("direct_standard_thresholds") is not False or \
+                not basis.get("sources"):
+            raise RuntimeError("protocol pack has no reviewed evidence basis")
     elif verification.get("mode") != "diagnostic" or \
             verification.get("evidence_eligible") is not False or \
             verification.get("matrix_complete") is not None or \

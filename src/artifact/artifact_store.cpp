@@ -508,6 +508,51 @@ bool nonempty_json_string(json_t* object, const char* key) {
     return json_is_string(field) && json_string_length(field) > 0;
 }
 
+bool nonempty_string_array(json_t* value) {
+    if (!json_is_array(value) || json_array_size(value) == 0) return false;
+    for (std::size_t index = 0; index < json_array_size(value); ++index) {
+        json_t* item = json_array_get(value, index);
+        if (!json_is_string(item) || json_string_length(item) == 0) return false;
+    }
+    return true;
+}
+
+bool valid_evidence_source(json_t* source) {
+    if (!json_is_object(source) || json_object_size(source) != 7 ||
+        !nonempty_json_string(source, "source_id") ||
+        !nonempty_json_string(source, "title") ||
+        !nonempty_json_string(source, "citation") ||
+        !nonempty_json_string(source, "url") ||
+        !nonempty_json_string(source, "source_type") ||
+        !nonempty_json_string(source, "relevance") ||
+        !nonempty_json_string(source, "limitation")) {
+        return false;
+    }
+    const std::string url =
+        json_string_value(json_object_get(source, "url"));
+    return url.compare(0, 8, "https://") == 0;
+}
+
+bool valid_evidence_basis(json_t* basis) {
+    if (!json_is_object(basis) || json_object_size(basis) != 7 ||
+        !exact_json_string(
+            basis, "classification",
+            "synsigra_pre_specified_engineering_gates") ||
+        !json_is_false(json_object_get(basis, "direct_standard_thresholds")) ||
+        !nonempty_json_string(basis, "reviewed_on") ||
+        !nonempty_json_string(basis, "numeric_threshold_basis") ||
+        !nonempty_json_string(basis, "rationale") ||
+        !nonempty_string_array(json_object_get(basis, "limitations"))) {
+        return false;
+    }
+    json_t* sources = json_object_get(basis, "sources");
+    if (!json_is_array(sources) || json_array_size(sources) == 0) return false;
+    for (std::size_t index = 0; index < json_array_size(sources); ++index) {
+        if (!valid_evidence_source(json_array_get(sources, index))) return false;
+    }
+    return true;
+}
+
 bool valid_verification_metadata(json_t* value) {
     if (!json_is_object(value) || json_object_size(value) != 7 ||
         !nonempty_json_string(value, "notice") ||
@@ -524,10 +569,10 @@ bool valid_verification_metadata(json_t* value) {
     }
     if (!exact_json_string(value, "mode", "evidence") ||
         !json_is_true(eligible) || !json_is_true(complete) ||
-        !json_is_object(protocol) || json_object_size(protocol) != 12 ||
+        !json_is_object(protocol) || json_object_size(protocol) != 13 ||
         !nonempty_json_string(protocol, "protocol_id") ||
         !exact_json_string(
-            protocol, "contract", "synsigra_verification_protocol_v3") ||
+            protocol, "contract", "synsigra_verification_protocol_v4") ||
         !json_is_object(json_object_get(protocol, "evidence_profile")) ||
         !nonempty_json_string(protocol, "path") ||
         !json_is_integer(json_object_get(protocol, "size_bytes")) ||
@@ -535,13 +580,14 @@ bool valid_verification_metadata(json_t* value) {
         !nonempty_json_string(protocol, "sha256") ||
         !nonempty_json_string(protocol, "context_of_use") ||
         !exact_json_string(
-            protocol, "scoring_contract", "synsigra_local_verification_v3") ||
+            protocol, "scoring_contract", "synsigra_local_verification_v4") ||
         !(exact_json_string(protocol, "verdict_scope", "aggregate") ||
           exact_json_string(protocol, "verdict_scope", "per_case")) ||
         !nonempty_json_string(protocol, "acceptance_profile_id") ||
         !json_is_integer(json_object_get(protocol, "required_case_target_count")) ||
         json_integer_value(json_object_get(protocol, "required_case_target_count")) < 1 ||
-        !nonempty_json_string(protocol, "evidence_boundary")) {
+        !nonempty_json_string(protocol, "evidence_boundary") ||
+        !valid_evidence_basis(json_object_get(protocol, "evidence_basis"))) {
         return false;
     }
     return true;
@@ -583,7 +629,7 @@ bool valid_challenge_metadata(const std::string& text) {
             "synsigra_measurement_score_v2" &&
         json_is_string(json_object_get(root, "local_verification_contract")) &&
         std::string(json_string_value(json_object_get(root, "local_verification_contract"))) ==
-            "synsigra_local_verification_v3" &&
+            "synsigra_local_verification_v4" &&
         valid_verification_metadata(json_object_get(root, "verification")) &&
         json_is_object(json_object_get(root, "external_noise")) &&
         json_is_boolean(json_object_get(

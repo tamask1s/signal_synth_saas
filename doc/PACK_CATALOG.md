@@ -1,6 +1,6 @@
 # Curated pack catalog contract
 
-Built-in packs are imported as one immutable catalog 3.7 release snapshot from
+Built-in packs are imported as one immutable catalog 3.8 release snapshot from
 the exact sibling `signal_synth` checkout. SaaS does not maintain product
 sidecars or reinterpret core analysis.
 
@@ -15,17 +15,17 @@ The importer removes files not present in the snapshot, copies the declared
 pack/scenario/protocol/approved-noise inputs, and validates every pack through
 the pinned CLI. Startup and readiness require:
 
-- catalog version `3.7`;
+- catalog version `3.8`;
 - a positive declared pack count that exactly matches the unique pack array;
 - catalog source hash
-  `sha256:6862313147dcdeab429e1972af62b81e9a7c4025c6707ee752c3126f5f8b556a`;
-- integration `synsigra_core_integration_v8`;
+  `sha256:1d1bc6c4c8a25d942bc4c6ef786efc1d9d7b67010a769a925be89648b1496ec6`;
+- integration `synsigra_core_integration_v9`;
 - challenge `synsigra_challenge_package_v3`;
 - scoring `synsigra_scoring_manifest_v3`;
 - submission `synsigra_submission_v1`;
-- verification protocol `synsigra_verification_protocol_v3`;
+- verification protocol `synsigra_verification_protocol_v4`;
 - evidence-level policy `synsigra_evidence_profile_policy_v1`;
-- verifier `0.17.0`;
+- verifier `0.18.0`;
 - only external-noise assets whose release truth allows redistribution.
 
 Each API pack response exposes catalog/release identity, pack fingerprint,
@@ -35,7 +35,7 @@ estimates, intended use, contraindicated use, difficulty, modality, badges, and
 changelog. Level 1 Foundation, Level 2 Advanced (default), and Level 3 Frontier
 share the pack recipe and differ only in deterministic acceptance gates. The
 level selected before generation is copied into the immutable challenge and is
-authoritative for that job. Protocol-v3 packages run package-authoritative
+authoritative for that job. Protocol-v4 packages run package-authoritative
 evidence mode; protocol-free packs are explicit diagnostic-only, not weaker
 evidence packages.
 

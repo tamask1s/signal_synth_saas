@@ -171,6 +171,49 @@ std::string json_string_or_empty(json_t* value) {
     return json_is_string(value) ? json_string_value(value) : "";
 }
 
+bool nonempty_json_string(json_t* object, const char* key) {
+    json_t* value = json_is_object(object) ? json_object_get(object, key) : nullptr;
+    return json_is_string(value) && json_string_length(value) > 0;
+}
+
+bool valid_evidence_basis(json_t* basis) {
+    if (!exact_object(basis, 7) ||
+        json_string_or_empty(json_object_get(basis, "classification")) !=
+            "synsigra_pre_specified_engineering_gates" ||
+        !json_is_false(json_object_get(basis, "direct_standard_thresholds")) ||
+        !nonempty_json_string(basis, "reviewed_on") ||
+        !nonempty_json_string(basis, "numeric_threshold_basis") ||
+        !nonempty_json_string(basis, "rationale")) {
+        return false;
+    }
+    json_t* limitations = json_object_get(basis, "limitations");
+    if (!json_is_array(limitations) || json_array_size(limitations) == 0) {
+        return false;
+    }
+    for (std::size_t index = 0; index < json_array_size(limitations); ++index) {
+        json_t* item = json_array_get(limitations, index);
+        if (!json_is_string(item) || json_string_length(item) == 0) return false;
+    }
+    json_t* sources = json_object_get(basis, "sources");
+    if (!json_is_array(sources) || json_array_size(sources) == 0) return false;
+    for (std::size_t index = 0; index < json_array_size(sources); ++index) {
+        json_t* source = json_array_get(sources, index);
+        if (!exact_object(source, 7) ||
+            !nonempty_json_string(source, "source_id") ||
+            !nonempty_json_string(source, "title") ||
+            !nonempty_json_string(source, "citation") ||
+            !nonempty_json_string(source, "url") ||
+            !nonempty_json_string(source, "source_type") ||
+            !nonempty_json_string(source, "relevance") ||
+            !nonempty_json_string(source, "limitation") ||
+            json_string_or_empty(json_object_get(source, "url")).compare(
+                0, 8, "https://") != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool read_string_array(
     json_t* object,
     const char* key,
@@ -376,9 +419,9 @@ bool curated_pack_ids(
     json_t* packs = root == nullptr ? nullptr : json_object_get(root, "packs");
     json_t* count = root == nullptr ? nullptr : json_object_get(root, "pack_count");
     if (!exact_object(root, 13) ||
-        json_string_or_empty(json_object_get(root, "catalog_version")) != "3.7" ||
+        json_string_or_empty(json_object_get(root, "catalog_version")) != "3.8" ||
         json_string_or_empty(json_object_get(root, "source_catalog_sha256")) !=
-            "sha256:6862313147dcdeab429e1972af62b81e9a7c4025c6707ee752c3126f5f8b556a" ||
+            "sha256:1d1bc6c4c8a25d942bc4c6ef786efc1d9d7b67010a769a925be89648b1496ec6" ||
         !json_is_array(packs) || !json_is_integer(count) ||
         json_integer_value(count) <= 0 ||
         static_cast<std::size_t>(json_integer_value(count)) !=
@@ -429,20 +472,20 @@ bool load_curated_catalog_metadata(
             "synsigra_curated_pack_metadata_export_v1" &&
         json_string_or_empty(json_object_get(root, "catalog_id")) ==
             "synsigra_verification_packs" &&
-        json_string_or_empty(json_object_get(root, "catalog_version")) == "3.7" &&
+        json_string_or_empty(json_object_get(root, "catalog_version")) == "3.8" &&
         json_string_or_empty(json_object_get(root, "release_set_status")) == "beta" &&
         json_is_string(json_object_get(root, "release_set_id")) &&
         json_string_length(json_object_get(root, "release_set_id")) > 0 &&
         valid_sha256(json_object_get(root, "source_catalog_sha256")) &&
         json_string_or_empty(json_object_get(root, "source_catalog_sha256")) ==
-            "sha256:6862313147dcdeab429e1972af62b81e9a7c4025c6707ee752c3126f5f8b556a" &&
+            "sha256:1d1bc6c4c8a25d942bc4c6ef786efc1d9d7b67010a769a925be89648b1496ec6" &&
         json_is_array(packs) && json_is_integer(pack_count) &&
         json_integer_value(pack_count) > 0 &&
         static_cast<std::size_t>(json_integer_value(pack_count)) ==
             json_array_size(packs);
     if (!header_valid) {
         if (root != nullptr) json_decref(root);
-        error = "curated pack catalog metadata has an unsupported 3.7 header";
+        error = "curated pack catalog metadata has an unsupported 3.8 header";
         return false;
     }
     pack.catalog_version = json_string_value(json_object_get(root, "catalog_version"));
@@ -486,7 +529,7 @@ bool load_curated_catalog_metadata(
         error = "curated catalog metadata does not match the validated pack";
         return false;
     }
-    pack.integration_contract_version = "synsigra_core_integration_v8";
+    pack.integration_contract_version = "synsigra_core_integration_v9";
     pack.scoring_mode = json_string_value(scoring_mode);
     pack.release_status = json_string_value(status);
     pack.released_at = json_string_value(released);
@@ -564,7 +607,7 @@ bool load_curated_catalog_metadata(
         json_string_or_empty(json_object_get(compatibility, "challenge_package_contract")) != "synsigra_challenge_package_v3" ||
         json_string_or_empty(json_object_get(compatibility, "scoring_manifest_contract")) != "synsigra_scoring_manifest_v3" ||
         json_string_or_empty(json_object_get(compatibility, "submission_contract")) != "synsigra_submission_v1" ||
-        json_string_or_empty(json_object_get(compatibility, "verification_protocol_contract")) != "synsigra_verification_protocol_v3" ||
+        json_string_or_empty(json_object_get(compatibility, "verification_protocol_contract")) != "synsigra_verification_protocol_v4" ||
         !supported_verifier_minimum(local_verifier_min_version)) {
         json_decref(root);
         error = "curated pack generator compatibility is not the v8 tuple";
@@ -589,7 +632,7 @@ bool load_curated_catalog_metadata(
     pack.challenge_package_contract = "synsigra_challenge_package_v3";
     pack.scoring_manifest_contract = "synsigra_scoring_manifest_v3";
     pack.submission_contract = "synsigra_submission_v1";
-    pack.verification_protocol_contract = "synsigra_verification_protocol_v3";
+    pack.verification_protocol_contract = "synsigra_verification_protocol_v4";
 
     pack.output_artifact_roles.clear();
     json_t* artifacts = json_object_get(match, "output_artifacts");
@@ -622,7 +665,7 @@ bool load_curated_catalog_metadata(
         ? json_object_get(evidence, "profiles") : nullptr;
     if (!exact_object(evidence, 6) || !json_is_boolean(evidence_available) ||
         json_string_or_empty(json_object_get(evidence, "protocol_contract")) !=
-            "synsigra_verification_protocol_v3" ||
+            "synsigra_verification_protocol_v4" ||
         json_string_or_empty(json_object_get(evidence, "policy_contract")) !=
             "synsigra_evidence_profile_policy_v1" ||
         !json_is_string(json_object_get(evidence, "default_profile_id")) ||
@@ -666,7 +709,7 @@ bool load_curated_catalog_metadata(
                     static_cast<long long>(index + 1) ||
                 json_string_or_empty(
                     json_object_get(document, "contract")) !=
-                    "synsigra_verification_protocol_v3" ||
+                    "synsigra_verification_protocol_v4" ||
                 json_string_or_empty(
                     json_object_get(document, "pack_id")) != pack.pack_id ||
                 json_string_or_empty(
@@ -714,17 +757,23 @@ bool load_curated_catalog_metadata(
             json_t* protocol_document = json_loadb(
                 protocol_json.data(), protocol_json.size(),
                 JSON_REJECT_DUPLICATES, &protocol_parse_error);
+            const bool evidence_basis_valid =
+                json_is_object(protocol_document) &&
+                valid_evidence_basis(
+                    json_object_get(protocol_document, "evidence_basis"));
             const bool document_matches =
                 json_is_object(protocol_document) &&
                 json_equal(protocol_document, document);
             if (protocol_document != nullptr) {
                 json_decref(protocol_document);
             }
-            if (!document_matches) {
+            if (!evidence_basis_valid || !document_matches) {
                 json_decref(root);
-                error =
-                    "curated pack evidence protocol file does not match the "
-                    "catalog document for " + pack.pack_id + "/" + profile_id;
+                error = !evidence_basis_valid
+                    ? "curated pack evidence protocol has no valid reviewed "
+                      "evidence basis for " + pack.pack_id + "/" + profile_id
+                    : "curated pack evidence protocol file does not match the "
+                      "catalog document for " + pack.pack_id + "/" + profile_id;
                 return false;
             }
             syn_sig_ra::EvidenceProfileSummary profile;

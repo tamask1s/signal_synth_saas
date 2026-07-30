@@ -1,6 +1,6 @@
 # Synsigra product capabilities
 
-This is the product-level capability summary for the exact core v8 release. A
+This is the product-level capability summary for the exact core v9 release. A
 small curated pack is one validated slice, not the platform limit. The live
 `/v1/authoring/schema`, `/v1/authoring/templates`, `/v1/packs`, and `/readyz`
 responses remain authoritative.
@@ -64,10 +64,10 @@ all files by role, media type, size, and SHA-256. It includes the applicable
 waveforms, ground truth, summaries, provenance, warnings, claim boundary,
 submission templates, and optional pre-specified verification protocol.
 
-The pure-Python verifier 0.17.0 validates archive/path safety, manifest and
+The pure-Python verifier 0.18.0 validates archive/path safety, manifest and
 role shape, identity, integrity, submission schema, per-target scoring, and
 protocol policy. Evidence mode is package-authoritative: it requires a
-protocol-v3 package and runs its full matrix with the Level 1 Foundation,
+protocol-v4 package and runs its full matrix with the Level 1 Foundation,
 Level 2 Advanced, or Level 3 Frontier policy selected and SHA-256 locked before
 generation. The level changes gates, not the generated signals.
 Explicit diagnostic mode may filter or use a custom policy, but its reports are

@@ -57,6 +57,7 @@ VERIFIER_VERSION_FILES = tuple(
         "scripts/verify_live.sh",
         "test/integration/e2e_smoke.sh",
         "test/unit/mcp_server_test.cpp",
+        "test/unit/pack_catalog_test.cpp",
         "test/unit/route_test.cpp",
         "test/unit/worker_test.cpp",
     )
@@ -197,6 +198,61 @@ def integration_label_replacements(token_changes):
     return []
 
 
+def verification_label_replacements(token_changes):
+    for old, new, label in token_changes:
+        if label != "contracts.verification_protocol":
+            continue
+        old_match = re.fullmatch(
+            r"synsigra_verification_protocol_v([0-9]+)", old
+        )
+        new_match = re.fullmatch(
+            r"synsigra_verification_protocol_v([0-9]+)", new
+        )
+        if not old_match or not new_match:
+            raise RuntimeError("verification protocol version is malformed")
+        old_version = old_match.group(1)
+        new_version = new_match.group(1)
+        return [
+            ("protocol v" + old_version, "protocol v" + new_version,
+             "human-readable verification protocol version"),
+            ("Protocol v" + old_version, "Protocol v" + new_version,
+             "human-readable verification protocol version"),
+            ("protocol-v" + old_version, "protocol-v" + new_version,
+             "human-readable verification protocol version"),
+            ("Protocol-v" + old_version, "Protocol-v" + new_version,
+             "human-readable verification protocol version"),
+        ]
+    return []
+
+
+def next_contract_version(value):
+    match = re.fullmatch(r"(.+_v)([0-9]+)", value)
+    if not match:
+        raise RuntimeError(
+            "cannot derive a future contract mutation from {}".format(value)
+        )
+    return match.group(1) + str(int(match.group(2)) + 1)
+
+
+def repair_contract_mutation_fixture(token_changes):
+    """Keep the fail-closed mutation test one version ahead after adoption."""
+    path = ROOT / "test" / "unit" / "core_contract_test.cpp"
+    text = path.read_text(encoding="utf-8")
+    repairs = 0
+    for _old, new, _label in token_changes:
+        identical = 'std::make_pair("{}", "{}")'.format(new, new)
+        if identical not in text:
+            continue
+        replacement = 'std::make_pair("{}", "{}")'.format(
+            new, next_contract_version(new)
+        )
+        text = text.replace(identical, replacement)
+        repairs += 1
+    if repairs:
+        path.write_text(text, encoding="utf-8")
+    return repairs
+
+
 def operational_contract_paths(value):
     paths = []
     for path in tracked_files_containing(value):
@@ -314,7 +370,10 @@ def main():
     if generator.get("build_identity") != "signal_synth/" + new_core:
         raise RuntimeError("fresh core CLI build identity is inconsistent")
     token_changes = contract_replacements(contract)
-    label_changes = integration_label_replacements(token_changes)
+    label_changes = (
+        integration_label_replacements(token_changes) +
+        verification_label_replacements(token_changes)
+    )
 
     with tempfile.TemporaryDirectory(prefix="synsigra-core-adopt-") as temporary:
         temporary_root = pathlib.Path(temporary)
@@ -369,6 +428,7 @@ def main():
                     contract_replacement_count += replace_paths(
                         paths, old, new, label
                     )
+            repair_contract_mutation_fixture(token_changes)
             if old_verifier != new_verifier:
                 old_verifier_bytes = old_verifier.encode("ascii")
                 new_verifier_bytes = new_verifier.encode("ascii")
