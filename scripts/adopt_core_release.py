@@ -180,6 +180,23 @@ def contract_replacements(new_contract):
     return changes
 
 
+def integration_label_replacements(token_changes):
+    for old, new, label in token_changes:
+        if label != "contract":
+            continue
+        old_match = re.fullmatch(r"synsigra_core_integration_v([0-9]+)", old)
+        new_match = re.fullmatch(r"synsigra_core_integration_v([0-9]+)", new)
+        if not old_match or not new_match:
+            raise RuntimeError("core integration contract version is malformed")
+        return [
+            ("core v" + old_match.group(1), "core v" + new_match.group(1),
+             "human-readable core version"),
+            ("Core v" + old_match.group(1), "Core v" + new_match.group(1),
+             "human-readable core version"),
+        ]
+    return []
+
+
 def operational_contract_paths(value):
     paths = []
     for path in tracked_files_containing(value):
@@ -297,6 +314,7 @@ def main():
     if generator.get("build_identity") != "signal_synth/" + new_core:
         raise RuntimeError("fresh core CLI build identity is inconsistent")
     token_changes = contract_replacements(contract)
+    label_changes = integration_label_replacements(token_changes)
 
     with tempfile.TemporaryDirectory(prefix="synsigra-core-adopt-") as temporary:
         temporary_root = pathlib.Path(temporary)
@@ -318,7 +336,7 @@ def main():
         core_paths = tracked_files_containing(old_core)
         catalog_paths = tracked_files_containing(old_catalog)
         contract_paths = []
-        for old, _new, _label in token_changes:
+        for old, _new, _label in token_changes + label_changes:
             contract_paths.extend(operational_contract_paths(old))
         changed_paths = set(
             core_paths + catalog_paths + list(VERIFIER_VERSION_FILES) +
@@ -345,11 +363,12 @@ def main():
                 required=False,
             )
             contract_replacement_count = 0
-            for old, new, label in token_changes:
+            for old, new, label in token_changes + label_changes:
                 paths = operational_contract_paths(old)
-                contract_replacement_count += replace_paths(
-                    paths, old, new, label
-                )
+                if paths:
+                    contract_replacement_count += replace_paths(
+                        paths, old, new, label
+                    )
             if old_verifier != new_verifier:
                 old_verifier_bytes = old_verifier.encode("ascii")
                 new_verifier_bytes = new_verifier.encode("ascii")
@@ -377,7 +396,7 @@ def main():
                 raise RuntimeError("stale core commit pins remain after adoption")
             if old_catalog != new_catalog and tracked_files_containing(old_catalog):
                 raise RuntimeError("stale catalog pins remain after adoption")
-            for old, _new, label in token_changes:
+            for old, _new, label in token_changes + label_changes:
                 if operational_contract_paths(old):
                     raise RuntimeError(
                         "stale {} contract tokens remain after adoption".format(
