@@ -71,7 +71,12 @@ stripped module, worker/admin tools, pinned generator, curated packs, verifier,
 landing site, and deployment configuration into an immutable
 `build/releases/synsigra-*.tar.gz` plus an external SHA-256 file. Its manifest
 records the exact SaaS/core commits, payload digest, architecture, Release
-flags, working-tree state, and Apache module ABI.
+flags, working-tree state, and Apache module ABI. Verifier wheels and bundles
+contain only tracked package inputs, use `SOURCE_DATE_EPOCH` timestamps, and
+exclude bytecode/cache files. The artifact builder independently rebuilds the
+verifier downloads and byte-compares both trees before packaging; it also
+excludes its checksum index from that index. Two builds from the same clean
+commits must therefore resolve to the same release ID and artifact bytes.
 
 The production VPS builds against Apache 2.2. GitHub CI deliberately builds and
 executes the same source against Apache 2.4 as a portability check and uploads

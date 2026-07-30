@@ -8,6 +8,12 @@ signal_synth_build_dir=${SIGNAL_SYNTH_BUILD_DIR:-"$repo_dir/build/signal_synth_l
 signal_synth_cli=${SIGNAL_SYNTH_CLI:-"$signal_synth_build_dir/signal-synth"}
 apache_httpd=${APACHE_HTTPD:-/usr/local/apache2/bin/httpd}
 output_dir=${1:-"$repo_dir/build/releases"}
+source_epoch=${SOURCE_DATE_EPOCH:-$(git -C "$repo_dir" show -s --format=%ct HEAD)}
+case "$source_epoch" in
+  ''|*[!0-9]*) echo "SOURCE_DATE_EPOCH must be a nonnegative integer" >&2; exit 2 ;;
+esac
+SOURCE_DATE_EPOCH=$source_epoch
+export SOURCE_DATE_EPOCH
 
 [ "$#" -le 1 ] || {
   echo "usage: $0 [output-directory]" >&2
@@ -24,6 +30,16 @@ if [ "${SYN_SIG_RA_SKIP_BUILD:-0}" != 1 ]; then
     -j"${BUILD_JOBS:-1}"
   SIGNAL_SYNTH_CLI="$signal_synth_cli" "$repo_dir/scripts/build_release.sh"
 fi
+
+reproducibility_dir=$(mktemp -d /tmp/synsigra-verifier-repro.XXXXXX)
+trap 'rm -rf "$reproducibility_dir"' EXIT HUP INT TERM
+"$repo_dir/scripts/build_verifier_downloads.sh" "$reproducibility_dir" >/dev/null
+diff -qr "$repo_dir/downloads/verifier" "$reproducibility_dir" >/dev/null || {
+  echo "verifier downloads are not reproducible from the pinned sources" >&2
+  exit 1
+}
+rm -rf "$reproducibility_dir"
+trap - EXIT HUP INT TERM
 
 for file in \
   "$build_dir/mod_syn_sig_ra.so" \
@@ -92,7 +108,8 @@ unzip -q "$repo_dir/doc/synsigra_main_landing_package_v10.zip" \
 cp -R "$work/landing/synsigra_main_landing_package/main/." \
   "$payload/frontend/"
 
-(cd "$payload" && find . -type f -print0 | LC_ALL=C sort -z | \
+(cd "$payload" && find . -type f \
+  ! -path './RELEASE_PAYLOAD_SHA256SUMS' -print0 | LC_ALL=C sort -z | \
   xargs -0 sha256sum > RELEASE_PAYLOAD_SHA256SUMS)
 payload_sha256=$(sha256sum "$payload/RELEASE_PAYLOAD_SHA256SUMS" | \
   cut -d ' ' -f 1)
@@ -106,7 +123,6 @@ if [ -n "$(git -C "$repo_dir" status --porcelain --untracked-files=no)" ]; then
 else
   working_tree=clean
 fi
-source_epoch=${SOURCE_DATE_EPOCH:-$(git -C "$repo_dir" show -s --format=%ct HEAD)}
 python3 - "$release_root/manifest.json" "$release_id" "$saas_commit" \
   "$core_commit" "$apache_version" "$architecture" "$payload_sha256" \
   "$working_tree" "$source_epoch" <<'PY'

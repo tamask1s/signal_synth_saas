@@ -37,6 +37,22 @@ core_commit=$(git -C "$signal_synth_root" rev-parse HEAD)
   echo "signal_synth must be clean before verifier packaging" >&2
   exit 2
 }
+source_epoch=${SOURCE_DATE_EPOCH:-$(git -C "$signal_synth_root" show -s --format=%ct HEAD)}
+case "$source_epoch" in
+  ''|*[!0-9]*) echo "SOURCE_DATE_EPOCH must be a nonnegative integer" >&2; exit 2 ;;
+esac
+SOURCE_DATE_EPOCH=$source_epoch
+export SOURCE_DATE_EPOCH
+generated_at=$(python3 - "$source_epoch" <<'PY'
+import datetime
+import sys
+print(
+    datetime.datetime.fromtimestamp(
+        int(sys.argv[1]), datetime.timezone.utc
+    ).isoformat().replace("+00:00", "Z")
+)
+PY
+)
 
 version=$(
   awk '
@@ -55,9 +71,11 @@ mkdir -p "$work_dir/dist" "$work_dir/bundle/wheels" "$out_dir"
 python3 - "$signal_synth_root" "$work_dir/dist" "$version" <<'PY'
 import base64
 import csv
+import datetime
 import hashlib
 import os
 import pathlib
+import subprocess
 import sys
 import zipfile
 
@@ -78,10 +96,17 @@ def digest(data):
 
 entries = []
 
-for path in sorted(package_root.rglob("*")):
-    if path.is_file():
-        relative = pathlib.PurePosixPath("synsigra") / path.relative_to(package_root).as_posix()
-        entries.append((str(relative), path.read_bytes()))
+tracked = subprocess.check_output(
+    ["git", "-C", str(root), "ls-files", "-z", "--", "python/synsigra"]
+).split(b"\0")
+prefix = pathlib.PurePosixPath("python/synsigra")
+for raw in sorted(item for item in tracked if item):
+    tracked_path = pathlib.PurePosixPath(raw.decode("utf-8"))
+    path = root / pathlib.Path(str(tracked_path))
+    if not path.is_file() or path.is_symlink():
+        raise SystemExit("tracked verifier input is not a regular file: " + str(path))
+    relative = pathlib.PurePosixPath("synsigra") / tracked_path.relative_to(prefix)
+    entries.append((str(relative), path.read_bytes()))
 
 metadata = """Metadata-Version: 2.1
 Name: synsigra
@@ -102,9 +127,25 @@ entries.append((dist_info + "/WHEEL", b"Wheel-Version: 1.0\nGenerator: signal_sy
 entries.append((dist_info + "/entry_points.txt", b"[console_scripts]\nsynsigra-verify = synsigra.cli:main\n"))
 
 record_rows = []
-with zipfile.ZipFile(str(wheel_path), "w", compression=zipfile.ZIP_DEFLATED) as archive:
+epoch = int(os.environ["SOURCE_DATE_EPOCH"])
+instant = datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc)
+zip_date = (
+    max(1980, instant.year), instant.month, instant.day,
+    instant.hour, instant.minute, instant.second,
+)
+
+def archive_info(name, mode=0o100644):
+    info = zipfile.ZipInfo(name, zip_date)
+    info.compress_type = zipfile.ZIP_DEFLATED
+    info.create_system = 3
+    info.external_attr = mode << 16
+    return info
+
+with zipfile.ZipFile(
+    str(wheel_path), "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
+) as archive:
     for name, data in entries:
-        archive.writestr(name, data)
+        archive.writestr(archive_info(name), data)
         record_rows.append([name, digest(data), str(len(data))])
     record_name = dist_info + "/RECORD"
     record_rows.append([record_name, "", ""])
@@ -112,7 +153,8 @@ with zipfile.ZipFile(str(wheel_path), "w", compression=zipfile.ZIP_DEFLATED) as 
     record_text = io.StringIO()
     writer = csv.writer(record_text, lineterminator="\n")
     writer.writerows(record_rows)
-    archive.writestr(record_name, record_text.getvalue().encode("utf-8"))
+    archive.writestr(
+        archive_info(record_name), record_text.getvalue().encode("utf-8"))
 
 print(wheel_path)
 PY
@@ -188,16 +230,36 @@ chmod 0755 "$work_dir/bundle/verify_smoke.sh"
 bundle_file="synsigra-verifier-$version.zip"
 python3 - "$work_dir/bundle" "$work_dir/$bundle_file" "$wheel_file" <<'PY'
 import pathlib
+import datetime
+import os
 import sys
 import zipfile
 
 bundle_root = pathlib.Path(sys.argv[1])
 archive_path = pathlib.Path(sys.argv[2])
 wheel_file = sys.argv[3]
-with zipfile.ZipFile(str(archive_path), "w", compression=zipfile.ZIP_DEFLATED) as archive:
-    archive.write(str(bundle_root / "README.md"), "README.md")
-    archive.write(str(bundle_root / "verify_smoke.sh"), "verify_smoke.sh")
-    archive.write(str(bundle_root / "wheels" / wheel_file), "wheels/" + wheel_file)
+instant = datetime.datetime.fromtimestamp(
+    int(os.environ["SOURCE_DATE_EPOCH"]), datetime.timezone.utc)
+zip_date = (
+    max(1980, instant.year), instant.month, instant.day,
+    instant.hour, instant.minute, instant.second,
+)
+
+def add(archive, path, name, mode=0o100644):
+    info = zipfile.ZipInfo(name, zip_date)
+    info.compress_type = zipfile.ZIP_DEFLATED
+    info.create_system = 3
+    info.external_attr = mode << 16
+    archive.writestr(info, path.read_bytes())
+
+with zipfile.ZipFile(
+    str(archive_path), "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
+) as archive:
+    add(archive, bundle_root / "README.md", "README.md")
+    add(archive, bundle_root / "verify_smoke.sh", "verify_smoke.sh", 0o100755)
+    add(
+        archive, bundle_root / "wheels" / wheel_file,
+        "wheels/" + wheel_file)
 PY
 
 find "$out_dir" -maxdepth 1 -type f \
@@ -210,7 +272,6 @@ install -m 0644 "$work_dir/$bundle_file" "$out_dir/synsigra-verifier.zip"
 
 wheel_sha=$(sha256sum "$out_dir/synsigra-wheel.whl" | awk '{print $1}')
 bundle_sha=$(sha256sum "$out_dir/synsigra-verifier.zip" | awk '{print $1}')
-generated_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 cat >"$out_dir/metadata.json" <<EOF
 {
   "schema_version": 2,
