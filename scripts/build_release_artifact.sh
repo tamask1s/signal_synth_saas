@@ -31,6 +31,10 @@ if [ "${SYN_SIG_RA_SKIP_BUILD:-0}" != 1 ]; then
   SIGNAL_SYNTH_CLI="$signal_synth_cli" "$repo_dir/scripts/build_release.sh"
 fi
 
+# Canonicalize verifier downloads at this release's source epoch even when CI
+# deliberately reuses previously compiled binaries with SYN_SIG_RA_SKIP_BUILD.
+"$repo_dir/scripts/build_verifier_downloads.sh" \
+  "$repo_dir/downloads/verifier" >/dev/null
 reproducibility_dir=$(mktemp -d /tmp/synsigra-verifier-repro.XXXXXX)
 trap 'rm -rf "$reproducibility_dir"' EXIT HUP INT TERM
 "$repo_dir/scripts/build_verifier_downloads.sh" "$reproducibility_dir" >/dev/null
