@@ -221,7 +221,8 @@ int main() {
         "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\","
         "\"params\":{\"name\":\"synsigra_create_job\",\"arguments\":{"
         "\"project_id\":\"org_mcp_owner_default\","
-        "\"pack_id\":\"ecg_extended_morphology_v1\"}}}");
+        "\"pack_id\":\"ecg_extended_morphology_v1\","
+        "\"idempotency_key\":\"mcp-test-create-1\"}}}");
     require(
         created.status == 200 &&
         created.body.find("\"http_status\":202") != std::string::npos &&

@@ -73,9 +73,10 @@ The server currently exposes:
   checklist, evidence boundary, and expired-artifact action.
 
 Creating jobs/rebuilds, saving scenarios, and composing custom packs are marked
-non-read-only and non-idempotent. MCP hosts can therefore keep a human approval
-step around quota-consuming or persistent changes. Read tools are marked
-read-only and idempotent.
+non-read-only, so MCP hosts can keep a human approval step around quota-consuming
+or persistent changes. `synsigra_create_job` requires a stable
+`idempotency_key` and is safe to retry with the exact same arguments; the other
+write tools remain non-idempotent. Read tools are read-only and idempotent.
 
 Two prompt templates are also published:
 
@@ -101,7 +102,8 @@ are correct under noise”:
 4. Ask for human approval of the selected pack, project, and—when the pack
    exposes evidence profiles—Level 1 Foundation, Level 2 Advanced, or Level 3
    Frontier. The level changes gates, not signals.
-5. Call `synsigra_create_job` and poll `synsigra_get_job` with backoff until a
+5. Call `synsigra_create_job` with a new stable `idempotency_key`; reuse that
+   key only for an exact retry. Poll `synsigra_get_job` with backoff until a
    terminal state.
 6. Call `synsigra_get_verification_guide`.
 7. Download the kit over HTTPS with the same Bearer header. Run the proprietary

@@ -699,10 +699,12 @@ OLD_SESSION_HTTP=$(curl -sS -o /dev/null -w '%{http_code}' \
 
 CREATE_HTTP=$(
     curl -sS \
+        -D "$WORK_ROOT/job-create.headers" \
         -o "$WORK_ROOT/job-create.json" \
         -w '%{http_code}' \
         -H "Authorization: Bearer $API_KEY" \
         -H "Content-Type: application/json" \
+        -H "Idempotency-Key: e2e-primary-job" \
         -d '{"project_id":"org_e2e_default","pack_id":"r_peak_rr_simple_stress_v1","evidence_profile_id":"level_2"}' \
         "$BASE_URL/v1/jobs"
 )
@@ -710,6 +712,8 @@ if [ "$CREATE_HTTP" != "202" ]; then
     dump_file "$WORK_ROOT/job-create.json" "job create response"
     fail "job create returned HTTP $CREATE_HTTP, expected 202"
 fi
+grep -qi '^X-Request-ID: req_[A-Za-z0-9_-]\+' "$WORK_ROOT/job-create.headers" ||
+    fail "job create response lacks a server request ID"
 
 JOB_ID=$(
     python3 - "$WORK_ROOT/job-create.json" <<'PY'
@@ -723,6 +727,29 @@ if not job_id.startswith("job_"):
 print(job_id)
 PY
 ) || fail "job create response did not contain a valid job_id"
+
+REPLAY_HTTP=$(curl -sS -o "$WORK_ROOT/job-replay.json" -w '%{http_code}' \
+    -H "Authorization: Bearer $API_KEY" \
+    -H "Content-Type: application/json" \
+    -H "Idempotency-Key: e2e-primary-job" \
+    -d '{"project_id":"org_e2e_default","pack_id":"r_peak_rr_simple_stress_v1","evidence_profile_id":"level_2"}' \
+    "$BASE_URL/v1/jobs")
+[ "$REPLAY_HTTP" = "200" ] || fail "exact idempotent replay was not accepted"
+python3 - "$WORK_ROOT/job-replay.json" "$JOB_ID" <<'PY' ||
+import json, sys
+body = json.load(open(sys.argv[1], encoding="utf-8"))
+assert body.get("job_id") == sys.argv[2]
+assert body.get("idempotent_replay") is True
+PY
+    fail "idempotent replay did not return the original job"
+
+CONFLICT_HTTP=$(curl -sS -o "$WORK_ROOT/job-conflict.json" -w '%{http_code}' \
+    -H "Authorization: Bearer $API_KEY" \
+    -H "Content-Type: application/json" \
+    -H "Idempotency-Key: e2e-primary-job" \
+    -d '{"project_id":"org_e2e_default","pack_id":"r_peak_rr_simple_stress_v1","evidence_profile_id":"level_1"}' \
+    "$BASE_URL/v1/jobs")
+[ "$CONFLICT_HTTP" = "409" ] || fail "changed idempotent request was not rejected"
 
 JOBS_HTTP=$(
     curl -sS \
@@ -742,6 +769,9 @@ with open(sys.argv[1], "r", encoding="utf-8") as handle:
     body = json.load(handle)
 if not any(job.get("job_id") == sys.argv[2] for job in body.get("jobs", [])):
     raise SystemExit("created job was not found in jobs list")
+if body.get("ordering") != "created_at_desc_job_id_desc" or \
+        body.get("pagination_consistency") != "committed_snapshot_per_page":
+    raise SystemExit("job pagination contract is missing")
 PY
     fail "jobs list did not contain the created job"
 
@@ -832,10 +862,10 @@ if len(body.get("generator_git_commit", "")) != 40:
     raise SystemExit("invalid generator git commit")
 if body.get("generator_build_identity") != "signal_synth/" + body["generator_git_commit"]:
     raise SystemExit("invalid generator build identity")
-for key in ("manifest_url", "archive_url"):
-    value = body.get(key, "")
-    if not value.startswith("/syn_sig_ra/v1/artifacts/" + package_id + "/"):
-        raise SystemExit("invalid " + key)
+if body.get("manifest_url") != "/syn_sig_ra/v1/jobs/" + body.get("job_id", "") + "/manifest.json":
+    raise SystemExit("invalid manifest_url")
+if body.get("archive_url") != "/syn_sig_ra/v1/artifacts/" + package_id + "/package.zip":
+    raise SystemExit("invalid archive_url")
 verification_kit_url = body.get("verification_kit_url", "")
 if verification_kit_url != "/syn_sig_ra/v1/jobs/" + body.get("job_id", "") + "/verification-kit.zip":
     raise SystemExit("invalid verification_kit_url")
@@ -947,6 +977,21 @@ grep -qi '^X-Checksum-SHA256: [0-9a-f]\{64\}' "$WORK_ROOT/verification-kit-head.
     fail "verification kit HEAD lacks checksum"
 grep -qi '^X-Artifact-Expires-At:' "$WORK_ROOT/verification-kit-head.txt" ||
     fail "verification kit HEAD lacks expiry metadata"
+grep -qi '^X-Artifact-Status: available' "$WORK_ROOT/verification-kit-head.txt" ||
+    fail "verification kit HEAD lacks artifact status"
+grep -qi '^X-Request-ID: req_' "$WORK_ROOT/verification-kit-head.txt" ||
+    fail "verification kit HEAD lacks request ID"
+
+curl -fsSI -H "Authorization: Bearer $API_KEY" \
+    -o "$WORK_ROOT/manifest-by-job-head.txt" \
+    "$BASE_URL/v1/jobs/$JOB_ID/manifest.json" ||
+    fail "manifest lookup by job ID failed"
+grep -qi '^X-Checksum-SHA256: [0-9a-f]\{64\}' \
+    "$WORK_ROOT/manifest-by-job-head.txt" ||
+    fail "job manifest HEAD lacks checksum"
+grep -qi '^X-Artifact-Status: available' \
+    "$WORK_ROOT/manifest-by-job-head.txt" ||
+    fail "job manifest HEAD lacks artifact status"
 
 curl -fsS \
     -H "Authorization: Bearer $API_KEY" \

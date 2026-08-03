@@ -29,6 +29,7 @@ struct RouteResponse {
     std::string checksum_sha256;
     std::string content_range;
     std::string artifact_expires_at;
+    std::string artifact_status;
     long long file_offset = 0;
     long long file_length = -1;
     long long file_size = -1;
@@ -59,7 +60,8 @@ RouteResponse route_request(
     const std::string& range_header = "",
     const std::string& accept_header = "",
     const std::string& origin_header = "",
-    const std::string& mcp_protocol_version_header = ""
+    const std::string& mcp_protocol_version_header = "",
+    const std::string& idempotency_key_header = ""
 );
 
 bool route_requires_authentication(

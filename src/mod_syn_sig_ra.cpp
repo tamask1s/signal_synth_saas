@@ -1,6 +1,7 @@
 #include "syn_sig_ra/route.h"
 #include "syn_sig_ra/core_contract.h"
 #include "syn_sig_ra/metadata_store.h"
+#include "syn_sig_ra/random_id.h"
 #include "syn_sig_ra/runtime_config.h"
 #include "syn_sig_ra/transactional_email.h"
 
@@ -414,6 +415,13 @@ const command_rec syn_sig_ra_directives[] = {
 
 int syn_sig_ra_handler(request_rec* request) {
     const apr_time_t request_started_at = apr_time_now();
+    std::string request_id;
+    std::string request_id_error;
+    if (!syn_sig_ra::random_id("req_", request_id, request_id_error)) {
+        request_id = "req_" + std::to_string(
+            static_cast<long long>(request_started_at));
+    }
+    apr_table_set(request->err_headers_out, "X-Request-ID", request_id.c_str());
     const std::string method =
         request->method == nullptr ? std::string() : request->method;
     const std::string uri =
@@ -456,8 +464,20 @@ int syn_sig_ra_handler(request_rec* request) {
         protocol_version_value == nullptr
             ? std::string()
             : protocol_version_value;
+    const char* idempotency_key_value = apr_table_get(
+        request->headers_in, "Idempotency-Key");
+    const std::string idempotency_key_header = idempotency_key_value == nullptr
+        ? std::string()
+        : idempotency_key_value;
     std::string request_body;
     if (!read_request_body(request, request_body)) {
+        ap_log_rerror(
+            APLOG_MARK, APLOG_INFO, 0, request,
+            "event=http_request request_id=%s method=%s path=%s status=%d duration_ms=%lld",
+            request_id.c_str(), method.c_str(), uri.c_str(),
+            HTTP_REQUEST_ENTITY_TOO_LARGE,
+            static_cast<long long>((apr_time_now() - request_started_at) / 1000)
+        );
         request->status = HTTP_REQUEST_ENTITY_TOO_LARGE;
         ap_set_content_type(request, "application/json");
         ap_rputs(
@@ -499,7 +519,8 @@ int syn_sig_ra_handler(request_rec* request) {
                 APLOG_ERR,
                 0,
                 request,
-                "syn_sig_ra metadata initialization failed: %s",
+                "syn_sig_ra metadata initialization failed request_id=%s: %s",
+                request_id.c_str(),
                 storage_error.c_str()
             );
         }
@@ -541,7 +562,8 @@ int syn_sig_ra_handler(request_rec* request) {
         range_header,
         accept_header,
         origin_header,
-        mcp_protocol_version_header
+        mcp_protocol_version_header,
+        idempotency_key_header
     );
 
     if (response.disposition == syn_sig_ra::RouteDisposition::declined) {
@@ -552,7 +574,8 @@ int syn_sig_ra_handler(request_rec* request) {
         APLOG_INFO,
         0,
         request,
-        "event=http_request method=%s path=%s status=%d duration_ms=%lld",
+        "event=http_request request_id=%s method=%s path=%s status=%d duration_ms=%lld",
+        request_id.c_str(),
         method.c_str(),
         uri.c_str(),
         response.status,
@@ -567,7 +590,8 @@ int syn_sig_ra_handler(request_rec* request) {
             APLOG_ERR,
             0,
             request,
-            "syn_sig_ra request failed internally: %s",
+            "syn_sig_ra request failed internally request_id=%s: %s",
+            request_id.c_str(),
             response.internal_error.c_str()
         );
     }
@@ -629,6 +653,13 @@ int syn_sig_ra_handler(request_rec* request) {
             request->headers_out,
             "X-Artifact-Expires-At",
             response.artifact_expires_at.c_str()
+        );
+    }
+    if (!response.artifact_status.empty()) {
+        apr_table_set(
+            request->headers_out,
+            "X-Artifact-Status",
+            response.artifact_status.c_str()
         );
     }
     if (!response.file_path.empty()) {

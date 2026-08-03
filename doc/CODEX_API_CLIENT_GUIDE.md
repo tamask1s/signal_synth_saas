@@ -394,11 +394,17 @@ python3 -c \
 curl -sS --fail-with-body \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
+  -H "Idempotency-Key: codex-job-$(date -u +%Y%m%dT%H%M%SZ)" \
   --data-binary @job-request.json \
   "$BASE_URL/v1/jobs" > job-created.json
 JOB_ID="$(python3 -c \
   'import json; print(json.load(open("job-created.json"))["job_id"])')"
 ```
+
+Keep that idempotency value with the operation and reuse it only if the same
+HTTP request must be retried. The replay returns the original `JOB_ID` without
+creating a duplicate. Every response also has an `X-Request-ID`; include it in
+support reports.
 
 Poll no faster than every two seconds, with a timeout:
 

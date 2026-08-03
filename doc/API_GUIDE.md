@@ -91,6 +91,7 @@ For HRV work, choose by algorithm scope:
 
 ```sh
 curl -fsS -H "$AUTH" -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: my-client-run-20260803-001' \
   -d '{"project_id":"PROJECT_ID","pack_id":"r_peak_rr_simple_stress_v1","evidence_profile_id":"level_2"}' \
   "$BASE/v1/jobs" > job-created.json
 
@@ -100,6 +101,12 @@ curl -fsS -H "$AUTH" "$BASE/v1/jobs/JOB_ID" > job.json
 Poll until `status` is `succeeded`, `failed`, or `cancelled`. A succeeded job
 contains exact pack/catalog/generator identities and normalized trusted
 `challenge` metadata, including submission roles and formats.
+
+Reuse an `Idempotency-Key` only when retrying that exact canonical job request.
+The API then returns the original job with HTTP 200 instead of creating or
+charging quota for a duplicate; different input under the same key returns
+409. Every response includes a server-generated `X-Request-ID` for support and
+log correlation.
 
 Download the single recommended customer artifact:
 
@@ -122,7 +129,10 @@ Provenance and the engineering claim boundary occur once under `challenge/`.
 The job response contains the normalized trusted metadata, so the kit does not
 duplicate it as a second JSON document.
 
-The raw `manifest.json` and `package.zip` endpoints are available for clients
+`GET/HEAD /v1/jobs/{job_id}/manifest.json` resolves the manifest without a
+package-ID lookup. Artifact `HEAD` responses expose content length, strong
+ETag, SHA-256, `X-Artifact-Status`, and expiry before download. The raw
+package-ID `manifest.json` and `package.zip` endpoints remain available for clients
 that explicitly need lower-level immutable artifacts. They are not extra steps
 in the normal workflow, and the kit never nests `package.zip` inside another
 ZIP.
@@ -226,6 +236,10 @@ generator and fails on fingerprint mismatch. ZIP delivery supports `HEAD`,
 strong ETag, SHA-256 checksum, expiry metadata, single byte ranges, and resume.
 
 ## Stable response behavior
+
+Job lists are ordered by `(created_at DESC, job_id DESC)`. Each offset page is
+a committed snapshot, but concurrent inserts can shift subsequent offsets;
+de-duplicate by `job_id` or restart at offset zero for a fresh traversal.
 
 - `400`: malformed JSON, unknown/extra fields, or invalid request.
 - `401`: missing, malformed, unknown, expired, or revoked credential.

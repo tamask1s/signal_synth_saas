@@ -81,8 +81,9 @@ The service must not become:
   a production artifact from hosted CI is intentionally deferred because the
   production module must be compiled against the VPS's Apache 2.2 ABI; hosted
   CI publishes only its clearly labelled Apache 2.4 portability artifact.
-- API hardening work remains: idempotency keys, request IDs, richer artifact
-  metadata, HEAD support, and stable error examples.
+- API hardening now includes organization-scoped idempotent job creation,
+  server request IDs, job-ID manifest lookup, artifact HEAD metadata, stable
+  error examples, and an explicit job-list consistency contract.
 - Detector-output templates cover curated scoreable targets; custom-pack
   template generation is deferred until custom scoring metadata is richer.
 - Privacy-preserving activation telemetry is not implemented.
@@ -96,7 +97,6 @@ Before broader external beta:
 
 Product/API hardening after the default verification path:
 
-- [#36 Add API usability hardening: idempotency, request IDs, artifact metadata](https://github.com/tamask1s/signal_synth_saas/issues/36)
 - [#38 Add privacy-preserving beta activation telemetry](https://github.com/tamask1s/signal_synth_saas/issues/38)
 
 Issues #31, #32, #33, #35, and #37 are the current documentation/onboarding

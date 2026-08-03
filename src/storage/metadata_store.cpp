@@ -11,7 +11,7 @@
 
 namespace {
 
-const int kSchemaVersion = 3;
+const int kSchemaVersion = 4;
 const int kRequestLimitPerMinute = 120;
 const int kConcurrentJobLimit = 2;
 const int kMonthlyJobLimit = 100;
@@ -19,10 +19,10 @@ const int kMonthlyJobLimit = 100;
 const char kSchemaSql[] = R"SQL(
 CREATE TABLE metadata_schema (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-    contract TEXT NOT NULL CHECK (contract = 'synsigra_saas_metadata_v3')
+    contract TEXT NOT NULL CHECK (contract = 'synsigra_saas_metadata_v4')
 );
 INSERT INTO metadata_schema (singleton,contract)
-VALUES (1,'synsigra_saas_metadata_v3');
+VALUES (1,'synsigra_saas_metadata_v4');
 
 CREATE TABLE organizations (
     id TEXT PRIMARY KEY,
@@ -120,6 +120,8 @@ CREATE TABLE jobs (
     status TEXT NOT NULL
         CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'cancelled')),
     request_json TEXT NOT NULL,
+    idempotency_key TEXT,
+    idempotency_request_sha256 TEXT,
     selected_pack_id TEXT NOT NULL,
     source_pack_path TEXT NOT NULL,
     pack_fingerprint TEXT NOT NULL,
@@ -155,7 +157,13 @@ CREATE TABLE jobs (
     deleted_at TEXT,
     FOREIGN KEY (organization_id) REFERENCES organizations(id),
     FOREIGN KEY (project_id) REFERENCES projects(id),
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE (organization_id, idempotency_key),
+    CHECK (
+        (idempotency_key IS NULL AND idempotency_request_sha256 IS NULL) OR
+        (length(idempotency_key) BETWEEN 1 AND 128 AND
+         length(idempotency_request_sha256) = 64)
+    )
 );
 
 CREATE TABLE packages (
@@ -547,7 +555,7 @@ bool MetadataStore::initialize(std::string& error) {
                 "SELECT contract FROM metadata_schema WHERE singleton=1;",
                 -1, &marker, nullptr) == SQLITE_OK &&
             sqlite3_step(marker) == SQLITE_ROW &&
-            column_text(marker, 0) == "synsigra_saas_metadata_v3";
+            column_text(marker, 0) == "synsigra_saas_metadata_v4";
         sqlite3_finalize(marker);
         if (!valid) {
             error = "SQLite schema marker is invalid; run the destructive pre-beta reset";
@@ -573,7 +581,7 @@ bool MetadataStore::initialize(std::string& error) {
     }
     if (!execute("BEGIN IMMEDIATE;", error)) return false;
     const bool succeeded = execute(kSchemaSql, error) &&
-        execute("PRAGMA user_version = 3;", error);
+        execute("PRAGMA user_version = 4;", error);
     if (!succeeded || !execute("COMMIT;", error)) {
         std::string rollback_error;
         execute("ROLLBACK;", rollback_error);
@@ -2354,8 +2362,20 @@ bool MetadataStore::create_job(
     const std::string& evidence_protocol_sha256,
     const std::string& evidence_protocol_source_path,
     std::string& job_id,
-    std::string& error
+    std::string& error,
+    const std::string& idempotency_key,
+    const std::string& idempotency_request_sha256,
+    bool* idempotent_replay,
+    bool* idempotency_conflict
 ) {
+    if (idempotent_replay != nullptr) *idempotent_replay = false;
+    if (idempotency_conflict != nullptr) *idempotency_conflict = false;
+    if (idempotency_key.empty() != idempotency_request_sha256.empty() ||
+        (!idempotency_request_sha256.empty() &&
+         !is_sha256_hex(idempotency_request_sha256))) {
+        error = "invalid idempotency metadata";
+        return false;
+    }
     if (!initialize(error) || !random_id("job_", job_id, error)) {
         return false;
     }
@@ -2367,10 +2387,11 @@ bool MetadataStore::create_job(
         "selected_pack_version, catalog_version, catalog_source_sha256, "
         "evidence_profile_id, evidence_profile_display_name, "
         "evidence_profile_version, evidence_profile_rank, "
-        "evidence_protocol_sha256, evidence_protocol_source_path) "
+        "evidence_protocol_sha256, evidence_protocol_source_path, "
+        "idempotency_key, idempotency_request_sha256) "
         "VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?7, ?8, ?9, ?10, "
-        "?11, ?12, ?13, ?14, ?15, ?16, ?17);";
-    const bool succeeded =
+        "?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19);";
+    bool succeeded =
         sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) ==
             SQLITE_OK &&
         bind_text(statement, 1, job_id) &&
@@ -2389,13 +2410,78 @@ bool MetadataStore::create_job(
         bind_text(statement, 14, evidence_profile_version) &&
         sqlite3_bind_int(statement, 15, evidence_profile_rank) == SQLITE_OK &&
         bind_text(statement, 16, evidence_protocol_sha256) &&
-        bind_text(statement, 17, evidence_protocol_source_path) &&
-        sqlite3_step(statement) == SQLITE_DONE;
+        bind_text(statement, 17, evidence_protocol_source_path);
+    if (succeeded) {
+        succeeded = idempotency_key.empty()
+            ? sqlite3_bind_null(statement, 18) == SQLITE_OK &&
+              sqlite3_bind_null(statement, 19) == SQLITE_OK
+            : bind_text(statement, 18, idempotency_key) &&
+              bind_text(statement, 19, idempotency_request_sha256);
+    }
+    succeeded = succeeded && sqlite3_step(statement) == SQLITE_DONE;
     if (!succeeded) {
         error = sqlite3_errmsg(database_);
     }
     sqlite3_finalize(statement);
+    if (!succeeded && !idempotency_key.empty()) {
+        std::string existing_status;
+        const IdempotencyLookupStatus lookup = find_idempotent_job(
+            owner, idempotency_key, idempotency_request_sha256,
+            job_id, existing_status, error);
+        if (lookup == IdempotencyLookupStatus::replay) {
+            if (idempotent_replay != nullptr) *idempotent_replay = true;
+            return true;
+        }
+        if (lookup == IdempotencyLookupStatus::conflict) {
+            if (idempotency_conflict != nullptr) *idempotency_conflict = true;
+            return true;
+        }
+    }
     return succeeded;
+}
+
+IdempotencyLookupStatus MetadataStore::find_idempotent_job(
+    const ApiKeyIdentity& owner,
+    const std::string& idempotency_key,
+    const std::string& request_sha256,
+    std::string& job_id,
+    std::string& job_status,
+    std::string& error
+) {
+    job_id.clear();
+    job_status.clear();
+    if (!initialize(error)) {
+        return IdempotencyLookupStatus::storage_error;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT id, status, idempotency_request_sha256 FROM jobs "
+        "WHERE organization_id = ?1 AND idempotency_key = ?2 LIMIT 1;";
+    if (sqlite3_prepare_v2(database_, sql, -1, &statement, nullptr) !=
+            SQLITE_OK ||
+        !bind_text(statement, 1, owner.organization_id) ||
+        !bind_text(statement, 2, idempotency_key)) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return IdempotencyLookupStatus::storage_error;
+    }
+    const int step = sqlite3_step(statement);
+    if (step == SQLITE_DONE) {
+        sqlite3_finalize(statement);
+        return IdempotencyLookupStatus::not_found;
+    }
+    if (step != SQLITE_ROW) {
+        error = sqlite3_errmsg(database_);
+        sqlite3_finalize(statement);
+        return IdempotencyLookupStatus::storage_error;
+    }
+    job_id = column_text(statement, 0);
+    job_status = column_text(statement, 1);
+    const std::string stored_sha256 = column_text(statement, 2);
+    sqlite3_finalize(statement);
+    return stored_sha256 == request_sha256
+        ? IdempotencyLookupStatus::replay
+        : IdempotencyLookupStatus::conflict;
 }
 
 RecordLookupStatus MetadataStore::find_job(

@@ -49,10 +49,10 @@ const char kToolsJson[] = R"JSON([
   },
   {
     "name":"synsigra_create_job","title":"Generate a challenge package",
-    "description":"Queue generation from an existing curated or custom pack. For a curated evidence pack, inspect evidence_profiles in get_pack and pass the user-approved evidence_profile_id; this locks the exact acceptance gates and SHA-256 into the job without changing the generated signals. Omit it for diagnostic and custom packs. This consumes quota and creates a job.",
-    "inputSchema":{"type":"object","additionalProperties":false,"required":["project_id","pack_id"],"properties":{"project_id":{"type":"string","minLength":1},"pack_id":{"type":"string","minLength":1},"evidence_profile_id":{"type":"string","enum":["level_1","level_2","level_3"],"description":"Required for curated evidence packs. Level 1 is Foundation, Level 2 is the recommended Advanced baseline, and Level 3 is Frontier."}}},
+    "description":"Queue generation from an existing curated or custom pack. For a curated evidence pack, inspect evidence_profiles in get_pack and pass the user-approved evidence_profile_id; this locks the exact acceptance gates and SHA-256 into the job without changing the generated signals. Omit it for diagnostic and custom packs. Supply one stable idempotency_key for safe retries. This consumes quota only when a new job is created.",
+    "inputSchema":{"type":"object","additionalProperties":false,"required":["project_id","pack_id","idempotency_key"],"properties":{"project_id":{"type":"string","minLength":1},"pack_id":{"type":"string","minLength":1},"idempotency_key":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z0-9._:-]+$","description":"Client-generated operation identifier. Reuse only when retrying this exact request."},"evidence_profile_id":{"type":"string","enum":["level_1","level_2","level_3"],"description":"Required for curated evidence packs. Level 1 is Foundation, Level 2 is the recommended Advanced baseline, and Level 3 is Frontier."}}},
     "outputSchema":{"type":"object","additionalProperties":true},
-    "annotations":{"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":false}
+    "annotations":{"readOnlyHint":false,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}
   },
   {
     "name":"synsigra_get_job","title":"Check generation status",
@@ -508,12 +508,15 @@ syn_sig_ra::RouteResponse invoke_api(
     const std::string& pack_root,
     const std::string& data_root,
     const std::string& signal_synth_cli,
-    const syn_sig_ra::EmailConfig& email_config
+    const syn_sig_ra::EmailConfig& email_config,
+    const std::string& idempotency_key = std::string()
 ) {
     return syn_sig_ra::route_request(
         method, uri, public_base_path, authorization_header, metadata_store,
         pack_root, body.empty() ? std::string() : "application/json",
-        body, data_root, query, signal_synth_cli, std::string(), email_config);
+        body, data_root, query, signal_synth_cli, std::string(), email_config,
+        std::string(), std::string(), std::string(), std::string(),
+        idempotency_key);
 }
 
 json_t* parsed_api_body(const syn_sig_ra::RouteResponse& response) {
@@ -1174,6 +1177,7 @@ RouteResponse handle_mcp_request(
         std::string api_uri;
         std::string api_query;
         std::string api_body;
+        std::string idempotency_key;
         if (tool == "synsigra_get_pack") {
             api_uri = public_base_path + "/v1/packs/" + string_field(arguments, "pack_id");
         } else if (tool == "synsigra_list_projects") {
@@ -1181,7 +1185,10 @@ RouteResponse handle_mcp_request(
         } else if (tool == "synsigra_create_job") {
             api_method = "POST";
             api_uri = public_base_path + "/v1/jobs";
-            api_body = request_body_from(copy_argument_object(arguments));
+            idempotency_key = string_field(arguments, "idempotency_key");
+            json_t* job_arguments = copy_argument_object(arguments);
+            json_object_del(job_arguments, "idempotency_key");
+            api_body = request_body_from(job_arguments);
         } else if (tool == "synsigra_get_job") {
             api_uri = public_base_path + "/v1/jobs/" + string_field(arguments, "job_id");
         } else if (tool == "synsigra_list_jobs") {
@@ -1218,7 +1225,7 @@ RouteResponse handle_mcp_request(
             response = api_tool_response(id, invoke_api(
                 api_method, api_uri, api_query, api_body, public_base_path,
                 authorization_header, metadata_store, pack_root, data_root,
-                signal_synth_cli, email_config));
+                signal_synth_cli, email_config, idempotency_key));
         }
     }
 

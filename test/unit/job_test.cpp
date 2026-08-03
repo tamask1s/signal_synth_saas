@@ -351,7 +351,9 @@ int main() {
         "application/json; charset=utf-8",
         "{\"project_id\":\"org_job_owner_default\","
         "\"pack_id\":\"r_peak_stress_v1\","
-        "\"evidence_profile_id\":\"level_2\"}"
+        "\"evidence_profile_id\":\"level_2\"}",
+        "", "", "", "", syn_sig_ra::EmailConfig(),
+        "", "", "", "", "job-test-create-1"
     );
     require(
         created.status == 202 &&
@@ -378,6 +380,40 @@ int main() {
     );
     const std::string job_id =
         created.body.substr(id_start, id_end - id_start);
+
+    const syn_sig_ra::RouteResponse replayed = syn_sig_ra::route_request(
+        "POST", "/syn_sig_ra/v1/jobs", "/syn_sig_ra",
+        "Bearer job-owner-secret", &store, config.pack_root,
+        "application/json",
+        "{\"project_id\":\"org_job_owner_default\","
+        "\"pack_id\":\"r_peak_stress_v1\","
+        "\"evidence_profile_id\":\"level_2\"}",
+        "", "", "", "", syn_sig_ra::EmailConfig(),
+        "", "", "", "", "job-test-create-1"
+    );
+    require(
+        replayed.status == 200 && replayed.body.find(job_id) != std::string::npos &&
+            replayed.body.find("\"idempotent_replay\":true") !=
+                std::string::npos,
+        "an exact idempotent retry must return the original job"
+    );
+    const syn_sig_ra::RouteResponse idempotency_conflict =
+        syn_sig_ra::route_request(
+            "POST", "/syn_sig_ra/v1/jobs", "/syn_sig_ra",
+            "Bearer job-owner-secret", &store, config.pack_root,
+            "application/json",
+            "{\"project_id\":\"org_job_owner_default\","
+            "\"pack_id\":\"r_peak_stress_v1\","
+            "\"evidence_profile_id\":\"level_1\"}",
+            "", "", "", "", syn_sig_ra::EmailConfig(),
+            "", "", "", "", "job-test-create-1"
+        );
+    require(
+        idempotency_conflict.status == 409 &&
+            idempotency_conflict.body.find("idempotency_key_conflict") !=
+                std::string::npos,
+        "an idempotency key must reject different canonical input"
+    );
 
     const syn_sig_ra::RouteResponse status = syn_sig_ra::route_request(
         "GET",

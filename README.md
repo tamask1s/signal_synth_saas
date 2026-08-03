@@ -143,8 +143,9 @@ The MCP server exposes model-discoverable tools to:
   and the generated report/evidence entry points. Proprietary algorithms and
   their completed outputs stay local.
 
-The modifying tools are annotated as non-read-only and non-idempotent so MCP
-hosts can ask for human confirmation. The same organization roles, request/job
+Modifying tools are annotated as non-read-only so MCP hosts can ask for human
+confirmation. Job creation additionally requires a client idempotency key, so
+an exact tool-call retry returns the original job. The same organization roles, request/job
 quotas, storage checks, core contracts, and API errors apply as in the web UI.
 Setup and example prompts are available at
 <https://www.timeonion.com/syn_sig_ra/mcp-setup>.
@@ -407,13 +408,16 @@ routes are:
 | Discovery/authoring | `GET /v1/authoring/schema`, `/templates`, `/curated-scenarios/{pack}/{case}`; `POST /v1/authoring/preview` |
 | Drafts/custom packs | `GET/POST /v1/scenarios`, `GET/PUT/DELETE /v1/scenarios/{id}`, `GET/POST /v1/custom-packs`, `GET/DELETE /v1/custom-packs/{id}` |
 | Projects/jobs | `GET /v1/projects`, `GET/POST /v1/jobs`, `GET/DELETE /v1/jobs/{id}`, `POST /v1/jobs/{id}/cancel`, `/retry`, `/rebuild` |
-| Downloads | `GET/HEAD /v1/jobs/{id}/verification-kit.zip`, `GET/HEAD /v1/artifacts/{package}/{manifest.json|package.zip}`, `GET /v1/downloads/verifier[/{filename}]` |
+| Downloads | `GET/HEAD /v1/jobs/{id}/{verification-kit.zip|manifest.json}`, `GET/HEAD /v1/artifacts/{package}/{manifest.json|package.zip}`, `GET /v1/downloads/verifier[/{filename}]` |
 | Lab | `GET /v1/jobs/{id}/viewer`, `/viewer/window`, `/viewer/overlays` |
 | Usage/operations | `GET /v1/usage`, `GET /v1/metrics` (owner/admin) |
 
 Browser sessions and bearer keys are organization-scoped. Cross-organization
 resource access intentionally returns 404. Write access requires an owner,
 admin, or developer role; selected account/audit operations require owner/admin.
+Send `Idempotency-Key` when creating jobs; every API response carries a
+server-generated `X-Request-ID`. Artifact HEAD responses expose size, SHA-256,
+availability, and expiry before downloading.
 JSON write endpoints require `application/json` and reject extra/duplicate
 fields. Rate, concurrency, monthly-job, output-size, disk-reserve, CPU, memory,
 file, wall-time, and no-network worker bounds are enforced.

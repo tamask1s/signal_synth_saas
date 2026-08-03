@@ -204,6 +204,13 @@ enum class RecordLookupStatus {
     storage_error
 };
 
+enum class IdempotencyLookupStatus {
+    not_found,
+    replay,
+    conflict,
+    storage_error
+};
+
 enum class ApiKeyLookupStatus {
     found,
     not_found,
@@ -519,6 +526,19 @@ public:
         const std::string& evidence_protocol_sha256,
         const std::string& evidence_protocol_source_path,
         std::string& job_id,
+        std::string& error,
+        const std::string& idempotency_key = "",
+        const std::string& idempotency_request_sha256 = "",
+        bool* idempotent_replay = nullptr,
+        bool* idempotency_conflict = nullptr
+    );
+
+    IdempotencyLookupStatus find_idempotent_job(
+        const ApiKeyIdentity& owner,
+        const std::string& idempotency_key,
+        const std::string& request_sha256,
+        std::string& job_id,
+        std::string& job_status,
         std::string& error
     );
 

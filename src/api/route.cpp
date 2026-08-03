@@ -490,7 +490,7 @@ json_t* job_json_object(
             "manifest_url",
             json_string(
                 (
-                    public_base_path + "/v1/artifacts/" + job.package_id +
+                    public_base_path + "/v1/jobs/" + job.job_id +
                     "/manifest.json"
                 ).c_str()
             )
@@ -567,6 +567,11 @@ std::string job_list_json(
         json_integer(static_cast<json_int_t>(jobs.size()))
     );
     json_object_set_new(root, "offset", json_integer(offset));
+    json_object_set_new(
+        root, "ordering", json_string("created_at_desc_job_id_desc"));
+    json_object_set_new(
+        root, "pagination_consistency",
+        json_string("committed_snapshot_per_page"));
     if (jobs.size() == static_cast<std::size_t>(limit)) {
         json_object_set_new(root, "next_offset", json_integer(offset + limit));
     }
@@ -1262,6 +1267,16 @@ bool safe_download_filename(const std::string& filename) {
             ends_with(filename, "-py3-none-any.whl"));
 }
 
+bool valid_idempotency_key(const std::string& value) {
+    if (value.empty() || value.size() > 128) return false;
+    for (std::string::const_iterator it = value.begin(); it != value.end(); ++it) {
+        const unsigned char ch = static_cast<unsigned char>(*it);
+        if (!std::isalnum(ch) && ch != '.' && ch != '_' && ch != '-' &&
+            ch != ':') return false;
+    }
+    return true;
+}
+
 syn_sig_ra::RouteResponse immutable_artifact_response(
     const std::string& method,
     const syn_sig_ra::PreparedArtifact& artifact,
@@ -1287,6 +1302,7 @@ syn_sig_ra::RouteResponse immutable_artifact_response(
         response.etag = "\"sha256-" + artifact.sha256 + "\"";
         response.checksum_sha256 = artifact.sha256;
         response.artifact_expires_at = expires_at;
+        response.artifact_status = "available";
         return response;
     }
     syn_sig_ra::RouteResponse response;
@@ -1308,6 +1324,7 @@ syn_sig_ra::RouteResponse immutable_artifact_response(
     response.etag = "\"sha256-" + artifact.sha256 + "\"";
     response.checksum_sha256 = artifact.sha256;
     response.artifact_expires_at = expires_at;
+    response.artifact_status = "available";
     if (range_status == syn_sig_ra::ByteRangeStatus::valid) {
         response.content_range =
             "bytes " + std::to_string(range.offset) + "-" +
@@ -2186,7 +2203,7 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>GET</td><td><code>/v1/authoring/curated-scenarios/{pack_id}/{case_id}</code></td><td>Clone curated scenario JSON into a draft</td><td>Authenticated</td></tr>
           <tr><td>GET/POST/PUT/DELETE</td><td><code>/v1/scenarios</code></td><td>Scenario draft lifecycle</td><td>Authenticated</td></tr>
           <tr><td>GET/POST/DELETE</td><td><code>/v1/custom-packs</code></td><td>Compose/list/hide custom packs</td><td>Authenticated</td></tr>
-          <tr><td>GET/POST</td><td><code>/v1/jobs</code></td><td>List/create jobs</td><td>Authenticated</td></tr>
+          <tr><td>GET/POST</td><td><code>/v1/jobs</code></td><td>List/create jobs; send <code>Idempotency-Key</code> on creation</td><td>Authenticated</td></tr>
           <tr><td>GET/DELETE</td><td><code>/v1/jobs/{job_id}</code></td><td>Read or soft-delete job</td><td>Organization</td></tr>
           <tr><td>POST</td><td><code>/v1/jobs/{job_id}/cancel</code></td><td>Cancel queued job</td><td>Developer+</td></tr>
           <tr><td>POST</td><td><code>/v1/jobs/{job_id}/retry</code></td><td>Retry failed/cancelled job</td><td>Developer+</td></tr>
@@ -2194,6 +2211,7 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>GET</td><td><code>/v1/jobs/{job_id}/viewer/window</code></td><td>Read selected channels for one bounded binary viewport</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/jobs/{job_id}/viewer/overlays</code></td><td>Read bounded ground-truth events and intervals for one viewport</td><td>Organization</td></tr>
           <tr><td>GET/HEAD</td><td><code>/v1/jobs/{job_id}/verification-kit.zip</code></td><td>Stream or resume the role-selected challenge and submission-template kit</td><td>Organization</td></tr>
+          <tr><td>GET/HEAD</td><td><code>/v1/jobs/{job_id}/manifest.json</code></td><td>Read or inspect the immutable manifest without resolving a package ID</td><td>Organization</td></tr>
           <tr><td>GET/HEAD</td><td><code>/v1/artifacts/{package_id}/manifest.json</code></td><td>Download immutable manifest with checksum metadata</td><td>Organization</td></tr>
           <tr><td>GET/HEAD</td><td><code>/v1/artifacts/{package_id}/package.zip</code></td><td>Stream or resume package ZIP with Range and checksum metadata</td><td>Organization</td></tr>
           <tr><td>GET</td><td><code>/v1/usage</code></td><td>Caller usage and limits</td><td>Authenticated</td></tr>
@@ -5719,7 +5737,14 @@ const char kUiJs[] = R"JS((() => {
         if (!profile) throw new Error("Choose an evidence level.");
         request.evidence_profile_id = profile.profile_id;
       }
-      const body = await api("/v1/jobs", { method: "POST", json: request });
+      const operationId = globalThis.crypto && crypto.randomUUID
+        ? `ui-${crypto.randomUUID()}`
+        : `ui-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const body = await api("/v1/jobs", {
+        method: "POST",
+        json: request,
+        headers: { "Idempotency-Key": operationId }
+      });
       await loadJobs({ force: true });
       await Promise.all([loadUsage(), loadMetrics()]);
       state.focusJobId = body.job_id;
@@ -7027,7 +7052,8 @@ RouteResponse route_request(
     const std::string& range_header,
     const std::string& accept_header,
     const std::string& origin_header,
-    const std::string& mcp_protocol_version_header
+    const std::string& mcp_protocol_version_header,
+    const std::string& idempotency_key_header
 ) {
     if (!owns_uri(uri, public_base_path)) {
         RouteResponse response;
@@ -8926,7 +8952,7 @@ RouteResponse route_request(
                 int offset = 0;
                 if (!query_integer(query_string, "limit", 25, limit) ||
                     !query_integer(query_string, "offset", 0, offset) ||
-                    limit < 1 || limit > 100) {
+                    limit < 1 || limit > 100 || offset < 0) {
                     return json_response(
                         400,
                         "{\"error\":{\"code\":\"invalid_pagination\","
@@ -8993,6 +9019,66 @@ RouteResponse route_request(
                     std::string("{\"error\":{\"code\":\"") + code +
                     "\",\"message\":\"The job request is invalid.\"}}\n"
                 );
+            }
+            std::string idempotency_request_sha256;
+            if (!idempotency_key_header.empty()) {
+                if (!valid_idempotency_key(idempotency_key_header)) {
+                    return json_response(
+                        400,
+                        "{\"error\":{\"code\":\"invalid_idempotency_key\","
+                        "\"message\":\"Idempotency-Key must be 1-128 letters, digits, dots, underscores, colons, or hyphens.\"}}\n"
+                    );
+                }
+                if (!sha256_hex(
+                        job_request.canonical_json,
+                        idempotency_request_sha256,
+                        error)) {
+                    RouteResponse response = json_response(
+                        503,
+                        "{\"error\":{\"code\":\"request_hash_unavailable\","
+                        "\"message\":\"The job request cannot be fingerprinted.\"}}\n"
+                    );
+                    response.internal_error = error;
+                    return response;
+                }
+                std::string existing_job_id;
+                std::string existing_job_status;
+                const IdempotencyLookupStatus lookup =
+                    metadata_store->find_idempotent_job(
+                        authenticated_identity,
+                        idempotency_key_header,
+                        idempotency_request_sha256,
+                        existing_job_id,
+                        existing_job_status,
+                        error);
+                if (lookup == IdempotencyLookupStatus::replay) {
+                    json_t* replay = json_object();
+                    json_object_set_new(
+                        replay, "job_id", json_string(existing_job_id.c_str()));
+                    json_object_set_new(
+                        replay, "status", json_string(existing_job_status.c_str()));
+                    json_object_set_new(
+                        replay, "idempotent_replay", json_true());
+                    const std::string body = json_dump_line(replay);
+                    json_decref(replay);
+                    return json_response(200, body);
+                }
+                if (lookup == IdempotencyLookupStatus::conflict) {
+                    return json_response(
+                        409,
+                        "{\"error\":{\"code\":\"idempotency_key_conflict\","
+                        "\"message\":\"This Idempotency-Key was already used for a different job request.\"}}\n"
+                    );
+                }
+                if (lookup == IdempotencyLookupStatus::storage_error) {
+                    RouteResponse response = json_response(
+                        503,
+                        "{\"error\":{\"code\":\"metadata_unavailable\","
+                        "\"message\":\"Idempotency storage is unavailable.\"}}\n"
+                    );
+                    response.internal_error = error;
+                    return response;
+                }
             }
             ProjectRecord selected_project;
             const RecordLookupStatus project_status =
@@ -9192,6 +9278,8 @@ RouteResponse route_request(
                 return response;
             }
             std::string job_id;
+            bool idempotent_replay = false;
+            bool idempotency_conflict = false;
             if (!metadata_store->create_job(
                     authenticated_identity,
                     job_request.project_id,
@@ -9209,7 +9297,11 @@ RouteResponse route_request(
                     selected_evidence_protocol_sha256,
                     selected_evidence_protocol_source_path,
                     job_id,
-                    error
+                    error,
+                    idempotency_key_header,
+                    idempotency_request_sha256,
+                    &idempotent_replay,
+                    &idempotency_conflict
                 )) {
                 RouteResponse response = json_response(
                     503,
@@ -9219,6 +9311,40 @@ RouteResponse route_request(
                 response.internal_error = error;
                 return response;
             }
+            if (idempotency_conflict) {
+                return json_response(
+                    409,
+                    "{\"error\":{\"code\":\"idempotency_key_conflict\","
+                    "\"message\":\"This Idempotency-Key was already used for a different job request.\"}}\n"
+                );
+            }
+            if (idempotent_replay) {
+                std::string replay_job_id;
+                std::string replay_status;
+                const IdempotencyLookupStatus lookup =
+                    metadata_store->find_idempotent_job(
+                        authenticated_identity, idempotency_key_header,
+                        idempotency_request_sha256, replay_job_id,
+                        replay_status, error);
+                if (lookup != IdempotencyLookupStatus::replay) {
+                    RouteResponse response = json_response(
+                        503,
+                        "{\"error\":{\"code\":\"metadata_unavailable\","
+                        "\"message\":\"Idempotency replay is unavailable.\"}}\n"
+                    );
+                    response.internal_error = error;
+                    return response;
+                }
+                json_t* replay = json_object();
+                json_object_set_new(
+                    replay, "job_id", json_string(replay_job_id.c_str()));
+                json_object_set_new(
+                    replay, "status", json_string(replay_status.c_str()));
+                json_object_set_new(replay, "idempotent_replay", json_true());
+                const std::string body = json_dump_line(replay);
+                json_decref(replay);
+                return json_response(200, body);
+            }
             json_t* created = json_object();
             json_object_set_new(
                 created,
@@ -9226,6 +9352,7 @@ RouteResponse route_request(
                 json_string(job_id.c_str())
             );
             json_object_set_new(created, "status", json_string("queued"));
+            json_object_set_new(created, "idempotent_replay", json_false());
             if (!selected_evidence_profile_id.empty()) {
                 json_t* profile = json_object();
                 json_object_set_new(
@@ -9492,6 +9619,102 @@ RouteResponse route_request(
                     : "{\"error\":{\"code\":\"viewer_source_invalid\",\"message\":\"The retained signal source is invalid.\"}}\n"
             );
             response.internal_error = error;
+            return response;
+        }
+        if (action == "manifest.json") {
+            if (method != "GET" && method != "HEAD") {
+                return json_response(
+                    405,
+                    "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Job manifests only accept GET or HEAD.\"}}\n"
+                );
+            }
+            JobRecord job;
+            std::string error;
+            const RecordLookupStatus job_lookup = metadata_store->find_job(
+                job_id, authenticated_identity, job, error);
+            if (job_lookup == RecordLookupStatus::not_found) {
+                return json_response(
+                    404,
+                    "{\"error\":{\"code\":\"job_not_found\","
+                    "\"message\":\"The requested job does not exist.\"}}\n"
+                );
+            }
+            if (job_lookup == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503,
+                    "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Job storage is unavailable.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            if (job.status != "succeeded" || job.package_id.empty()) {
+                return json_response(
+                    409,
+                    "{\"error\":{\"code\":\"job_manifest_unavailable\","
+                    "\"message\":\"The manifest is available after the job succeeds and while its artifact is retained.\"}}\n"
+                );
+            }
+            PackageRecord package;
+            const RecordLookupStatus package_lookup =
+                metadata_store->find_package(
+                    job.package_id, authenticated_identity, package, error);
+            if (package_lookup == RecordLookupStatus::not_found) {
+                return json_response(
+                    404,
+                    "{\"error\":{\"code\":\"artifact_not_found\","
+                    "\"message\":\"The requested artifact does not exist.\"}}\n"
+                );
+            }
+            if (package_lookup == RecordLookupStatus::storage_error) {
+                RouteResponse response = json_response(
+                    503,
+                    "{\"error\":{\"code\":\"metadata_unavailable\","
+                    "\"message\":\"Artifact metadata is unavailable.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            const std::string expected_storage =
+                data_root + "/packages/" + job.package_id;
+            if (data_root.empty() ||
+                package.artifact_storage_key != expected_storage) {
+                RouteResponse response = json_response(
+                    500,
+                    "{\"error\":{\"code\":\"artifact_storage_invalid\","
+                    "\"message\":\"Artifact storage is unavailable.\"}}\n"
+                );
+                response.internal_error =
+                    "artifact storage key does not match configured data root";
+                return response;
+            }
+            PreparedArtifact artifact;
+            const DerivedArtifactStatus artifact_status =
+                prepare_cached_file_metadata(
+                    data_root, job.package_id,
+                    expected_storage + "/manifest.json", "manifest-json",
+                    artifact, error);
+            if (artifact_status != DerivedArtifactStatus::ok) {
+                RouteResponse response = json_response(
+                    artifact_status == DerivedArtifactStatus::invalid_source
+                        ? 404 : 503,
+                    "{\"error\":{\"code\":\"artifact_storage_unavailable\","
+                    "\"message\":\"The manifest file is unavailable.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            RouteResponse response = immutable_artifact_response(
+                method, artifact, "application/json", "manifest.json",
+                range_header, package.expires_at);
+            record_nonblocking_audit(
+                *metadata_store, authenticated_identity,
+                method == "HEAD" ? "artifact.inspected" :
+                    "artifact.downloaded",
+                "package", job.package_id,
+                "{\"kind\":\"manifest_by_job\",\"range\":false}",
+                response);
             return response;
         }
         if (action == "verification-kit.zip") {
