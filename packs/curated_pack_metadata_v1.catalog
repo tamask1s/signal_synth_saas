@@ -1275,8 +1275,7 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2,
-          8
+          9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",
@@ -2927,8 +2926,7 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          3,
-          7
+          9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",
@@ -3320,7 +3318,7 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          7
+          9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",
@@ -3681,7 +3679,7 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2
+          9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",
@@ -6059,7 +6057,7 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2
+          9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",
@@ -9836,7 +9834,7 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          8
+          9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",
@@ -11126,7 +11124,7 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2
+          9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",
@@ -13919,8 +13917,7 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2,
-          8
+          9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",
@@ -15900,7 +15897,6 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2,
           9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
@@ -24240,7 +24236,6 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2,
           9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
@@ -24604,13 +24599,6 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
           9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
@@ -25055,13 +25043,6 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
           9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
@@ -25474,13 +25455,6 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
           9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
@@ -25858,13 +25832,6 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
           9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
@@ -26237,13 +26204,6 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
           9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
@@ -26636,13 +26596,6 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
           9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
@@ -27128,13 +27081,6 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
           9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
@@ -27698,13 +27644,6 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
           9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
@@ -28122,7 +28061,7 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          6
+          9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",
@@ -28635,9 +28574,7 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          2,
-          3,
-          4
+          9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",
@@ -28965,7 +28902,7 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          4
+          9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",
@@ -29271,7 +29208,7 @@
         "minimum_generator_version": "0.10.0-dev",
         "pack_schema_version": 2,
         "scenario_schema_versions": [
-          8
+          9
         ],
         "scoring_manifest_contract": "synsigra_scoring_manifest_v3",
         "submission_contract": "synsigra_submission_v1",

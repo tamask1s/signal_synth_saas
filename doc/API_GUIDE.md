@@ -197,7 +197,9 @@ curl -fsS -H "$AUTH" "$BASE/v1/authoring/schema" > authoring-schema.json
 curl -fsS -H "$AUTH" "$BASE/v1/authoring/templates" > authoring-templates.json
 ```
 
-Start from a returned complete template. Preview an exact scenario/target set:
+Start from a returned complete template. The product exposes and accepts only
+scenario schema version 9, so clients must not downgrade that field or reuse
+older cached templates. Preview an exact scenario/target set:
 
 ```sh
 curl -fsS -H "$AUTH" -H 'Content-Type: application/json' \

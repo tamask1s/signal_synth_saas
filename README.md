@@ -261,7 +261,13 @@ policy verdict records whether the packaged numeric criteria were met.
 The UI and API obtain authoring fields and templates directly from the live
 core. The current contract is `synsigra_authoring_v18`, with 142 fields, 71
 condition definitions, 20 artifact families, 16 targets, 18 logical groups,
-scenario schemas 2 through 9, and template contract `synsigra_templates_v5`.
+and template contract `synsigra_templates_v5`. Synsigra exposes and accepts
+only the current scenario schema, version 9. All templates, curated cases,
+saved scenarios, Lab previews, and generated packs use that same version.
+Clients should always start from the live templates and must not downgrade the
+`schema_version` field. Versions attached to pack, protocol, submission, or
+manifest contracts describe different documents and are intentionally
+independent.
 
 It covers, among other controls:
 

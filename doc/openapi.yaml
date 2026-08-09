@@ -746,17 +746,18 @@ paths:
         '404': {description: File not available}
   /v1/authoring/schema:
     get:
-      summary: Read core scenario-authoring schema metadata
+      summary: Read current scenario-authoring schema metadata
+      description: Synsigra exposes one scenario schema only. The response declares scenario_schema_version 9 and supported_scenario_schema_versions [9].
       security: [{cookieAuth: []}, {bearerAuth: []}]
       responses:
         '200': {description: Core authoring schema metadata}
         '401': {description: Unauthorized}
   /v1/authoring/templates:
     get:
-      summary: Read core scenario templates
+      summary: Read current-schema scenario templates
       security: [{cookieAuth: []}, {bearerAuth: []}]
       responses:
-        '200': {description: Template catalog with complete valid scenario documents}
+        '200': {description: Template catalog with complete valid schema-version-9 scenario documents}
         '401': {description: Unauthorized}
   /v1/authoring/preview:
     post:
@@ -770,12 +771,12 @@ paths:
               type: object
               required: [scenario, targets]
               properties:
-                scenario: {type: object}
+                scenario: {type: object, description: Complete scenario document with schema_version 9.}
                 targets: {type: array, minItems: 1, items: {type: string}}
               additionalProperties: false
       responses:
         '200': {description: Core pack-analysis preview, including scoreable/reference-only targets and size estimates}
-        '422': {description: Scenario JSON failed core validation}
+        '422': {description: Scenario is not schema version 9 or failed core validation}
   /v1/authoring/curated-scenarios/{pack_id}/{case_id}:
     get:
       summary: Clone a curated scenario into the draft editor
@@ -784,7 +785,7 @@ paths:
         - {in: path, name: pack_id, required: true, schema: {type: string}}
         - {in: path, name: case_id, required: true, schema: {type: string}}
       responses:
-        '200': {description: Curated scenario JSON}
+        '200': {description: Complete curated scenario JSON normalized to schema version 9}
         '404': {description: Pack/case not found}
   /v1/lab/previews:
     post:
@@ -800,7 +801,7 @@ paths:
               required: [scenario, targets]
               additionalProperties: false
               properties:
-                scenario: {type: object}
+                scenario: {type: object, description: Complete scenario document with schema_version 9.}
                 targets: {type: array, minItems: 1, uniqueItems: true, items: {type: string}}
       responses:
         '201':

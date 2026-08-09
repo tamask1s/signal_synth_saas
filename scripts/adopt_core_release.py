@@ -362,6 +362,16 @@ def main():
         "cmake", "--build", CORE_BUILD, "--target", "signal_synth_cli",
         "-j{}".format(jobs),
     ])
+    run([
+        "cmake", "-S", ROOT, "-B", ROOT / "build",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_CXX_FLAGS_RELEASE=-O2 -DNDEBUG",
+    ])
+    run([
+        "cmake", "--build", ROOT / "build",
+        "--target", "syn_sig_ra_scenario_schema", "-j{}".format(jobs),
+    ])
+    scenario_normalizer = ROOT / "build" / "syn_sig_ra_scenario_schema"
     cli = CORE_BUILD / "signal-synth"
     contract = json.loads(output([cli, "contract"]))
     generator = contract.get("generator", {})
@@ -386,6 +396,7 @@ def main():
             "--source-root", CORE,
             "--out", staged_packs,
             "--signal-synth-cli", cli,
+            "--scenario-normalizer", scenario_normalizer,
             "--clean",
         ])
         if read_json(staged_packs / CATALOG_FILE.name).get(

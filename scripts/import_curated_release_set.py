@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import sys
 
+CURRENT_SCENARIO_SCHEMA_VERSION = 9
+
 
 def read_json(path):
     with open(path, "r") as handle:
@@ -59,7 +61,25 @@ def validate_pack(signal_synth_cli, pack_path):
         raise RuntimeError("signal-synth did not validate %s" % pack_path)
 
 
-def import_pack(source_root, output_root, path_base, metadata, signal_synth_cli):
+def declare_current_scenario_schema(release_set):
+    for pack in release_set.get("packs", []):
+        compatibility = pack.get("generator_compatibility")
+        if not isinstance(compatibility, dict):
+            raise RuntimeError("pack generator compatibility is missing")
+        compatibility["scenario_schema_versions"] = [
+            CURRENT_SCENARIO_SCHEMA_VERSION
+        ]
+
+
+def normalize_scenarios(normalizer, scenario_root):
+    if not normalizer or not os.path.isfile(normalizer):
+        raise RuntimeError("the SaaS scenario normalizer is required")
+    subprocess.check_call(
+        [normalizer, "--apply", scenario_root], stdout=subprocess.DEVNULL
+    )
+
+
+def import_pack(source_root, output_root, path_base, metadata):
     source = metadata["source"]
     source_catalog_path = os.path.join(source_root, source["catalog_path"])
     source_pack_path = os.path.normpath(os.path.join(os.path.dirname(source_catalog_path), source["pack_path"]))
@@ -107,7 +127,6 @@ def import_pack(source_root, output_root, path_base, metadata, signal_synth_cli)
         )
     output_pack_path = os.path.join(output_root, pack_id + ".json")
     write_json(output_pack_path, pack)
-    validate_pack(signal_synth_cli, output_pack_path)
 
 
 def import_noise_assets(source_root, output_root):
@@ -128,6 +147,7 @@ def main(argv=None):
     parser.add_argument("--out", default="packs", help="SaaS pack output directory.")
     parser.add_argument("--path-base", default=None, help="Directory used as the base for scenario relative paths. Defaults to --out.")
     parser.add_argument("--signal-synth-cli", default=None, help="Optional signal-synth CLI used to validate imported pack fingerprints.")
+    parser.add_argument("--scenario-normalizer", required=True, help="SaaS scenario normalizer executable; imported scenarios are stored only in the current schema.")
     parser.add_argument("--clean", action="store_true", help="Delete existing JSON/product files in the output directory first.")
     args = parser.parse_args(argv)
 
@@ -139,6 +159,7 @@ def main(argv=None):
     release_set = read_json(metadata_path)
     if release_set.get("metadata_type") != "synsigra_curated_pack_catalog":
         raise RuntimeError("metadata is not a Synsigra curated pack catalog")
+    declare_current_scenario_schema(release_set)
     if args.clean and os.path.isdir(output_root):
         shutil.rmtree(output_root)
     if not os.path.isdir(output_root):
@@ -146,8 +167,17 @@ def main(argv=None):
     write_json(os.path.join(output_root, "curated_pack_metadata_v1.catalog"), release_set)
     import_noise_assets(source_root, output_root)
     for pack in release_set.get("packs", []):
-        import_pack(source_root, output_root, path_base, pack, signal_synth_cli)
+        import_pack(source_root, output_root, path_base, pack)
         print("imported %s" % pack["pack_id"])
+    normalize_scenarios(
+        os.path.abspath(args.scenario_normalizer),
+        os.path.join(output_root, "scenarios"),
+    )
+    for pack in release_set.get("packs", []):
+        validate_pack(
+            signal_synth_cli,
+            os.path.join(output_root, pack["pack_id"] + ".json"),
+        )
     return 0
 
 

@@ -1,6 +1,7 @@
 #include "syn_sig_ra/pack_catalog.h"
 
 #include "syn_sig_ra/build_info.h"
+#include "syn_sig_ra/scenario_schema.h"
 #include "syn_sig_ra/sha256.h"
 #include "ecg_pack.h"
 
@@ -603,22 +604,17 @@ bool load_curated_catalog_metadata(
         json_string_or_empty(json_object_get(compatibility, "minimum_generator_version")) != "0.10.0-dev" ||
         integer_field(compatibility, "pack_schema_version") != 2 ||
         !read_int_array(compatibility, "scenario_schema_versions", scenario_versions, error) ||
-        scenario_versions.empty() ||
+        scenario_versions.size() != 1u ||
+        scenario_versions[0] !=
+            static_cast<int>(syn_sig_ra::kCurrentScenarioSchemaVersion) ||
         json_string_or_empty(json_object_get(compatibility, "challenge_package_contract")) != "synsigra_challenge_package_v3" ||
         json_string_or_empty(json_object_get(compatibility, "scoring_manifest_contract")) != "synsigra_scoring_manifest_v3" ||
         json_string_or_empty(json_object_get(compatibility, "submission_contract")) != "synsigra_submission_v1" ||
         json_string_or_empty(json_object_get(compatibility, "verification_protocol_contract")) != "synsigra_verification_protocol_v4" ||
         !supported_verifier_minimum(local_verifier_min_version)) {
         json_decref(root);
-        error = "curated pack generator compatibility is not the v8 tuple";
+        error = "curated pack generator compatibility is not the current release tuple";
         return false;
-    }
-    for (std::size_t schema_index = 0; schema_index < scenario_versions.size(); ++schema_index) {
-        if (scenario_versions[schema_index] < 2 || scenario_versions[schema_index] > 9) {
-            json_decref(root);
-            error = "curated pack uses an unsupported scenario schema";
-            return false;
-        }
     }
     pack.minimum_case_seconds = int_field(duration, "minimum_case_seconds");
     pack.maximum_case_seconds = int_field(duration, "maximum_case_seconds");

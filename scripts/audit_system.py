@@ -20,6 +20,7 @@ import re
 import shutil
 import subprocess
 import sys
+import copy
 from typing import Any
 
 
@@ -84,6 +85,16 @@ def canonical_bytes(value: Any) -> bytes:
 
 def canonical_hash(value: Any) -> str:
     return "sha256:" + hashlib.sha256(canonical_bytes(value)).hexdigest()
+
+
+def product_catalog(core_metadata: dict[str, Any]) -> dict[str, Any]:
+    product = copy.deepcopy(core_metadata)
+    for pack in product.get("packs", []):
+        compatibility = pack.get("generator_compatibility")
+        require(isinstance(compatibility, dict),
+                "core pack generator compatibility is missing")
+        compatibility["scenario_schema_versions"] = [9]
+    return product
 
 
 def command(
@@ -339,8 +350,6 @@ def transformed_pack_and_files(
         )
         require(destination.is_file(), f"{pack_id}: imported scenario is missing")
         require(not destination.is_symlink(), f"{pack_id}: imported scenario is a symlink")
-        require(source.read_bytes() == destination.read_bytes(),
-                f"{pack_id}: imported scenario differs: {destination}")
         expected_files.add(destination)
         scenario["path"] = destination.relative_to(PACK_ROOT).as_posix()
 
@@ -373,8 +382,14 @@ def audit_catalog() -> tuple[int, int, int]:
     source_catalog = read_json(CORE_CATALOG)
     core_metadata = read_json(CORE_METADATA)
     saas_metadata = read_json(SAAS_METADATA)
-    require(core_metadata == saas_metadata,
-            "SaaS catalog is not the current core curated release")
+    require(product_catalog(core_metadata) == saas_metadata,
+            "SaaS catalog is not the current normalized core release")
+    command([
+        ROOT / "build" / "syn_sig_ra_scenario_schema",
+        "--compare-source",
+        CORE / "examples" / "scenarios",
+        PACK_ROOT / "scenarios",
+    ])
     require(source_catalog.get("version") == saas_metadata.get("catalog_version"),
             "source/exported catalog versions differ")
     require(
@@ -407,6 +422,8 @@ def audit_catalog() -> tuple[int, int, int]:
         require(not (REMOVED_CATALOG_FIELDS & set(source_ids[pack_id])),
                 f"{pack_id}: obsolete threshold-profile source fields remain")
         compatibility = metadata.get("generator_compatibility", {})
+        require(compatibility.get("scenario_schema_versions") == [9],
+                f"{pack_id}: product scenario schema is not exactly version 9")
         require(compatibility.get("local_verifier_min_version") == verifier,
                 f"{pack_id}: verifier version drift")
         require(compatibility.get("verification_protocol_contract")

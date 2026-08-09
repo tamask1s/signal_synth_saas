@@ -8,12 +8,15 @@ sidecars or reinterpret core analysis.
 SIGNAL_SYNTH_CLI=build/signal_synth_live/signal-synth \
   python3 scripts/import_curated_release_set.py \
     --metadata ../signal_synth/examples/catalog/curated_pack_metadata_v1.json \
-    --source-root ../signal_synth --out packs --clean
+    --source-root ../signal_synth --out packs \
+    --signal-synth-cli ../signal_synth/build/signal-synth \
+    --scenario-normalizer build/syn_sig_ra_scenario_schema --clean
 ```
 
 The importer removes files not present in the snapshot, copies the declared
-pack/scenario/protocol/approved-noise inputs, and validates every pack through
-the pinned CLI. Startup and readiness require:
+pack/scenario/protocol/approved-noise inputs, converts every scenario through
+the authoritative SaaS normalizer to the single current schema (version 9),
+and validates every pack through the pinned CLI. Startup and readiness require:
 
 - catalog version `3.8`;
 - a positive declared pack count that exactly matches the unique pack array;
@@ -26,6 +29,7 @@ the pinned CLI. Startup and readiness require:
 - verification protocol `synsigra_verification_protocol_v4`;
 - evidence-level policy `synsigra_evidence_profile_policy_v1`;
 - verifier `0.18.0`;
+- exactly one declared scenario schema version: `9`;
 - only external-noise assets whose release truth allows redistribution.
 
 Each API pack response exposes catalog/release identity, pack fingerprint,

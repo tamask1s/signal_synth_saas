@@ -146,7 +146,9 @@
       : state.preview
         ? 'Settings changed. Apply again before saving so the waveform and case stay identical.'
         : 'Render a valid preview first. Saving never uses unrendered edits.';
-    if (state.preview && !fresh) {
+    const validationCurrent = state.preflightKey === scenarioKey();
+    if (state.preview && !fresh &&
+        (!validationCurrent || (state.preflight && state.preflight.success))) {
       $('validation-status').className = 'status-pill dirty';
       $('validation-status').textContent = 'Changes not applied';
     }
@@ -540,6 +542,9 @@
     Object.entries(simple).forEach(([id, [path, cast]]) => $(id).addEventListener('change', () => {
       setPath(path, cast($(id).value));
       if (id === 'case-name') state.scenario.description = `Interactive Synsigra Lab case: ${$(id).value}.`;
+      if (id === 'case-seed' && getPath('$.hrv.enabled')) setPath('$.hrv.seed', Number($(id).value));
+      if (id === 'heart-rate' && getPath('$.hrv.enabled')) setPath('$.hrv.target_mean_hr_bpm', Number($(id).value));
+      if (id === 'rr-variation' && getPath('$.hrv.enabled')) setPath('$.hrv.target_sdnn_seconds', Number($(id).value));
       markEdited();
     }));
     $('vary-heart-rate').addEventListener('change', () => {
@@ -560,11 +565,20 @@
         const source = donor('ecg_hrv_benchmark');
         if (!state.scenario.hrv) state.scenario.hrv = clone(source.hrv);
         state.scenario.hrv.enabled = true;
+        state.scenario.hrv.target_mean_hr_bpm = Number(getPath('$.ecg.heart_rate_bpm'));
+        state.scenario.hrv.target_sdnn_seconds = Math.max(.001, Number(getPath('$.ecg.rr_variability_seconds')) || .05);
+        state.scenario.hrv.seed = Number(state.scenario.seed);
+        setPath('$.ecg.rr_variability_seconds', state.scenario.hrv.target_sdnn_seconds);
         state.scenario.duration_seconds = Math.max(300, Number(state.scenario.duration_seconds));
       } else if (state.scenario.hrv) state.scenario.hrv.enabled = false;
       syncControls(); markEdited();
     });
-    $('hrv-sdnn').addEventListener('change', () => { setPath('$.hrv.target_sdnn_seconds', inputNumber('hrv-sdnn') / 1000); markEdited(); });
+    $('hrv-sdnn').addEventListener('change', () => {
+      const seconds = inputNumber('hrv-sdnn') / 1000;
+      setPath('$.hrv.target_sdnn_seconds', seconds);
+      setPath('$.ecg.rr_variability_seconds', seconds);
+      markEdited();
+    });
     $('hrv-vlf').addEventListener('change', () => { setPath('$.hrv.vlf_power_fraction', inputNumber('hrv-vlf') / 100); markEdited(); });
     $('hrv-advanced').addEventListener('change', (event) => {
       if (!event.target.dataset.hrvField) return;

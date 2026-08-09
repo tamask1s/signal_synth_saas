@@ -117,7 +117,9 @@ content.
    signal contract. They can evolve. Never invent enum values,
    condition codes, artifact types, paths, ranges, or required fields.
 2. Prefer the closest current template, deep-copy its complete `scenario`, and
-   change only fields needed by the request.
+   change only fields needed by the request. Synsigra currently exposes and
+   accepts only scenario schema version 9; never downgrade `schema_version` or
+   reuse an older locally cached template.
 3. Give every scenario in a custom pack a unique internal `scenario_id`.
 4. Use explicit, distinct deterministic integer seeds.
 5. Preview every scenario against the exact final target list.

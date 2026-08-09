@@ -13,6 +13,7 @@
 #include "syn_sig_ra/pack_catalog.h"
 #include "syn_sig_ra/password_auth.h"
 #include "syn_sig_ra/random_id.h"
+#include "syn_sig_ra/scenario_schema.h"
 #include "syn_sig_ra/sha256.h"
 #include "syn_sig_ra/signal_viewer.h"
 #include "syn_sig_ra/transactional_email.h"
@@ -1467,6 +1468,74 @@ json_t* scenario_json_messages(
     return array;
 }
 
+bool scenario_object_uses_current_schema(json_t* scenario) {
+    json_t* version = json_is_object(scenario)
+        ? json_object_get(scenario, "schema_version") : nullptr;
+    return json_is_integer(version) &&
+        json_integer_value(version) ==
+            static_cast<json_int_t>(syn_sig_ra::kCurrentScenarioSchemaVersion);
+}
+
+std::string current_authoring_metadata_json() {
+    json_error_t error;
+    json_t* root = json_loads(
+        signal_synth::scenario_authoring_metadata_json().c_str(),
+        JSON_REJECT_DUPLICATES, &error);
+    if (!json_is_object(root)) {
+        if (root != nullptr) json_decref(root);
+        return std::string();
+    }
+    json_object_set_new(
+        root, "scenario_schema_version",
+        json_integer(syn_sig_ra::kCurrentScenarioSchemaVersion));
+    json_t* supported = json_array();
+    json_array_append_new(
+        supported, json_integer(syn_sig_ra::kCurrentScenarioSchemaVersion));
+    json_object_set_new(root, "supported_scenario_schema_versions", supported);
+    const std::string output = json_dump_line(root);
+    json_decref(root);
+    return output;
+}
+
+std::string current_template_catalog_json() {
+    json_error_t error;
+    json_t* root = json_loads(
+        signal_synth::scenario_template_catalog_json().c_str(),
+        JSON_REJECT_DUPLICATES, &error);
+    json_t* templates = json_is_object(root)
+        ? json_object_get(root, "templates") : nullptr;
+    if (!json_is_array(templates)) {
+        if (root != nullptr) json_decref(root);
+        return std::string();
+    }
+    std::size_t index = 0;
+    json_t* item = nullptr;
+    json_array_foreach(templates, index, item) {
+        json_t* scenario = json_is_object(item)
+            ? json_object_get(item, "scenario") : nullptr;
+        char* input = json_is_object(scenario)
+            ? json_dumps(scenario, JSON_COMPACT | JSON_SORT_KEYS) : nullptr;
+        std::string canonical;
+        std::vector<std::string> messages;
+        const bool normalized = input != nullptr &&
+            syn_sig_ra::normalize_current_scenario_json(
+                input, canonical, messages);
+        if (input != nullptr) free(input);
+        json_t* replacement = normalized
+            ? json_loads(canonical.c_str(), JSON_REJECT_DUPLICATES, &error)
+            : nullptr;
+        if (!json_is_object(replacement)) {
+            if (replacement != nullptr) json_decref(replacement);
+            json_decref(root);
+            return std::string();
+        }
+        json_object_set_new(item, "scenario", replacement);
+    }
+    const std::string output = json_dump_line(root);
+    json_decref(root);
+    return output;
+}
+
 bool string_array_from_json(
     json_t* array,
     std::vector<std::string>& values
@@ -1495,6 +1564,13 @@ syn_sig_ra::RouteResponse authoring_preview_response(json_t* submitted) {
             400,
             "{\"error\":{\"code\":\"invalid_preview_request\","
             "\"message\":\"scenario object and targets array are required.\"}}\n"
+        );
+    }
+    if (!scenario_object_uses_current_schema(scenario)) {
+        return json_response(
+            422,
+            "{\"error\":{\"code\":\"scenario_schema_outdated\","
+            "\"message\":\"Synsigra authoring accepts only scenario schema version 9. Start from the current templates or curated-case clone.\"}}\n"
         );
     }
     std::vector<std::string> target_values;
@@ -1604,11 +1680,20 @@ bool read_curated_scenario(
         error = "curated scenario path is unavailable";
         return false;
     }
-    return read_file_to_string(
-        pack_root + "/" + relative_path,
-        scenario_json,
-        error
-    );
+    std::string source;
+    if (!read_file_to_string(
+            pack_root + "/" + relative_path, source, error)) {
+        return false;
+    }
+    std::vector<std::string> messages;
+    if (!syn_sig_ra::normalize_current_scenario_json(
+            source, scenario_json, messages)) {
+        error = messages.empty()
+            ? "curated scenario cannot be normalized"
+            : messages[0];
+        return false;
+    }
+    return true;
 }
 
 bool validate_scenario_document(
@@ -1622,6 +1707,15 @@ bool validate_scenario_document(
     if (submitted == nullptr) return false;
     const std::string submitted_json(submitted);
     free(submitted);
+    if (!scenario_object_uses_current_schema(scenario)) {
+        status = "invalid";
+        canonical_json = submitted_json;
+        fingerprint.clear();
+        errors_json =
+            "[{\"code\":\"SCENARIO_SCHEMA_OUTDATED\",\"path\":\"$.schema_version\","
+            "\"message\":\"Only scenario schema version 9 is accepted. Start from a current template or curated case.\"}]";
+        return false;
+    }
     signal_synth::synsigra_validation_result result;
     const bool valid =
         signal_synth::synsigra_validate_scenario_json(submitted_json, result);
@@ -3548,42 +3642,6 @@ const char kUiJs[] = R"JS((() => {
   };
 
   const $ = (id) => document.getElementById(id);
-  const cleanEcgTemplate = {
-    schema_version: 2,
-    scenario_id: "ecg_clean_001",
-    name: "Clean ECG",
-    description: "Deterministic clean ECG engineering scenario.",
-    author: "Synsigra",
-    tags: ["clean", "ecg"],
-    duration_seconds: 10,
-    sample_rate_hz: 500,
-    seed: 12345,
-    ecg: {
-      heart_rate_bpm: 70,
-      rr_variability_seconds: 0,
-      ectopic_every_n_beats: 0,
-      second_degree_av_pattern: "unspecified",
-      q_wave_territory: "unspecified",
-      rhythm_episodes: [],
-      flutter_conduction_pattern: "fixed",
-      pacing_mode: "ventricular",
-      pacing_non_capture_every_n_beats: 0,
-      fidelity_policy: "allow_parameterized",
-      conditions: [{ code: "NORM", severity: 1 }]
-    },
-    ppg: {
-      enabled: false,
-      pulse_delay_ms: 180,
-      rise_time_ms: 120,
-      decay_time_ms: 300,
-      amplitude_au: 1,
-      baseline_au: 0,
-      dicrotic_delay_ms: 180,
-      dicrotic_width_ms: 80,
-      dicrotic_amplitude_ratio: 0.15
-    }
-  };
-
   const pageDetails = {
     workspace: {
       title: "Algorithm QA workspace",
@@ -5673,11 +5731,17 @@ const char kUiJs[] = R"JS((() => {
   }
 
   function loadScenarioTemplate() {
+    const template = state.authoringTemplates.find((item) =>
+      item.template_id === "ecg_rpeak_clean");
+    if (!template || !template.scenario) {
+      showToast("Current scenario templates are still loading. Try again in a moment.", "error");
+      return;
+    }
     state.selectedScenarioId = "";
     state.scenarioTargets = ["r_peak"];
     $("scenario-template-select").value = "";
-    $("scenario-name").value = "Clean ECG";
-    $("scenario-json").value = JSON.stringify(cleanEcgTemplate, null, 2);
+    $("scenario-name").value = template.scenario.name || "Clean ECG";
+    $("scenario-json").value = JSON.stringify(template.scenario, null, 2);
     $("scenario-output").textContent = "Example loaded. Review it, then validate and save.";
     renderScenarioTargets();
     renderAuthoringTemplates();
@@ -8291,10 +8355,15 @@ RouteResponse route_request(
                     "\"message\":\"Authoring schema only accepts GET.\"}}\n"
                 );
             }
-            return json_response(
-                200,
-                signal_synth::scenario_authoring_metadata_json() + "\n"
-            );
+            const std::string metadata = current_authoring_metadata_json();
+            if (metadata.empty()) {
+                return json_response(
+                    503,
+                    "{\"error\":{\"code\":\"authoring_schema_unavailable\","
+                    "\"message\":\"The current scenario schema is unavailable.\"}}\n"
+                );
+            }
+            return json_response(200, metadata);
         }
         if (uri == authoring_path + "/templates") {
             if (method != "GET") {
@@ -8304,10 +8373,15 @@ RouteResponse route_request(
                     "\"message\":\"Authoring templates only accept GET.\"}}\n"
                 );
             }
-            return json_response(
-                200,
-                signal_synth::scenario_template_catalog_json() + "\n"
-            );
+            const std::string templates = current_template_catalog_json();
+            if (templates.empty()) {
+                return json_response(
+                    503,
+                    "{\"error\":{\"code\":\"authoring_templates_unavailable\","
+                    "\"message\":\"Current scenario templates are unavailable.\"}}\n"
+                );
+            }
+            return json_response(200, templates);
         }
         if (uri == authoring_path + "/preview") {
             if (method != "POST") {

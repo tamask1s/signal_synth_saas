@@ -120,12 +120,15 @@ viewer_auth_status=$(curl -sS -o /dev/null -w '%{http_code}' \
   exit 1
 }
 printf 'check=lab-preview\n'
-lab_request='{"scenario":{"schema_version":2,"scenario_id":"live_lab_probe","name":"Live Lab probe","description":"Bounded deployment verification preview.","author":"Synsigra","tags":["lab","smoke"],"duration_seconds":2,"sample_rate_hz":100,"seed":78101,"ecg":{"heart_rate_bpm":70,"rr_variability_seconds":0,"ectopic_every_n_beats":0,"second_degree_av_pattern":"unspecified","q_wave_territory":"unspecified","rhythm_episodes":[],"flutter_conduction_pattern":"fixed","pacing_mode":"ventricular","pacing_non_capture_every_n_beats":0,"fidelity_policy":"allow_parameterized","conditions":[{"code":"NORM","severity":1}]},"ppg":{"enabled":true,"pulse_delay_ms":180,"rise_time_ms":120,"decay_time_ms":300,"amplitude_au":1,"baseline_au":0,"dicrotic_delay_ms":180,"dicrotic_width_ms":80,"dicrotic_amplitude_ratio":0.15}},"targets":["r_peak","ppg_systolic_peak"]}'
+authoring_templates=$(curl -fsS -H "Authorization: Bearer $key" \
+  "$base/v1/authoring/templates")
+lab_request=$(printf '%s' "$authoring_templates" | python3 -c \
+  'import json,sys; x=json.load(sys.stdin); s=next(v["scenario"] for v in x["templates"] if v["template_id"]=="ecg_ppg_peak"); assert s["schema_version"]==9; s["scenario_id"]="live_lab_probe"; s["name"]="Live Lab probe"; s["description"]="Current-schema randomization smoke preview."; s["duration_seconds"]=2; s["sample_rate_hz"]=100; s["randomization"]={"enabled":True,"seed":78102,"envelopes":[{"parameter":"ecg.heart_rate_bpm","minimum":65,"maximum":85}]}; print(json.dumps({"scenario":s,"targets":["r_peak","ppg_systolic_peak"]},separators=(",",":")))')
 lab_preview=$(curl -fsS -H "Authorization: Bearer $key" \
   -H 'Content-Type: application/json' \
   --data-binary "$lab_request" "$base/v1/lab/previews")
 lab_preview_id=$(printf '%s' "$lab_preview" | python3 -c \
-  'import json,sys; x=json.load(sys.stdin); assert x["canonical_scenario"]["scenario_id"]=="live_lab_probe"; assert x["resolved_scenario"]["scenario_id"]=="live_lab_probe"; assert x["sample_count"]==200 and x["lifecycle"]["durable"] is False; print(x["preview_id"])')
+  'import json,sys; x=json.load(sys.stdin); assert x["canonical_scenario"]["schema_version"]==9 and x["canonical_scenario"]["scenario_id"]=="live_lab_probe"; assert x["resolved_scenario"]["scenario_id"]=="live_lab_probe"; assert x["sample_count"]==200 and x["lifecycle"]["durable"] is False; print(x["preview_id"])')
 lab_viewer=$(curl -fsS -H "Authorization: Bearer $key" \
   "$base/v1/lab/previews/$lab_preview_id/viewer")
 printf '%s' "$lab_viewer" | python3 -c \

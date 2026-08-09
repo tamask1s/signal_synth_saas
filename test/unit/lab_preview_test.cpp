@@ -1,4 +1,5 @@
 #include "syn_sig_ra/lab_preview.h"
+#include "syn_sig_ra/scenario_schema.h"
 #include "syn_sig_ra/signal_viewer.h"
 
 #include <dirent.h>
@@ -52,7 +53,7 @@ int main() {
     owner.organization_id = "org_lab_test";
     owner.user_id = "user_lab_test";
     owner.role = "developer";
-    const std::string scenario =
+    const std::string old_scenario =
         "{\"schema_version\":2,\"scenario_id\":\"lab_case\","
         "\"name\":\"Lab case\",\"description\":\"Preview test\","
         "\"author\":\"Synsigra\",\"tags\":[\"lab\"],"
@@ -71,6 +72,13 @@ int main() {
         "\"amplitude_au\":1,\"baseline_au\":0,"
         "\"dicrotic_delay_ms\":180,\"dicrotic_width_ms\":80,"
         "\"dicrotic_amplitude_ratio\":0.15}}";
+    std::string scenario;
+    std::vector<std::string> normalization_messages;
+    require(
+        syn_sig_ra::normalize_current_scenario_json(
+            old_scenario, scenario, normalization_messages),
+        "Lab fixture should normalize to current schema"
+    );
     syn_sig_ra::LabPreview preview;
     std::vector<std::string> validation;
     std::string error;

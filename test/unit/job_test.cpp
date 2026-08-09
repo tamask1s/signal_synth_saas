@@ -170,8 +170,7 @@ int main() {
     const syn_sig_ra::RuntimeConfig config =
         syn_sig_ra::default_runtime_config();
     const std::string scenario_json = read_file(
-        config.pack_root +
-        "/../../signal_synth/examples/scenarios/ecg_clean.json"
+        config.pack_root + "/scenarios/catalog/beat_pac_periodic.json"
     );
     require(!scenario_json.empty(), "scenario fixture should be readable");
     const syn_sig_ra::RouteResponse scenario_created =

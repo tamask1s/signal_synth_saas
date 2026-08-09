@@ -172,6 +172,7 @@ add_library(syn_sig_ra_core STATIC
     src/job/job_request.cpp
     src/job/random_id.cpp
     src/integration/core_contract.cpp
+    src/integration/scenario_schema.cpp
     src/lab/lab_preview.cpp
     src/storage/metadata_store.cpp
     src/viewer/signal_viewer.cpp
@@ -200,6 +201,11 @@ add_executable(syn_sig_ra_admin
     src/admin/main.cpp
 )
 target_link_libraries(syn_sig_ra_admin PRIVATE syn_sig_ra_core)
+
+add_executable(syn_sig_ra_scenario_schema
+    src/admin/scenario_schema_main.cpp
+)
+target_link_libraries(syn_sig_ra_scenario_schema PRIVATE syn_sig_ra_core)
 
 add_executable(syn_sig_ra_worker
     src/worker/main.cpp
@@ -323,6 +329,11 @@ if(BUILD_TESTING)
     )
     target_link_libraries(syn_sig_ra_lab_preview_test PRIVATE syn_sig_ra_core)
 
+    add_executable(syn_sig_ra_scenario_schema_test
+        test/unit/scenario_schema_test.cpp
+    )
+    target_link_libraries(syn_sig_ra_scenario_schema_test PRIVATE syn_sig_ra_core)
+
     add_executable(syn_sig_ra_artifact_delivery_test
         test/unit/artifact_delivery_test.cpp
     )
@@ -340,6 +351,18 @@ if(BUILD_TESTING)
     add_test(NAME metadata_schema_unit COMMAND syn_sig_ra_metadata_schema_test)
     add_test(NAME signal_viewer_unit COMMAND syn_sig_ra_signal_viewer_test)
     add_test(NAME lab_preview_unit COMMAND syn_sig_ra_lab_preview_test)
+    add_test(NAME scenario_schema_unit COMMAND syn_sig_ra_scenario_schema_test)
+    add_test(
+        NAME curated_scenario_schema
+        COMMAND syn_sig_ra_scenario_schema --check
+            "${CMAKE_CURRENT_SOURCE_DIR}/packs/scenarios"
+    )
+    add_test(
+        NAME curated_scenario_source_alignment
+        COMMAND syn_sig_ra_scenario_schema --compare-source
+            "${SIGNAL_SYNTH_ROOT}/examples/scenarios"
+            "${CMAKE_CURRENT_SOURCE_DIR}/packs/scenarios"
+    )
     add_test(
         NAME artifact_delivery_unit COMMAND syn_sig_ra_artifact_delivery_test)
     find_program(NODE_EXECUTABLE NAMES node nodejs)

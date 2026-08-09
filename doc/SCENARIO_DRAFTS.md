@@ -23,7 +23,7 @@ Create or replace a draft:
   "name": "My synthetic ECG",
   "target_intent": ["r_peak"],
   "scenario": {
-    "schema_version": 2
+    "schema_version": 9
   }
 }
 ```
@@ -34,9 +34,11 @@ this goal, shows compatible templates and curated cases, and saves it beside
 the canonical draft. Custom pack composition inherits the union of the selected
 draft intents; an Advanced override remains available for deliberate expert use.
 
-The `scenario` object must follow the authoritative `signal_synth` scenario
-schema. Valid documents are canonicalized and receive a SHA-256 document
-fingerprint. Invalid documents are still saved as editable drafts and return
+The `scenario` object must use the single current scenario schema (version 9).
+Fetch a complete document from `/v1/authoring/templates` rather than building
+one from this abbreviated example. Older versions are rejected instead of
+being retained as compatibility variants. Valid documents are canonicalized
+and receive a SHA-256 document fingerprint. Invalid documents are still saved as editable drafts and return
 HTTP 422 with `code`, JSON `path`, and `message` validation entries plus the
 new or updated draft ID.
 
@@ -50,8 +52,8 @@ single draft plus selected targets and returns scoreable/reference-only
 targets, channel count, sample count, estimated package size, peak memory, and
 compatibility messages. Validation paths focus the corresponding form control
 where possible. Advanced JSON remains synchronized for expert use. The
-curated-scenario route returns source scenario JSON for clone/fork into an
-editable draft. **Show all starting points** and **Advanced JSON editor** keep
+curated-scenario route returns scenario JSON normalized to version 9 for
+clone/fork into an editable draft. **Show all starting points** and **Advanced JSON editor** keep
 the complete core feature set available when the guided recommendations are too
 narrow. Missing PPG, HRV duration/modulation, artifact, and morphology
 requirements can be applied to the current draft in one action before preview.

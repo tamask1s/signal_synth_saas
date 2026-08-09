@@ -2,6 +2,7 @@
 
 #include "syn_sig_ra/metadata_store.h"
 #include "syn_sig_ra/runtime_config.h"
+#include "syn_sig_ra/scenario_schema.h"
 #include "syn_sig_ra/sha256.h"
 
 #include <unistd.h>
@@ -272,7 +273,8 @@ int main() {
             ui_js.body.find("loadAuthoring") != std::string::npos &&
             ui_js.body.find("loadVerifierDownloads") != std::string::npos &&
             ui_js.body.find("jobsNextOffset") != std::string::npos &&
-            ui_js.body.find("cleanEcgTemplate") != std::string::npos &&
+            ui_js.body.find("ecg_rpeak_clean") != std::string::npos &&
+            ui_js.body.find("cleanEcgTemplate") == std::string::npos &&
             ui_js.body.find("Verification kit ZIP") != std::string::npos &&
             ui_js.body.find("Advanced artifact downloads") != std::string::npos &&
             ui_js.body.find("prepareVerificationKit") != std::string::npos &&
@@ -829,6 +831,9 @@ int main() {
     require(
         authoring_schema.status == 200 &&
             authoring_schema.body.find("synsigra_authoring") != std::string::npos &&
+            authoring_schema.body.find(
+                "\"supported_scenario_schema_versions\":[9]") !=
+                std::string::npos &&
             authoring_schema.body.find("\"targets\"") != std::string::npos,
         "authenticated caller should read core authoring schema"
     );
@@ -842,11 +847,17 @@ int main() {
         );
     require(
         authoring_templates.status == 200 &&
-            authoring_templates.body.find("ecg_rpeak_clean") != std::string::npos,
-        "authenticated caller should read core authoring templates"
+            authoring_templates.body.find("ecg_rpeak_clean") != std::string::npos &&
+            authoring_templates.body.find(
+                "\"schema_version\":9") !=
+                std::string::npos &&
+            authoring_templates.body.find(
+                "\"scenario\":{\"schema_version\":2") ==
+                std::string::npos,
+        "authenticated caller should read current-schema authoring templates"
     );
-    const std::string preview_request =
-        "{\"scenario\":{\"schema_version\":2,\"scenario_id\":\"preview_case\","
+    const std::string old_preview_scenario =
+        "{\"schema_version\":2,\"scenario_id\":\"preview_case\","
         "\"name\":\"Preview\",\"description\":\"\",\"author\":\"Synsigra\","
         "\"tags\":[\"preview\"],\"duration_seconds\":10,"
         "\"sample_rate_hz\":500,\"seed\":12345,\"ecg\":{"
@@ -864,8 +875,30 @@ int main() {
         "\"rise_time_ms\":120,\"decay_time_ms\":300,"
         "\"amplitude_au\":1,\"baseline_au\":0,"
         "\"dicrotic_delay_ms\":180,\"dicrotic_width_ms\":80,"
-        "\"dicrotic_amplitude_ratio\":0.15}},"
-        "\"targets\":[\"r_peak\"]}";
+        "\"dicrotic_amplitude_ratio\":0.15}}";
+    const syn_sig_ra::RouteResponse old_preview =
+        syn_sig_ra::route_request(
+            "POST", "/syn_sig_ra/v1/authoring/preview", "/syn_sig_ra",
+            "Bearer route-test-key", &store, "", "application/json",
+            "{\"scenario\":" + old_preview_scenario +
+                ",\"targets\":[\"r_peak\"]}");
+    require(
+        old_preview.status == 422 &&
+            old_preview.body.find("scenario_schema_outdated") !=
+                std::string::npos,
+        "authoring should reject retired scenario schema versions"
+    );
+    std::string current_preview_scenario;
+    std::vector<std::string> normalization_messages;
+    require(
+        syn_sig_ra::normalize_current_scenario_json(
+            old_preview_scenario, current_preview_scenario,
+            normalization_messages),
+        "test preview should normalize to the current scenario schema"
+    );
+    const std::string preview_request =
+        "{\"scenario\":" + current_preview_scenario +
+        ",\"targets\":[\"r_peak\"]}";
     const syn_sig_ra::RouteResponse preview =
         syn_sig_ra::route_request(
             "POST",

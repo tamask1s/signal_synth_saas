@@ -1,6 +1,7 @@
 #include "syn_sig_ra/lab_preview.h"
 
 #include "syn_sig_ra/random_id.h"
+#include "syn_sig_ra/scenario_schema.h"
 #include "syn_sig_ra/signal_viewer.h"
 #include "ecg_export.h"
 #include "ecg_render.h"
@@ -347,6 +348,12 @@ LabPreviewStatus create_lab_preview(
                  parsed.messages.begin(); it != parsed.messages.end(); ++it) {
             validation_messages.push_back(it->path + ": " + it->message);
         }
+        return LabPreviewStatus::invalid_scenario;
+    }
+    if (document.schema_version != kCurrentScenarioSchemaVersion) {
+        validation_messages.push_back(
+            "$.schema_version: only the current scenario schema version 9 is accepted");
+        error = "Lab preview scenario schema is outdated";
         return LabPreviewStatus::invalid_scenario;
     }
     const unsigned int sample_rate = document.ecg.sampling_rate_hz();

@@ -11,7 +11,7 @@ The pinned core reports:
 
 - authoring metadata `synsigra_authoring_v18`;
 - templates `synsigra_templates_v5`;
-- scenario schemas 2 through 9 (latest 9);
+- one product-wide scenario schema: version 9;
 - 142 configurable authoring fields in 18 groups;
 - 71 condition definitions with explicit fidelity support;
 - 20 analytic artifact families;
