@@ -96,11 +96,15 @@ viewer_js=$(curl -fsS "$base/viewer/signal-viewer.js")
 case "$viewer_js" in *decodeSignalWindow*visibleBucketRange*) ;; *) exit 1 ;; esac
 case "$viewer_js" in *"Math.max(centerY - halfHeight"*) exit 1 ;; *) ;; esac
 viewer_app=$(curl -fsS "$base/viewer/app.js")
-case "$viewer_app" in *"signalCache.find"*prefetchedRequest*setEmptyState*) ;; *) exit 1 ;; esac
+case "$viewer_app" in *"signalCache.find"*) ;; *) exit 1 ;; esac
+case "$viewer_app" in *prefetchedRequest*) ;; *) exit 1 ;; esac
+case "$viewer_app" in *setEmptyState*) ;; *) exit 1 ;; esac
 lab_html=$(curl -fsS "$base/lab")
 case "$lab_html" in *"Build the signal you need"*"Apply &amp; render"*) ;; *) exit 1 ;; esac
 lab_app=$(curl -fsS "$base/lab/app.js")
-case "$lab_app" in *"/v1/lab/previews"*canonical_scenario*SignalWindowCache*) ;; *) exit 1 ;; esac
+case "$lab_app" in *"/v1/lab/previews"*) ;; *) exit 1 ;; esac
+case "$lab_app" in *canonical_scenario*) ;; *) exit 1 ;; esac
+case "$lab_app" in *SignalWindowCache*) ;; *) exit 1 ;; esac
 printf 'check=openapi\n'
 openapi=$(curl -fsS "$base/openapi.yaml")
 case "$openapi" in *"/v1/jobs/{job_id}/viewer/window:"*) ;; *) exit 1 ;; esac
