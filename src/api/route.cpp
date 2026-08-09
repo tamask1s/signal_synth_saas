@@ -5,6 +5,8 @@
 #include "syn_sig_ra/build_info.h"
 #include "syn_sig_ra/core_contract.h"
 #include "syn_sig_ra/job_request.h"
+#include "syn_sig_ra/lab_assets.h"
+#include "syn_sig_ra/lab_preview.h"
 #include "syn_sig_ra/mcp_server.h"
 #include "syn_sig_ra/metadata_store.h"
 #include "syn_sig_ra/openapi_document.h"
@@ -905,6 +907,80 @@ std::string signal_viewer_overlay_json(
     return output;
 }
 
+std::string lab_preview_json(
+    const syn_sig_ra::LabPreview& preview,
+    const std::string& public_base_path
+) {
+    json_t* root = json_object();
+    json_object_set_new(root, "schema_version", json_integer(1));
+    json_object_set_new(
+        root, "preview_id", json_string(preview.preview_id.c_str()));
+    json_object_set_new(root, "case_id", json_string(preview.case_id.c_str()));
+    json_error_t parse_error;
+    json_t* canonical = json_loads(
+        preview.canonical_scenario_json.c_str(), JSON_REJECT_DUPLICATES,
+        &parse_error);
+    json_t* resolved = json_loads(
+        preview.resolved_scenario_json.c_str(), JSON_REJECT_DUPLICATES,
+        &parse_error);
+    json_object_set_new(
+        root, "canonical_scenario",
+        canonical == nullptr ? json_null() : canonical);
+    json_object_set_new(
+        root, "resolved_scenario",
+        resolved == nullptr ? json_null() : resolved);
+    json_object_set_new(
+        root, "document_fingerprint",
+        json_string(preview.document_fingerprint.c_str()));
+    json_object_set_new(
+        root, "resolved_document_fingerprint",
+        json_string(preview.resolved_document_fingerprint.c_str()));
+    json_object_set_new(
+        root, "render_identity", json_string(preview.render_identity.c_str()));
+    json_object_set_new(
+        root, "created_at", json_string(preview.created_at.c_str()));
+    json_object_set_new(
+        root, "expires_at", json_string(preview.expires_at.c_str()));
+    json_object_set_new(
+        root, "duration_seconds", json_real(preview.duration_seconds));
+    json_object_set_new(
+        root, "sample_rate_hz", json_integer(preview.sample_rate_hz));
+    json_object_set_new(
+        root, "sample_count",
+        json_integer(static_cast<json_int_t>(preview.sample_count)));
+    json_object_set_new(
+        root, "viewer_url",
+        json_string((public_base_path + "/v1/lab/previews/" +
+            preview.preview_id + "/viewer").c_str()));
+    json_t* generator = json_object();
+    json_object_set_new(
+        generator, "version", json_string(preview.generator_version.c_str()));
+    json_object_set_new(
+        generator, "git_commit",
+        json_string(preview.generator_git_commit.c_str()));
+    json_object_set_new(
+        generator, "build_identity",
+        json_string(preview.generator_build_identity.c_str()));
+    json_object_set_new(root, "generator", generator);
+    json_t* lifecycle = json_object();
+    json_object_set_new(
+        lifecycle, "durable", json_boolean(false));
+    json_object_set_new(
+        lifecycle, "ttl_seconds",
+        json_integer(syn_sig_ra::lab_preview_ttl_seconds()));
+    json_object_set_new(
+        lifecycle, "maximum_duration_seconds",
+        json_integer(syn_sig_ra::lab_preview_maximum_duration_seconds()));
+    json_object_set_new(
+        lifecycle, "maximum_samples",
+        json_integer(static_cast<json_int_t>(
+            syn_sig_ra::lab_preview_maximum_samples())));
+    json_object_set_new(root, "lifecycle", lifecycle);
+    const std::string encoded = json_dump_line(root);
+    json_decref(root);
+    return encoded;
+}
+
 json_t* project_json_object(const syn_sig_ra::ProjectRecord& project) {
     json_t* root = json_object();
     json_object_set_new(
@@ -1588,7 +1664,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
       <a href="/syn_sig_ra/packs" data-nav-page="packs">Packs</a>
       <a href="/syn_sig_ra/generate" data-nav-page="generate">Generate</a>
       <a href="/syn_sig_ra/jobs" data-nav-page="jobs">Jobs</a>
-      <a href="/syn_sig_ra/viewer" data-no-spa>Lab</a>
+      <a href="/syn_sig_ra/lab" data-no-spa>Lab</a>
       <a href="/syn_sig_ra/verify" data-nav-page="verify">Verify</a>
     </nav>
     <a id="header-account-link" class="profile-link" href="/syn_sig_ra/account" data-nav-page="account">
@@ -1622,6 +1698,7 @@ const char kUiHtml[] = R"HTML(<!doctype html>
         <a href="/syn_sig_ra/viewer" data-no-spa>View signals</a>
         <a href="/syn_sig_ra/verify" data-nav-page="verify">Verify locally</a>
         <div class="side-nav-title section-title">Build custom tests</div>
+        <a href="/syn_sig_ra/lab" data-no-spa>Synsigra Lab</a>
         <a href="/syn_sig_ra/scenarios" data-nav-page="scenarios">Scenario editor</a>
         <a href="/syn_sig_ra/custom-packs" data-nav-page="custom-packs">Custom packs</a>
         <div class="side-nav-title section-title">AI integration</div>
@@ -1646,10 +1723,10 @@ const char kUiHtml[] = R"HTML(<!doctype html>
               <strong>Use a curated challenge</strong>
               <span>Pick by algorithm target, difficulty, scoring mode, and recommended use.</span>
             </a>
-            <a class="step-card" href="/syn_sig_ra/scenarios">
+            <a class="step-card" href="/syn_sig_ra/lab" data-no-spa>
               <span class="step-number">2</span>
-              <strong>Edit or clone a scenario</strong>
-              <span>Start from a template or curated case, then validate before composing a pack.</span>
+              <strong>Build and preview a case</strong>
+              <span>Combine physiology, ectopy, noise and PPG, then inspect the real waveform before saving.</span>
             </a>
             <a class="step-card" href="/syn_sig_ra/custom-packs">
               <span class="step-number">3</span>
@@ -2201,6 +2278,9 @@ const char kApiDocsHtml[] = R"HTML(<!doctype html>
           <tr><td>GET</td><td><code>/v1/authoring/templates</code></td><td>Core scenario templates</td><td>Authenticated</td></tr>
           <tr><td>POST</td><td><code>/v1/authoring/preview</code></td><td>Preview scenario package analysis</td><td>Authenticated</td></tr>
           <tr><td>GET</td><td><code>/v1/authoring/curated-scenarios/{pack_id}/{case_id}</code></td><td>Clone curated scenario JSON into a draft</td><td>Authenticated</td></tr>
+          <tr><td>POST</td><td><code>/v1/lab/previews</code></td><td>Render a bounded, short-lived case waveform preview</td><td>Authenticated writer</td></tr>
+          <tr><td>GET/DELETE</td><td><code>/v1/lab/previews/{preview_id}</code></td><td>Read exact preview provenance or discard it</td><td>Authenticated owner</td></tr>
+          <tr><td>GET</td><td><code>/v1/lab/previews/{preview_id}/viewer[/window|/overlays]</code></td><td>Describe/read the preview through the reusable binary viewer API</td><td>Authenticated owner</td></tr>
           <tr><td>GET/POST/PUT/DELETE</td><td><code>/v1/scenarios</code></td><td>Scenario draft lifecycle</td><td>Authenticated</td></tr>
           <tr><td>GET/POST/DELETE</td><td><code>/v1/custom-packs</code></td><td>Compose/list/hide custom packs</td><td>Authenticated</td></tr>
           <tr><td>GET/POST</td><td><code>/v1/jobs</code></td><td>List/create jobs; send <code>Idempotency-Key</code> on creation</td><td>Authenticated</td></tr>
@@ -3793,7 +3873,8 @@ const char kUiJs[] = R"JS((() => {
 
   function renderPackOptions() {
     const select = $("pack-select");
-    const selected = select.value;
+    const requested = queryParam("pack_id");
+    const selected = requested || select.value;
     select.innerHTML = "";
     [...state.packs, ...state.customPacks].forEach((pack) => {
       const option = document.createElement("option");
@@ -5288,6 +5369,8 @@ const char kUiJs[] = R"JS((() => {
 
   function renderPackScenarioOptions() {
     const selected = new Set(selectedCustomPackScenarioIds());
+    const requested = queryParam("scenario_id");
+    if (requested) selected.add(requested);
     $("pack-scenario-options").innerHTML = state.scenarios.map((draft) => `
       <label class="card" data-scenario-option data-search-text="${escapeHtml([
         draft.name,
@@ -6365,6 +6448,10 @@ const char kUiJs[] = R"JS((() => {
       state.pendingVerificationEmail = "";
       renderAuthState();
       await refreshAuthenticatedData();
+      if (queryParam("next") === "lab") {
+        window.location.href = `${base}/lab`;
+        return;
+      }
       const destination = safeNextPage(queryParam("next")) || "workspace";
       navigateTo(destination);
       showToast(`Welcome back, ${account.display_name}.`);
@@ -7030,6 +7117,7 @@ bool route_requires_authentication(
            path_at_or_below(uri, public_base_path + "/v1/account") ||
            path_at_or_below(uri, public_base_path + "/v1/api-keys") ||
            path_at_or_below(uri, public_base_path + "/v1/downloads") ||
+           path_at_or_below(uri, public_base_path + "/v1/lab") ||
            path_at_or_below(uri, public_base_path + "/v1/authoring") ||
            path_at_or_below(uri, public_base_path + "/v1/scenarios") ||
            path_at_or_below(uri, public_base_path + "/v1/custom-packs");
@@ -7151,6 +7239,36 @@ RouteResponse route_request(
             response.content_type = "application/javascript; charset=utf-8";
             response.cache_control = "public, max-age=300";
             response.body = kViewerAppJs;
+        }
+        return response;
+    }
+
+    const std::string lab_page_path = public_base_path + "/lab";
+    if (uri == lab_page_path || uri == lab_page_path + "/" ||
+        uri == lab_page_path + "/style.css" ||
+        uri == lab_page_path + "/app.js") {
+        if (method != "GET") {
+            return json_response(
+                405,
+                "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Synsigra Lab assets only accept GET.\"}}\n"
+            );
+        }
+        RouteResponse response;
+        response.disposition = RouteDisposition::handled;
+        response.status = 200;
+        if (uri == lab_page_path || uri == lab_page_path + "/") {
+            response.content_type = "text/html; charset=utf-8";
+            response.cache_control = "no-store";
+            response.body = replace_all(kLabHtml, "__SYNSIGRA_BASE__", public_base_path);
+        } else if (uri == lab_page_path + "/style.css") {
+            response.content_type = "text/css; charset=utf-8";
+            response.cache_control = "public, max-age=300";
+            response.body = kLabCss;
+        } else {
+            response.content_type = "application/javascript; charset=utf-8";
+            response.cache_control = "public, max-age=300";
+            response.body = kLabAppJs;
         }
         return response;
     }
@@ -7880,9 +7998,13 @@ RouteResponse route_request(
                 return response;
             }
             std::string cleanup_error;
-            const bool cleaned = purge_account_storage(
+            const bool artifact_cleaned = purge_account_storage(
                 data_root, deleted.package_ids, deleted.job_ids,
                 deleted.custom_pack_ids, cleanup_error);
+            std::string lab_cleanup_error;
+            const bool lab_cleaned = discard_lab_previews_for_user(
+                data_root, authenticated_identity, lab_cleanup_error);
+            const bool cleaned = artifact_cleaned && lab_cleaned;
             json_t* body = json_object();
             json_object_set_new(body, "status", json_string("deleted"));
             json_object_set_new(
@@ -7900,7 +8022,8 @@ RouteResponse route_request(
                 "Secure; HttpOnly; SameSite=Lax";
             if (!cleaned) {
                 response.internal_error =
-                    "account deleted; artifact cleanup failed: " + cleanup_error;
+                    "account deleted; workspace cleanup failed: " +
+                    cleanup_error + " " + lab_cleanup_error;
             }
             return response;
         }
@@ -8274,6 +8397,322 @@ RouteResponse route_request(
             404,
             "{\"error\":{\"code\":\"authoring_route_not_found\","
             "\"message\":\"The requested authoring endpoint does not exist.\"}}\n"
+        );
+    }
+
+    const std::string lab_previews_path =
+        public_base_path + "/v1/lab/previews";
+    if (path_at_or_below(uri, lab_previews_path)) {
+        const bool collection = uri == lab_previews_path;
+        if (collection) {
+            if (method != "POST") {
+                return json_response(
+                    405,
+                    "{\"error\":{\"code\":\"method_not_allowed\","
+                    "\"message\":\"Lab preview collection only accepts POST.\"}}\n"
+                );
+            }
+            if (authenticated_identity.role == "viewer") {
+                return json_response(
+                    403,
+                    "{\"error\":{\"code\":\"forbidden\","
+                    "\"message\":\"Viewer role cannot render Lab previews.\"}}\n"
+                );
+            }
+            if (!is_json_content_type(content_type)) {
+                return json_response(
+                    415,
+                    "{\"error\":{\"code\":\"unsupported_media_type\","
+                    "\"message\":\"Content-Type must be application/json.\"}}\n"
+                );
+            }
+            json_error_t parse_error;
+            json_t* submitted = json_loadb(
+                request_body.data(), request_body.size(),
+                JSON_REJECT_DUPLICATES, &parse_error);
+            RouteResponse preflight = authoring_preview_response(submitted);
+            if (preflight.status != 200) {
+                if (submitted != nullptr) json_decref(submitted);
+                return preflight;
+            }
+            json_t* analysis = json_loads(
+                preflight.body.c_str(), JSON_REJECT_DUPLICATES, &parse_error);
+            const bool compatible = json_is_object(analysis) &&
+                json_is_true(json_object_get(analysis, "success"));
+            if (!compatible) {
+                json_t* root = json_object();
+                json_t* error = json_object();
+                json_object_set_new(
+                    error, "code", json_string("lab_scenario_incompatible"));
+                json_object_set_new(
+                    error, "message",
+                    json_string(
+                        "Fix target compatibility before rendering this Lab case."));
+                json_object_set_new(root, "error", error);
+                json_object_set_new(
+                    root, "analysis", analysis == nullptr ? json_null() : analysis);
+                const std::string body = json_dump_line(root);
+                json_decref(root);
+                if (submitted != nullptr) json_decref(submitted);
+                return json_response(422, body);
+            }
+            json_decref(analysis);
+            json_t* scenario = json_object_get(submitted, "scenario");
+            char* scenario_text = json_dumps(
+                scenario, JSON_COMPACT | JSON_SORT_KEYS);
+            if (scenario_text == nullptr) {
+                json_decref(submitted);
+                return json_response(
+                    400,
+                    "{\"error\":{\"code\":\"invalid_lab_scenario\","
+                    "\"message\":\"Scenario could not be encoded.\"}}\n"
+                );
+            }
+            LabPreview preview;
+            std::vector<std::string> validation_messages;
+            std::string error;
+            const LabPreviewStatus status = create_lab_preview(
+                data_root, authenticated_identity, scenario_text,
+                preview, validation_messages, error);
+            free(scenario_text);
+            json_decref(submitted);
+            if (status == LabPreviewStatus::ok) {
+                RouteResponse response = json_response(
+                    201, lab_preview_json(preview, public_base_path));
+                response.cache_control = "private, no-store";
+                record_nonblocking_audit(
+                    *metadata_store, authenticated_identity,
+                    "lab.preview.rendered", "lab_preview", preview.preview_id,
+                    "{\"durable\":false}", response);
+                return response;
+            }
+            if (status == LabPreviewStatus::busy) {
+                return json_response(
+                    429,
+                    "{\"error\":{\"code\":\"lab_preview_busy\","
+                    "\"message\":\"A preview is already rendering or was just requested. Try Apply again in a moment.\"}}\n"
+                );
+            }
+            if (status == LabPreviewStatus::limit_exceeded) {
+                return json_response(
+                    422,
+                    "{\"error\":{\"code\":\"lab_preview_limit\","
+                    "\"message\":\"Lab previews are limited to 5 minutes and 300,000 samples. Use a generation job for larger data.\"}}\n"
+                );
+            }
+            if (status == LabPreviewStatus::invalid_scenario) {
+                json_t* root = json_object();
+                json_t* value = json_object();
+                json_object_set_new(
+                    value, "code", json_string("lab_render_rejected"));
+                json_object_set_new(
+                    value, "message",
+                    json_string("The generator rejected this Lab preview."));
+                json_object_set_new(root, "error", value);
+                json_t* messages = json_array();
+                for (std::vector<std::string>::const_iterator item =
+                         validation_messages.begin();
+                     item != validation_messages.end(); ++item) {
+                    json_array_append_new(
+                        messages, json_string(item->c_str()));
+                }
+                json_object_set_new(root, "details", messages);
+                const std::string body = json_dump_line(root);
+                json_decref(root);
+                RouteResponse response = json_response(422, body);
+                response.internal_error = error;
+                return response;
+            }
+            RouteResponse response = json_response(
+                503,
+                "{\"error\":{\"code\":\"lab_preview_unavailable\","
+                "\"message\":\"The Lab preview could not be prepared.\"}}\n"
+            );
+            response.internal_error = error;
+            return response;
+        }
+
+        const std::string relative =
+            uri.substr(lab_previews_path.size() + 1);
+        const std::string::size_type separator = relative.find('/');
+        const std::string preview_id = relative.substr(0, separator);
+        const std::string action = separator == std::string::npos
+            ? std::string() : relative.substr(separator + 1);
+        if (action.find('/') != std::string::npos &&
+            action != "viewer/window" && action != "viewer/overlays") {
+            return json_response(
+                404,
+                "{\"error\":{\"code\":\"lab_route_not_found\","
+                "\"message\":\"The requested Lab preview endpoint does not exist.\"}}\n"
+            );
+        }
+        std::string error;
+        if (action.empty() && method == "DELETE") {
+            const LabPreviewStatus discarded = discard_lab_preview(
+                data_root, authenticated_identity, preview_id, error);
+            if (discarded == LabPreviewStatus::not_found) {
+                return json_response(
+                    404,
+                    "{\"error\":{\"code\":\"lab_preview_not_found\","
+                    "\"message\":\"The Lab preview has expired or does not exist.\"}}\n"
+                );
+            }
+            if (discarded != LabPreviewStatus::ok) {
+                RouteResponse response = json_response(
+                    discarded == LabPreviewStatus::invalid_request ? 400 : 503,
+                    "{\"error\":{\"code\":\"lab_preview_delete_failed\","
+                    "\"message\":\"The Lab preview could not be discarded.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            return json_response(
+                200, "{\"preview_id\":\"" + preview_id +
+                "\",\"status\":\"discarded\"}\n");
+        }
+        if (method != "GET") {
+            return json_response(
+                405,
+                "{\"error\":{\"code\":\"method_not_allowed\","
+                "\"message\":\"Lab preview resources accept GET or DELETE.\"}}\n"
+            );
+        }
+        LabPreview preview;
+        std::string viewer_root;
+        const LabPreviewStatus loaded = load_lab_preview(
+            data_root, authenticated_identity, preview_id,
+            preview, viewer_root, error);
+        if (loaded == LabPreviewStatus::not_found) {
+            return json_response(
+                404,
+                "{\"error\":{\"code\":\"lab_preview_not_found\","
+                "\"message\":\"The Lab preview has expired or does not exist.\"}}\n"
+            );
+        }
+        if (loaded != LabPreviewStatus::ok) {
+            RouteResponse response = json_response(
+                loaded == LabPreviewStatus::invalid_request ? 400 : 503,
+                "{\"error\":{\"code\":\"lab_preview_unavailable\","
+                "\"message\":\"The Lab preview is unavailable.\"}}\n"
+            );
+            response.internal_error = error;
+            return response;
+        }
+        if (action.empty()) {
+            RouteResponse response = json_response(
+                200, lab_preview_json(preview, public_base_path));
+            response.cache_control = "private, no-store";
+            return response;
+        }
+        if (action == "viewer") {
+            SignalViewerSource source;
+            const SignalViewerStatus viewer_status =
+                describe_signal_viewer_source(viewer_root, source, error);
+            if (viewer_status != SignalViewerStatus::ok) {
+                RouteResponse response = json_response(
+                    503,
+                    "{\"error\":{\"code\":\"lab_viewer_unavailable\","
+                    "\"message\":\"The Lab signal source is unavailable.\"}}\n"
+                );
+                response.internal_error = error;
+                return response;
+            }
+            RouteResponse response = json_response(
+                200, signal_viewer_source_json(
+                    source, preview.preview_id, preview.preview_id));
+            response.cache_control = "private, no-store";
+            return response;
+        }
+        if (action == "viewer/overlays") {
+            SignalViewerOverlayRequest request;
+            std::string case_id;
+            unsigned long long start_sample = 0;
+            unsigned long long sample_count = 0;
+            int max_items = 4000;
+            if (!query_value(query_string, "case_id", case_id) ||
+                !query_unsigned_long_long(
+                    query_string, "start_sample", 0, false, start_sample) ||
+                !query_unsigned_long_long(
+                    query_string, "sample_count", 0, true, sample_count) ||
+                !query_integer(
+                    query_string, "max_items", 4000, max_items) ||
+                max_items < 1 || max_items > 10000) {
+                return json_response(
+                    400,
+                    "{\"error\":{\"code\":\"invalid_lab_overlay_window\","
+                    "\"message\":\"Provide a valid bounded overlay window.\"}}\n"
+                );
+            }
+            request.case_id = case_id;
+            request.start_sample = start_sample;
+            request.sample_count = sample_count;
+            request.max_items = static_cast<unsigned int>(max_items);
+            SignalViewerOverlayWindow window;
+            const SignalViewerStatus status = read_signal_viewer_overlays(
+                viewer_root, request, window, error);
+            if (status == SignalViewerStatus::ok) {
+                RouteResponse response = json_response(
+                    200, signal_viewer_overlay_json(window));
+                response.cache_control = "private, no-store";
+                return response;
+            }
+            RouteResponse response = json_response(
+                status == SignalViewerStatus::invalid_request ? 400 : 503,
+                "{\"error\":{\"code\":\"lab_overlay_unavailable\","
+                "\"message\":\"The requested Lab overlay window is unavailable.\"}}\n"
+            );
+            response.internal_error = error;
+            return response;
+        }
+        if (action == "viewer/window") {
+            SignalViewerWindowRequest request;
+            std::string case_id;
+            unsigned long long start_sample = 0;
+            unsigned long long sample_count = 0;
+            int points = 2048;
+            if (!query_value(query_string, "case_id", case_id) ||
+                !query_unsigned_long_long(
+                    query_string, "start_sample", 0, false, start_sample) ||
+                !query_unsigned_long_long(
+                    query_string, "sample_count", 0, true, sample_count) ||
+                !query_integer(query_string, "points", 2048, points) ||
+                points < 1 || points > 16384 ||
+                !query_channel_indices(
+                    query_string, request.channel_indices)) {
+                return json_response(
+                    400,
+                    "{\"error\":{\"code\":\"invalid_lab_viewer_window\","
+                    "\"message\":\"Provide a valid bounded signal window and channel selection.\"}}\n"
+                );
+            }
+            request.case_id = case_id;
+            request.start_sample = start_sample;
+            request.sample_count = sample_count;
+            request.max_points = static_cast<unsigned int>(points);
+            SignalViewerWindow window;
+            const SignalViewerStatus status = read_signal_viewer_window(
+                viewer_root, request, window, error);
+            if (status == SignalViewerStatus::ok) {
+                RouteResponse response;
+                response.disposition = RouteDisposition::handled;
+                response.status = 200;
+                response.content_type = signal_viewer_binary_content_type();
+                response.cache_control = "private, no-store";
+                response.body.swap(window.binary);
+                return response;
+            }
+            RouteResponse response = json_response(
+                status == SignalViewerStatus::invalid_request ? 400 : 503,
+                "{\"error\":{\"code\":\"lab_viewer_window_unavailable\","
+                "\"message\":\"The requested Lab signal window is unavailable.\"}}\n"
+            );
+            response.internal_error = error;
+            return response;
+        }
+        return json_response(
+            404,
+            "{\"error\":{\"code\":\"lab_route_not_found\","
+            "\"message\":\"The requested Lab preview endpoint does not exist.\"}}\n"
         );
     }
 

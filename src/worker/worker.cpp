@@ -1,5 +1,7 @@
 #include "syn_sig_ra/worker.h"
 
+#include "syn_sig_ra/lab_preview.h"
+
 #include "syn_sig_ra/artifact_store.h"
 #include "syn_sig_ra/core_contract.h"
 #include "syn_sig_ra/metadata_store.h"
@@ -20,6 +22,7 @@
 #include <cerrno>
 #include <algorithm>
 #include <chrono>
+#include <ctime>
 #include <cstdlib>
 #include <fstream>
 #include <climits>
@@ -769,6 +772,13 @@ WorkerRunStatus run_worker_once(
 ) {
     error.clear();
     job_id.clear();
+    static std::time_t last_lab_cleanup = 0;
+    const std::time_t now = std::time(nullptr);
+    if (now - last_lab_cleanup >= 60) {
+        std::string cleanup_error;
+        cleanup_expired_lab_previews(config.data_root, cleanup_error);
+        last_lab_cleanup = now;
+    }
     CoreIntegrationContract current_producer;
     if (!validate_core_integration(
             config.signal_synth_cli, current_producer, error)) {

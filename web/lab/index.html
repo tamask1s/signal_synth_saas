@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07111f">
+  <title>Synsigra Lab · Build a signal case</title>
+  <link rel="icon" href="/assets/img/logo-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="__SYNSIGRA_BASE__/lab/style.css?v=1">
+</head>
+<body data-api-base="__SYNSIGRA_BASE__">
+  <header class="lab-header">
+    <a class="lab-brand" href="/" aria-label="Synsigra home">
+      <span class="lab-mark" aria-hidden="true">S</span>
+      <span><strong>Synsigra Lab</strong><small>Case builder</small></span>
+    </a>
+    <nav aria-label="Lab navigation">
+      <a class="active" href="__SYNSIGRA_BASE__/lab">Build a case</a>
+      <a href="__SYNSIGRA_BASE__/viewer">View packages</a>
+      <a href="__SYNSIGRA_BASE__/workspace">Workspace</a>
+      <a href="__SYNSIGRA_BASE__/account">Account</a>
+    </nav>
+  </header>
+
+  <main class="lab-shell">
+    <aside class="builder-panel" aria-label="Case settings">
+      <div class="panel-intro">
+        <p class="eyebrow">One case at a time</p>
+        <h1>Build the signal you need</h1>
+        <p>Start from a proven recipe, add physiology and interference, then render a short, real preview.</p>
+      </div>
+
+      <section class="builder-section" data-section="starting-point">
+        <div class="section-heading"><span>1</span><div><h2>Starting point</h2><p>Choose the closest signal; every setting stays editable.</p></div></div>
+        <label for="case-template">Recipe</label>
+        <select id="case-template" disabled><option>Loading core recipes…</option></select>
+        <p id="template-description" class="help-text"></p>
+      </section>
+
+      <section class="builder-section" data-section="basics">
+        <div class="section-heading"><span>2</span><div><h2>Case basics</h2><p>Set the time scale and resting rhythm.</p></div></div>
+        <div class="field-grid two">
+          <label>Case name<input id="case-name" type="text" maxlength="100" data-path="$.name"></label>
+          <label>Duration <span class="unit">seconds</span><input id="duration" type="number" min="0.01" max="300" step="1" data-path="$.duration_seconds"></label>
+          <label>Sample rate <span class="unit">Hz</span><select id="sample-rate" data-path="$.sample_rate_hz"><option>100</option><option>125</option><option>200</option><option>250</option><option>360</option><option>500</option><option>1000</option></select></label>
+          <label>Base heart rate <span class="unit">bpm</span><input id="heart-rate" type="number" min="10" max="400" step="1" data-path="$.ecg.heart_rate_bpm"></label>
+          <label>Natural beat variation <span class="unit">seconds</span><input id="rr-variation" type="number" min="0" max="2" step="0.005" data-path="$.ecg.rr_variability_seconds"></label>
+          <label>Reproducible seed<input id="case-seed" type="number" min="0" step="1" data-path="$.seed"></label>
+        </div>
+        <label class="switch-row"><input id="vary-heart-rate" type="checkbox"><span><strong>Randomize this case's base heart rate</strong><small>Choose one deterministic rate inside these bounds when the case is generated. For a change during the signal, add a rhythm episode below.</small></span></label>
+        <div id="heart-rate-range" class="field-grid two nested" hidden>
+          <label>Minimum <span class="unit">bpm</span><input id="heart-rate-min" type="number" min="10" max="400" step="1"></label>
+          <label>Maximum <span class="unit">bpm</span><input id="heart-rate-max" type="number" min="10" max="400" step="1"></label>
+        </div>
+      </section>
+
+      <section class="builder-section" data-section="hrv">
+        <div class="section-heading"><span>3</span><div><h2>Heart-rate dynamics</h2><p>Use spectral HRV when frequency-domain behaviour matters.</p></div></div>
+        <label class="switch-row"><input id="hrv-enabled" type="checkbox" data-path="$.hrv.enabled"><span><strong>Add spectral HRV</strong><small>Requires a five-minute case; Synsigra will extend shorter cases.</small></span></label>
+        <div id="hrv-settings" class="nested" hidden>
+          <div class="field-grid two">
+            <label>Mean heart rate <span class="unit">bpm</span><input id="hrv-mean" type="number" min="10" max="400" step="1" data-path="$.hrv.target_mean_hr_bpm"></label>
+            <label>SDNN target <span class="unit">ms</span><input id="hrv-sdnn" type="number" min="1" max="2000" step="1" data-path="$.hrv.target_sdnn_seconds"></label>
+            <label>VLF share <span class="unit">%</span><input id="hrv-vlf" type="number" min="0" max="100" step="1" data-path="$.hrv.vlf_power_fraction"></label>
+            <label>LF / HF ratio<input id="hrv-lfhf" type="number" min="0" max="100" step="0.1" data-path="$.hrv.lf_hf_ratio"></label>
+            <label>LF center <span class="unit">Hz</span><input id="hrv-lf" type="number" min="0.04" max="0.15" step="0.005" data-path="$.hrv.lf_center_hz"></label>
+            <label>HF center <span class="unit">Hz</span><input id="hrv-hf" type="number" min="0.15" max="0.4" step="0.005" data-path="$.hrv.hf_center_hz"></label>
+          </div>
+          <details><summary>Advanced HRV spectrum</summary><div id="hrv-advanced" class="field-grid two"></div></details>
+        </div>
+      </section>
+
+      <section class="builder-section" data-section="beats">
+        <div class="section-heading"><span>4</span><div><h2>Beats and rhythm</h2><p>Add premature beats, a timed rhythm change, or another supported ECG condition.</p></div></div>
+        <div class="field-grid two">
+          <label>Periodic ectopy<select id="ectopy-type"><option value="">None</option><option value="PAC">PAC · premature atrial</option><option value="PVC">PVC · premature ventricular</option></select></label>
+          <label>Every N beats<input id="ectopy-every" type="number" min="2" max="1000" step="1" value="5" disabled data-path="$.ecg.ectopic_every_n_beats"></label>
+          <label>Condition intensity <span class="unit">%</span><input id="ectopy-severity" type="range" min="1" max="100" step="1" value="80" disabled></label>
+          <output id="ectopy-severity-output" class="range-output">80%</output>
+        </div>
+        <label class="switch-row"><input id="rhythm-enabled" type="checkbox" data-path="$.ecg.rhythm_episodes"><span><strong>Add a rhythm episode</strong><small>Switch away from the baseline rhythm for a defined interval. The current generator does not combine an episode with periodic ectopy.</small></span></label>
+        <div id="rhythm-settings" class="nested" hidden>
+          <div class="field-grid two">
+            <label>Episode type<select id="rhythm-type" data-path="$.ecg.rhythm_episodes"><option value="afib">Atrial fibrillation</option><option value="psvt">PSVT</option><option value="svarr">Supraventricular arrhythmia</option><option value="vt">Ventricular tachycardia</option><option value="vf">Ventricular fibrillation</option><option value="asystole">Asystole</option></select></label>
+            <label>Episode rate <span class="unit">bpm</span><input id="rhythm-rate" type="number" min="10" max="400" step="1" data-path="$.ecg.rhythm_episodes"></label>
+            <label>Starts at <span class="unit">seconds</span><input id="rhythm-start" type="number" min="0" max="300" step="0.1" data-path="$.ecg.rhythm_episodes"></label>
+            <label>Lasts <span class="unit">seconds</span><input id="rhythm-duration" type="number" min="0.1" max="300" step="0.1" data-path="$.ecg.rhythm_episodes"></label>
+            <label>Transition <span class="unit">seconds</span><input id="rhythm-transition" type="number" min="0" max="150" step="0.05" data-path="$.ecg.rhythm_episodes"></label>
+          </div>
+          <p class="help-text">VF and asystole have no bpm value. Enabling an episode establishes a compatible sinus baseline and removes periodic ectopy.</p>
+        </div>
+        <label for="other-condition">Additional ECG condition</label>
+        <div class="inline-add"><select id="other-condition"><option value="">Choose from the core catalog…</option></select><button id="add-condition" type="button" class="secondary">Add</button></div>
+        <div id="condition-list" class="ingredient-list"></div>
+      </section>
+
+      <section class="builder-section" data-section="noise">
+        <div class="section-heading"><span>5</span><div><h2>Noise and artifacts</h2><p>Layer deterministic interference over all or part of the case.</p></div></div>
+        <div class="inline-add"><select id="noise-type"><option value="">Choose a noise type…</option></select><button id="add-noise" type="button" class="secondary">Add noise</button></div>
+        <div id="noise-list" class="ingredient-list"></div>
+      </section>
+
+      <section class="builder-section" data-section="ppg">
+        <div class="section-heading"><span>6</span><div><h2>PPG channel</h2><p>Add a synchronized optical pulse beside the ECG.</p></div></div>
+        <label class="switch-row"><input id="ppg-enabled" type="checkbox" data-path="$.ppg.enabled"><span><strong>Add PPG</strong><small>The preview will include every generated optical channel.</small></span></label>
+        <div id="ppg-settings" class="field-grid two nested" hidden>
+          <label>Pulse delay <span class="unit">ms</span><input id="ppg-delay" type="number" min="0" max="2000" step="1" data-path="$.ppg.pulse_delay_ms"></label>
+          <label>Amplitude <span class="unit">a.u.</span><input id="ppg-amplitude" type="number" min="0.0001" max="100" step="0.05" data-path="$.ppg.amplitude_au"></label>
+          <label>Rise time <span class="unit">ms</span><input id="ppg-rise" type="number" min="1" max="5000" step="1" data-path="$.ppg.rise_time_ms"></label>
+          <label>Decay time <span class="unit">ms</span><input id="ppg-decay" type="number" min="1" max="5000" step="1" data-path="$.ppg.decay_time_ms"></label>
+          <label>Missing pulse every N beats<input id="ppg-missing" type="number" min="0" max="1000" step="1" data-path="$.ppg.missing_pulse_every_n_beats"></label>
+          <label>Timing jitter <span class="unit">ms</span><input id="ppg-jitter" type="number" min="0" max="10000" step="1" data-path="$.ppg.pulse_delay_jitter_ms"></label>
+        </div>
+      </section>
+
+      <section class="builder-section compact-section" data-section="targets">
+        <div class="section-heading"><span>7</span><div><h2>What will this test?</h2><p>These outputs follow the case into a saved custom pack.</p></div></div>
+        <div id="target-list" class="target-list"></div>
+      </section>
+
+      <details id="advanced-json" class="advanced-json">
+        <summary>Advanced scenario JSON</summary>
+        <p>Every core field remains available. JSON edits round-trip into the human controls where represented.</p>
+        <textarea id="scenario-json" rows="18" spellcheck="false"></textarea>
+        <div class="actions"><button id="apply-json" type="button" class="secondary">Apply JSON</button><button id="format-json" type="button" class="text-button">Format</button></div>
+      </details>
+    </aside>
+
+    <section class="preview-stage" aria-labelledby="preview-heading">
+      <header class="preview-toolbar">
+        <div><p class="eyebrow">Real generator preview</p><h2 id="preview-heading">Your case will appear here</h2><p id="preview-summary">Adjust the ingredients, then choose Apply to render.</p></div>
+        <div class="apply-actions"><span id="validation-status" class="status-pill checking">Checking…</span><button id="render-preview" class="primary" type="button" disabled>Apply &amp; render</button></div>
+      </header>
+
+      <div id="validation-panel" class="validation-panel" role="status" aria-live="polite"></div>
+
+      <div class="viewer-card">
+        <div class="viewer-tools">
+          <div id="channel-list" class="channel-chips" aria-label="Visible channels"></div>
+          <div class="viewer-buttons">
+            <button id="amplitude-out" type="button" title="Reduce amplitude">Amplitude −</button><button id="amplitude-in" type="button" title="Increase amplitude">Amplitude +</button>
+          </div>
+        </div>
+        <div class="canvas-shell">
+          <canvas id="signal-canvas" aria-label="Rendered ECG and PPG signal preview"></canvas>
+          <div id="canvas-empty" class="canvas-empty"><strong>No preview yet</strong><span>Only an explicit Apply renders data.</span></div>
+        </div>
+        <div class="timeline-controls">
+          <button id="time-out" type="button" title="Show twice as much time">−</button>
+          <input id="position-slider" type="range" min="0" max="0" value="0" disabled aria-label="Preview position">
+          <button id="time-in" type="button" title="Show half as much time">+</button>
+        </div>
+        <div class="viewer-footer"><span id="viewport-label">—</span><span id="request-status">Idle</span></div>
+      </div>
+
+      <section id="provenance-card" class="provenance-card" hidden>
+        <div><p class="eyebrow">Reproducible result</p><h3>Preview ready</h3><p id="provenance-text"></p></div>
+        <details><summary>Exact resolved scenario and provenance</summary><pre id="resolved-scenario"></pre></details>
+      </section>
+
+      <div class="next-actions">
+        <div><h3>Keep this case</h3><p id="save-guidance">Render a valid preview first. Saving never uses unrendered edits.</p></div>
+        <button id="save-draft" type="button" class="secondary" disabled>Save draft</button>
+        <button id="continue-pack" type="button" class="primary" disabled>Save &amp; continue to pack</button>
+        <button id="build-pack" type="button" class="secondary" disabled>Create one-case test pack</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="__SYNSIGRA_BASE__/viewer/signal-viewer.js?v=5"></script>
+  <script src="__SYNSIGRA_BASE__/lab/app.js?v=1"></script>
+</body>
+</html>

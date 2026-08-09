@@ -104,6 +104,9 @@ int main() {
                 std::string::npos &&
             openapi.body.find("/v1/jobs/{job_id}/viewer/overlays:") !=
                 std::string::npos &&
+            openapi.body.find("/v1/lab/previews:") != std::string::npos &&
+            openapi.body.find("/v1/lab/previews/{preview_id}/viewer/window:") !=
+                std::string::npos &&
             openapi.body.find("application/vnd.synsigra.signal-window.v1") !=
                 std::string::npos,
         "live OpenAPI route should expose the complete embedded API contract"
@@ -233,6 +236,7 @@ int main() {
             docs_api.body.find("Rendered API reference") != std::string::npos &&
             docs_api.body.find("/v1/downloads/verifier") != std::string::npos &&
             docs_api.body.find("/v1/authoring/preview") != std::string::npos &&
+            docs_api.body.find("/v1/lab/previews") != std::string::npos &&
             docs_api.body.find("verification-kit.zip") != std::string::npos &&
             docs_api.body.find("role-selected challenge and submission-template kit") !=
                 std::string::npos &&
@@ -373,6 +377,32 @@ int main() {
     require(
         syn_sig_ra::route_request("POST", "/syn_sig_ra/viewer").status == 405,
         "signal viewer assets should be read-only"
+    );
+    const syn_sig_ra::RouteResponse lab_page =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/lab");
+    const syn_sig_ra::RouteResponse lab_app =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/lab/app.js");
+    const syn_sig_ra::RouteResponse lab_css =
+        syn_sig_ra::route_request("GET", "/syn_sig_ra/lab/style.css");
+    require(
+        lab_page.status == 200 && lab_page.cache_control == "no-store" &&
+            lab_page.body.find("Build the signal you need") != std::string::npos &&
+            lab_page.body.find("Heart-rate dynamics") != std::string::npos &&
+            lab_page.body.find("Add a rhythm episode") != std::string::npos &&
+            lab_page.body.find("Noise and artifacts") != std::string::npos &&
+            lab_page.body.find("Apply &amp; render") != std::string::npos &&
+            lab_page.body.find("__SYNSIGRA_BASE__") == std::string::npos &&
+            lab_app.status == 200 &&
+            lab_app.body.find("/v1/lab/previews") != std::string::npos &&
+            lab_app.body.find("canonical_scenario") != std::string::npos &&
+            lab_app.body.find("SignalWindowCache") != std::string::npos &&
+            lab_css.status == 200 &&
+            lab_css.body.find(".builder-section") != std::string::npos,
+        "Lab routes should serve case authoring and the reusable signal viewer adapter"
+    );
+    require(
+        syn_sig_ra::route_request("POST", "/syn_sig_ra/lab").status == 405,
+        "Lab assets should be read-only"
     );
     const syn_sig_ra::RouteResponse ui_trailing_slash =
         syn_sig_ra::route_request("GET", "/syn_sig_ra/");

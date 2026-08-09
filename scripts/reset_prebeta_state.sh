@@ -49,7 +49,7 @@ fi
 
 sudo find "$data_root" -maxdepth 1 -type f \
   \( -name 'db.sqlite3*' -o -name '*.before-*' \) -delete
-for directory in packages work recipes custom_packs generator_releases derived-artifacts; do
+for directory in packages work recipes custom_packs generator_releases derived-artifacts lab-previews; do
   sudo install -d -o apache -g nogroup -m 0750 "$data_root/$directory"
   sudo find "$data_root/$directory" -mindepth 1 -delete
 done

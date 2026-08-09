@@ -89,6 +89,7 @@ sudo install -m 0644 "$release_root/ops/nginx/timeonion.conf" "$nginx_target"
 sudo install -d -o apache -g nogroup -m 0750 \
   /var/lib/syn_sig_ra/custom_packs \
   /var/lib/syn_sig_ra/derived-artifacts \
+  /var/lib/syn_sig_ra/lab-previews \
   /var/lib/syn_sig_ra/recipes \
   /var/lib/syn_sig_ra/generator_releases
 

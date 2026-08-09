@@ -60,13 +60,17 @@ The product navigation is deliberately task-oriented:
   compatibility, and retains an advanced JSON editor for the complete surface.
 - **Custom packs** composes validated owned scenario snapshots. Later draft
   edits or deletion cannot mutate a queued or completed custom-pack job.
-- **Lab** displays retained WFDB signals without downloading the whole file. It
-  fetches only the visible binary viewport, caches a bounded number of client
-  viewports, supports horizontal/time and vertical/amplitude/spacing zoom,
-  stacked or overlaid channels, panning, channel selection, and bounded ground-
-  truth overlays. Available overlays include R peaks, beat classes,
-  lead-specific ECG delineation fiducials, PPG peaks/onsets, rhythm/artifact
-  intervals, perfusion events, and expected missing pulses.
+- **Synsigra Lab / Build a case** is a human-first, case-by-case signal builder.
+  Start from a core recipe; tune duration, sample rate and heart rate; add HRV
+  (VLF/LF/HF), deterministic base-rate variation, timed AF/PSVT/SVARR/VT/VF/
+  asystole episodes, PAC/PVC or other ECG conditions, noise/artifacts, and PPG.
+  **Apply & render** creates a real but short-lived
+  generator preview without a durable job. Only a successful preview's exact
+  canonical scenario can be saved or continued into a custom pack.
+- **Synsigra Lab / View packages** displays retained WFDB signals without
+  downloading the whole file. It fetches only the visible binary viewport,
+  keeps a bounded browser cache, and supports zoom, panning, channel selection,
+  layouts, local detections, and bounded generated-truth overlays.
 - **Account** manages the profile, password, personal API keys, account export,
   and permanent workspace deletion.
 - **MCP assistant** connects a compatible AI client directly to the live pack,
@@ -409,7 +413,8 @@ routes are:
 | Drafts/custom packs | `GET/POST /v1/scenarios`, `GET/PUT/DELETE /v1/scenarios/{id}`, `GET/POST /v1/custom-packs`, `GET/DELETE /v1/custom-packs/{id}` |
 | Projects/jobs | `GET /v1/projects`, `GET/POST /v1/jobs`, `GET/DELETE /v1/jobs/{id}`, `POST /v1/jobs/{id}/cancel`, `/retry`, `/rebuild` |
 | Downloads | `GET/HEAD /v1/jobs/{id}/{verification-kit.zip|manifest.json}`, `GET/HEAD /v1/artifacts/{package}/{manifest.json|package.zip}`, `GET /v1/downloads/verifier[/{filename}]` |
-| Lab | `GET /v1/jobs/{id}/viewer`, `/viewer/window`, `/viewer/overlays` |
+| Lab authoring | `POST /v1/lab/previews`; `GET/DELETE /v1/lab/previews/{id}`; `GET /v1/lab/previews/{id}/viewer`, `/viewer/window`, `/viewer/overlays` |
+| Retained signal viewer | `GET /v1/jobs/{id}/viewer`, `/viewer/window`, `/viewer/overlays` |
 | Usage/operations | `GET /v1/usage`, `GET /v1/metrics` (owner/admin) |
 
 Browser sessions and bearer keys are organization-scoped. Cross-organization

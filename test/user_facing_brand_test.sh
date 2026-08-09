@@ -21,7 +21,6 @@ ops/mail/configure_gmail_smtp.sh
 scripts/build_verifier_downloads.sh
 scripts/customer_smoke.py
 scripts/stress_live_packs.py
-scripts/verify_downloaded_package.py
 scripts/mail/README.md
 scripts/mail/install_local_mta.sh
 scripts/mail/verify_local_mta.sh

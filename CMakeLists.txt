@@ -142,6 +142,15 @@ configure_file(
     @ONLY
 )
 
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/web/lab/index.html" SYN_SIG_RA_LAB_HTML)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/web/lab/style.css" SYN_SIG_RA_LAB_CSS)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/web/lab/app.js" SYN_SIG_RA_LAB_APP_JS)
+configure_file(
+    include/syn_sig_ra/lab_assets.h.in
+    generated/syn_sig_ra/lab_assets.h
+    @ONLY
+)
+
 set(SIGNAL_SYNTH_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(SIGNAL_SYNTH_BUILD_CLI OFF CACHE BOOL "" FORCE)
 set(SIGNAL_SYNTH_INSTALL OFF CACHE BOOL "" FORCE)
@@ -163,6 +172,7 @@ add_library(syn_sig_ra_core STATIC
     src/job/job_request.cpp
     src/job/random_id.cpp
     src/integration/core_contract.cpp
+    src/lab/lab_preview.cpp
     src/storage/metadata_store.cpp
     src/viewer/signal_viewer.cpp
     src/worker/worker.cpp
@@ -308,6 +318,11 @@ if(BUILD_TESTING)
     )
     target_link_libraries(syn_sig_ra_signal_viewer_test PRIVATE syn_sig_ra_core)
 
+    add_executable(syn_sig_ra_lab_preview_test
+        test/unit/lab_preview_test.cpp
+    )
+    target_link_libraries(syn_sig_ra_lab_preview_test PRIVATE syn_sig_ra_core)
+
     add_executable(syn_sig_ra_artifact_delivery_test
         test/unit/artifact_delivery_test.cpp
     )
@@ -324,6 +339,7 @@ if(BUILD_TESTING)
     add_test(NAME core_contract_unit COMMAND syn_sig_ra_core_contract_test)
     add_test(NAME metadata_schema_unit COMMAND syn_sig_ra_metadata_schema_test)
     add_test(NAME signal_viewer_unit COMMAND syn_sig_ra_signal_viewer_test)
+    add_test(NAME lab_preview_unit COMMAND syn_sig_ra_lab_preview_test)
     add_test(
         NAME artifact_delivery_unit COMMAND syn_sig_ra_artifact_delivery_test)
     find_program(NODE_EXECUTABLE NAMES node nodejs)

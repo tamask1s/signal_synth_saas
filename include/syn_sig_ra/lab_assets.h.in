@@ -1,0 +1,12 @@
+#ifndef SYN_SIG_RA_LAB_ASSETS_H
+#define SYN_SIG_RA_LAB_ASSETS_H
+
+namespace syn_sig_ra {
+
+const char kLabHtml[] = R"LABHTML(@SYN_SIG_RA_LAB_HTML@)LABHTML";
+const char kLabCss[] = R"LABCSS(@SYN_SIG_RA_LAB_CSS@)LABCSS";
+const char kLabAppJs[] = R"LABAPPJS(@SYN_SIG_RA_LAB_APP_JS@)LABAPPJS";
+
+}  // namespace syn_sig_ra
+
+#endif

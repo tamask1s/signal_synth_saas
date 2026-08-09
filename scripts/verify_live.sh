@@ -97,9 +97,14 @@ case "$viewer_js" in *decodeSignalWindow*visibleBucketRange*) ;; *) exit 1 ;; es
 case "$viewer_js" in *"Math.max(centerY - halfHeight"*) exit 1 ;; *) ;; esac
 viewer_app=$(curl -fsS "$base/viewer/app.js")
 case "$viewer_app" in *"signalCache.find"*prefetchedRequest*setEmptyState*) ;; *) exit 1 ;; esac
+lab_html=$(curl -fsS "$base/lab")
+case "$lab_html" in *"Build the signal you need"*"Apply &amp; render"*) ;; *) exit 1 ;; esac
+lab_app=$(curl -fsS "$base/lab/app.js")
+case "$lab_app" in *"/v1/lab/previews"*canonical_scenario*SignalWindowCache*) ;; *) exit 1 ;; esac
 printf 'check=openapi\n'
 openapi=$(curl -fsS "$base/openapi.yaml")
 case "$openapi" in *"/v1/jobs/{job_id}/viewer/window:"*) ;; *) exit 1 ;; esac
+case "$openapi" in *"/v1/lab/previews/{preview_id}/viewer/window:"*) ;; *) exit 1 ;; esac
 case "$openapi" in *"/v1/account/export:"*) ;; *) exit 1 ;; esac
 case "$openapi" in *"/mcp:"*"Streamable HTTP MCP"*) ;; *) exit 1 ;; esac
 case "$openapi" in *"synsigra_core_integration_v9"*"synsigra_challenge_package_v3"*"EvidenceBasis:"*"EvidenceProfile:"*"ChallengeMetadata:"*) ;; *) exit 1 ;; esac
@@ -110,6 +115,27 @@ viewer_auth_status=$(curl -sS -o /dev/null -w '%{http_code}' \
   echo "signal viewer API auth check returned $viewer_auth_status" >&2
   exit 1
 }
+printf 'check=lab-preview\n'
+lab_request='{"scenario":{"schema_version":2,"scenario_id":"live_lab_probe","name":"Live Lab probe","description":"Bounded deployment verification preview.","author":"Synsigra","tags":["lab","smoke"],"duration_seconds":2,"sample_rate_hz":100,"seed":78101,"ecg":{"heart_rate_bpm":70,"rr_variability_seconds":0,"ectopic_every_n_beats":0,"second_degree_av_pattern":"unspecified","q_wave_territory":"unspecified","rhythm_episodes":[],"flutter_conduction_pattern":"fixed","pacing_mode":"ventricular","pacing_non_capture_every_n_beats":0,"fidelity_policy":"allow_parameterized","conditions":[{"code":"NORM","severity":1}]},"ppg":{"enabled":true,"pulse_delay_ms":180,"rise_time_ms":120,"decay_time_ms":300,"amplitude_au":1,"baseline_au":0,"dicrotic_delay_ms":180,"dicrotic_width_ms":80,"dicrotic_amplitude_ratio":0.15}},"targets":["r_peak","ppg_systolic_peak"]}'
+lab_preview=$(curl -fsS -H "Authorization: Bearer $key" \
+  -H 'Content-Type: application/json' \
+  --data-binary "$lab_request" "$base/v1/lab/previews")
+lab_preview_id=$(printf '%s' "$lab_preview" | python3 -c \
+  'import json,sys; x=json.load(sys.stdin); assert x["canonical_scenario"]["scenario_id"]=="live_lab_probe"; assert x["resolved_scenario"]["scenario_id"]=="live_lab_probe"; assert x["sample_count"]==200 and x["lifecycle"]["durable"] is False; print(x["preview_id"])')
+lab_viewer=$(curl -fsS -H "Authorization: Bearer $key" \
+  "$base/v1/lab/previews/$lab_preview_id/viewer")
+printf '%s' "$lab_viewer" | python3 -c \
+  'import json,sys; c=json.load(sys.stdin)["cases"][0]; assert c["sample_count"]==200 and any("ppg" in x["name"] for x in c["channels"])'
+lab_window=$(mktemp /tmp/synsigra-lab-window.XXXXXX)
+curl -fsS -H "Authorization: Bearer $key" \
+  "$base/v1/lab/previews/$lab_preview_id/viewer/window?case_id=preview&start_sample=0&sample_count=200&points=200&channels=1,12" \
+  -o "$lab_window"
+python3 -c \
+  'import pathlib,sys; data=pathlib.Path(sys.argv[1]).read_bytes(); assert len(data)>88 and data[:8]==b"SYNSIGV1"' \
+  "$lab_window"
+rm -f "$lab_window"
+curl -fsS -X DELETE -H "Authorization: Bearer $key" \
+  "$base/v1/lab/previews/$lab_preview_id" >/dev/null
 printf 'check=jobs-and-viewer\n'
 packs=$(curl -fsS "$base/v1/packs")
 expected_pack_count=$(python3 -c \

@@ -96,6 +96,40 @@ components:
             code: {type: string}
             message: {type: string}
       example: {error: {code: invalid_pagination, message: limit must be 1-100 and offset non-negative.}}
+    LabPreview:
+      type: object
+      description: Short-lived, user-isolated waveform preview rendered by the exact linked generator without creating a job or durable package.
+      required: [schema_version, preview_id, case_id, canonical_scenario, resolved_scenario, document_fingerprint, resolved_document_fingerprint, render_identity, generator, created_at, expires_at, duration_seconds, sample_rate_hz, sample_count, viewer_url, lifecycle]
+      properties:
+        schema_version: {type: integer, enum: [1]}
+        preview_id: {type: string, pattern: '^preview_[a-f0-9]{32}$'}
+        case_id: {type: string, enum: [preview]}
+        canonical_scenario: {type: object, description: Exact canonical scenario to save when this preview is accepted.}
+        resolved_scenario: {type: object, description: Exact post-randomization scenario used for this render.}
+        document_fingerprint: {type: string}
+        resolved_document_fingerprint: {type: string}
+        render_identity: {type: string}
+        generator:
+          type: object
+          required: [version, git_commit, build_identity]
+          properties:
+            version: {type: string}
+            git_commit: {type: string}
+            build_identity: {type: string}
+        created_at: {type: string, format: date-time}
+        expires_at: {type: string, format: date-time}
+        duration_seconds: {type: number, maximum: 300}
+        sample_rate_hz: {type: integer}
+        sample_count: {type: integer, format: int64, maximum: 300000}
+        viewer_url: {type: string}
+        lifecycle:
+          type: object
+          required: [durable, ttl_seconds, maximum_duration_seconds, maximum_samples]
+          properties:
+            durable: {type: boolean, enum: [false]}
+            ttl_seconds: {type: integer, enum: [1800]}
+            maximum_duration_seconds: {type: integer, enum: [300]}
+            maximum_samples: {type: integer, format: int64, enum: [300000]}
     AcceptedCore:
       type: object
       required: [integration_contract, version, git_commit, build_identity, cpp_facade, pack_schema_version, challenge_package, scoring_manifest, verification_protocol, evidence_profiles, submission, submission_formats, measurement_values, measurement_truth, measurement_scoring, local_verification, scenario_authoring, scenario_templates, python_verifier, external_noise_truth, contract_document]
@@ -752,6 +786,95 @@ paths:
       responses:
         '200': {description: Curated scenario JSON}
         '404': {description: Pack/case not found}
+  /v1/lab/previews:
+    post:
+      summary: Validate and render one bounded, short-lived Lab case
+      description: Runs the authoritative custom-pack preflight, then renders ECG, PPG and motion channels to a binary random-access viewer source. No durable job or package is created. Apply is rate-limited and concurrent renders for one user are rejected.
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scenario, targets]
+              additionalProperties: false
+              properties:
+                scenario: {type: object}
+                targets: {type: array, minItems: 1, uniqueItems: true, items: {type: string}}
+      responses:
+        '201':
+          description: Preview created. Save canonical_scenario, not an edited client copy, to preserve preview/save identity.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LabPreview'}
+        '401': {description: Unauthorized}
+        '422': {description: Invalid/incompatible scenario or preview limit exceeded}
+        '429': {description: A user render is active or was requested too recently}
+  /v1/lab/previews/{preview_id}:
+    get:
+      summary: Read preview provenance and its exact canonical/resolved scenario
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      parameters:
+        - {in: path, name: preview_id, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Owned unexpired preview
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LabPreview'}
+        '404': {description: Expired, discarded, foreign, or unknown preview}
+    delete:
+      summary: Cancel/discard an owned preview and its temporary waveform data
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      parameters:
+        - {in: path, name: preview_id, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Preview discarded}
+        '404': {description: Preview not found}
+  /v1/lab/previews/{preview_id}/viewer:
+    get:
+      summary: Describe cases and channels in an owned Lab preview
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      parameters:
+        - {in: path, name: preview_id, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Reusable viewer data-source description}
+        '404': {description: Preview not found or expired}
+  /v1/lab/previews/{preview_id}/viewer/window:
+    get:
+      summary: Read a bounded binary viewport from a Lab preview
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      parameters:
+        - {in: path, name: preview_id, required: true, schema: {type: string}}
+        - {in: query, name: case_id, required: true, schema: {type: string}}
+        - {in: query, name: start_sample, required: true, schema: {type: integer, format: int64, minimum: 0}}
+        - {in: query, name: sample_count, required: true, schema: {type: integer, format: int64, minimum: 1}}
+        - {in: query, name: points, required: true, schema: {type: integer, minimum: 1, maximum: 16384}}
+        - {in: query, name: channels, required: true, schema: {type: string}, description: Comma-separated channel indices.}
+      responses:
+        '200':
+          description: SYNSIGV1 binary min/max viewport
+          content:
+            application/vnd.synsigra.signal-window.v1:
+              schema: {type: string, format: binary}
+        '400': {description: Invalid viewport}
+        '404': {description: Preview not found or expired}
+  /v1/lab/previews/{preview_id}/viewer/overlays:
+    get:
+      summary: Read bounded prepared overlays for a Lab preview
+      description: Interactive render v1 is waveform-first and may return an empty overlay catalog; durable package viewers expose complete generated truth overlays.
+      security: [{cookieAuth: []}, {bearerAuth: []}]
+      parameters:
+        - {in: path, name: preview_id, required: true, schema: {type: string}}
+        - {in: query, name: case_id, required: true, schema: {type: string}}
+        - {in: query, name: start_sample, required: true, schema: {type: integer, format: int64, minimum: 0}}
+        - {in: query, name: sample_count, required: true, schema: {type: integer, format: int64, minimum: 1}}
+        - {in: query, name: max_items, required: false, schema: {type: integer, minimum: 1, maximum: 10000, default: 4000}}
+      responses:
+        '200': {description: Bounded overlay window}
+        '400': {description: Invalid overlay viewport}
+        '404': {description: Preview not found or expired}
   /v1/auth/register:
     post:
       summary: Create an account and send an ownership-verification email
