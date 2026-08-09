@@ -24,6 +24,7 @@
     startSample: 0,
     spanSamples: 0,
     amplitude: 1,
+    channelSpacing: 1,
     requestController: null,
     requestSerial: 0
   };
@@ -60,6 +61,22 @@
     ppg_ambient_light: 'PPG ambient light', ppg_sensor_saturation: 'PPG sensor saturation'
   };
   const rhythmDefaults = { afib: 120, psvt: 180, svarr: 150, vt: 160, vf: 0, asystole: 0 };
+  const morphologyDefaults = {
+    p_amplitude_mv: .12, q_amplitude_mv: -.15, r_amplitude_mv: 1,
+    s_amplitude_mv: -.28, t_amplitude_mv: .3, st_j_amplitude_mv: 0,
+    st_slope_mv_per_second: 0, p_axis_degrees: 55,
+    qrs_axis_degrees: 45, t_axis_degrees: 40, p_duration_ms: 100,
+    qrs_duration_ms: 90, qt_interval_ms: 400, t_duration_ms: 180
+  };
+  const morphologyControls = {
+    'morph-p-amplitude': 'p_amplitude_mv', 'morph-p-duration': 'p_duration_ms',
+    'morph-p-axis': 'p_axis_degrees', 'morph-q-amplitude': 'q_amplitude_mv',
+    'morph-r-amplitude': 'r_amplitude_mv', 'morph-s-amplitude': 's_amplitude_mv',
+    'morph-qrs-duration': 'qrs_duration_ms', 'morph-qrs-axis': 'qrs_axis_degrees',
+    'morph-qt-interval': 'qt_interval_ms', 'morph-st-level': 'st_j_amplitude_mv',
+    'morph-st-slope': 'st_slope_mv_per_second', 'morph-t-amplitude': 't_amplitude_mv',
+    'morph-t-duration': 't_duration_ms', 'morph-t-axis': 't_axis_degrees'
+  };
 
   function escapeHtml(value) {
     return String(value == null ? '' : value).replace(/[&<>'"]/g, (char) => ({
@@ -116,6 +133,23 @@
         cursor = cursor[part];
       }
     });
+  }
+
+  function addLabRecipes(templates) {
+    const clean = templates.find((item) => item.template_id === 'ecg_rpeak_clean');
+    if (!clean) return templates;
+    const morphology = clone(clean);
+    morphology.template_id = 'lab_ecg_morphology';
+    morphology.name = 'ECG morphology lab';
+    morphology.description = 'Direct P, QRS, QT, ST, and T engineering controls with a validated PQ / PR phenotype.';
+    morphology.difficulty = 'guided';
+    morphology.feature_tags = ['ecg', 'morphology', 'delineation'];
+    morphology.targets = ['morphology_assertions'];
+    morphology.scenario.ecg.morphology = clone(morphologyDefaults);
+    morphology.scenario.name = morphology.name;
+    morphology.scenario.description = 'Interactive baseline ECG morphology engineering case.';
+    const cleanIndex = templates.indexOf(clean);
+    return [...templates.slice(0, cleanIndex + 1), morphology, ...templates.slice(cleanIndex + 1)];
   }
 
   function donor(templateId) {
@@ -195,6 +229,14 @@
     renderAdvancedHrv();
 
     const conditions = getPath('$.ecg.conditions') || [];
+    const morphology = getPath('$.ecg.morphology');
+    setControl('morphology-enabled', Boolean(morphology));
+    $('morphology-settings').hidden = !morphology;
+    Object.entries(morphologyControls).forEach(([id, field]) =>
+      setControl(id, morphology && morphology[field] != null
+        ? morphology[field] : morphologyDefaults[field]));
+    const prCondition = conditions.find((item) => item.code === 'LPR' || item.code === '1AVB');
+    setControl('morph-pr-pattern', prCondition ? prCondition.code : '');
     const ectopy = conditions.find((item) => item.code === 'PAC' || item.code === 'PVC');
     setControl('ectopy-type', ectopy ? ectopy.code : '');
     setControl('ectopy-every', getPath('$.ecg.ectopic_every_n_beats') || 5);
@@ -417,9 +459,10 @@
     state.startSample = 0;
     state.spanSamples = Math.min(state.caseMetadata.sample_count, Math.max(16, Math.round(state.caseMetadata.sample_rate_hz * 10)));
     state.amplitude = 1;
+    state.channelSpacing = 1;
     renderer.setCase(state.caseMetadata);
-    renderer.setAmplitudeScale(1);
-    renderer.setChannelSpacing(1);
+    setAmplitude(1);
+    setChannelSpacing(1);
     renderer.setLayout('stacked');
     renderChannelChips();
     updatePosition();
@@ -496,6 +539,22 @@
     state.spanSamples = Math.max(16, Math.min(state.caseMetadata.sample_count, Math.round(state.spanSamples * factor)));
     state.startSample = center - state.spanSamples / 2;
     updatePosition(); scheduleWindow();
+  }
+
+  function setAmplitude(scale) {
+    state.amplitude = Math.max(.125, Math.min(32, scale));
+    renderer.setAmplitudeScale(state.amplitude);
+  }
+
+  function setChannelSpacing(scale) {
+    state.channelSpacing = Math.max(1 / 2.25, Math.min(3.375, scale));
+    const mobile = window.matchMedia('(max-width: 820px)').matches;
+    const baseHeight = mobile ? 430 : Math.max(390, Math.min(640, Math.round(window.innerHeight * .56)));
+    $('canvas-shell').style.height = `${Math.round(baseHeight * state.channelSpacing)}px`;
+    renderer.setChannelSpacing(state.channelSpacing);
+    $('spacing-value').textContent = `Spacing ${Math.round(state.channelSpacing * 100)}%`;
+    $('spacing-in').disabled = state.channelSpacing >= 3.374;
+    $('spacing-out').disabled = state.channelSpacing <= 1 / 2.25 + .001;
   }
 
   async function saveExactScenario() {
@@ -583,6 +642,31 @@
     $('hrv-advanced').addEventListener('change', (event) => {
       if (!event.target.dataset.hrvField) return;
       setPath(`$.hrv.${event.target.dataset.hrvField}`, Number(event.target.value)); markEdited();
+    });
+    $('morphology-enabled').addEventListener('change', () => {
+      if ($('morphology-enabled').checked) {
+        setPath('$.ecg.morphology', clone(morphologyDefaults));
+        if (!state.targets.includes('morphology_assertions')) state.targets.push('morphology_assertions');
+      } else delete state.scenario.ecg.morphology;
+      syncControls(); markEdited();
+    });
+    $('morphology-settings').addEventListener('change', (event) => {
+      const field = event.target.dataset.morphologyField;
+      if (!field) return;
+      if (!getPath('$.ecg.morphology')) setPath('$.ecg.morphology', clone(morphologyDefaults));
+      setPath(`$.ecg.morphology.${field}`, Number(event.target.value));
+      markEdited();
+    });
+    $('morph-pr-pattern').addEventListener('change', () => {
+      const code = $('morph-pr-pattern').value;
+      let conditions = (getPath('$.ecg.conditions') || [])
+        .filter((item) => item.code !== 'LPR' && item.code !== '1AVB');
+      if (code) {
+        conditions = conditions.filter((item) => item.code !== 'NORM');
+        conditions.push({ code, severity: 1 });
+      } else if (!conditions.length) conditions.push({ code: 'NORM', severity: 1 });
+      setPath('$.ecg.conditions', conditions);
+      renderConditions(); markEdited();
     });
     $('ppg-enabled').addEventListener('change', () => {
       if ($('ppg-enabled').checked) {
@@ -697,8 +781,16 @@
     });
     $('position-slider').addEventListener('input', () => { state.startSample = Number($('position-slider').value); updatePosition(); scheduleWindow(); });
     $('time-in').addEventListener('click', () => zoomTime(.5)); $('time-out').addEventListener('click', () => zoomTime(2));
-    $('amplitude-in').addEventListener('click', () => { state.amplitude = Math.min(16, state.amplitude * 1.5); renderer.setAmplitudeScale(state.amplitude); });
-    $('amplitude-out').addEventListener('click', () => { state.amplitude = Math.max(.125, state.amplitude / 1.5); renderer.setAmplitudeScale(state.amplitude); });
+    $('amplitude-in').addEventListener('click', () => setAmplitude(state.amplitude * 2));
+    $('amplitude-out').addEventListener('click', () => setAmplitude(state.amplitude / 2));
+    $('amplitude-fit').addEventListener('click', () => setAmplitude(1));
+    $('spacing-in').addEventListener('click', () => setChannelSpacing(state.channelSpacing * 1.5));
+    $('spacing-out').addEventListener('click', () => setChannelSpacing(state.channelSpacing / 1.5));
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => setChannelSpacing(state.channelSpacing), 100);
+    });
   }
 
   function bindPage() {
@@ -728,7 +820,7 @@
     bindPage();
     try {
       const [schema, catalog] = await Promise.all([api('/v1/authoring/schema'), api('/v1/authoring/templates')]);
-      state.schema = schema; state.templates = catalog.templates || [];
+      state.schema = schema; state.templates = addLabRecipes(catalog.templates || []);
       $('case-template').innerHTML = state.templates.map((item) => `<option value="${escapeHtml(item.template_id)}">${escapeHtml(item.name)} · ${escapeHtml(item.difficulty)}</option>`).join('');
       $('case-template').disabled = false;
       $('other-condition').innerHTML += (schema.conditions || []).filter((item) => item.code !== 'NORM' && item.code !== 'PAC' && item.code !== 'PVC').map((item) => `<option value="${escapeHtml(item.code)}">${escapeHtml(item.name)} · ${escapeHtml(item.category)}</option>`).join('');

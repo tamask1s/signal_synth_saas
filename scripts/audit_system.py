@@ -12,15 +12,16 @@ from __future__ import annotations
 import argparse
 import ast
 import configparser
+import copy
 import hashlib
 import json
 import math
+import os
 import pathlib
 import re
 import shutil
 import subprocess
 import sys
-import copy
 from typing import Any
 
 
@@ -384,8 +385,14 @@ def audit_catalog() -> tuple[int, int, int]:
     saas_metadata = read_json(SAAS_METADATA)
     require(product_catalog(core_metadata) == saas_metadata,
             "SaaS catalog is not the current normalized core release")
+    normalizer = pathlib.Path(os.environ.get(
+        "SYN_SIG_RA_SCENARIO_NORMALIZER",
+        str(ROOT / "build" / "syn_sig_ra_scenario_schema"),
+    ))
+    require(normalizer.is_file(),
+            f"scenario normalizer is missing: {normalizer}")
     command([
-        ROOT / "build" / "syn_sig_ra_scenario_schema",
+        normalizer,
         "--compare-source",
         CORE / "examples" / "scenarios",
         PACK_ROOT / "scenarios",

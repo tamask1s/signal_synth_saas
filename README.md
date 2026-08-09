@@ -61,6 +61,8 @@ The product navigation is deliberately task-oriented:
 - **Custom packs** composes validated owned scenario snapshots. Later draft
   edits or deletion cannot mutate a queued or completed custom-pack job.
 - **Synsigra Lab / Build a case** is a human-first, case-by-case signal builder.
+  It includes direct P/QRS/QT/ST/T morphology controls, validated PQ/PR
+  phenotypes, HRV, rhythm, ectopy, noise, PPG, and live waveform preview.
   Start from a core recipe; tune duration, sample rate and heart rate; add HRV
   (VLF/LF/HF), deterministic base-rate variation, timed AF/PSVT/SVARR/VT/VF/
   asystole episodes, PAC/PVC or other ECG conditions, noise/artifacts, and PPG.

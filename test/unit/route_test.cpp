@@ -390,6 +390,8 @@ int main() {
         lab_page.status == 200 && lab_page.cache_control == "no-store" &&
             lab_page.body.find("Build the signal you need") != std::string::npos &&
             lab_page.body.find("Heart-rate dynamics") != std::string::npos &&
+            lab_page.body.find("ECG morphology") != std::string::npos &&
+            lab_page.body.find("PQ / PR behaviour") != std::string::npos &&
             lab_page.body.find("Add a rhythm episode") != std::string::npos &&
             lab_page.body.find("Noise and artifacts") != std::string::npos &&
             lab_page.body.find("Apply &amp; render") != std::string::npos &&
@@ -398,8 +400,12 @@ int main() {
             lab_app.body.find("/v1/lab/previews") != std::string::npos &&
             lab_app.body.find("canonical_scenario") != std::string::npos &&
             lab_app.body.find("SignalWindowCache") != std::string::npos &&
+            lab_app.body.find("lab_ecg_morphology") != std::string::npos &&
+            lab_app.body.find("setChannelSpacing") != std::string::npos &&
             lab_css.status == 200 &&
-            lab_css.body.find(".builder-section") != std::string::npos,
+            lab_css.body.find(".builder-section") != std::string::npos &&
+            lab_css.body.find(".vertical-controls") != std::string::npos &&
+            lab_css.body.find("select option") != std::string::npos,
         "Lab routes should serve case authoring and the reusable signal viewer adapter"
     );
     require(
@@ -917,6 +923,40 @@ int main() {
         "scenario preview should use core pack analysis: " +
             std::to_string(preview.status) + " " + preview.body + " " +
             preview.internal_error
+    );
+    std::string morphology_scenario = current_preview_scenario;
+    const std::string conditions_marker = "\"conditions\":[";
+    const std::string::size_type conditions_position =
+        morphology_scenario.find(conditions_marker);
+    require(
+        conditions_position != std::string::npos,
+        "current scenario fixture should contain ECG conditions"
+    );
+    morphology_scenario.insert(
+        conditions_position,
+        "\"morphology\":{\"p_amplitude_mv\":0.12,"
+        "\"q_amplitude_mv\":-0.15,\"r_amplitude_mv\":1,"
+        "\"s_amplitude_mv\":-0.28,\"t_amplitude_mv\":0.3,"
+        "\"st_j_amplitude_mv\":0,\"st_slope_mv_per_second\":0,"
+        "\"p_axis_degrees\":55,\"qrs_axis_degrees\":45,"
+        "\"t_axis_degrees\":40,\"p_duration_ms\":100,"
+        "\"qrs_duration_ms\":90,\"qt_interval_ms\":400,"
+        "\"t_duration_ms\":180},"
+    );
+    const syn_sig_ra::RouteResponse morphology_preview =
+        syn_sig_ra::route_request(
+            "POST", "/syn_sig_ra/v1/authoring/preview", "/syn_sig_ra",
+            "Bearer route-test-key", &store, "", "application/json",
+            "{\"scenario\":" + morphology_scenario +
+                ",\"targets\":[\"morphology_assertions\"]}"
+        );
+    require(
+        morphology_preview.status == 200 &&
+            morphology_preview.body.find("\"success\":true") !=
+                std::string::npos,
+        "direct ECG morphology controls should pass product preflight: " +
+            std::to_string(morphology_preview.status) + " " +
+            morphology_preview.body
     );
 
     const std::string download_root =

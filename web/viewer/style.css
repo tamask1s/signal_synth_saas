@@ -109,6 +109,8 @@ select {
   border-radius: 13px;
 }
 select:disabled { opacity: 0.55; }
+select { color-scheme: dark; }
+select option, select optgroup { color: #eef3fc; background: #14243a; }
 
 .source-summary {
   min-height: 64px;

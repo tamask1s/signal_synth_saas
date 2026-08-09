@@ -100,11 +100,12 @@ case "$viewer_app" in *"signalCache.find"*) ;; *) exit 1 ;; esac
 case "$viewer_app" in *prefetchedRequest*) ;; *) exit 1 ;; esac
 case "$viewer_app" in *setEmptyState*) ;; *) exit 1 ;; esac
 lab_html=$(curl -fsS "$base/lab")
-case "$lab_html" in *"Build the signal you need"*"Apply &amp; render"*) ;; *) exit 1 ;; esac
+case "$lab_html" in *"Build the signal you need"*"ECG morphology"*"time-zoom-controls"*"vertical-controls"*"Apply &amp; render"*) ;; *) exit 1 ;; esac
 lab_app=$(curl -fsS "$base/lab/app.js")
 case "$lab_app" in *"/v1/lab/previews"*) ;; *) exit 1 ;; esac
 case "$lab_app" in *canonical_scenario*) ;; *) exit 1 ;; esac
 case "$lab_app" in *SignalWindowCache*) ;; *) exit 1 ;; esac
+case "$lab_app" in *lab_ecg_morphology*setChannelSpacing*) ;; *) exit 1 ;; esac
 printf 'check=openapi\n'
 openapi=$(curl -fsS "$base/openapi.yaml")
 case "$openapi" in *"/v1/jobs/{job_id}/viewer/window:"*) ;; *) exit 1 ;; esac

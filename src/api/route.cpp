@@ -3462,6 +3462,7 @@ a { color: #9da7ff; }
 }
 input::placeholder, textarea::placeholder { color: #72809a; }
 select { color-scheme: dark; }
+select option, select optgroup { color: #eef3fc; background: #14243a; }
 button.secondary, .button-link.secondary, button.danger {
   border-color: var(--border);
   background: rgba(255, 255, 255, .045);

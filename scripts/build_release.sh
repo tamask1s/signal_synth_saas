@@ -6,7 +6,6 @@ build_dir=${BUILD_DIR:-"$repo_dir/build/e2e"}
 apxs=${APXS_EXECUTABLE:-/usr/local/apache2/bin/apxs}
 apache_httpd=${APACHE_HTTPD:-/usr/local/apache2/bin/httpd}
 
-python3 "$repo_dir/scripts/audit_system.py"
 "$repo_dir/scripts/build_verifier_downloads.sh" "$repo_dir/downloads/verifier"
 
 cmake -S "$repo_dir" -B "$build_dir" \
@@ -17,6 +16,8 @@ cmake -S "$repo_dir" -B "$build_dir" \
   -DSYN_SIG_RA_ENABLE_INTEGRATION_TESTS=ON \
   -DBUILD_TESTING=ON
 cmake --build "$build_dir" -j"${BUILD_JOBS:-1}"
+SYN_SIG_RA_SCENARIO_NORMALIZER="$build_dir/syn_sig_ra_scenario_schema" \
+  python3 "$repo_dir/scripts/audit_system.py"
 (cd "$build_dir" && ctest -E integration_e2e_smoke --output-on-failure)
 
 if [ "${RUN_E2E:-0}" = 1 ]; then

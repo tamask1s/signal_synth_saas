@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#07111f">
   <title>Synsigra Lab · Build a signal case</title>
   <link rel="icon" href="/assets/img/logo-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="__SYNSIGRA_BASE__/lab/style.css?v=1">
+  <link rel="stylesheet" href="__SYNSIGRA_BASE__/lab/style.css?v=2">
 </head>
 <body data-api-base="__SYNSIGRA_BASE__">
   <header class="lab-header">
@@ -70,8 +70,46 @@
         </div>
       </section>
 
+      <section class="builder-section" data-section="morphology">
+        <div class="section-heading"><span>4</span><div><h2>ECG morphology</h2><p>Shape the P wave, ventricular complex, repolarization, and their timing.</p></div></div>
+        <label class="switch-row"><input id="morphology-enabled" type="checkbox" data-path="$.ecg.morphology"><span><strong>Customize ECG morphology</strong><small>Uses the generator's direct engineering controls. Values are global baseline morphology, before any timed pathology episode.</small></span></label>
+        <div id="morphology-settings" class="nested" hidden>
+          <fieldset class="morphology-group">
+            <legend>P wave and PQ / PR</legend>
+            <div class="field-grid two">
+              <label>P amplitude <span class="unit">mV</span><input id="morph-p-amplitude" type="number" min="-0.5" max="0.8" step="0.01" data-morphology-field="p_amplitude_mv"></label>
+              <label>P duration <span class="unit">ms</span><input id="morph-p-duration" type="number" min="40" max="150" step="1" data-morphology-field="p_duration_ms"></label>
+              <label>P axis <span class="unit">degrees</span><input id="morph-p-axis" type="number" min="-180" max="180" step="1" data-morphology-field="p_axis_degrees"></label>
+              <label>PQ / PR behaviour<select id="morph-pr-pattern"><option value="">Normal conduction</option><option value="LPR">Prolonged PR interval</option><option value="1AVB">First-degree AV block</option></select></label>
+            </div>
+            <p class="help-text">The current core exposes PQ/PR as validated conduction phenotypes, not as an arbitrary millisecond field.</p>
+          </fieldset>
+          <fieldset class="morphology-group">
+            <legend>QRS complex</legend>
+            <div class="field-grid two">
+              <label>Q amplitude <span class="unit">mV</span><input id="morph-q-amplitude" type="number" min="-1.5" max="0.2" step="0.01" data-morphology-field="q_amplitude_mv"></label>
+              <label>R amplitude <span class="unit">mV</span><input id="morph-r-amplitude" type="number" min="0.05" max="4" step="0.01" data-morphology-field="r_amplitude_mv"></label>
+              <label>S amplitude <span class="unit">mV</span><input id="morph-s-amplitude" type="number" min="-3" max="0.5" step="0.01" data-morphology-field="s_amplitude_mv"></label>
+              <label>QRS duration <span class="unit">ms</span><input id="morph-qrs-duration" type="number" min="50" max="180" step="1" data-morphology-field="qrs_duration_ms"></label>
+              <label>QRS axis <span class="unit">degrees</span><input id="morph-qrs-axis" type="number" min="-180" max="180" step="1" data-morphology-field="qrs_axis_degrees"></label>
+            </div>
+          </fieldset>
+          <fieldset class="morphology-group">
+            <legend>QT, ST, and T wave</legend>
+            <div class="field-grid two">
+              <label>QT interval <span class="unit">ms</span><input id="morph-qt-interval" type="number" min="260" max="700" step="1" data-morphology-field="qt_interval_ms"></label>
+              <label>ST J level <span class="unit">mV</span><input id="morph-st-level" type="number" min="-0.8" max="0.8" step="0.01" data-morphology-field="st_j_amplitude_mv"></label>
+              <label>ST slope <span class="unit">mV/s</span><input id="morph-st-slope" type="number" min="-4" max="4" step="0.05" data-morphology-field="st_slope_mv_per_second"></label>
+              <label>T amplitude <span class="unit">mV</span><input id="morph-t-amplitude" type="number" min="-1.5" max="1.5" step="0.01" data-morphology-field="t_amplitude_mv"></label>
+              <label>T duration <span class="unit">ms</span><input id="morph-t-duration" type="number" min="60" max="360" step="1" data-morphology-field="t_duration_ms"></label>
+              <label>T axis <span class="unit">degrees</span><input id="morph-t-axis" type="number" min="-180" max="180" step="1" data-morphology-field="t_axis_degrees"></label>
+            </div>
+          </fieldset>
+        </div>
+      </section>
+
       <section class="builder-section" data-section="beats">
-        <div class="section-heading"><span>4</span><div><h2>Beats and rhythm</h2><p>Add premature beats, a timed rhythm change, or another supported ECG condition.</p></div></div>
+        <div class="section-heading"><span>5</span><div><h2>Beats and rhythm</h2><p>Add premature beats, a timed rhythm change, or another supported ECG condition.</p></div></div>
         <div class="field-grid two">
           <label>Periodic ectopy<select id="ectopy-type"><option value="">None</option><option value="PAC">PAC · premature atrial</option><option value="PVC">PVC · premature ventricular</option></select></label>
           <label>Every N beats<input id="ectopy-every" type="number" min="2" max="1000" step="1" value="5" disabled data-path="$.ecg.ectopic_every_n_beats"></label>
@@ -95,13 +133,13 @@
       </section>
 
       <section class="builder-section" data-section="noise">
-        <div class="section-heading"><span>5</span><div><h2>Noise and artifacts</h2><p>Layer deterministic interference over all or part of the case.</p></div></div>
+        <div class="section-heading"><span>6</span><div><h2>Noise and artifacts</h2><p>Layer deterministic interference over all or part of the case.</p></div></div>
         <div class="inline-add"><select id="noise-type"><option value="">Choose a noise type…</option></select><button id="add-noise" type="button" class="secondary">Add noise</button></div>
         <div id="noise-list" class="ingredient-list"></div>
       </section>
 
       <section class="builder-section" data-section="ppg">
-        <div class="section-heading"><span>6</span><div><h2>PPG channel</h2><p>Add a synchronized optical pulse beside the ECG.</p></div></div>
+        <div class="section-heading"><span>7</span><div><h2>PPG channel</h2><p>Add a synchronized optical pulse beside the ECG.</p></div></div>
         <label class="switch-row"><input id="ppg-enabled" type="checkbox" data-path="$.ppg.enabled"><span><strong>Add PPG</strong><small>The preview will include every generated optical channel.</small></span></label>
         <div id="ppg-settings" class="field-grid two nested" hidden>
           <label>Pulse delay <span class="unit">ms</span><input id="ppg-delay" type="number" min="0" max="2000" step="1" data-path="$.ppg.pulse_delay_ms"></label>
@@ -114,7 +152,7 @@
       </section>
 
       <section class="builder-section compact-section" data-section="targets">
-        <div class="section-heading"><span>7</span><div><h2>What will this test?</h2><p>These outputs follow the case into a saved custom pack.</p></div></div>
+        <div class="section-heading"><span>8</span><div><h2>What will this test?</h2><p>These outputs follow the case into a saved custom pack.</p></div></div>
         <div id="target-list" class="target-list"></div>
       </section>
 
@@ -137,18 +175,31 @@
       <div class="viewer-card">
         <div class="viewer-tools">
           <div id="channel-list" class="channel-chips" aria-label="Visible channels"></div>
-          <div class="viewer-buttons">
-            <button id="amplitude-out" type="button" title="Reduce amplitude">Amplitude −</button><button id="amplitude-in" type="button" title="Increase amplitude">Amplitude +</button>
-          </div>
+          <button id="amplitude-fit" type="button" class="viewer-reset" title="Reset vertical amplitude">Fit amplitude</button>
         </div>
-        <div class="canvas-shell">
+        <div class="canvas-shell" id="canvas-shell">
           <canvas id="signal-canvas" aria-label="Rendered ECG and PPG signal preview"></canvas>
           <div id="canvas-empty" class="canvas-empty"><strong>No preview yet</strong><span>Only an explicit Apply renders data.</span></div>
+          <div class="vertical-controls">
+            <div class="vertical-control-group" aria-label="Amplitude zoom">
+              <button id="amplitude-in" type="button" title="Increase displayed amplitude" aria-label="Increase displayed amplitude">+</button>
+              <span>Amplitude</span>
+              <button id="amplitude-out" type="button" title="Decrease displayed amplitude" aria-label="Decrease displayed amplitude">−</button>
+            </div>
+            <div class="vertical-control-group" aria-label="Channel spacing">
+              <button id="spacing-in" type="button" title="Increase channel spacing by 1.5×" aria-label="Increase channel spacing">+</button>
+              <span id="spacing-value">Spacing 100%</span>
+              <button id="spacing-out" type="button" title="Decrease channel spacing by 1.5×" aria-label="Decrease channel spacing">−</button>
+            </div>
+          </div>
         </div>
         <div class="timeline-controls">
-          <button id="time-out" type="button" title="Show twice as much time">−</button>
+          <label for="position-slider">Position</label>
           <input id="position-slider" type="range" min="0" max="0" value="0" disabled aria-label="Preview position">
-          <button id="time-in" type="button" title="Show half as much time">+</button>
+          <div class="time-zoom-controls" aria-label="Time zoom">
+            <button id="time-in" type="button" title="Zoom in: show half as much time" aria-label="Zoom in time">+</button>
+            <button id="time-out" type="button" title="Zoom out: show twice as much time" aria-label="Zoom out time">−</button>
+          </div>
         </div>
         <div class="viewer-footer"><span id="viewport-label">—</span><span id="request-status">Idle</span></div>
       </div>
@@ -169,6 +220,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <script src="__SYNSIGRA_BASE__/viewer/signal-viewer.js?v=5"></script>
-  <script src="__SYNSIGRA_BASE__/lab/app.js?v=2"></script>
+  <script src="__SYNSIGRA_BASE__/lab/app.js?v=3"></script>
 </body>
 </html>

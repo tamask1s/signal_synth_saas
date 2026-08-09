@@ -1222,7 +1222,7 @@ if any(job.get("job_id") == sys.argv[2] for job in body.get("jobs", [])):
 PY
     fail "jobs list still contained the deleted job"
 
-python3 - "$SIGNAL_SYNTH_ROOT/examples/scenarios/ecg_clean.json" \
+python3 - "$PACK_ROOT/scenarios/packs/rpeak_clean_70.json" \
     >"$WORK_ROOT/scenario-create-request.json" <<'PY'
 import json
 import sys
