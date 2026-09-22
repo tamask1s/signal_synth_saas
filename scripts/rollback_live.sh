@@ -8,6 +8,8 @@ repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 }
 # shellcheck source=scripts/release_runtime.sh
 . "$repo_dir/scripts/release_runtime.sh"
+synsigra_lock_nginx
+synsigra_require_nginx_layout
 
 target=${1:-}
 if [ -z "$target" ]; then

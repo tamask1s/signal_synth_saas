@@ -2,12 +2,22 @@
 # Shared runtime snapshot helpers. Source this file; do not execute it directly.
 
 synsigra_nginx_target() {
-  enabled=/etc/nginx/sites-enabled/timeonion.conf
-  if [ -L "$enabled" ]; then
-    readlink -f "$enabled"
-  else
-    printf '%s\n' "$enabled"
-  fi
+  printf '%s\n' /etc/nginx/timeonion-services/synsigra.conf
+}
+
+synsigra_lock_nginx() {
+  # Every service's proxy configuration transaction uses this same lock.
+  exec 9>/etc/nginx/timeonion-services/.deploy.lock
+  flock -x 9
+}
+
+synsigra_require_nginx_layout() {
+  grep -Fq 'include /etc/nginx/timeonion-services/*.conf;' \
+    /etc/nginx/sites-enabled/timeonion.conf && \
+    test -f "$(synsigra_nginx_target)" || {
+      echo 'Run scripts/setup_shared_nginx.sh once before deploying.' >&2
+      return 1
+    }
 }
 
 synsigra_capture_live_snapshot() {
@@ -48,7 +58,7 @@ synsigra_capture_live_snapshot() {
   sudo tar -C /usr/local/apache2/htdocs -czf "$work/frontend.tar.gz" \
     frontend || return 1
   nginx_target=$(synsigra_nginx_target) || return 1
-  sudo install -m 0644 "$nginx_target" "$work/ops/nginx.conf" || return 1
+  sudo install -m 0644 "$nginx_target" "$work/ops/synsigra.conf" || return 1
   sudo install -m 0644 /etc/logrotate.d/synsigra-apache22 \
     "$work/ops/apache.logrotate" || return 1
   sudo install -m 0644 /etc/systemd/system/syn_sig_ra_worker.service \
@@ -84,6 +94,10 @@ synsigra_restore_live_snapshot() {
     return 1
   }
   (cd "$snapshot" && sha256sum -c --quiet SHA256SUMS) || return 1
+  [ -f "$snapshot/ops/synsigra.conf" ] || {
+    echo 'Legacy whole-vhost snapshot refused; use a service-scoped snapshot.' >&2
+    return 1
+  }
 
   sudo systemctl stop syn_sig_ra_worker.service || return 1
   sudo systemctl stop apache22 || return 1
@@ -114,7 +128,7 @@ synsigra_restore_live_snapshot() {
     "$snapshot/frontend.tar.gz" || return 1
 
   nginx_target=$(synsigra_nginx_target) || return 1
-  sudo install -m 0644 "$snapshot/ops/nginx.conf" "$nginx_target" || return 1
+  sudo install -m 0644 "$snapshot/ops/synsigra.conf" "$nginx_target" || return 1
   sudo install -m 0644 "$snapshot/ops/apache.logrotate" \
     /etc/logrotate.d/synsigra-apache22 || return 1
   sudo install -m 0644 "$snapshot/ops/worker.service" \

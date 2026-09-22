@@ -31,7 +31,7 @@ for file in \
   manifest.json SHA256SUMS \
   bin/mod_syn_sig_ra.so bin/syn_sig_ra_worker bin/syn_sig_ra_admin \
   bin/challenge_artifact.py \
-  bin/signal-synth ops/nginx/timeonion.conf \
+  bin/signal-synth ops/nginx/synsigra.conf \
   downloads/verifier/synsigra-wheel.whl \
   downloads/verifier/metadata.json \
   ops/systemd/syn_sig_ra_worker.service \

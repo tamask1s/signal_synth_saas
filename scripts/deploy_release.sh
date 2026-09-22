@@ -27,6 +27,8 @@ live_abi=$(/usr/local/apache2/bin/httpd -v | sed -n \
 
 # shellcheck source=scripts/release_runtime.sh
 . "$repo_dir/scripts/release_runtime.sh"
+synsigra_lock_nginx
+synsigra_require_nginx_layout
 
 rollback_on_error() {
   status=$?
@@ -85,7 +87,7 @@ sudo install -m 0644 "$release_root/ops/systemd/syn_sig_ra_worker.service" \
   /etc/systemd/system/syn_sig_ra_worker.service
 sudo systemctl daemon-reload
 nginx_target=$(synsigra_nginx_target)
-sudo install -m 0644 "$release_root/ops/nginx/timeonion.conf" "$nginx_target"
+sudo install -m 0644 "$release_root/ops/nginx/synsigra.conf" "$nginx_target"
 sudo install -d -o apache -g nogroup -m 0750 \
   /var/lib/syn_sig_ra/custom_packs \
   /var/lib/syn_sig_ra/derived-artifacts \

@@ -470,6 +470,7 @@ complete canonical core contract as `accepted_core.contract_document`.
 - [MCP server architecture and client workflow](doc/MCP_SERVER.md)
 - [Custom pack model](doc/CUSTOM_PACKS.md)
 - [Operations](doc/OPERATIONS.md)
+- [Independent Synsigra and Mesemondó deployments](doc/INDEPENDENT_SERVICES.md)
 - [Security baseline](doc/SECURITY_BASELINE.md)
 - [Private-beta terms](doc/PRIVATE_BETA_TERMS.md)
 - [Privacy and no-PHI notice](doc/PRIVACY_NO_PHI_NOTICE.md)
